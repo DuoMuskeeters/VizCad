@@ -8,20 +8,19 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   return (
-    // Ana sayfa kapsayıcısı
     <div className="min-h-screen bg-white">
-      
-      {/* DÜZELTME: 
-        Gereksiz katmanlar kaldırıldı. Her bir <section> artık ana div'in doğrudan altında,
-        daha temiz ve doğrusal bir yapıda yer alıyor.
-      */}
-
-      {/* Hero ve Özellikler Bölümü */}
-      <section className="py-20 px-4">
+      {/* --- ANA BÖLÜM --- */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-4xl">
-          <div className="flex flex-col space-y-20">
+          {/*
+            DÜZELTME:
+            'grid lg:grid-cols-2' sınıfı yerine 'flex flex-col' kullanıldı.
+            Bu, içindeki iki ana bölümü (tanıtım ve özellikler) alt alta sıralar.
+            'gap-20' aralarındaki boşluğu ayarlar.
+          */}
+          <div className="flex flex-col gap-20">
 
-            {/* Üst Kısım - Ana İçerik */}
+            {/* BÖLÜM 1: Ana İçerik */}
             <div className="space-y-8 text-center">
               <div className="space-y-6">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
@@ -32,6 +31,7 @@ function HomePage() {
                   with unmatched precision and efficiency.
                 </p>
               </div>
+
               <div>
                 <Button
                   asChild
@@ -45,10 +45,11 @@ function HomePage() {
               </div>
             </div>
 
-            {/* Alt Kısım - Temel Özellikler */}
-            <div className="space-y-8">
+            {/* BÖLÜM 2: Temel Özellikler */}
+            <div id="features" className="space-y-12">
               <h2 className="text-3xl font-semibold text-gray-900 text-center">Explore key features</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 pt-6">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                 {/* Precision Modeling */}
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -57,10 +58,11 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Precision Modeling</h3>
                     <p className="text-gray-600">
-                      Advanced parametric modeling tools for creating complex geometries with mathematical precision.
+                      Advanced parametric modeling tools for creating complex geometries.
                     </p>
                   </div>
                 </div>
+
                 {/* Real-time Collaboration */}
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -69,10 +71,11 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Real-time Collaboration</h3>
                     <p className="text-gray-600">
-                      Work seamlessly with your team in real-time, sharing designs and feedback instantly.
+                      Work seamlessly with your team, sharing designs and feedback instantly.
                     </p>
                   </div>
                 </div>
+
                 {/* Advanced Visualization */}
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -81,10 +84,11 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Advanced Visualization</h3>
                     <p className="text-gray-600">
-                      Photorealistic rendering and interactive 3D visualization for better design communication.
+                      Photorealistic rendering and interactive 3D visualization.
                     </p>
                   </div>
                 </div>
+
                 {/* Cross-platform Compatibility */}
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -93,31 +97,28 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">Cross-platform Compatibility</h3>
                     <p className="text-gray-600">
-                      Access your designs anywhere with native support for Windows, Mac, and web browsers.
+                      Access your designs anywhere on Windows, Mac, and web.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* About Us Section */}
+      {/* --- HAKKIMIZDA BÖLÜMÜ --- */}
       <section id="about" className="py-16 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-semibold text-gray-900 mb-8">About VizCad</h2>
           <div className="space-y-6 text-lg text-gray-600 leading-relaxed">
             <p>
-              At VizCad, we believe that great design should be accessible to everyone. Our mission is to democratize
-              professional CAD software by providing powerful, intuitive tools that enable engineers, architects, and
-              designers to bring their visions to life.
+              At VizCad, our mission is to democratize professional CAD software by providing powerful, intuitive tools
+              that enable engineers, architects, and designers to bring their visions to life.
             </p>
             <p>
-              Founded by a team of industry veterans with decades of experience in CAD development, VizCad combines
-              cutting-edge technology with user-centered design principles. We're committed to continuous innovation and
-              helping our users achieve their design goals with unprecedented efficiency and precision.
+              Founded by industry veterans, VizCad combines cutting-edge technology with user-centered design to help you
+              achieve your design goals with unprecedented efficiency and precision.
             </p>
           </div>
           <div className="mt-10">
@@ -135,7 +136,7 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* --- İLETİŞİM BÖLÜMÜ --- */}
       <section id="contact" className="py-16 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-semibold text-gray-900 mb-8">Get in Touch</h2>
@@ -159,7 +160,7 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* --- FOOTER --- */}
       <footer className="py-8 border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">

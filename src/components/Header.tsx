@@ -1,30 +1,61 @@
+"use client"
+
 import { Box } from "lucide-react"
-import { Link } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 
 export default function Header() {
+  const location = useLocation()
+  const isAppPage = location.pathname === "/app"
+
+  const handleNavClick = (sectionId: string) => {
+    if (isAppPage) {
+      // App sayfasındaysak ana sayfaya git ve section'a scroll yap
+      window.location.href = `/#${sectionId}`
+    } else {
+      // Ana sayfadaysak direkt scroll yap
+      const element = document.getElementById(sectionId)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" })
+      }
+    }
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center space-x-2">
+          {/* Logo - Ana sayfaya yönlendir */}
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <Box className="h-7 w-7 text-gray-900" />
             <span className="text-xl font-semibold text-gray-900">VizCad</span>
-          </div>
+          </Link>
 
           {/* Navigation Menu */}
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-gray-600 hover:text-gray-900 font-medium">
+            <button
+              onClick={() => handleNavClick("features")}
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors cursor-pointer"
+            >
               Features
-            </a>
-            <a href="#about" className="text-gray-600 hover:text-gray-900 font-medium">
+            </button>
+            <button
+              onClick={() => handleNavClick("about")}
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors cursor-pointer"
+            >
               About Us
-            </a>
-            <a href="#contact" className="text-gray-600 hover:text-gray-900 font-medium">
+            </button>
+            <button
+              onClick={() => handleNavClick("contact")}
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors cursor-pointer"
+            >
               Contact
-            </a>
-            <Link to="/app" className="text-gray-600 hover:text-gray-900 font-medium">
-              Log In
+            </button>
+            <Link
+              to="/app"
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+              onClick={() => handleNavClick("application")}
+            >
+              Application
             </Link>
           </div>
 
