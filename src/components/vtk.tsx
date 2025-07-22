@@ -1,11 +1,11 @@
-import { useRef, useEffect, useState } from 'react';
-import vtkGenericRenderWindow from '@kitware/vtk.js/Rendering/Misc/GenericRenderWindow';
-import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
-import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
-import vtkSTLReader from '@kitware/vtk.js/IO/Geometry/STLReader';
+import { useRef, useEffect, useState } from "react";
+import vtkGenericRenderWindow from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow";
+import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
+import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
+import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
 
-import vtkPolyDataNormals from '@kitware/vtk.js/Filters/Core/PolyDataNormals';
-import vtkLight from '@kitware/vtk.js/Rendering/Core/Light';
+import vtkPolyDataNormals from "@kitware/vtk.js/Filters/Core/PolyDataNormals";
+import vtkLight from "@kitware/vtk.js/Rendering/Core/Light";
 
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 
@@ -22,13 +22,13 @@ export function VtkApp({ file }: VtkAppProps) {
   const actorRef = useRef<any>(null);
   const mapperRef = useRef<any>(null);
 
-  const [statusMessage, setStatusMessage] = useState<string>('Hazır');
+  const [statusMessage, setStatusMessage] = useState<string>("Hazır");
 
   // Sadece bir kez sahne oluştur
   useEffect(() => {
     if (vtkContainerRef.current && !renderWindowRef.current) {
       const genericRenderWindow = vtkGenericRenderWindow.newInstance({
-//        background: [0.2, 0.2, 0.4],
+        //   background: [0.2, 0.2, 0.4],
       });
       genericRenderWindow.setContainer(vtkContainerRef.current);
 
@@ -50,7 +50,7 @@ export function VtkApp({ file }: VtkAppProps) {
   useEffect(() => {
     if (!file || !rendererRef.current || !renderWindowRef.current) return;
 
-    setStatusMessage('STL dosyası yükleniyor...');
+    setStatusMessage("STL dosyası yükleniyor...");
     const reader = vtkSTLReader.newInstance();
     const fileReader = new FileReader();
 
@@ -60,7 +60,7 @@ export function VtkApp({ file }: VtkAppProps) {
       const source = reader.getOutputData(0);
 
       if (!source || source.getPoints().getNumberOfPoints() === 0) {
-        setStatusMessage('STL dosyası geçerli değil.');
+        setStatusMessage("STL dosyası geçerli değil.");
         return;
       }
 
@@ -75,7 +75,6 @@ export function VtkApp({ file }: VtkAppProps) {
         mapperRef.current = null;
       }
 
-
       // Normalleri hesapla
       const normals = vtkPolyDataNormals.newInstance();
       normals.setInputData(source);
@@ -87,15 +86,12 @@ export function VtkApp({ file }: VtkAppProps) {
       const mapper = vtkMapper.newInstance({ scalarVisibility: false });
       mapper.setInputData(normalOutput);
 
-
       const actor = vtkActor.newInstance();
       actor.setMapper(mapper);
-
 
       // Gümüş renk: RGB yaklaşık (0.75, 0.75, 0.75)
       actor.getProperty().setColor(0.75, 0.75, 0.75); // Gümüş
       actor.getProperty().setEdgeVisibility(false);
-      
 
       rendererRef.current.removeAllViewProps();
       rendererRef.current.addActor(actor);
@@ -107,12 +103,15 @@ export function VtkApp({ file }: VtkAppProps) {
         if (camera && camera.zoom) camera.zoom(1.2);
       }
       renderWindowRef.current.render();
-
+      // STL yükleme ve render işlemlerinden hemen sonra ekle:
+      if (renderWindowRef.current && vtkContainerRef.current) {
+        renderWindowRef.current.resize();
+      }
       // Yeni referansları kaydet
       actorRef.current = actor;
       mapperRef.current = mapper;
 
-      setStatusMessage('STL dosyası başarıyla yüklendi.');
+      setStatusMessage("STL dosyası başarıyla yüklendi.");
     };
 
     fileReader.readAsArrayBuffer(file);
@@ -127,4 +126,3 @@ export function VtkApp({ file }: VtkAppProps) {
     </div>
   );
 }
-
