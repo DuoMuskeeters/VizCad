@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { VtkApp } from "@/components/vtk"
 import { Button } from "@/components/ui/button"
@@ -40,19 +40,32 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 })
 
+
 function AppPage() {
-  const [file, setFile] = useState<File | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("scenes")
   const [isRendering, setIsRendering] = useState(false)
 
+  // Unified file input ref
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Unified file change handler
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setFile(event.target.files[0])
+      setSelectedFile(event.target.files[0]);
     }
   }
 
+  // Open file dialog programmatically
+  const openFileDialog = () => {
+    // Always allow file dialog, even if a file is already selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    fileInputRef.current?.click();
+  }
+
+  // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(true)
@@ -68,7 +81,7 @@ function AppPage() {
     setIsDragOver(false)
     const files = e.dataTransfer.files
     if (files && files[0]) {
-      setFile(files[0])
+      setSelectedFile(files[0])
     }
   }
 
@@ -83,7 +96,17 @@ function AppPage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case "scenes":
-        return <ScenesTab />
+        return (
+          <ScenesTab
+            onFileChange={handleFileChange}
+            onBrowseClick={openFileDialog}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            isDragOver={isDragOver}
+            selectedFile={selectedFile}
+          />
+        )
       case "lights":
         return <LightsTab />
       case "camera":
@@ -93,7 +116,17 @@ function AppPage() {
       case "output":
         return <OutputTab />
       default:
-        return <ScenesTab />
+        return (
+          <ScenesTab
+            onFileChange={handleFileChange}
+            onBrowseClick={openFileDialog}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            isDragOver={isDragOver}
+            selectedFile={selectedFile}
+          />
+        )
     }
   }
 
@@ -105,7 +138,7 @@ function AppPage() {
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
             <Grid3X3 className="h-4 w-4" />
           </Button>
-          <div className="text-sm font-medium text-gray-700">{file ? file.name : "No file selected"}</div>
+          <div className="text-sm font-medium text-gray-700">{selectedFile ? selectedFile.name : "No file selected"}</div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -182,7 +215,7 @@ function AppPage() {
 
         {/* Main Viewer Area */}
         <div className="flex-1 flex flex-col bg-gray-50">
-          {file ? (
+          {selectedFile ? (
             <div className="flex-1 p-4">
               <div className="w-full h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden relative">
                 {/* View Controls Bar - Sahnenin üstünde */}
@@ -230,7 +263,7 @@ function AppPage() {
                   </div>
                 </div>
 
-                <VtkApp file={file} />
+                <VtkApp file={selectedFile} />
 
                 {/* Render Progress Overlay */}
                 {isRendering && (
@@ -255,13 +288,17 @@ function AppPage() {
                   camera settings for professional results.
                 </p>
                 <div className="space-y-3">
-                  <label className="cursor-pointer">
-                    <Button className="bg-cyan-500 hover:bg-cyan-600 px-6 py-3">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Your Model
-                    </Button>
-                    <input type="file" className="hidden" accept=".stl,.obj,.ply,.3mf" onChange={handleFileChange} />
-                  </label>
+                  <Button className="bg-cyan-500 hover:bg-cyan-600 px-6 py-3" onClick={openFileDialog}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Your Model
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".stl,.obj,.ply,.3mf"
+                    onChange={handleFileChange}
+                  />
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span>Supported formats:</span>
                     <div className="flex gap-2">
@@ -284,10 +321,10 @@ function AppPage() {
           <span className={isRendering ? "text-green-600" : "text-gray-600"}>
             {isRendering ? "Rendering..." : "Ready"}
           </span>
-          {file && (
+          {selectedFile && (
             <>
               <span>•</span>
-              <span>Model: {file.name}</span>
+              <span>Model: {selectedFile.name}</span>
             </>
           )}
           {isRendering && (
@@ -313,18 +350,54 @@ function AppPage() {
 }
 
 // Scenes Tab Component'i daha toplu ve düzenli hale getir
-function ScenesTab() {
+function ScenesTab({
+  onFileChange,
+  onBrowseClick,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  isDragOver,
+  selectedFile,
+}: {
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onBrowseClick: () => void
+  onDragOver: (e: React.DragEvent) => void
+  onDragLeave: (e: React.DragEvent) => void
+  onDrop: (e: React.DragEvent) => void
+  isDragOver: boolean
+  selectedFile: File | null
+}) {
   return (
     <div className="p-4 space-y-4">
-      {/* File Upload - Daha kompakt */}
+      {/* File Upload - Drag & Drop + Click */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Upload Model</h3>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400 transition-colors">
+        <div
+          className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer ${
+            isDragOver ? "border-cyan-500 bg-cyan-50" : "border-gray-300 hover:border-gray-400"
+          }`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onClick={onBrowseClick}
+        >
           <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
-          <p className="text-xs text-gray-600 mb-1">Drag & drop 3D model</p>
-          <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
+          <p className="text-xs text-gray-600 mb-1">
+            {isDragOver ? "Drop your 3D model here" : "Drag & drop 3D model or click to browse"}
+          </p>
+          <Button size="sm" variant="outline" className="text-xs px-3 py-1 ">
             Browse
           </Button>
+          <input
+            type="file"
+            accept=".stl,.obj,.ply,.3mf"
+            className="hidden"
+            tabIndex={-1}
+            onChange={onFileChange}
+          />
+          {selectedFile && (
+            <div className="mt-2 text-xs text-cyan-700">Selected: {selectedFile.name}</div>
+          )}
         </div>
       </div>
 
