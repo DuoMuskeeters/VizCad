@@ -1,6 +1,5 @@
 "use client"
 
-import { Box } from "lucide-react"
 import { Link, useLocation } from "@tanstack/react-router"
 
 export default function Header() {
@@ -25,9 +24,8 @@ export default function Header() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo - Ana sayfaya yönlendir */}
-          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-            <Box className="h-7 w-7 text-gray-900" />
-            <span className="text-xl font-semibold text-gray-900">VizCad</span>
+          <Link to="/" className="flex-shrink-0">
+            <img src="/vizcad-logo.png" alt="VizCad" className="h-28 w-auto" />
           </Link>
 
           {/* Navigation Menu */}
