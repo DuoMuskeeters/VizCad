@@ -52,7 +52,7 @@ function AppPage() {
   const [clickedFeature, setClickedFeature] = useState("")
 
   // Developer mode - set to true to see all tabs
-  const isDeveloper = false // Set this to false for production
+  const isDeveloper = true // Set this to false for production
 
   // Unified file input ref
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -533,9 +533,18 @@ function ScenesTab({
   const applyStudioScene = (sceneId: string) => {
     setSelectedStudio(sceneId)
 
-    // Bu event'i parent component'e gönder
+    // Studio scene event'i gönder
     const event = new CustomEvent("applyStudioScene", {
       detail: { sceneId },
+    })
+    window.dispatchEvent(event)
+  }
+
+  // ScenesTab component'inin içinde, applyStudioScene fonksiyonundan sonra bu fonksiyonu ekleyin:
+  const applyCustomBackground = (color: string) => {
+    // Custom background event'i gönder
+    const event = new CustomEvent("applyCustomBackground", {
+      detail: { color },
     })
     window.dispatchEvent(event)
   }
@@ -621,7 +630,13 @@ function ScenesTab({
               <input
                 type="text"
                 value={customColor}
-                onChange={(e) => setCustomColor(e.target.value)}
+                onChange={(e) => {
+                  setCustomColor(e.target.value)
+                  // Geçerli hex renk kontrolü
+                  if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                    applyCustomBackground(e.target.value)
+                  }
+                }}
                 className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 font-mono"
                 placeholder="#ffffff"
               />
@@ -712,6 +727,7 @@ function ScenesTab({
                       onClick={() => {
                         setCustomColor(color)
                         setShowColorPicker(false)
+                        applyCustomBackground(color)
                       }}
                     ></div>
                   ))}
@@ -719,7 +735,10 @@ function ScenesTab({
                 <input
                   type="color"
                   value={customColor}
-                  onChange={(e) => setCustomColor(e.target.value)}
+                  onChange={(e) => {
+                    setCustomColor(e.target.value)
+                    applyCustomBackground(e.target.value)
+                  }}
                   className="w-full h-8 rounded border border-gray-300 cursor-pointer"
                 />
               </div>
@@ -779,6 +798,7 @@ function ScenesTab({
           </div>
         </div>
       </div>
+
       {/* Scene Properties - Aktif sahne için */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Scene Properties</h3>
@@ -788,9 +808,11 @@ function ScenesTab({
             <span className="text-gray-900 font-medium">1920×1080</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Studio Scene</span>
+            <span className="text-gray-600">Lighting Mode</span>
             <span className="text-gray-900 font-medium">
-              {studioScenes.find((s) => s.id === selectedStudio)?.name || "Custom"}
+              {selectedStudio !== "custom"
+                ? studioScenes.find((s) => s.id === selectedStudio)?.name || "Custom"
+                : "Custom Background"}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs">

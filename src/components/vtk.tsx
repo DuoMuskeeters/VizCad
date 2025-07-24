@@ -56,6 +56,7 @@ export function VtkApp({ file }: VtkAppProps) {
       case "plain-white":
         // Arka planı saf beyaza ayarla
         renderer.current.setBackground(1, 1, 1) // RGB(255, 255, 255)
+
         // Ortam ışığı ekle (çok hafif)
         const ambientLight1 = vtkLight.newInstance()
         ambientLight1.setLightTypeToSceneLight()
@@ -77,11 +78,8 @@ export function VtkApp({ file }: VtkAppProps) {
 
       case "3point-faded":
         // Arka planı dikey degradeye ayarla
-        // Üst için hafif mavimsi beyaz (RGB: 240, 240, 245)
         renderer.current.setBackground(0.941, 0.941, 0.961)
-        // Alt için saf beyaz (RGB: 255, 255, 255)
         renderer.current.setBackground2(1, 1, 1)
-        renderer.current.setGradientBackground(true)
 
         // Ortam ışığı ekle (yeterli miktarda)
         const ambientLight2 = vtkLight.newInstance()
@@ -115,6 +113,7 @@ export function VtkApp({ file }: VtkAppProps) {
       case "simple-office":
         // Arka plan rengi (açık gri duvarlar için)
         renderer.current.setBackground(0.9, 0.9, 0.9)
+
         // Zemin oluştur ve rengini ayarla
         const floorSource = vtkPlaneSource.newInstance({
           xResolution: 10,
@@ -155,6 +154,7 @@ export function VtkApp({ file }: VtkAppProps) {
       case "warm-studio":
         // Arka planı sıcak bej tonuna ayarla
         renderer.current.setBackground(0.98, 0.96, 0.9) // RGB(250, 245, 230)
+
         const warmAmbientLight = vtkLight.newInstance()
         warmAmbientLight.setLightTypeToSceneLight()
         warmAmbientLight.setColor(0.8, 0.7, 0.6) // Sıcak, hafif turuncumsu
@@ -194,6 +194,41 @@ export function VtkApp({ file }: VtkAppProps) {
 
     return () => {
       window.removeEventListener("applyStudioScene", handleStudioSceneChange as EventListener)
+    }
+  }, [renderer, renderWindow])
+
+  // Listen for custom background changes
+  useEffect(() => {
+    const handleCustomBackgroundChange = (event: CustomEvent) => {
+      if (!renderer.current || !renderWindow.current) return
+
+      const color = event.detail.color
+      // Hex color'u RGB'ye çevir
+      const hexToRgb = (hex: string) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+        return result
+          ? {
+              r: Number.parseInt(result[1], 16) / 255,
+              g: Number.parseInt(result[2], 16) / 255,
+              b: Number.parseInt(result[3], 16) / 255,
+            }
+          : { r: 1, g: 1, b: 1 }
+      }
+
+      const rgb = hexToRgb(color)
+
+      // Sadece background rengini değiştir, ışıkları koruma
+      renderer.current.setBackground(rgb.r, rgb.g, rgb.b)
+
+      // Render the scene
+      renderWindow.current.render()
+      console.log(`Applied custom background color: ${color}`)
+    }
+
+    window.addEventListener("applyCustomBackground", handleCustomBackgroundChange as EventListener)
+
+    return () => {
+      window.removeEventListener("applyCustomBackground", handleCustomBackgroundChange as EventListener)
     }
   }, [renderer, renderWindow])
 
