@@ -49,7 +49,7 @@ function AppPage() {
   const [clickedFeature, setClickedFeature] = useState("")
 
   // Developer mode - set to true to see all tabs
-  const isDeveloper = true // Set this to false for production
+  const isDeveloper = false // Set this to false for production
 
   // Unified file input ref
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -775,48 +775,6 @@ function ScenesTab({
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Current Scenes - Daha kompakt liste */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">Active Scenes</h3>
-          <Button size="sm" variant="ghost" className="p-1 text-cyan-600 hover:text-cyan-700">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-1">
-          {[
-            { name: "Main Product View", active: true, thumbnail: "bg-cyan-100" },
-            { name: "Detail Close-up", active: false, thumbnail: "bg-gray-100" },
-            { name: "Exploded Assembly", active: false, thumbnail: "bg-gray-100" },
-          ].map((scene) => (
-            <div
-              key={scene.name}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors group ${
-                scene.active ? "bg-cyan-50 border border-cyan-200" : "hover:bg-gray-50 border border-transparent"
-              }`}
-            >
-              <div className={`w-8 h-6 ${scene.thumbnail} rounded border border-gray-200 flex-shrink-0`}></div>
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm font-medium ${scene.active ? "text-cyan-900" : "text-gray-700"}`}>
-                  {scene.name}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="sm" variant="ghost" className="p-1">
-                  <Edit3 className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="p-1">
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="p-1 text-red-600 hover:text-red-700">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
