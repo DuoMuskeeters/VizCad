@@ -33,6 +33,9 @@ import {
   Edit3,
   Copy,
   MoreVertical,
+  Lock,
+  Clock,
+  X,
 } from "lucide-react"
 
 export const Route = createFileRoute("/app")({
@@ -45,6 +48,11 @@ function AppPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("scenes")
   const [isRendering, setIsRendering] = useState(false)
+  const [showUnavailableModal, setShowUnavailableModal] = useState(false)
+  const [clickedFeature, setClickedFeature] = useState("")
+
+  // Developer mode - set to true to see all tabs
+  const isDeveloper = false // Set this to false for production
 
   // Unified file input ref
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -84,14 +92,56 @@ function AppPage() {
   }
 
   const tabs = [
-    { id: "scenes", label: "Scenes", icon: Layers },
-    { id: "lights", label: "Lights", icon: Lightbulb },
-    { id: "camera", label: "Camera", icon: Camera },
-    { id: "materials", label: "Materials", icon: Palette },
-    { id: "output", label: "Output", icon: ImageIcon },
+    { id: "scenes", label: "Scenes", icon: Layers, available: true },
+    { id: "lights", label: "Lights", icon: Lightbulb, available: isDeveloper },
+    { id: "camera", label: "Camera", icon: Camera, available: isDeveloper },
+    { id: "materials", label: "Materials", icon: Palette, available: isDeveloper },
+    { id: "output", label: "Output", icon: ImageIcon, available: isDeveloper },
   ]
 
+  const handleTabClick = (tab: any) => {
+    if (tab.available) {
+      setActiveTab(tab.id)
+    } else {
+      setClickedFeature(tab.label)
+      setShowUnavailableModal(true)
+    }
+  }
+
   const renderTabContent = () => {
+    const currentTab = tabs.find((tab) => tab.id === activeTab)
+
+    if (!currentTab?.available && !isDeveloper) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center space-y-6 max-w-sm">
+            <div className="relative">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto border border-blue-200">
+                <currentTab.icon className="w-10 h-10 text-blue-400" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <Lock className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-gray-900">{currentTab.label} Module</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                This advanced feature is currently in development. Our team is working to bring you professional-grade{" "}
+                {currentTab.label.toLowerCase()} tools.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                <Clock className="w-4 h-4" />
+                <span className="text-sm font-medium">In Development</span>
+              </div>
+              <p className="text-xs text-gray-500">Expected release: Q2 2025</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     switch (activeTab) {
       case "scenes":
         return (
@@ -130,6 +180,58 @@ function AppPage() {
 
   return (
     <div className="h-screen bg-gray-100 flex flex-col pt-16">
+      {/* Unavailable Feature Modal */}
+      {showUnavailableModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-md mx-4 shadow-2xl">
+            <div className="text-center space-y-6">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto border border-blue-200">
+                  <Lock className="w-8 h-8 text-blue-400" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xl font-semibold text-gray-900">{clickedFeature} Not Available</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  The {clickedFeature.toLowerCase()} module is currently under development. We're working hard to bring
+                  you this feature as soon as possible.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-medium">Coming in Q2 2025</span>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 bg-transparent"
+                    onClick={() => setShowUnavailableModal(false)}
+                  >
+                    Got it
+                  </Button>
+                  <Button
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                    onClick={() => {
+                      setShowUnavailableModal(false)
+                      // Here you could add notification signup logic
+                    }}
+                  >
+                    Notify me
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowUnavailableModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
@@ -139,6 +241,9 @@ function AppPage() {
           <div className="text-sm font-medium text-gray-700">
             {selectedFile ? selectedFile.name : "No file selected"}
           </div>
+          {isDeveloper && (
+            <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Developer Mode</div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -193,15 +298,35 @@ function AppPage() {
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
-                        activeTab === tab.id
+                      onClick={() => handleTabClick(tab)}
+                      className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${
+                        activeTab === tab.id && tab.available
                           ? "text-cyan-600 bg-cyan-50 border-b-2 border-cyan-600"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                          : !tab.available && !isDeveloper
+                            ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
-                      {tab.label}
+                      <div className="relative">
+                        <Icon className={`h-4 w-4 ${!tab.available && !isDeveloper ? "opacity-50" : ""}`} />
+                        {!tab.available && !isDeveloper && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Lock className="w-2 h-2 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <span className={!tab.available && !isDeveloper ? "opacity-50" : ""}>{tab.label}</span>
+
+                      {/* Tooltip for unavailable tabs */}
+                      {!tab.available && !isDeveloper && (
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                          <div className="text-center">
+                            <div className="font-medium">{tab.label} Module</div>
+                            <div className="text-gray-300 mt-1">Coming in Q2 2025</div>
+                          </div>
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      )}
                     </button>
                   )
                 })}
@@ -209,7 +334,7 @@ function AppPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto">{renderTabContent()}</div>
+            <div className="flex-1 overflow-y-auto transition-all duration-300">{renderTabContent()}</div>
           </div>
         )}
 
@@ -654,49 +779,6 @@ function ScenesTab({
           </div>
         </div>
       </div>
-
-      {/* Current Scenes - Daha kompakt liste */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">Active Scenes</h3>
-          <Button size="sm" variant="ghost" className="p-1 text-cyan-600 hover:text-cyan-700">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-1">
-          {[
-            { name: "Main Product View", active: true, thumbnail: "bg-cyan-100" },
-            { name: "Detail Close-up", active: false, thumbnail: "bg-gray-100" },
-            { name: "Exploded Assembly", active: false, thumbnail: "bg-gray-100" },
-          ].map((scene) => (
-            <div
-              key={scene.name}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors group ${
-                scene.active ? "bg-cyan-50 border border-cyan-200" : "hover:bg-gray-50 border border-transparent"
-              }`}
-            >
-              <div className={`w-8 h-6 ${scene.thumbnail} rounded border border-gray-200 flex-shrink-0`}></div>
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm font-medium ${scene.active ? "text-cyan-900" : "text-gray-700"}`}>
-                  {scene.name}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="sm" variant="ghost" className="p-1">
-                  <Edit3 className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="p-1">
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="p-1 text-red-600 hover:text-red-700">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Scene Properties - Aktif sahne için */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Scene Properties</h3>
@@ -736,9 +818,6 @@ function ScenesTab({
     </div>
   )
 }
-
-// VtkApp component'inde scene uygulama logic'ini ekleyin. VtkApp component'inde useEffect ekleyin:
-// VtkApp component'inde, diğer useEffect'lerden sonra bu kodu ekleyin
 
 // Lights Tab Component
 function LightsTab() {
