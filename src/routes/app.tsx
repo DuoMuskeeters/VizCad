@@ -22,12 +22,6 @@ import {
   Lightbulb,
   ImageIcon,
   Layers,
-  Play,
-  Pause,
-  Square,
-  Sun,
-  Zap,
-  Target,
   Plus,
   Trash2,
   Edit3,
@@ -36,6 +30,10 @@ import {
   Lock,
   Clock,
   X,
+  Square,
+  Zap,
+  Target,
+  Sun,
 } from "lucide-react"
 
 export const Route = createFileRoute("/app")({
@@ -47,7 +45,6 @@ function AppPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState("scenes")
-  const [isRendering, setIsRendering] = useState(false)
   const [showUnavailableModal, setShowUnavailableModal] = useState(false)
   const [clickedFeature, setClickedFeature] = useState("")
 
@@ -247,32 +244,6 @@ function AppPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Render Controls */}
-          <div className="flex items-center gap-1 mr-4">
-            <Button
-              size="sm"
-              className={`px-3 py-2 ${isRendering ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}`}
-              onClick={() => setIsRendering(!isRendering)}
-            >
-              {isRendering ? (
-                <>
-                  <Square className="h-4 w-4 mr-1" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-1" />
-                  Render
-                </>
-              )}
-            </Button>
-            {isRendering && (
-              <Button variant="ghost" size="sm" className="p-2">
-                <Pause className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
           {/* File Operations */}
           <Button variant="ghost" size="sm" className="p-2">
             <Share2 className="h-4 w-4" />
@@ -389,16 +360,6 @@ function AppPage() {
                 </div>
 
                 <VtkApp file={selectedFile} />
-
-                {/* Render Progress Overlay */}
-                {isRendering && (
-                  <div className="absolute top-20 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      Rendering... 45%
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ) : (
@@ -443,21 +404,11 @@ function AppPage() {
       {/* Bottom Status Bar */}
       <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600">
         <div className="flex items-center gap-4">
-          <span className={isRendering ? "text-green-600" : "text-gray-600"}>
-            {isRendering ? "Rendering..." : "Ready"}
-          </span>
+          <span className="text-gray-600">Ready</span>
           {selectedFile && (
             <>
               <span>•</span>
               <span>Model: {selectedFile.name}</span>
-            </>
-          )}
-          {isRendering && (
-            <>
-              <span>•</span>
-              <span>Progress: 45%</span>
-              <span>•</span>
-              <span>ETA: 2m 15s</span>
             </>
           )}
         </div>
@@ -496,6 +447,7 @@ function ScenesTab({
   const [customColor, setCustomColor] = useState("#ffffff")
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null)
+  const [currentMode, setCurrentMode] = useState<"studio" | "custom">("studio")
   const backgroundInputRef = useRef<HTMLInputElement>(null)
 
   const studioScenes = [
@@ -505,6 +457,7 @@ function ScenesTab({
       description: "Clean white background",
       gradient: "bg-white border-2 border-gray-200",
       preview: "bg-gradient-to-br from-gray-50 to-white",
+      backgroundColor: "#ffffff",
     },
     {
       id: "3point-faded",
@@ -512,6 +465,7 @@ function ScenesTab({
       description: "Professional studio lighting",
       gradient: "bg-gradient-to-br from-gray-100 via-gray-50 to-white",
       preview: "bg-gradient-to-br from-gray-200 via-gray-100 to-white",
+      backgroundColor: "#f0f0f5",
     },
     {
       id: "simple-office",
@@ -519,6 +473,7 @@ function ScenesTab({
       description: "Soft office environment",
       gradient: "bg-gradient-to-br from-blue-50 via-gray-50 to-white",
       preview: "bg-gradient-to-br from-blue-100 via-gray-100 to-white",
+      backgroundColor: "#e6e6e6",
     },
     {
       id: "warm-studio",
@@ -526,12 +481,14 @@ function ScenesTab({
       description: "Warm ambient lighting",
       gradient: "bg-gradient-to-br from-orange-50 via-yellow-50 to-white",
       preview: "bg-gradient-to-br from-orange-100 via-yellow-100 to-white",
+      backgroundColor: "#faf5e6",
     },
   ]
 
-  // ScenesTab component'inin başına bu fonksiyonu ekleyin
+  // Studio scene uygulama fonksiyonu
   const applyStudioScene = (sceneId: string) => {
     setSelectedStudio(sceneId)
+    setCurrentMode("studio")
 
     // Studio scene event'i gönder
     const event = new CustomEvent("applyStudioScene", {
@@ -540,11 +497,14 @@ function ScenesTab({
     window.dispatchEvent(event)
   }
 
-  // ScenesTab component'inin içinde, applyStudioScene fonksiyonundan sonra bu fonksiyonu ekleyin:
+  // Custom background uygulama fonksiyonu - Her zaman uygula
   const applyCustomBackground = (color: string) => {
-    // Custom background event'i gönder
+    setCustomColor(color)
+    setCurrentMode("custom")
+
+    // Custom background event'i gönder - timestamp ekleyerek her zaman tetikle
     const event = new CustomEvent("applyCustomBackground", {
-      detail: { color },
+      detail: { color, timestamp: Date.now() },
     })
     window.dispatchEvent(event)
   }
@@ -557,6 +517,26 @@ function ScenesTab({
 
   const openBackgroundDialog = () => {
     backgroundInputRef.current?.click()
+  }
+
+  // Mevcut background rengini al
+  const getCurrentBackgroundColor = () => {
+    if (currentMode === "custom") {
+      return customColor
+    } else {
+      const currentScene = studioScenes.find((s) => s.id === selectedStudio)
+      return currentScene?.backgroundColor || "#ffffff"
+    }
+  }
+
+  // Mevcut lighting mode'u al
+  const getCurrentLightingMode = () => {
+    if (currentMode === "custom") {
+      return "Custom Lighting"
+    } else {
+      const currentScene = studioScenes.find((s) => s.id === selectedStudio)
+      return currentScene?.name || "Plain White"
+    }
   }
 
   return (
@@ -593,7 +573,7 @@ function ScenesTab({
             <div
               key={scene.id}
               className={`relative cursor-pointer rounded-lg border-2 transition-all hover:scale-105 ${
-                selectedStudio === scene.id
+                selectedStudio === scene.id && currentMode === "studio"
                   ? "border-cyan-500 ring-2 ring-cyan-200"
                   : "border-gray-200 hover:border-gray-300"
               }`}
@@ -604,7 +584,7 @@ function ScenesTab({
                 <div className="text-xs font-medium text-gray-900">{scene.name}</div>
                 <div className="text-xs text-gray-500 mt-1">{scene.description}</div>
               </div>
-              {selectedStudio === scene.id && (
+              {selectedStudio === scene.id && currentMode === "studio" && (
                 <div className="absolute top-1 right-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
@@ -623,27 +603,28 @@ function ScenesTab({
             <label className="text-xs text-gray-600 mb-2 block">Solid Color</label>
             <div className="flex items-center gap-3">
               <div
-                className="w-12 h-8 rounded-md border-2 border-gray-300 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                className="w-12 h-8 rounded-md border-2 border-gray-300 cursor-pointer shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
                 style={{ backgroundColor: customColor }}
-                onClick={() => setShowColorPicker(!showColorPicker)}
+                onClick={() => applyCustomBackground(customColor)} // Aynı rengi tekrar uygula
               ></div>
               <input
                 type="text"
                 value={customColor}
                 onChange={(e) => {
-                  setCustomColor(e.target.value)
+                  const newColor = e.target.value
+                  setCustomColor(newColor)
                   // Geçerli hex renk kontrolü
-                  if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                    applyCustomBackground(e.target.value)
+                  if (/^#[0-9A-F]{6}$/i.test(newColor)) {
+                    applyCustomBackground(newColor)
                   }
                 }}
-                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 font-mono"
+                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 font-mono min-w-0"
                 placeholder="#ffffff"
               />
               <Button
                 size="sm"
                 variant="outline"
-                className="text-xs px-3 py-1 bg-transparent"
+                className="text-xs px-3 py-1 bg-transparent flex-shrink-0"
                 onClick={() => setShowColorPicker(!showColorPicker)}
               >
                 Pick
@@ -725,7 +706,6 @@ function ScenesTab({
                       className="w-6 h-6 rounded cursor-pointer border border-gray-300 hover:scale-110 transition-transform"
                       style={{ backgroundColor: color }}
                       onClick={() => {
-                        setCustomColor(color)
                         setShowColorPicker(false)
                         applyCustomBackground(color)
                       }}
@@ -736,7 +716,6 @@ function ScenesTab({
                   type="color"
                   value={customColor}
                   onChange={(e) => {
-                    setCustomColor(e.target.value)
                     applyCustomBackground(e.target.value)
                   }}
                   className="w-full h-8 rounded border border-gray-300 cursor-pointer"
@@ -799,6 +778,48 @@ function ScenesTab({
         </div>
       </div>
 
+      {/* Current Scenes - Daha kompakt liste */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-900">Active Scenes</h3>
+          <Button size="sm" variant="ghost" className="p-1 text-cyan-600 hover:text-cyan-700">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-1">
+          {[
+            { name: "Main Product View", active: true, thumbnail: "bg-cyan-100" },
+            { name: "Detail Close-up", active: false, thumbnail: "bg-gray-100" },
+            { name: "Exploded Assembly", active: false, thumbnail: "bg-gray-100" },
+          ].map((scene) => (
+            <div
+              key={scene.name}
+              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors group ${
+                scene.active ? "bg-cyan-50 border border-cyan-200" : "hover:bg-gray-50 border border-transparent"
+              }`}
+            >
+              <div className={`w-8 h-6 ${scene.thumbnail} rounded border border-gray-200 flex-shrink-0`}></div>
+              <div className="flex-1 min-w-0">
+                <span className={`text-sm font-medium ${scene.active ? "text-cyan-900" : "text-gray-700"}`}>
+                  {scene.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="sm" variant="ghost" className="p-1">
+                  <Edit3 className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="p-1">
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="p-1 text-red-600 hover:text-red-700">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Scene Properties - Aktif sahne için */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Scene Properties</h3>
@@ -809,11 +830,7 @@ function ScenesTab({
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Lighting Mode</span>
-            <span className="text-gray-900 font-medium">
-              {selectedStudio !== "custom"
-                ? studioScenes.find((s) => s.id === selectedStudio)?.name || "Custom"
-                : "Custom Background"}
-            </span>
+            <span className="text-gray-900 font-medium">{getCurrentLightingMode()}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Background</span>
@@ -824,9 +841,9 @@ function ScenesTab({
                 <>
                   <div
                     className="w-4 h-4 rounded border border-gray-300"
-                    style={{ backgroundColor: customColor }}
+                    style={{ backgroundColor: getCurrentBackgroundColor() }}
                   ></div>
-                  <span className="text-gray-900 font-medium">{customColor}</span>
+                  <span className="text-gray-900 font-medium">{getCurrentBackgroundColor()}</span>
                 </>
               )}
             </div>
