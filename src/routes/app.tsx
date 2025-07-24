@@ -1,11 +1,10 @@
 "use client"
 
-import React from "react"
+import React, { useState, useRef } from "react"
 
 import { VtkApp } from "@/components/vtk"
 import { Button } from "@/components/ui/button"
 import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
 import {
   Upload,
   type File,
@@ -40,7 +39,6 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 })
 
-
 function AppPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -54,15 +52,15 @@ function AppPage() {
   // Unified file change handler
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+      setSelectedFile(event.target.files[0])
     }
   }
 
   // Open file dialog programmatically
   const openFileDialog = () => {
     // Always allow file dialog, even if a file is already selected
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    fileInputRef.current?.click();
+    if (fileInputRef.current) fileInputRef.current.value = ""
+    fileInputRef.current?.click()
   }
 
   // Drag & drop handlers
@@ -138,7 +136,9 @@ function AppPage() {
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
             <Grid3X3 className="h-4 w-4" />
           </Button>
-          <div className="text-sm font-medium text-gray-700">{selectedFile ? selectedFile.name : "No file selected"}</div>
+          <div className="text-sm font-medium text-gray-700">
+            {selectedFile ? selectedFile.name : "No file selected"}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -349,7 +349,7 @@ function AppPage() {
   )
 }
 
-// Scenes Tab Component'i daha toplu ve düzenli hale getir
+// Scenes Tab Component'i güncelleyelim
 function ScenesTab({
   onFileChange,
   onBrowseClick,
@@ -367,8 +367,66 @@ function ScenesTab({
   isDragOver: boolean
   selectedFile: File | null
 }) {
+  const [selectedStudio, setSelectedStudio] = useState("plain-white")
+  const [customColor, setCustomColor] = useState("#ffffff")
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const [backgroundImage, setBackgroundImage] = useState<File | null>(null)
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
+
+  const studioScenes = [
+    {
+      id: "plain-white",
+      name: "Plain White",
+      description: "Clean white background",
+      gradient: "bg-white border-2 border-gray-200",
+      preview: "bg-gradient-to-br from-gray-50 to-white",
+    },
+    {
+      id: "3point-faded",
+      name: "3-Point Faded",
+      description: "Professional studio lighting",
+      gradient: "bg-gradient-to-br from-gray-100 via-gray-50 to-white",
+      preview: "bg-gradient-to-br from-gray-200 via-gray-100 to-white",
+    },
+    {
+      id: "simple-office",
+      name: "Simple Office",
+      description: "Soft office environment",
+      gradient: "bg-gradient-to-br from-blue-50 via-gray-50 to-white",
+      preview: "bg-gradient-to-br from-blue-100 via-gray-100 to-white",
+    },
+    {
+      id: "warm-studio",
+      name: "Warm Studio",
+      description: "Warm ambient lighting",
+      gradient: "bg-gradient-to-br from-orange-50 via-yellow-50 to-white",
+      preview: "bg-gradient-to-br from-orange-100 via-yellow-100 to-white",
+    },
+  ]
+
+  // ScenesTab component'inin başına bu fonksiyonu ekleyin
+  const applyStudioScene = (sceneId: string) => {
+    setSelectedStudio(sceneId)
+
+    // Bu event'i parent component'e gönder
+    const event = new CustomEvent("applyStudioScene", {
+      detail: { sceneId },
+    })
+    window.dispatchEvent(event)
+  }
+
+  const handleBackgroundImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setBackgroundImage(e.target.files[0])
+    }
+  }
+
+  const openBackgroundDialog = () => {
+    backgroundInputRef.current?.click()
+  }
+
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-6">
       {/* File Upload - Drag & Drop + Click */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Upload Model</h3>
@@ -385,75 +443,215 @@ function ScenesTab({
           <p className="text-xs text-gray-600 mb-1">
             {isDragOver ? "Drop your 3D model here" : "Drag & drop 3D model or click to browse"}
           </p>
-          <Button size="sm" variant="outline" className="text-xs px-3 py-1 ">
+          <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
             Browse
           </Button>
-          <input
-            type="file"
-            accept=".stl,.obj,.ply,.3mf"
-            className="hidden"
-            tabIndex={-1}
-            onChange={onFileChange}
-          />
-          {selectedFile && (
-            <div className="mt-2 text-xs text-cyan-700">Selected: {selectedFile.name}</div>
-          )}
+          <input type="file" accept=".stl,.obj,.ply,.3mf" className="hidden" tabIndex={-1} onChange={onFileChange} />
+          {selectedFile && <div className="mt-2 text-xs text-cyan-700">Selected: {selectedFile.name}</div>}
         </div>
       </div>
 
-      {/* Environments - Daha kompakt grid */}
+      {/* Studio Scenes */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Environments</h3>
-        <div className="space-y-1">
-          {[
-            { name: "Studio Light", gradient: "from-gray-100 to-gray-300" },
-            { name: "Outdoor HDRI", gradient: "from-blue-400 to-cyan-300" },
-            { name: "Interior Warm", gradient: "from-orange-300 to-yellow-400" },
-            { name: "Abstract Space", gradient: "from-purple-400 to-pink-400" },
-          ].map((env) => (
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Studio Scenes</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {studioScenes.map((scene) => (
             <div
-              key={env.name}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group`}
+              key={scene.id}
+              className={`relative cursor-pointer rounded-lg border-2 transition-all hover:scale-105 ${
+                selectedStudio === scene.id
+                  ? "border-cyan-500 ring-2 ring-cyan-200"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => applyStudioScene(scene.id)}
             >
-              <div className={`w-8 h-8 bg-gradient-to-br ${env.gradient} rounded-md flex-shrink-0`}></div>
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">{env.name}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="ml-auto p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
+              <div className={`h-20 rounded-t-md ${scene.preview}`}></div>
+              <div className="p-2">
+                <div className="text-xs font-medium text-gray-900">{scene.name}</div>
+                <div className="text-xs text-gray-500 mt-1">{scene.description}</div>
+              </div>
+              {selectedStudio === scene.id && (
+                <div className="absolute top-1 right-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Backplates - Liste formatında */}
+      {/* Custom Background Color */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Backplates</h3>
-        <div className="space-y-1">
-          {[
-            { name: "Pure White", bg: "bg-white border border-gray-200" },
-            { name: "Deep Black", bg: "bg-black" },
-            { name: "Soft Gradient", bg: "bg-gradient-to-r from-gray-100 to-gray-200" },
-            { name: "Custom Image", bg: "bg-gray-100 border-2 border-dashed border-gray-300" },
-          ].map((bg) => (
-            <div
-              key={bg.name}
-              className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group"
-            >
-              <div className={`w-8 h-5 ${bg.bg} rounded flex-shrink-0`}></div>
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">{bg.name}</span>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Custom Background</h3>
+        <div className="space-y-3">
+          {/* Solid Color Section */}
+          <div>
+            <label className="text-xs text-gray-600 mb-2 block">Solid Color</label>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-12 h-8 rounded-md border-2 border-gray-300 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                style={{ backgroundColor: customColor }}
+                onClick={() => setShowColorPicker(!showColorPicker)}
+              ></div>
+              <input
+                type="text"
+                value={customColor}
+                onChange={(e) => setCustomColor(e.target.value)}
+                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 font-mono"
+                placeholder="#ffffff"
+              />
               <Button
                 size="sm"
-                variant="ghost"
-                className="ml-auto p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                variant="outline"
+                className="text-xs px-3 py-1 bg-transparent"
+                onClick={() => setShowColorPicker(!showColorPicker)}
               >
-                <Plus className="h-3 w-3" />
+                Pick
               </Button>
             </div>
-          ))}
+
+            {/* Simple Color Picker */}
+            {showColorPicker && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="grid grid-cols-8 gap-1 mb-2">
+                  {[
+                    "#ffffff",
+                    "#f8f9fa",
+                    "#e9ecef",
+                    "#dee2e6",
+                    "#ced4da",
+                    "#adb5bd",
+                    "#6c757d",
+                    "#495057",
+                    "#000000",
+                    "#212529",
+                    "#343a40",
+                    "#495057",
+                    "#6c757d",
+                    "#adb5bd",
+                    "#ced4da",
+                    "#dee2e6",
+                    "#ff0000",
+                    "#ff4444",
+                    "#ff6b6b",
+                    "#ff8e8e",
+                    "#ffb3b3",
+                    "#ffd6d6",
+                    "#ffe6e6",
+                    "#fff0f0",
+                    "#00ff00",
+                    "#44ff44",
+                    "#6bff6b",
+                    "#8eff8e",
+                    "#b3ffb3",
+                    "#d6ffd6",
+                    "#e6ffe6",
+                    "#f0fff0",
+                    "#0000ff",
+                    "#4444ff",
+                    "#6b6bff",
+                    "#8e8eff",
+                    "#b3b3ff",
+                    "#d6d6ff",
+                    "#e6e6ff",
+                    "#f0f0ff",
+                    "#ffff00",
+                    "#ffff44",
+                    "#ffff6b",
+                    "#ffff8e",
+                    "#ffffb3",
+                    "#ffffd6",
+                    "#ffffe6",
+                    "#fffff0",
+                    "#ff00ff",
+                    "#ff44ff",
+                    "#ff6bff",
+                    "#ff8eff",
+                    "#ffb3ff",
+                    "#ffd6ff",
+                    "#ffe6ff",
+                    "#fff0ff",
+                    "#00ffff",
+                    "#44ffff",
+                    "#6bffff",
+                    "#8effff",
+                    "#b3ffff",
+                    "#d6ffff",
+                    "#e6ffff",
+                    "#f0ffff",
+                  ].map((color) => (
+                    <div
+                      key={color}
+                      className="w-6 h-6 rounded cursor-pointer border border-gray-300 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        setCustomColor(color)
+                        setShowColorPicker(false)
+                      }}
+                    ></div>
+                  ))}
+                </div>
+                <input
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => setCustomColor(e.target.value)}
+                  className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Background Image Section */}
+          <div>
+            <label className="text-xs text-gray-600 mb-2 block">Background Image</label>
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              onClick={openBackgroundDialog}
+            >
+              {backgroundImage ? (
+                <div className="space-y-2">
+                  <ImageIcon className="h-6 w-6 text-gray-400 mx-auto" />
+                  <div className="text-xs text-gray-700 font-medium">{backgroundImage.name}</div>
+                  <div className="text-xs text-gray-500">Click to change</div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <ImageIcon className="h-6 w-6 text-gray-400 mx-auto" />
+                  <div className="text-xs text-gray-600">Click to upload background image</div>
+                  <div className="text-xs text-gray-500">JPG, PNG, WebP supported</div>
+                </div>
+              )}
+            </div>
+            <input
+              ref={backgroundInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBackgroundImageChange}
+            />
+            {backgroundImage && (
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs px-3 py-1 bg-transparent flex-1"
+                  onClick={openBackgroundDialog}
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  Change
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs px-3 py-1 bg-transparent text-red-600 hover:text-red-700 hover:border-red-300"
+                  onClick={() => setBackgroundImage(null)}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -473,7 +671,7 @@ function ScenesTab({
           ].map((scene) => (
             <div
               key={scene.name}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors group ${
                 scene.active ? "bg-cyan-50 border border-cyan-200" : "hover:bg-gray-50 border border-transparent"
               }`}
             >
@@ -508,12 +706,26 @@ function ScenesTab({
             <span className="text-gray-900 font-medium">1920×1080</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Environment</span>
-            <span className="text-gray-900 font-medium">Studio Light</span>
+            <span className="text-gray-600">Studio Scene</span>
+            <span className="text-gray-900 font-medium">
+              {studioScenes.find((s) => s.id === selectedStudio)?.name || "Custom"}
+            </span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Backplate</span>
-            <span className="text-gray-900 font-medium">Pure White</span>
+            <span className="text-gray-600">Background</span>
+            <div className="flex items-center gap-2">
+              {backgroundImage ? (
+                <span className="text-gray-900 font-medium">Custom Image</span>
+              ) : (
+                <>
+                  <div
+                    className="w-4 h-4 rounded border border-gray-300"
+                    style={{ backgroundColor: customColor }}
+                  ></div>
+                  <span className="text-gray-900 font-medium">{customColor}</span>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Camera</span>
@@ -524,6 +736,9 @@ function ScenesTab({
     </div>
   )
 }
+
+// VtkApp component'inde scene uygulama logic'ini ekleyin. VtkApp component'inde useEffect ekleyin:
+// VtkApp component'inde, diğer useEffect'lerden sonra bu kodu ekleyin
 
 // Lights Tab Component
 function LightsTab() {
