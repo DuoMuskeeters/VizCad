@@ -122,7 +122,8 @@ function AppPage() {
             <div className="space-y-3">
               <h3 className="text-xl font-semibold text-gray-900">{currentTab?.label} Module</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                This advanced feature is currently in development. Our team is working to bring you professional-grade {currentTab?.label?.toLowerCase()} tools.
+                This advanced feature is currently in development. Our team is working to bring you professional-grade{" "}
+                {currentTab?.label?.toLowerCase()} tools.
               </p>
             </div>
             <div className="space-y-3">
@@ -179,7 +180,7 @@ function AppPage() {
       {showUnavailableModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-md mx-4 shadow-2xl">
-            <div className="text-center space-y-6">
+      <div className="flex items-center gap-4 min-h-0">
               <div className="relative">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto border border-blue-200">
                   <Lock className="w-8 h-8 text-blue-400" />
@@ -308,10 +309,10 @@ function AppPage() {
         )}
 
         {/* Main Viewer Area */}
-        <div className="flex-1 flex flex-col bg-gray-50">
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
           {selectedFile ? (
-            <div className="flex-1 p-4">
-              <div className="w-full h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden relative">
+            <div className="flex-1 p-4 min-h-0">
+              <div className="w-full h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden relative min-h-[500px]">
                 {/* View Controls Bar - Sahnenin üstünde */}
                 <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
                   {/* Sol taraf - View presets */}
@@ -352,13 +353,32 @@ function AppPage() {
                       <Palette className="h-4 w-4" />
                     </Button>
                     <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                    <Button size="sm" variant="ghost" className="p-1 text-gray-600 hover:text-gray-900">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 text-gray-600 hover:text-gray-900"
+                      title="Zoom In (Mouse Wheel)"
+                    >
                       <ZoomIn className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="p-1 text-gray-600 hover:text-gray-900">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 text-gray-600 hover:text-gray-900"
+                      title="Zoom Out (Mouse Wheel)"
+                    >
                       <ZoomOut className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="p-1 text-gray-600 hover:text-gray-900">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="p-1 text-gray-600 hover:text-gray-900"
+                      title="Reset View"
+                      onClick={() => {
+                        const event = new CustomEvent("resetCamera", {})
+                        window.dispatchEvent(event)
+                      }}
+                    >
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                   </div>

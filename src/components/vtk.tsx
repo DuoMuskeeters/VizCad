@@ -191,7 +191,7 @@ export function VtkApp({ file }: VtkAppProps) {
     }
 
     // Render the scene
-    renderWindow.current.render()
+  if (renderWindow.current) renderWindow.current.render()
     console.log(`Applied studio scene: ${sceneId}`)
   }
 
@@ -235,7 +235,9 @@ export function VtkApp({ file }: VtkAppProps) {
       renderer.current.setBackground(rgb.r, rgb.g, rgb.b)
 
       // Render the scene
-      renderWindow.current.render()
+      if (renderWindow.current) {
+  if (renderWindow.current) renderWindow.current.render()
+      }
       console.log(`Applied custom background color: ${color}`)
     }
 
@@ -251,7 +253,7 @@ export function VtkApp({ file }: VtkAppProps) {
     const handleBackgroundImageChange = (event: CustomEvent) => {
       if (!renderer.current || !renderWindow.current) return
 
-  const { imageFile } = event.detail
+      const { imageFile } = event.detail
 
       if (imageFile) {
         // Create image element
@@ -271,7 +273,7 @@ export function VtkApp({ file }: VtkAppProps) {
             }
             // Şeffaf arka plan için renderer clear color alpha'yı ayarlamak mümkün değil burada; sadece render et
             if (renderWindow.current) {
-              renderWindow.current.render()
+              if (renderWindow.current) renderWindow.current.render()
             }
 
             console.log("Background image applied successfully:", imageFile.name)
@@ -304,7 +306,7 @@ export function VtkApp({ file }: VtkAppProps) {
           vtkContainerRef.current.style.backgroundImage = "none"
         }
         renderer.current.setBackground(1, 1, 1)
-        renderWindow.current.render()
+  if (renderWindow.current) renderWindow.current.render()
       }
 
       console.log("Background image change processed")
@@ -387,11 +389,51 @@ export function VtkApp({ file }: VtkAppProps) {
       cam.setFocalPoint(...center)
       cam.setViewUp(...up)
       renderer.current.resetCameraClippingRange()
-      renderWindow.current.render()
+      if (renderWindow.current) {
+  if (renderWindow.current) renderWindow.current.render()
+      }
     }
 
     window.addEventListener("setView", handleSetView as EventListener)
     return () => window.removeEventListener("setView", handleSetView as EventListener)
+  }, [renderer, renderWindow])
+
+  // Listen for camera reset events
+  useEffect(() => {
+    const handleResetCamera = () => {
+      if (!renderer.current || !renderWindow.current) return
+
+      // Reset camera to fit the scene
+      renderer.current.resetCamera()
+      renderer.current.resetCameraClippingRange()
+
+      // Set a nice isometric view as default
+      const camera = renderer.current.getActiveCamera()
+      const center = camera.getFocalPoint()
+      const currentPos = camera.getPosition()
+
+      // Calculate distance to maintain
+      const dx = currentPos[0] - center[0]
+      const dy = currentPos[1] - center[1]
+      const dz = currentPos[2] - center[2]
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
+
+      // Set isometric view
+      const inv = 1 / Math.sqrt(3)
+      const dir = [1 * inv, -1 * inv, 1 * inv]
+      const up = [0, 0, 1]
+
+      const newPos = [center[0] - dir[0] * dist, center[1] - dir[1] * dist, center[2] - dir[2] * dist]
+
+      camera.setPosition(...newPos)
+      camera.setFocalPoint(...center)
+      camera.setViewUp(...up)
+      renderer.current.resetCameraClippingRange()
+  if (renderWindow.current) renderWindow.current.render()
+    }
+
+    window.addEventListener("resetCamera", handleResetCamera)
+    return () => window.removeEventListener("resetCamera", handleResetCamera)
   }, [renderer, renderWindow])
 
   // Sahne başlangıç ayarları (Default Plain White)
@@ -410,6 +452,77 @@ export function VtkApp({ file }: VtkAppProps) {
     handleWindowResize() // İlk boyutu ayarlamak için bir kere çağır
 
     return () => window.removeEventListener("resize", handleWindowResize)
+  }, [resize])
+
+  // Zoom kontrolü için useEffect ekle
+  useEffect(() => {
+    if (!renderer.current || !renderWindow.current) return
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+
+      const camera = renderer.current.getActiveCamera()
+      const position = camera.getPosition()
+      const focalPoint = camera.getFocalPoint()
+
+      // Mevcut mesafeyi hesapla
+      const dx = position[0] - focalPoint[0]
+      const dy = position[1] - focalPoint[1]
+      const dz = position[2] - focalPoint[2]
+      const currentDistance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+      // Zoom faktörü (wheel delta'ya göre)
+      const zoomFactor = event.deltaY > 0 ? 1.1 : 0.9
+      const newDistance = currentDistance * zoomFactor
+
+      // Zoom sınırları (minimum ve maksimum mesafe)
+      const minDistance = 0.5
+      const maxDistance = 50
+
+      // Sınırları kontrol et
+      if (newDistance < minDistance || newDistance > maxDistance) {
+        return // Sınır dışındaysa zoom yapma
+      }
+
+      // Yeni pozisyonu hesapla
+      const direction = [dx / currentDistance, dy / currentDistance, dz / currentDistance]
+      const newPosition = [
+        focalPoint[0] + direction[0] * newDistance,
+        focalPoint[1] + direction[1] * newDistance,
+        focalPoint[2] + direction[2] * newDistance,
+      ]
+
+      camera.setPosition(...newPosition)
+      renderer.current.resetCameraClippingRange()
+  if (renderWindow.current) renderWindow.current.render()
+    }
+
+    const container = vtkContainerRef.current
+    if (container) {
+      container.addEventListener("wheel", handleWheel, { passive: false })
+
+      return () => {
+        container.removeEventListener("wheel", handleWheel)
+      }
+    }
+  }, [renderer, renderWindow])
+
+  // Container boyut değişikliklerini izle
+  useEffect(() => {
+    if (!resize || !vtkContainerRef.current) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Kısa bir gecikme ile resize çağır (DOM güncellemelerini bekle)
+      setTimeout(() => {
+        resize()
+      }, 100)
+    })
+
+    resizeObserver.observe(vtkContainerRef.current)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
   }, [resize])
 
   // STL Dosyası yükleme mantığı
@@ -506,8 +619,12 @@ export function VtkApp({ file }: VtkAppProps) {
   }, [])
 
   return (
-    <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
-      <div ref={vtkContainerRef} className="w-full h-full flex-grow" style={{ touchAction: "none" }} />
+  <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden min-h-0">
+      <div
+        ref={vtkContainerRef}
+    className="w-full h-full flex-1 min-h-0 min-w-0"
+    style={{ touchAction: "none" }}
+      />
       <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
         {statusMessage}
       </div>
