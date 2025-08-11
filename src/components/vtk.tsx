@@ -14,14 +14,15 @@ interface VtkAppProps {
 }
 
 export function VtkApp({ file }: VtkAppProps) {
-  const vtkContainerRef = useRef<HTMLDivElement>(null)
+  const vtkContainerRef = useRef<HTMLDivElement>(null!)
   const { renderer, renderWindow, setBackground, addLight, resize } = useVtkScene(vtkContainerRef)
 
-  const actorRef = useRef<vtkActor | null>(null)
-  const mapperRef = useRef<vtkMapper | null>(null)
-  const readerRef = useRef<vtkSTLReader | null>(null)
+  const actorRef = useRef<any | null>(null)
+  const mapperRef = useRef<any | null>(null)
+  const readerRef = useRef<any | null>(null)
   const lightsRef = useRef<any[]>([])
-  const floorActorRef = useRef<vtkActor | null>(null)
+  const floorActorRef = useRef<any | null>(null)
+  const backgroundPlaneRef = useRef<any | null>(null)
 
   const [statusMessage, setStatusMessage] = useState<string>("Hazır. Lütfen bir STL dosyası seçin.")
 
@@ -44,13 +45,23 @@ export function VtkApp({ file }: VtkAppProps) {
     floorActorRef.current = null
   }
 
+  // Clear background plane function
+  const clearBackgroundPlane = () => {
+    if (!renderer.current || !backgroundPlaneRef.current) return
+
+    renderer.current.removeActor(backgroundPlaneRef.current)
+    backgroundPlaneRef.current.delete()
+    backgroundPlaneRef.current = null
+  }
+
   // Apply studio scene function
   const applyStudioScene = (sceneId: string) => {
     if (!renderer.current || !renderWindow.current) return
 
-    // Clear existing lights and floor
+    // Clear existing lights, floor, and background plane
     clearAllLights()
     clearFloor()
+    clearBackgroundPlane()
 
     switch (sceneId) {
       case "plain-white":
@@ -202,6 +213,9 @@ export function VtkApp({ file }: VtkAppProps) {
     const handleCustomBackgroundChange = (event: CustomEvent) => {
       if (!renderer.current || !renderWindow.current) return
 
+      // Clear background plane when applying custom color
+      clearBackgroundPlane()
+
       const color = event.detail.color
       // Hex color'u RGB'ye çevir
       const hexToRgb = (hex: string) => {
@@ -230,6 +244,154 @@ export function VtkApp({ file }: VtkAppProps) {
     return () => {
       window.removeEventListener("applyCustomBackground", handleCustomBackgroundChange as EventListener)
     }
+  }, [renderer, renderWindow])
+
+  // Listen for background image changes
+  useEffect(() => {
+    const handleBackgroundImageChange = (event: CustomEvent) => {
+      if (!renderer.current || !renderWindow.current) return
+
+  const { imageFile } = event.detail
+
+      if (imageFile) {
+        // Create image element
+        const backgroundImage = new Image()
+        backgroundImage.crossOrigin = "anonymous"
+
+        backgroundImage.onload = () => {
+          try {
+            // Clear any existing background plane (if any)
+            clearBackgroundPlane()
+
+            // VTK renderWindow'da native background image API yok; container div'e CSS background uygula
+            if (vtkContainerRef.current) {
+              vtkContainerRef.current.style.backgroundImage = `url('${backgroundImage.src}')`
+              vtkContainerRef.current.style.backgroundSize = "cover"
+              vtkContainerRef.current.style.backgroundPosition = "center"
+            }
+            // Şeffaf arka plan için renderer clear color alpha'yı ayarlamak mümkün değil burada; sadece render et
+            if (renderWindow.current) {
+              renderWindow.current.render()
+            }
+
+            console.log("Background image applied successfully:", imageFile.name)
+          } catch (error) {
+            console.error("Error applying background image:", error)
+            // Fallback to white background
+            renderer.current.setBackground(1, 1, 1)
+            renderWindow.current!.render()
+          }
+        }
+
+        backgroundImage.onerror = () => {
+          console.error("Failed to load background image")
+          // Fallback to white background
+          renderer.current.setBackground(1, 1, 1)
+          renderWindow.current!.render()
+        }
+
+        // Load image from file
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            backgroundImage.src = e.target.result as string
+          }
+        }
+        reader.readAsDataURL(imageFile)
+      } else {
+        // Clear background image - revert to solid color background
+        if (vtkContainerRef.current) {
+          vtkContainerRef.current.style.backgroundImage = "none"
+        }
+        renderer.current.setBackground(1, 1, 1)
+        renderWindow.current.render()
+      }
+
+      console.log("Background image change processed")
+    }
+
+    window.addEventListener("applyBackgroundImage", handleBackgroundImageChange as EventListener)
+
+    return () => {
+      window.removeEventListener("applyBackgroundImage", handleBackgroundImageChange as EventListener)
+    }
+  }, [renderer, renderWindow])
+
+  // Listen for camera view change events
+  useEffect(() => {
+    const handleSetView = (event: CustomEvent) => {
+      if (!renderer.current || !renderWindow.current) return
+      const cam = renderer.current.getActiveCamera()
+      const view: string = event.detail.view
+
+      // Önce mevcut sahneye göre zoom-to-fit yap (VTK'nin kendi algoritması)
+      renderer.current.resetCamera()
+      renderer.current.resetCameraClippingRange()
+
+      const center = cam.getFocalPoint() as [number, number, number]
+      const currentPos = cam.getPosition() as [number, number, number]
+      // Reset sonrası mesafeyi koru
+      const dx = currentPos[0] - center[0]
+      const dy = currentPos[1] - center[1]
+      const dz = currentPos[2] - center[2]
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
+
+      // Yön vektörleri (CAD benzeri eksenler: +Z = Top, -Y = Front varsayımı)
+      let dir: [number, number, number] = [0, -1, 0] // Front default
+      let up: [number, number, number] = [0, 0, 1]
+
+      switch (view.toLowerCase()) {
+        case "front":
+          dir = [0, -1, 0]
+          up = [0, 0, 1]
+          break
+        case "back":
+          dir = [0, 1, 0]
+          up = [0, 0, 1]
+          break
+        case "left":
+          dir = [-1, 0, 0]
+          up = [0, 0, 1]
+          break
+        case "right":
+          dir = [1, 0, 0]
+          up = [0, 0, 1]
+          break
+        case "top":
+          dir = [0, 0, 1]
+          up = [0, 1, 0]
+          break
+        case "bottom":
+          dir = [0, 0, -1]
+          up = [0, -1, 0]
+          break
+        case "iso":
+        case "isometric": {
+          const inv = 1 / Math.sqrt(3)
+          dir = [1 * inv, -1 * inv, 1 * inv] // (X+, Y-, Z+)
+          up = [0, 0, 1]
+          break
+        }
+        default:
+          break
+      }
+
+      // Yeni pozisyon = center - dir * dist
+      const newPos: [number, number, number] = [
+        center[0] - dir[0] * dist,
+        center[1] - dir[1] * dist,
+        center[2] - dir[2] * dist,
+      ]
+
+      cam.setPosition(...newPos)
+      cam.setFocalPoint(...center)
+      cam.setViewUp(...up)
+      renderer.current.resetCameraClippingRange()
+      renderWindow.current.render()
+    }
+
+    window.addEventListener("setView", handleSetView as EventListener)
+    return () => window.removeEventListener("setView", handleSetView as EventListener)
   }, [renderer, renderWindow])
 
   // Sahne başlangıç ayarları (Default Plain White)
@@ -339,6 +501,7 @@ export function VtkApp({ file }: VtkAppProps) {
     return () => {
       clearAllLights()
       clearFloor()
+      clearBackgroundPlane()
     }
   }, [])
 

@@ -25,7 +25,6 @@ import {
   Plus,
   Trash2,
   Edit3,
-  Copy,
   MoreVertical,
   Lock,
   Clock,
@@ -49,7 +48,7 @@ function AppPage() {
   const [clickedFeature, setClickedFeature] = useState("")
 
   // Developer mode - set to true to see all tabs
-  const isDeveloper = false // Set this to false for production
+  const isDeveloper = true // Set this to false for production
 
   // Unified file input ref
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -114,17 +113,16 @@ function AppPage() {
           <div className="text-center space-y-6 max-w-sm">
             <div className="relative">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto border border-blue-200">
-                <currentTab.icon className="w-10 h-10 text-blue-400" />
+                {currentTab && <currentTab.icon className="w-10 h-10 text-blue-400" />}
               </div>
               <div className="absolute -top-1 -right-1 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                 <Lock className="w-4 h-4 text-white" />
               </div>
             </div>
             <div className="space-y-3">
-              <h3 className="text-xl font-semibold text-gray-900">{currentTab.label} Module</h3>
+              <h3 className="text-xl font-semibold text-gray-900">{currentTab?.label} Module</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                This advanced feature is currently in development. Our team is working to bring you professional-grade{" "}
-                {currentTab.label.toLowerCase()} tools.
+                This advanced feature is currently in development. Our team is working to bring you professional-grade {currentTab?.label?.toLowerCase()} tools.
               </p>
             </div>
             <div className="space-y-3">
@@ -329,6 +327,13 @@ function AppPage() {
                             ? "bg-cyan-500 hover:bg-cyan-600 text-white"
                             : "hover:bg-gray-100 text-gray-600"
                         }`}
+                        onClick={() => {
+                          // Kamera görünümü ayarla event'i gönder
+                          const event = new CustomEvent("setView", {
+                            detail: { view },
+                          })
+                          window.dispatchEvent(event)
+                        }}
                       >
                         {view}
                       </Button>
@@ -449,6 +454,9 @@ function ScenesTab({
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null)
   const [currentMode, setCurrentMode] = useState<"studio" | "custom">("studio")
   const backgroundInputRef = useRef<HTMLInputElement>(null)
+  const [currentBackgroundMode, setCurrentBackgroundMode] = useState<"studio" | "custom-color" | "custom-image">(
+    "studio",
+  )
 
   const studioScenes = [
     {
@@ -488,7 +496,8 @@ function ScenesTab({
   // Studio scene uygulama fonksiyonu
   const applyStudioScene = (sceneId: string) => {
     setSelectedStudio(sceneId)
-    setCurrentMode("studio")
+    setCurrentBackgroundMode("studio")
+    setBackgroundImage(null) // Clear background image
 
     // Studio scene event'i gönder
     const event = new CustomEvent("applyStudioScene", {
@@ -500,9 +509,10 @@ function ScenesTab({
   // Custom background uygulama fonksiyonu - Her zaman uygula
   const applyCustomBackground = (color: string) => {
     setCustomColor(color)
-    setCurrentMode("custom")
+    setCurrentBackgroundMode("custom-color")
+    setBackgroundImage(null) // Clear background image
 
-    // Custom background event'i gönder - timestamp ekleyerek her zaman tetikle
+    // Custom background event'i gönder
     const event = new CustomEvent("applyCustomBackground", {
       detail: { color, timestamp: Date.now() },
     })
@@ -511,7 +521,7 @@ function ScenesTab({
 
   const handleBackgroundImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setBackgroundImage(e.target.files[0])
+      applyBackgroundImage(e.target.files[0])
     }
   }
 
@@ -521,8 +531,10 @@ function ScenesTab({
 
   // Mevcut background rengini al
   const getCurrentBackgroundColor = () => {
-    if (currentMode === "custom") {
+    if (currentBackgroundMode === "custom-color") {
       return customColor
+    } else if (currentBackgroundMode === "custom-image") {
+      return "Custom Image"
     } else {
       const currentScene = studioScenes.find((s) => s.id === selectedStudio)
       return currentScene?.backgroundColor || "#ffffff"
@@ -531,11 +543,34 @@ function ScenesTab({
 
   // Mevcut lighting mode'u al
   const getCurrentLightingMode = () => {
-    if (currentMode === "custom") {
-      return "Custom Lighting"
+    if (currentBackgroundMode === "custom-color") {
+      return "Custom Color"
+    } else if (currentBackgroundMode === "custom-image") {
+      return "Custom Image"
     } else {
       const currentScene = studioScenes.find((s) => s.id === selectedStudio)
       return currentScene?.name || "Plain White"
+    }
+  }
+
+  // Background image uygulama fonksiyonu
+  const applyBackgroundImage = (imageFile: File) => {
+    setBackgroundImage(imageFile)
+    setCurrentBackgroundMode("custom-image")
+
+    // Background image event'i gönder
+    const event = new CustomEvent("applyBackgroundImage", {
+      detail: { imageFile, timestamp: Date.now() },
+    })
+    window.dispatchEvent(event)
+  }
+
+  // Background image temizleme fonksiyonu
+  const clearBackgroundImage = () => {
+    setBackgroundImage(null)
+    if (currentBackgroundMode === "custom-image") {
+      // Revert to default studio scene
+      applyStudioScene("plain-white")
     }
   }
 
@@ -728,14 +763,18 @@ function ScenesTab({
           <div>
             <label className="text-xs text-gray-600 mb-2 block">Background Image</label>
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                currentBackgroundMode === "custom-image"
+                  ? "border-cyan-500 bg-cyan-50"
+                  : "border-gray-300 hover:border-gray-400"
+              }`}
               onClick={openBackgroundDialog}
             >
               {backgroundImage ? (
                 <div className="space-y-2">
-                  <ImageIcon className="h-6 w-6 text-gray-400 mx-auto" />
+                  <ImageIcon className="h-6 w-6 text-cyan-500 mx-auto" />
                   <div className="text-xs text-gray-700 font-medium">{backgroundImage.name}</div>
-                  <div className="text-xs text-gray-500">Click to change</div>
+                  <div className="text-xs text-cyan-600">Active background image</div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -767,7 +806,7 @@ function ScenesTab({
                   size="sm"
                   variant="outline"
                   className="text-xs px-3 py-1 bg-transparent text-red-600 hover:text-red-700 hover:border-red-300"
-                  onClick={() => setBackgroundImage(null)}
+                  onClick={clearBackgroundImage}
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
                   Remove
@@ -793,8 +832,11 @@ function ScenesTab({
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Background</span>
             <div className="flex items-center gap-2">
-              {backgroundImage ? (
-                <span className="text-gray-900 font-medium">Custom Image</span>
+              {currentBackgroundMode === "custom-image" && backgroundImage ? (
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-cyan-500" />
+                  <span className="text-gray-900 font-medium">Custom Image</span>
+                </div>
               ) : (
                 <>
                   <div

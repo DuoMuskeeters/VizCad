@@ -31,8 +31,8 @@ export interface LightOptions {
 
 export function useVtkScene(containerRef: RefObject<HTMLDivElement>) {
   // Ref'leri daha spesifik tiplerle ve null başlangıç değeriyle tanımlıyoruz
-  const genericRenderWindowRef = useRef<vtkGenericRenderWindow | null>(null);
-  const rendererRef = useRef<vtkRenderer | null>(null);
+  const genericRenderWindowRef = useRef<any>(null);
+  const rendererRef = useRef<any>(null);
   const renderWindowRef = useRef<vtkRenderWindow | null>(null);
 
   useEffect(() => {
