@@ -22,7 +22,6 @@ import {
   Lightbulb,
   ImageIcon,
   Layers,
-  Edit3,
   Lock,
   Clock,
   X,
@@ -576,32 +575,16 @@ function AppPage() {
                       </div>
 
                       {/* Tools */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <Edit3 className="w-4 h-4 text-cyan-500" />
-                          Tools
-                        </h4>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-xs rounded-md flex items-center justify-center gap-1">
-                            <Edit3 className="w-3 h-3" />
-                            Measure
-                          </button>
-                          <button className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-xs rounded-md flex items-center justify-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            Section
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
                 {/* Controls bar (navigation button still opens/closes) */}
                 <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10">
-                  <div className="flex items-center gap-1 bg-black/80 backdrop-blur-md rounded-full px-4 py-2 shadow-2xl border border-white/10">
+                  <div className="flex items-center gap-1 bg-white/95 backdrop-blur-md rounded-full px-4 py-2 shadow-xl border border-gray-200 text-black">
                     {/* Navigation Button */}
                     <button
                       onClick={() => setShowNavigationModal(true)}
-                      className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                      className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                       title="Navigation Panel"
                     >
                       <Navigation className="h-4 w-4" />
@@ -625,7 +608,7 @@ function AppPage() {
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                             activeView === view
                               ? "bg-cyan-500 text-white shadow-lg"
-                              : "text-white/70 hover:text-white hover:bg-white/10"
+                              : "text-black/60 hover:text-black hover:bg-gray-100"
                           }`}
                           onClick={() => handleViewChange(view)}
                         >
@@ -639,7 +622,7 @@ function AppPage() {
                     {/* View Tools */}
                     <div className="flex items-center gap-1">
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
                         title="Toggle Wireframe"
                         onClick={() => {
                           const next = !wireframe;
@@ -650,7 +633,7 @@ function AppPage() {
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${axes ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${axes ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
                         title="Toggle Axes"
                         onClick={() => {
                           const next = !axes;
@@ -661,7 +644,7 @@ function AppPage() {
                         <Move3d className="h-4 w-4" />
                       </button>
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${smooth ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${smooth ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
                         title="Smooth / Flat Shading"
                         onClick={() => {
                           const next = !smooth;
@@ -678,7 +661,7 @@ function AppPage() {
                     {/* Zoom Controls */}
                     <div className="flex items-center gap-1">
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Zoom In"
                         onClick={() => {
                           const event = new CustomEvent("zoomIn");
@@ -688,7 +671,7 @@ function AppPage() {
                         <ZoomIn className="h-4 w-4" />
                       </button>
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Zoom Out"
                         onClick={() => {
                           const event = new CustomEvent("zoomOut");
@@ -698,7 +681,7 @@ function AppPage() {
                         <ZoomOut className="h-4 w-4" />
                       </button>
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Box Zoom"
                         onClick={() => {
                           const event = new CustomEvent("boxZoom");
@@ -708,14 +691,14 @@ function AppPage() {
                         <Square className="h-4 w-4" />
                       </button>
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Zoom to Fit"
                         onClick={handleCameraFitAll}
                       >
                         <Maximize className="h-4 w-4" />
                       </button>
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Reset View"
                         onClick={handleResetView}
                       >
