@@ -1,6 +1,7 @@
 import { Edit3, ImageIcon, Trash2, Upload } from "lucide-react"
 import { Button } from "../ui/button"
 import { useRef, useState } from "react"
+import { useVtkScene } from "../scene"
 
 export function ScenesTab({
   onFileChange,
@@ -19,12 +20,31 @@ export function ScenesTab({
   isDragOver: boolean
   selectedFile: File | null
 }) {
+  const {
+      vtkContainerRef,
+      rendererRef,
+      renderWindowRef,
+      actorRef,
+      mapperRef,
+      readerRef,
+      lightsRef,
+      floorActorRef,
+      backgroundPlaneRef,
+      setBackground,
+      addLight,
+      resize,
+      clearAllLights,
+      clearFloor,
+      clearBackgroundPlane,
+      applyStudioScene
+    } = useVtkScene();
+  
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
   const [selectedStudio, setSelectedStudio] = useState("plain-white")
   const [customColor, setCustomColor] = useState("#ffffff")
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null)
   const [currentMode, setCurrentMode] = useState<"studio" | "custom">("studio")
-  const backgroundInputRef = useRef<HTMLInputElement>(null)
   const [currentBackgroundMode, setCurrentBackgroundMode] = useState<"studio" | "custom-color" | "custom-image">(
     "studio",
   )
@@ -65,17 +85,12 @@ export function ScenesTab({
   ]
 
   // Studio scene uygulama fonksiyonu
-  const applyStudioScene = (sceneId: string) => {
-    setSelectedStudio(sceneId)
-    setCurrentBackgroundMode("studio")
-    setBackgroundImage(null) // Clear background image
-
-    // Studio scene event'i gönder
-    const event = new CustomEvent("applyStudioScene", {
-      detail: { sceneId },
-    })
-    window.dispatchEvent(event)
-  }
+  const applyStudioScene1 = (sceneId: string) => {
+  setSelectedStudio(sceneId)
+  setCurrentBackgroundMode("studio")
+  setBackgroundImage(null)
+  applyStudioScene(sceneId) 
+}
 
   // Custom background uygulama fonksiyonu - Her zaman uygula
   const applyCustomBackground = (color: string) => {
@@ -183,7 +198,7 @@ export function ScenesTab({
                   ? "border-cyan-500 ring-2 ring-cyan-200"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              onClick={() => applyStudioScene(scene.id)}
+              onClick={() => applyStudioScene1(scene.id)}
             >
               <div className={`h-20 rounded-t-md ${scene.preview}`}></div>
               <div className="p-2">
