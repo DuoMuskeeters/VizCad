@@ -75,8 +75,11 @@ function AppPage() {
   const [showUnavailableModal, setShowUnavailableModal] = useState(false);
   const [clickedFeature, setClickedFeature] = useState("");
   const [wireframe, setWireframe] = useState(false);
-  const [axes, setAxes] = useState(true);
-  const [smooth, setSmooth] = useState(true);
+  const [axes, setAxes] = useState(false);
+  const [smooth, setSmooth] = useState(false);
+  const [viewLocked, setViewLocked] = useState(false);
+
+  // captureScreenshot kaldırıldı; artık hook içindeki captureImage kullanılacak.
 
   // Developer mode state (false=user view). Only Scenes tab enabled when false.
   const [isDeveloper, setIsDeveloper] = useState(false);
@@ -518,11 +521,23 @@ function AppPage() {
                           Display
                         </h4>
                         <div className="space-y-2">
-                          {(["Wireframe", "Axes", "Smooth Shading"] as const).map((label) => {
-                            const checked = label === "Wireframe" ? wireframe : label === "Axes" ? axes : smooth;
+                          {(
+                            ["Wireframe", "Axes", "Smooth Shading"] as const
+                          ).map((label) => {
+                            const checked =
+                              label === "Wireframe"
+                                ? wireframe
+                                : label === "Axes"
+                                ? axes
+                                : smooth;
                             return (
-                              <div key={label} className="flex items-center justify-between">
-                                <span className="text-xs text-gray-600">{label}</span>
+                              <div
+                                key={label}
+                                className="flex items-center justify-between"
+                              >
+                                <span className="text-xs text-gray-600">
+                                  {label}
+                                </span>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -532,13 +547,26 @@ function AppPage() {
                                       const enabled = e.target.checked;
                                       if (label === "Wireframe") {
                                         setWireframe(enabled);
-                                        window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled } }));
+                                        window.dispatchEvent(
+                                          new CustomEvent("toggleWireframe", {
+                                            detail: { enabled },
+                                          })
+                                        );
                                       } else if (label === "Axes") {
                                         setAxes(enabled);
-                                        window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled } }));
+                                        window.dispatchEvent(
+                                          new CustomEvent("toggleAxes", {
+                                            detail: { enabled },
+                                          })
+                                        );
                                       } else {
                                         setSmooth(enabled);
-                                        window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled } }));
+                                        window.dispatchEvent(
+                                          new CustomEvent(
+                                            "toggleSmoothShading",
+                                            { detail: { enabled } }
+                                          )
+                                        );
                                       }
                                     }}
                                   />
@@ -617,39 +645,86 @@ function AppPage() {
                       ))}
                     </div>
 
+                    {/* View Lock */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          viewLocked
+                            ? "bg-red-500 text-white"
+                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                        }`}
+                        title={viewLocked ? "Unlock View" : "Lock View"}
+                        onClick={() => {
+                          const next = !viewLocked;
+                          setViewLocked(next);
+                          window.dispatchEvent(
+                            new CustomEvent("toggleViewLock", {
+                              detail: { enabled: next },
+                            })
+                          );
+                        }}
+                      >
+                        <Lock className="h-4 w-4" />
+                      </button>
+                    </div>
+
                     <div className="w-px h-6 bg-white/20 mx-1"></div>
 
                     {/* View Tools */}
                     <div className="flex items-center gap-1">
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          wireframe
+                            ? "bg-cyan-500 text-white"
+                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                        }`}
                         title="Toggle Wireframe"
                         onClick={() => {
                           const next = !wireframe;
                           setWireframe(next);
-                          window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled: next } }));
+                          window.dispatchEvent(
+                            new CustomEvent("toggleWireframe", {
+                              detail: { enabled: next },
+                            })
+                          );
                         }}
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${axes ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          axes
+                            ? "bg-cyan-500 text-white"
+                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                        }`}
                         title="Toggle Axes"
                         onClick={() => {
                           const next = !axes;
                           setAxes(next);
-                          window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled: next } }));
+                          window.dispatchEvent(
+                            new CustomEvent("toggleAxes", {
+                              detail: { enabled: next },
+                            })
+                          );
                         }}
                       >
                         <Move3d className="h-4 w-4" />
                       </button>
                       <button
-                        className={`p-2 rounded-full transition-all duration-200 ${smooth ? "bg-cyan-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          smooth
+                            ? "bg-cyan-500 text-white"
+                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                        }`}
                         title="Smooth / Flat Shading"
                         onClick={() => {
                           const next = !smooth;
                           setSmooth(next);
-                          window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled: next } }));
+                          window.dispatchEvent(
+                            new CustomEvent("toggleSmoothShading", {
+                              detail: { enabled: next },
+                            })
+                          );
                         }}
                       >
                         <Sun className="h-4 w-4" />
@@ -708,7 +783,19 @@ function AppPage() {
                   </div>
                 </div>
 
-                <VtkApp file={selectedFile} displayState={{ wireframe, grid: false, axes, smooth }} />
+                <VtkApp
+                  file={selectedFile}
+                  displayState={{ wireframe, grid: false, axes, smooth }}
+                />
+                {selectedFile && (
+                  <button
+                    onClick={() => captureImage?.({ scale: 2, format: "png" })}
+                    title="Capture Screenshot"
+                    className="absolute top-6 right-6 z-10 p-3 rounded-full bg-white shadow-lg border border-gray-200 text-black/70 hover:text-black hover:shadow-xl hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             </div>
           ) : (

@@ -55,7 +55,7 @@ export function useVtkScene() {
   const gridActorRef = useRef<vtkProp | null>(null);
   const axesActorRef = useRef<vtkAxesActor | null>(null);
   const axesWidgetRef = useRef<any | null>(null);
-  // Grid removed feature: keep refs only for cleanup if previously created
+  const viewLockedRef = useRef<boolean>(false);
   const gridPlaneSourcesRef = useRef<any[] | null>(null);
   const gridSubscriptionsRef = useRef<any[] | null>(null);
 
@@ -67,6 +67,17 @@ export function useVtkScene() {
       genericRenderWindowRef.current = grw;
       rendererRef.current = grw.getRenderer();
       renderWindowRef.current = grw.getRenderWindow();
+      
+      // View lock event (disable interactor to freeze camera)
+      const handleViewLock = (e: CustomEvent) => {
+        viewLockedRef.current = !!e.detail.enabled;
+        try {
+          const interactor = grw.getRenderWindow().getInteractor();
+          if (viewLockedRef.current) interactor?.disable?.();
+          else interactor?.enable?.();
+        } catch {}
+      };
+      window.addEventListener("toggleViewLock", handleViewLock as EventListener);
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
       rendererRef.current.getRenderWindow()?.render();
@@ -75,6 +86,7 @@ export function useVtkScene() {
       // Cleanup function
       return () => {
         console.log("Cleaning up VTK scene...");
+        window.removeEventListener("toggleViewLock", handleViewLock as EventListener);
         if (genericRenderWindowRef.current) {
           genericRenderWindowRef.current.delete();
           genericRenderWindowRef.current = null;
@@ -343,7 +355,6 @@ export function useVtkScene() {
   };
 
   const showGrid = (_enabled: boolean) => {
-    // Always ensure any existing grid actors are removed (feature disabled)
     if (!rendererRef.current || !renderWindowRef.current) return;
     if (gridActorRef.current) {
       if ((gridActorRef.current as any).actors) {
@@ -395,6 +406,52 @@ export function useVtkScene() {
     renderWindowRef.current.render();
   };
 
+  // Capture current render as image (PNG/JPEG) using VTK captureImages if available
+  const captureImage = async (options?: {
+    scale?: number;
+    format?: 'png' | 'jpeg';
+    quality?: number; // 0-1 for jpeg
+    filename?: string;
+  }): Promise<boolean> => {
+    const scale = options?.scale ?? 1;
+    const format = options?.format ?? 'png';
+    const quality = options?.quality ?? 0.95;
+    const filename = options?.filename ?? `vizcad-render-${new Date().toISOString().replace(/[:.]/g,'-')}`;
+    if (!renderWindowRef.current || !vtkContainerRef.current) return false;
+    try {
+      const rw: any = renderWindowRef.current;
+      // Preferred path
+      if (rw.captureImages) {
+        rw.render?.();
+        const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const imgs: string[] = await rw.captureImages({ scale, format: mime, mimeType: mime, quality });
+        const uri = imgs?.[0];
+        if (uri) {
+          const a = document.createElement('a');
+          a.href = uri;
+          a.download = `${filename}-scale${scale}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          return true;
+        }
+      }
+      // Fallback canvas
+      const canvas: HTMLCanvasElement | null = vtkContainerRef.current.querySelector('canvas');
+      if (!canvas) return false;
+      const dataURL = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', quality);
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = `${filename}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     rendererRef: rendererRef,
     renderWindowRef: renderWindowRef,
@@ -419,5 +476,6 @@ export function useVtkScene() {
     setSmoothShading,
     showGrid,
     showAxes
+  ,captureImage
   };
 }

@@ -249,7 +249,6 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
           up = [0, 0, 1];
           break;
         case "back":
-          dir = [0, 1, 0];
           up = [0, 0, 1];
           break;
         case "left":
@@ -609,7 +608,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
       <div
         ref={vtkContainerRef}
-        className="w-full h-full flex-grow min-h-[400px]"
+  className={`w-full h-full flex-grow min-h-[400px]`}
         style={{
           touchAction: "none",
           minWidth: "300px",
