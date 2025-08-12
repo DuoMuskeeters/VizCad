@@ -8,12 +8,20 @@ import { useVtkScene } from "./scene";
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 import vtkProp from "@kitware/vtk.js/Rendering/Core/Prop";
 
+interface DisplayState {
+  wireframe: boolean;
+  grid: boolean;
+  axes: boolean;
+  smooth: boolean;
+}
+
 interface VtkAppProps {
   file: File | null;
   viewMode?: string;
+  displayState?: DisplayState;
 }
 
-export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
+export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) {
   const {
     vtkContainerRef,
     rendererRef,
@@ -30,14 +38,46 @@ export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
     clearAllLights,
     clearFloor,
     clearBackgroundPlane,
-    applyStudioScene
+  applyStudioScene,
+  setWireframe,
+  setSmoothShading,
+  showGrid,
+  showAxes
   } = useVtkScene();
 
   const [statusMessage, setStatusMessage] = useState<string>(
     "Hazır. Lütfen bir STL dosyası seçin."
   );
 
+  // Apply incoming displayState when it changes (idempotent)
+  useEffect(() => {
+    if (!displayState) return;
+    // Dispatch events so central listeners apply to current actor even if created after toggle.
+    window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled: displayState.wireframe } }));
+    window.dispatchEvent(new CustomEvent("toggleGrid", { detail: { enabled: displayState.grid } }));
+    window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled: displayState.axes } }));
+    window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled: displayState.smooth } }));
+  }, [displayState?.wireframe, displayState?.grid, displayState?.axes, displayState?.smooth]);
+
   // Listen for studio scene changes
+  // Display feature events
+  useEffect(() => {
+    const handleWireframe = (e: CustomEvent) => setWireframe(!!e.detail.enabled);
+    const handleSmooth = (e: CustomEvent) => setSmoothShading(!!e.detail.enabled);
+    const handleGrid = (e: CustomEvent) => showGrid(!!e.detail.enabled);
+    const handleAxes = (e: CustomEvent) => showAxes(!!e.detail.enabled);
+    window.addEventListener("toggleWireframe", handleWireframe as EventListener);
+    window.addEventListener("toggleSmoothShading", handleSmooth as EventListener);
+    window.addEventListener("toggleGrid", handleGrid as EventListener);
+    window.addEventListener("toggleAxes", handleAxes as EventListener);
+    return () => {
+      window.removeEventListener("toggleWireframe", handleWireframe as EventListener);
+      window.removeEventListener("toggleSmoothShading", handleSmooth as EventListener);
+      window.removeEventListener("toggleGrid", handleGrid as EventListener);
+      window.removeEventListener("toggleAxes", handleAxes as EventListener);
+    };
+  }, [setWireframe, setSmoothShading, showGrid, showAxes]);
+
   useEffect(() => {
     const handleStudioSceneChange = (event: CustomEvent) => {
       applyStudioScene(event.detail.sceneId);
@@ -450,7 +490,7 @@ export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
     const reader = vtkSTLReader.newInstance();
     readerRef.current = reader;
 
-    fileReader.onload = (event) => {
+  fileReader.onload = async (event) => {
       if (!rendererRef.current || !renderWindowRef.current || !event.target?.result) {
         setStatusMessage("Dosya okunurken bir hata oluştu.");
         return;
@@ -481,8 +521,22 @@ export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
       }
       console.log("Önceki aktör ve mapper temizlendi.");
 
+      // Ensure normals for smooth shading
+      let polyData = source;
+      if (displayState?.smooth) {
+        try {
+          const normalsMod: any = await import("@kitware/vtk.js/Filters/Core/PolyDataNormals");
+          const normalsFilter = normalsMod.default.newInstance({ splitting: false });
+          normalsFilter.setInputData(source);
+          normalsFilter.update();
+          polyData = normalsFilter.getOutputData();
+        } catch (e) {
+          console.warn("Normals generation failed or module missing", e);
+        }
+      }
+
       const mapper = vtkMapper.newInstance({ scalarVisibility: false });
-      mapper.setInputData(source);
+      mapper.setInputData(polyData);
       mapperRef.current = mapper;
 
       const actor = vtkActor.newInstance();
@@ -490,7 +544,9 @@ export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
 
       // Default material properties
       const property = actor.getProperty();
-      property.setColor(0.75, 0.75, 0.75); // Gümüş rengi
+  property.setColor(0.75, 0.75, 0.75); // Gümüş rengi
+  if (displayState?.smooth) property.setInterpolationToPhong?.();
+  else property.setInterpolationToFlat?.();
       actorRef.current = actor;
 
       console.log("Yeni mapper ve aktör oluşturuldu.");
@@ -509,6 +565,14 @@ export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
         "Kamera sıfırlandı. Kamera pozisyonu:",
         rendererRef.current.getActiveCamera().getPosition()
       );
+
+      // Reapply display state (wireframe / grid / axes) after actor creation
+      if (displayState) {
+        window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled: displayState.wireframe } }));
+        window.dispatchEvent(new CustomEvent("toggleGrid", { detail: { enabled: displayState.grid } }));
+        window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled: displayState.axes } }));
+        window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled: displayState.smooth } }));
+      }
 
       // Son olarak, sahneyi render et
       renderWindowRef.current.render();

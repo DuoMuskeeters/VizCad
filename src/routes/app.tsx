@@ -15,8 +15,8 @@ import {
   Download,
   Share2,
   Eye,
-  Grid3X3,
   Palette,
+  Sun,
   Info,
   Camera,
   Lightbulb,
@@ -30,6 +30,7 @@ import {
   Navigation,
   Square,
   Maximize,
+  Move3d,
 } from "lucide-react";
 import { ScenesTab } from "@/components/tabs/sceneTabs";
 import { LightsTab } from "@/components/tabs/LightsTab";
@@ -74,6 +75,9 @@ function AppPage() {
   const [activeTab, setActiveTab] = useState("scenes");
   const [showUnavailableModal, setShowUnavailableModal] = useState(false);
   const [clickedFeature, setClickedFeature] = useState("");
+  const [wireframe, setWireframe] = useState(false);
+  const [axes, setAxes] = useState(true);
+  const [smooth, setSmooth] = useState(true);
 
   // Developer mode state (false=user view). Only Scenes tab enabled when false.
   const [isDeveloper, setIsDeveloper] = useState(false);
@@ -515,29 +519,35 @@ function AppPage() {
                           Display
                         </h4>
                         <div className="space-y-2">
-                          {[
-                            { label: "Wireframe", defaultChecked: false },
-                            { label: "Grid", defaultChecked: false },
-                            { label: "Axes", defaultChecked: true },
-                            { label: "Smooth Shading", defaultChecked: true },
-                          ].map((option) => (
-                            <div
-                              key={option.label}
-                              className="flex items-center justify-between"
-                            >
-                              <span className="text-xs text-gray-600">
-                                {option.label}
-                              </span>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  defaultChecked={option.defaultChecked}
-                                />
-                                <div className="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:bg-cyan-500 after:content-[''] after:absolute after:w-4 after:h-4 after:bg-white after:rounded-full after:shadow after:transition-all after:top-0 after:left-0 peer-checked:after:translate-x-full"></div>
-                              </label>
-                            </div>
-                          ))}
+                          {(["Wireframe", "Axes", "Smooth Shading"] as const).map((label) => {
+                            const checked = label === "Wireframe" ? wireframe : label === "Axes" ? axes : smooth;
+                            return (
+                              <div key={label} className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">{label}</span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      const enabled = e.target.checked;
+                                      if (label === "Wireframe") {
+                                        setWireframe(enabled);
+                                        window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled } }));
+                                      } else if (label === "Axes") {
+                                        setAxes(enabled);
+                                        window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled } }));
+                                      } else {
+                                        setSmooth(enabled);
+                                        window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled } }));
+                                      }
+                                    }}
+                                  />
+                                  <div className="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:bg-cyan-500 after:content-[''] after:absolute after:w-4 after:h-4 after:bg-white after:rounded-full after:shadow after:transition-all after:top-0 after:left-0 peer-checked:after:translate-x-full"></div>
+                                </label>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -629,22 +639,37 @@ function AppPage() {
                     {/* View Tools */}
                     <div className="flex items-center gap-1">
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
-                        title="Toggle Grid"
-                      >
-                        <Grid3X3 className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                        className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
                         title="Toggle Wireframe"
+                        onClick={() => {
+                          const next = !wireframe;
+                          setWireframe(next);
+                          window.dispatchEvent(new CustomEvent("toggleWireframe", { detail: { enabled: next } }));
+                        }}
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
-                        title="Material View"
+                        className={`p-2 rounded-full transition-all duration-200 ${axes ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+                        title="Toggle Axes"
+                        onClick={() => {
+                          const next = !axes;
+                          setAxes(next);
+                          window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled: next } }));
+                        }}
                       >
-                        <Palette className="h-4 w-4" />
+                        <Move3d className="h-4 w-4" />
+                      </button>
+                      <button
+                        className={`p-2 rounded-full transition-all duration-200 ${smooth ? "bg-cyan-500 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+                        title="Smooth / Flat Shading"
+                        onClick={() => {
+                          const next = !smooth;
+                          setSmooth(next);
+                          window.dispatchEvent(new CustomEvent("toggleSmoothShading", { detail: { enabled: next } }));
+                        }}
+                      >
+                        <Sun className="h-4 w-4" />
                       </button>
                     </div>
 
@@ -700,7 +725,7 @@ function AppPage() {
                   </div>
                 </div>
 
-                <VtkApp file={selectedFile} />
+                <VtkApp file={selectedFile} displayState={{ wireframe, grid: false, axes, smooth }} />
               </div>
             </div>
           ) : (

@@ -13,6 +13,8 @@ import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
 import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
 import vtkLight from "@kitware/vtk.js/Rendering/Core/Light";
 import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource";
+import vtkAxesActor from "@kitware/vtk.js/Rendering/Core/AxesActor";
+import vtkOrientationMarkerWidget from "@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget";
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 import vtkProp from "@kitware/vtk.js/Rendering/Core/Prop";
 
@@ -50,6 +52,12 @@ export function useVtkScene() {
   const lightsRef = useRef<vtkLight[]>([]);
   const floorActorRef = useRef<vtkProp | null>(null);
   const backgroundPlaneRef = useRef<vtkProp | null>(null);
+  const gridActorRef = useRef<vtkProp | null>(null);
+  const axesActorRef = useRef<vtkAxesActor | null>(null);
+  const axesWidgetRef = useRef<any | null>(null);
+  // Grid removed feature: keep refs only for cleanup if previously created
+  const gridPlaneSourcesRef = useRef<any[] | null>(null);
+  const gridSubscriptionsRef = useRef<any[] | null>(null);
 
   useEffect(() => {
     if (vtkContainerRef.current && !genericRenderWindowRef.current) {
@@ -294,6 +302,99 @@ export function useVtkScene() {
     // Render the scene
   };
 
+  // Display feature helpers
+  const setWireframe = (enabled: boolean) => {
+    if (!actorRef.current || !renderWindowRef.current) return;
+    const prop: any = (actorRef.current as any).getProperty?.();
+    if (!prop) return;
+    if (enabled) prop.setRepresentationToWireframe();
+    else prop.setRepresentationToSurface();
+    renderWindowRef.current.render();
+  };
+
+  const setSmoothShading = (enabled: boolean) => {
+    if (!actorRef.current || !renderWindowRef.current) return;
+    const prop: any = (actorRef.current as any).getProperty?.();
+    if (!prop) return;
+    if (enabled) {
+      // Recompute normals if possible for better smooth shading
+      try {
+        const mapper: any = (actorRef.current as any).getMapper?.();
+        const data = mapper?.getInputData?.();
+        if (data) {
+          import("@kitware/vtk.js/Filters/Core/PolyDataNormals").then((mod) => {
+            const normals = (mod as any).default.newInstance({ splitting: false });
+            normals.setInputData(data);
+            normals.update();
+            mapper.setInputData(normals.getOutputData());
+            prop.setInterpolationToPhong?.();
+            renderWindowRef.current!.render();
+          });
+        } else {
+          prop.setInterpolationToPhong?.();
+        }
+      } catch {
+        prop.setInterpolationToPhong?.();
+      }
+    } else {
+      prop.setInterpolationToFlat?.();
+    }
+    renderWindowRef.current.render();
+  };
+
+  const showGrid = (_enabled: boolean) => {
+    // Always ensure any existing grid actors are removed (feature disabled)
+    if (!rendererRef.current || !renderWindowRef.current) return;
+    if (gridActorRef.current) {
+      if ((gridActorRef.current as any).actors) {
+        (gridActorRef.current as any).actors.forEach((a: any) => {
+          rendererRef.current!.removeActor(a);
+          a.delete?.();
+        });
+      } else {
+        rendererRef.current.removeActor(gridActorRef.current as any);
+        (gridActorRef.current as any).delete?.();
+      }
+      gridActorRef.current = null;
+    }
+    gridPlaneSourcesRef.current = null;
+    if (gridSubscriptionsRef.current) {
+      gridSubscriptionsRef.current.forEach(s => s?.unsubscribe?.());
+      gridSubscriptionsRef.current = null;
+    }
+    rendererRef.current.resetCameraClippingRange();
+    renderWindowRef.current.render();
+  };
+
+  const showAxes = (enabled: boolean) => {
+    if (!rendererRef.current || !renderWindowRef.current || !genericRenderWindowRef.current) return;
+    if (enabled) {
+      if (axesWidgetRef.current) return; // already active
+      const axes = vtkAxesActor.newInstance();
+      (axes as any).setTotalLength?.(1.5, 1.5, 1.5);
+      axesActorRef.current = axes;
+      const widget = vtkOrientationMarkerWidget.newInstance({
+        actor: axes,
+        interactor: genericRenderWindowRef.current.getRenderWindow().getInteractor(),
+      });
+      widget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_LEFT);
+      widget.setViewportSize(0.18);
+      widget.setMinPixelSize(80);
+      widget.setMaxPixelSize(150);
+      widget.setEnabled(true);
+      axesWidgetRef.current = widget;
+    } else if (axesWidgetRef.current) {
+      axesWidgetRef.current.setEnabled(false);
+      axesWidgetRef.current.delete();
+      axesWidgetRef.current = null;
+      if (axesActorRef.current) {
+        (axesActorRef.current as any).delete?.();
+        axesActorRef.current = null;
+      }
+    }
+    renderWindowRef.current.render();
+  };
+
   return {
     rendererRef: rendererRef,
     renderWindowRef: renderWindowRef,
@@ -302,6 +403,9 @@ export function useVtkScene() {
     lightsRef,
     floorActorRef,
     backgroundPlaneRef,
+    gridActorRef,
+  axesActorRef,
+  axesWidgetRef,
     vtkContainerRef,
     actorRef,
     setBackground,
@@ -310,6 +414,10 @@ export function useVtkScene() {
     clearAllLights,
     clearFloor,
     clearBackgroundPlane,
-    applyStudioScene
+    applyStudioScene,
+    setWireframe,
+    setSmoothShading,
+    showGrid,
+    showAxes
   };
 }
