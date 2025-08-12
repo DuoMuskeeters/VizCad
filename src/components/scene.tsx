@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import type { RefObject } from "react";
-import vtkGenericRenderWindow from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow";
+import vtkGenericRenderWindow, { IGenericRenderWindowInitialValues } from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow";
 import type vtkRenderer from "@kitware/vtk.js/Rendering/Core/Renderer";
 import type vtkRenderWindow from "@kitware/vtk.js/Rendering/Core/RenderWindow";
 import vtkLight from "@kitware/vtk.js/Rendering/Core/Light";
@@ -31,8 +31,8 @@ export interface LightOptions {
 
 export function useVtkScene(containerRef: RefObject<HTMLDivElement>) {
   // Ref'leri daha spesifik tiplerle ve null başlangıç değeriyle tanımlıyoruz
-  const genericRenderWindowRef = useRef<any>(null);
-  const rendererRef = useRef<any>(null);
+  const genericRenderWindowRef = useRef<vtkGenericRenderWindow | null>(null);
+  const rendererRef = useRef<vtkRenderer | null>(null);
   const renderWindowRef = useRef<vtkRenderWindow | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export function useVtkScene(containerRef: RefObject<HTMLDivElement>) {
       renderWindowRef.current = grw.getRenderWindow();
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
-      rendererRef.current.getRenderWindow().render();
+      rendererRef.current.getRenderWindow()?.render();
       console.log("VTK scene initialized");
 
       // Cleanup function

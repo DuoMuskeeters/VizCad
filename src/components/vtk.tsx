@@ -8,21 +8,23 @@ import vtkLight from "@kitware/vtk.js/Rendering/Core/Light"
 import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource"
 import { useVtkScene } from "./scene"
 import "@kitware/vtk.js/Rendering/Profiles/Geometry"
+import vtkProp from "@kitware/vtk.js/Rendering/Core/Prop"
 
 interface VtkAppProps {
   file: File | null
+  viewMode?: string
 }
 
-export function VtkApp({ file }: VtkAppProps) {
+export function VtkApp({ file, viewMode = "orbit" }: VtkAppProps) {
   const vtkContainerRef = useRef<HTMLDivElement>(null!)
   const { renderer, renderWindow, setBackground, addLight, resize } = useVtkScene(vtkContainerRef)
 
-  const actorRef = useRef<any | null>(null)
-  const mapperRef = useRef<any | null>(null)
-  const readerRef = useRef<any | null>(null)
-  const lightsRef = useRef<any[]>([])
-  const floorActorRef = useRef<any | null>(null)
-  const backgroundPlaneRef = useRef<any | null>(null)
+  const actorRef = useRef<vtkProp | null>(null)
+  const mapperRef = useRef<vtkMapper | null>(null)
+  const readerRef = useRef<vtkSTLReader | null>(null)
+  const lightsRef = useRef<vtkLight[]>([])
+  const floorActorRef = useRef<vtkProp | null>(null)
+  const backgroundPlaneRef = useRef<vtkProp | null>(null)
 
   const [statusMessage, setStatusMessage] = useState<string>("Hazır. Lütfen bir STL dosyası seçin.")
 
@@ -31,7 +33,7 @@ export function VtkApp({ file }: VtkAppProps) {
     if (!renderer.current) return
 
     lightsRef.current.forEach((light) => {
-      renderer.current.removeLight(light)
+      renderer.current?.removeLight(light)
     })
     lightsRef.current = []
   }
@@ -191,7 +193,7 @@ export function VtkApp({ file }: VtkAppProps) {
     }
 
     // Render the scene
-  if (renderWindow.current) renderWindow.current.render()
+    renderWindow.current.render()
     console.log(`Applied studio scene: ${sceneId}`)
   }
 
@@ -235,9 +237,7 @@ export function VtkApp({ file }: VtkAppProps) {
       renderer.current.setBackground(rgb.r, rgb.g, rgb.b)
 
       // Render the scene
-      if (renderWindow.current) {
-  if (renderWindow.current) renderWindow.current.render()
-      }
+      renderWindow.current.render()
       console.log(`Applied custom background color: ${color}`)
     }
 
@@ -273,14 +273,14 @@ export function VtkApp({ file }: VtkAppProps) {
             }
             // Şeffaf arka plan için renderer clear color alpha'yı ayarlamak mümkün değil burada; sadece render et
             if (renderWindow.current) {
-              if (renderWindow.current) renderWindow.current.render()
+              renderWindow.current.render()
             }
 
             console.log("Background image applied successfully:", imageFile.name)
           } catch (error) {
             console.error("Error applying background image:", error)
             // Fallback to white background
-            renderer.current.setBackground(1, 1, 1)
+            renderer.current?.setBackground(1, 1, 1)
             renderWindow.current!.render()
           }
         }
@@ -288,7 +288,7 @@ export function VtkApp({ file }: VtkAppProps) {
         backgroundImage.onerror = () => {
           console.error("Failed to load background image")
           // Fallback to white background
-          renderer.current.setBackground(1, 1, 1)
+          renderer.current?.setBackground(1, 1, 1)
           renderWindow.current!.render()
         }
 
@@ -306,7 +306,7 @@ export function VtkApp({ file }: VtkAppProps) {
           vtkContainerRef.current.style.backgroundImage = "none"
         }
         renderer.current.setBackground(1, 1, 1)
-  if (renderWindow.current) renderWindow.current.render()
+        renderWindow.current.render()
       }
 
       console.log("Background image change processed")
@@ -389,13 +389,52 @@ export function VtkApp({ file }: VtkAppProps) {
       cam.setFocalPoint(...center)
       cam.setViewUp(...up)
       renderer.current.resetCameraClippingRange()
-      if (renderWindow.current) {
-  if (renderWindow.current) renderWindow.current.render()
-      }
+      renderWindow.current.render()
     }
 
     window.addEventListener("setView", handleSetView as EventListener)
     return () => window.removeEventListener("setView", handleSetView as EventListener)
+  }, [renderer, renderWindow])
+
+  // Listen for zoom events
+  useEffect(() => {
+    const handleZoomIn = () => {
+      if (!renderer.current || !renderWindow.current) return
+      const camera = renderer.current.getActiveCamera()
+      camera.zoom(1.2)
+      renderWindow.current.render()
+    }
+
+    const handleZoomOut = () => {
+      if (!renderer.current || !renderWindow.current) return
+      const camera = renderer.current.getActiveCamera()
+      camera.zoom(0.8)
+      renderWindow.current.render()
+    }
+
+    const handleZoomToFit = () => {
+      if (!renderer.current || !renderWindow.current) return
+      renderer.current.resetCamera()
+      renderer.current.resetCameraClippingRange()
+      renderWindow.current.render()
+    }
+
+    const handleBoxZoom = () => {
+      // Box zoom implementation would require more complex interaction handling
+      console.log("Box zoom activated - drag to select area")
+    }
+
+    window.addEventListener("zoomIn", handleZoomIn)
+    window.addEventListener("zoomOut", handleZoomOut)
+    window.addEventListener("zoomToFit", handleZoomToFit)
+    window.addEventListener("boxZoom", handleBoxZoom)
+
+    return () => {
+      window.removeEventListener("zoomIn", handleZoomIn)
+      window.removeEventListener("zoomOut", handleZoomOut)
+      window.removeEventListener("zoomToFit", handleZoomToFit)
+      window.removeEventListener("boxZoom", handleBoxZoom)
+    }
   }, [renderer, renderWindow])
 
   // Listen for camera reset events
@@ -429,7 +468,7 @@ export function VtkApp({ file }: VtkAppProps) {
       camera.setFocalPoint(...center)
       camera.setViewUp(...up)
       renderer.current.resetCameraClippingRange()
-  if (renderWindow.current) renderWindow.current.render()
+      renderWindow.current.render()
     }
 
     window.addEventListener("resetCamera", handleResetCamera)
@@ -454,11 +493,14 @@ export function VtkApp({ file }: VtkAppProps) {
     return () => window.removeEventListener("resize", handleWindowResize)
   }, [resize])
 
-  // Zoom kontrolü için useEffect ekle
+  // Enhanced zoom kontrolü için useEffect ekle
   useEffect(() => {
     if (!renderer.current || !renderWindow.current) return
 
     const handleWheel = (event: WheelEvent) => {
+      // Only handle wheel events in zoom mode or default orbit mode
+      if (viewMode !== "zoom" && viewMode !== "orbit") return
+
       event.preventDefault()
 
       const camera = renderer.current.getActiveCamera()
@@ -476,8 +518,8 @@ export function VtkApp({ file }: VtkAppProps) {
       const newDistance = currentDistance * zoomFactor
 
       // Zoom sınırları (minimum ve maksimum mesafe)
-      const minDistance = 0.5
-      const maxDistance = 50
+      const minDistance = 0.1
+      const maxDistance = 100
 
       // Sınırları kontrol et
       if (newDistance < minDistance || newDistance > maxDistance) {
@@ -494,7 +536,8 @@ export function VtkApp({ file }: VtkAppProps) {
 
       camera.setPosition(...newPosition)
       renderer.current.resetCameraClippingRange()
-  if (renderWindow.current) renderWindow.current.render()
+      
+      renderWindow.current?.render()
     }
 
     const container = vtkContainerRef.current
@@ -505,7 +548,7 @@ export function VtkApp({ file }: VtkAppProps) {
         container.removeEventListener("wheel", handleWheel)
       }
     }
-  }, [renderer, renderWindow])
+  }, [renderer, renderWindow, viewMode])
 
   // Container boyut değişikliklerini izle
   useEffect(() => {
@@ -517,6 +560,7 @@ export function VtkApp({ file }: VtkAppProps) {
         resize()
       }, 100)
     })
+    
 
     resizeObserver.observe(vtkContainerRef.current)
 
@@ -573,7 +617,10 @@ export function VtkApp({ file }: VtkAppProps) {
 
       const actor = vtkActor.newInstance()
       actor.setMapper(mapper)
-      actor.getProperty().setColor(0.75, 0.75, 0.75) // Gümüş rengi
+
+      // Default material properties
+      const property = actor.getProperty()
+      property.setColor(0.75, 0.75, 0.75) // Gümüş rengi
       actorRef.current = actor
 
       console.log("Yeni mapper ve aktör oluşturuldu.")
@@ -619,14 +666,30 @@ export function VtkApp({ file }: VtkAppProps) {
   }, [])
 
   return (
-  <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden min-h-0">
+    <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
       <div
         ref={vtkContainerRef}
-    className="w-full h-full flex-1 min-h-0 min-w-0"
-    style={{ touchAction: "none" }}
+        className="w-full h-full flex-grow min-h-[400px]"
+        style={{
+          touchAction: "none",
+          minWidth: "300px",
+          maxWidth: "100%",
+          maxHeight: "100vh",
+          cursor:
+            viewMode === "pan"
+              ? "grab"
+              : viewMode === "zoom"
+                ? "zoom-in"
+                : viewMode === "select"
+                  ? "pointer"
+                  : "default",
+        }}
       />
       <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
-        {statusMessage}
+        <div className="flex items-center justify-between">
+          <span>{statusMessage}</span>
+          <span className="text-gray-500">Mode: {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}</span>
+        </div>
       </div>
     </div>
   )
