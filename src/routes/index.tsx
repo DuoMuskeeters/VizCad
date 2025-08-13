@@ -1,7 +1,6 @@
-"use client";
-
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 import {
   ArrowRight,
   Box,
@@ -28,10 +27,30 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
+  // Prevent automatic scrolling to video section on page load
+  useEffect(() => {
+    // Clear any hash in URL that might cause auto-scroll
+    if (window.location.hash === '#video-demo') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    // Scroll to top on component mount
+    window.scrollTo(0, 0);
+  }, []);
+
   const scrollToVideo = () => {
     const videoSection = document.getElementById("video-demo");
     if (videoSection) {
       videoSection.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }
+  };
+
+  const handlePlayVideo = () => {
+    const video = document.getElementById("demo-video") as HTMLVideoElement;
+    const playButton = document.getElementById("video-play-button");
+    
+    if (video && playButton) {
+      video.play();
+      playButton.style.display = 'none';
     }
   };
 
@@ -216,16 +235,48 @@ function HomePage() {
 
           <div className="relative max-w-5xl mx-auto">
             <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200">
-              <div className="aspect-video relative">
+              <div className="aspect-video relative bg-gray-900">
                 <video 
+                  id="demo-video"
                   className="w-full h-full object-cover"
-                  controls
                   preload="metadata"
-                  poster="/video-poster.jpg"
+                  onPlay={() => {
+                    const playButton = document.getElementById("video-play-button");
+                    if (playButton) playButton.style.display = 'none';
+                  }}
+                  onPause={() => {
+                    const playButton = document.getElementById("video-play-button");
+                    if (playButton) playButton.style.display = 'flex';
+                  }}
+                  onEnded={() => {
+                    const playButton = document.getElementById("video-play-button");
+                    if (playButton) playButton.style.display = 'flex';
+                  }}
                 >
                   <source src="/video.mp4" type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
+                
+                {/* Custom Play Button Overlay */}
+                <div 
+                  id="video-play-button"
+                  className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer group"
+                  onClick={handlePlayVideo}
+                >
+                  <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
+                    <Play className="w-12 h-12 text-white ml-1" />
+                  </div>
+                </div>
+
+                {/* Video Info Overlay */}
+                <div className="absolute bottom-4 left-4 text-white">
+                  <h3 className="text-xl font-semibold mb-1">
+                    3D Model to Render in 60 Seconds
+                  </h3>
+                  <p className="text-gray-300">
+                    From upload to professional visualization
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -506,7 +557,7 @@ function HomePage() {
                     24/7
                   </div>
                   <div className="text-gray-600">Available</div>
-                </div>
+                </div>  
               </div> */}
             </div>
 
