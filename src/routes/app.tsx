@@ -140,7 +140,10 @@ function AppPage() {
   };
 
   // VTK renderer.resetCamera() mantığını tetikleyecek (yönü koruyarak fit eden) özel event
-  const handleCameraFitAll = () => {};
+  const handleCameraFitAll = () => {
+    // Current camera orientation preserved; VtkApp listener uses resetCamera which fits bounds.
+    window.dispatchEvent(new CustomEvent("zoomToFit"));
+  };
 
   // Tab definitions (Scenes always available; others depend on dev mode)
   const tabs = [
@@ -794,16 +797,6 @@ function AppPage() {
                         }}
                       >
                         <ZoomOut className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title="Box Zoom"
-                        onClick={() => {
-                          const event = new CustomEvent("boxZoom");
-                          window.dispatchEvent(event);
-                        }}
-                      >
-                        <Square className="h-4 w-4" />
                       </button>
                       <button
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"

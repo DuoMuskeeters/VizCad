@@ -44,7 +44,6 @@ export function ScenesTab({
   const [selectedStudio, setSelectedStudio] = useState("plain-white")
   const [customColor, setCustomColor] = useState("#ffffff")
   const [showColorPicker, setShowColorPicker] = useState(false)
-  const [backgroundImage, setBackgroundImage] = useState<File | null>(null)
   const [currentMode, setCurrentMode] = useState<"studio" | "custom">("studio")
   const [currentBackgroundMode, setCurrentBackgroundMode] = useState<"studio" | "custom-color" | "custom-image">(
     "studio",
@@ -89,7 +88,7 @@ export function ScenesTab({
   const applyStudioScene = (sceneId: string) => {
     setSelectedStudio(sceneId)
     setCurrentBackgroundMode("studio")
-    setBackgroundImage(null) // Clear background image
+  // background image özelliği kaldırıldı
 
     // Studio scene event'i gönder
     const event = new CustomEvent("applyStudioScene", {
@@ -102,7 +101,7 @@ export function ScenesTab({
   const applyCustomBackground = (color: string) => {
     setCustomColor(color)
     setCurrentBackgroundMode("custom-color")
-    setBackgroundImage(null) // Clear background image
+  // background image özelliği kaldırıldı
 
     // Custom background event'i gönder
     const event = new CustomEvent("applyCustomBackground", {
@@ -111,11 +110,6 @@ export function ScenesTab({
     window.dispatchEvent(event)
   }
 
-  const handleBackgroundImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      applyBackgroundImage(e.target.files[0])
-    }
-  }
 
   const openBackgroundDialog = () => {
     backgroundInputRef.current?.click()
@@ -145,26 +139,6 @@ export function ScenesTab({
     }
   }
 
-  // Background image uygulama fonksiyonu
-  const applyBackgroundImage = (imageFile: File) => {
-    setBackgroundImage(imageFile)
-    setCurrentBackgroundMode("custom-image")
-
-    // Background image event'i gönder
-    const event = new CustomEvent("applyBackgroundImage", {
-      detail: { imageFile, timestamp: Date.now() },
-    })
-    window.dispatchEvent(event)
-  }
-
-  // Background image temizleme fonksiyonu
-  const clearBackgroundImage = () => {
-    setBackgroundImage(null)
-    if (currentBackgroundMode === "custom-image") {
-      // Revert to default studio scene
-      applyStudioScene("plain-white")
-    }
-  }
 
   return (
     <div className="p-4 space-y-6">
@@ -232,7 +206,7 @@ export function ScenesTab({
               <div
                 className="w-12 h-8 rounded-md border-2 border-gray-300 cursor-pointer shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
                 style={{ backgroundColor: customColor }}
-                onClick={() => applyCustomBackground(customColor)} // Aynı rengi tekrar uygula
+                onClick={() => setShowColorPicker(!showColorPicker)} // Artık paleti aç/kapat
               ></div>
               <input
                 type="text"
@@ -351,61 +325,6 @@ export function ScenesTab({
             )}
           </div>
 
-          {/* Background Image Section */}
-          <div>
-            <label className="text-xs text-gray-600 mb-2 block">Background Image</label>
-            <div
-              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-                currentBackgroundMode === "custom-image"
-                  ? "border-cyan-500 bg-cyan-50"
-                  : "border-gray-300 hover:border-gray-400"
-              }`}
-              onClick={openBackgroundDialog}
-            >
-              {backgroundImage ? (
-                <div className="space-y-2">
-                  <ImageIcon className="h-6 w-6 text-cyan-500 mx-auto" />
-                  <div className="text-xs text-gray-700 font-medium">{backgroundImage.name}</div>
-                  <div className="text-xs text-cyan-600">Active background image</div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <ImageIcon className="h-6 w-6 text-gray-400 mx-auto" />
-                  <div className="text-xs text-gray-600">Click to upload background image</div>
-                  <div className="text-xs text-gray-500">JPG, PNG, WebP supported</div>
-                </div>
-              )}
-            </div>
-            <input
-              ref={backgroundInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleBackgroundImageChange}
-            />
-            {backgroundImage && (
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs px-3 py-1 bg-transparent flex-1"
-                  onClick={openBackgroundDialog}
-                >
-                  <Edit3 className="h-3 w-3 mr-1" />
-                  Change
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs px-3 py-1 bg-transparent text-red-600 hover:text-red-700 hover:border-red-300"
-                  onClick={clearBackgroundImage}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Remove
-                </Button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -424,20 +343,13 @@ export function ScenesTab({
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Background</span>
             <div className="flex items-center gap-2">
-              {currentBackgroundMode === "custom-image" && backgroundImage ? (
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-cyan-500" />
-                  <span className="text-gray-900 font-medium">Custom Image</span>
-                </div>
-              ) : (
-                <>
-                  <div
-                    className="w-4 h-4 rounded border border-gray-300"
-                    style={{ backgroundColor: getCurrentBackgroundColor() }}
-                  ></div>
-                  <span className="text-gray-900 font-medium">{getCurrentBackgroundColor()}</span>
-                </>
-              )}
+              <>
+                <div
+                  className="w-4 h-4 rounded border border-gray-300"
+                  style={{ backgroundColor: getCurrentBackgroundColor() }}
+                ></div>
+                <span className="text-gray-900 font-medium">{getCurrentBackgroundColor()}</span>
+              </>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs">

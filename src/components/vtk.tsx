@@ -2,11 +2,8 @@ import { useRef, useEffect, useState } from "react";
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
 import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
-import vtkLight from "@kitware/vtk.js/Rendering/Core/Light";
-import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource";
 import { useVtkScene } from "./scene";
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
-import vtkProp from "@kitware/vtk.js/Rendering/Core/Prop";
 
 interface DisplayState {
   wireframe: boolean;
@@ -175,85 +172,6 @@ export function VtkApp({
     };
   }, [rendererRef, renderWindowRef]);
 
-  // Listen for background image changes
-  useEffect(() => {
-    const handleBackgroundImageChange = (event: CustomEvent) => {
-      if (!rendererRef.current || !renderWindowRef.current) return;
-
-      const { imageFile } = event.detail;
-
-      if (imageFile) {
-        // Create image element
-        const backgroundImage = new Image();
-        backgroundImage.crossOrigin = "anonymous";
-
-        backgroundImage.onload = () => {
-          try {
-            // Clear any existing background plane (if any)
-            clearBackgroundPlane();
-
-            // VTK renderWindowRef'da native background image API yok; container div'e CSS background uygula
-            if (vtkContainerRef.current) {
-              vtkContainerRef.current.style.backgroundImage = `url('${backgroundImage.src}')`;
-              vtkContainerRef.current.style.backgroundSize = "cover";
-              vtkContainerRef.current.style.backgroundPosition = "center";
-            }
-            // Şeffaf arka plan için rendererRef clear color alpha'yı ayarlamak mümkün değil burada; sadece render et
-            if (renderWindowRef.current) {
-              renderWindowRef.current.render();
-            }
-
-            console.log(
-              "Background image applied successfully:",
-              imageFile.name
-            );
-          } catch (error) {
-            console.error("Error applying background image:", error);
-            // Fallback to white background
-            rendererRef.current?.setBackground(1, 1, 1);
-            renderWindowRef.current!.render();
-          }
-        };
-
-        backgroundImage.onerror = () => {
-          console.error("Failed to load background image");
-          // Fallback to white background
-          rendererRef.current?.setBackground(1, 1, 1);
-          renderWindowRef.current!.render();
-        };
-
-        // Load image from file
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            backgroundImage.src = e.target.result as string;
-          }
-        };
-        reader.readAsDataURL(imageFile);
-      } else {
-        // Clear background image - revert to solid color background
-        if (vtkContainerRef.current) {
-          vtkContainerRef.current.style.backgroundImage = "none";
-        }
-        rendererRef.current.setBackground(1, 1, 1);
-        renderWindowRef.current.render();
-      }
-
-      console.log("Background image change processed");
-    };
-
-    window.addEventListener(
-      "applyBackgroundImage",
-      handleBackgroundImageChange as EventListener
-    );
-
-    return () => {
-      window.removeEventListener(
-        "applyBackgroundImage",
-        handleBackgroundImageChange as EventListener
-      );
-    };
-  }, [rendererRef, renderWindowRef]);
 
   // Listen for camera view change events
   useEffect(() => {
@@ -433,21 +351,14 @@ export function VtkApp({
       renderWindowRef.current.render();
     };
 
-    const handleBoxZoom = () => {
-      // Box zoom implementation would require more complex interaction handling
-      console.log("Box zoom activated - drag to select area");
-    };
-
     window.addEventListener("zoomIn", handleZoomIn);
     window.addEventListener("zoomOut", handleZoomOut);
     window.addEventListener("zoomToFit", handleZoomToFit);
-    window.addEventListener("boxZoom", handleBoxZoom);
 
     return () => {
       window.removeEventListener("zoomIn", handleZoomIn);
       window.removeEventListener("zoomOut", handleZoomOut);
       window.removeEventListener("zoomToFit", handleZoomToFit);
-      window.removeEventListener("boxZoom", handleBoxZoom);
     };
   }, [rendererRef, renderWindowRef]);
 

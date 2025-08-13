@@ -67,7 +67,7 @@ export function useVtkScene() {
       genericRenderWindowRef.current = grw;
       rendererRef.current = grw.getRenderer();
       renderWindowRef.current = grw.getRenderWindow();
-      
+
       // View lock event (disable interactor to freeze camera)
       const handleViewLock = (e: CustomEvent) => {
         viewLockedRef.current = !!e.detail.enabled;
@@ -77,7 +77,10 @@ export function useVtkScene() {
           else interactor?.enable?.();
         } catch {}
       };
-      window.addEventListener("toggleViewLock", handleViewLock as EventListener);
+      window.addEventListener(
+        "toggleViewLock",
+        handleViewLock as EventListener
+      );
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
       rendererRef.current.getRenderWindow()?.render();
@@ -86,7 +89,10 @@ export function useVtkScene() {
       // Cleanup function
       return () => {
         console.log("Cleaning up VTK scene...");
-        window.removeEventListener("toggleViewLock", handleViewLock as EventListener);
+        window.removeEventListener(
+          "toggleViewLock",
+          handleViewLock as EventListener
+        );
         if (genericRenderWindowRef.current) {
           genericRenderWindowRef.current.delete();
           genericRenderWindowRef.current = null;
@@ -130,6 +136,7 @@ export function useVtkScene() {
     backgroundPlaneRef.current.delete();
     backgroundPlaneRef.current = null;
   };
+
 
   const addLight = (type: LightType, options: LightOptions = {}) => {
     if (!rendererRef.current || !renderWindowRef.current) {
@@ -184,70 +191,70 @@ export function useVtkScene() {
     clearAllLights();
     clearFloor();
     clearBackgroundPlane();
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+
+    // Helper for adding a light & tracking
+    const addSceneLight = (config: {
+      position?: [number, number, number];
+      focalPoint?: [number, number, number];
+      color?: [number, number, number];
+      intensity?: number;
+      type?: "scene" | "head" | "camera";
+    }) => {
+      const l = vtkLight.newInstance();
+      switch (config.type) {
+        case "head":
+          l.setLightTypeToHeadLight();
+          break;
+        case "camera":
+          l.setLightTypeToCameraLight();
+          break;
+        default:
+          l.setLightTypeToSceneLight();
+      }
+      if (config.position) l.setPosition(...config.position);
+      if (config.focalPoint) l.setFocalPoint(...config.focalPoint);
+      if (config.color) l.setColor(...config.color);
+      if (config.intensity !== undefined) l.setIntensity(config.intensity);
+      renderer.addLight(l);
+      lightsRef.current.push(l);
+      return l;
+    };
+
+    // Not: Gradient destek metodu tip tanımında yok; sadece düz background kullanılıyor.
 
     switch (sceneId) {
-      case "plain-white":
-        // Arka planı saf beyaza ayarla
-        rendererRef.current?.setBackground(1, 1, 1); // RGB(255, 255, 255)
-
-        // Ortam ışığı ekle (çok hafif)
-        const ambientLight1 = vtkLight.newInstance();
-        ambientLight1.setLightTypeToSceneLight();
-        ambientLight1.setColor(0.1, 0.1, 0.1); // Çok hafif gri
-        ambientLight1.setIntensity(0.1);
-        rendererRef.current?.addLight(ambientLight1);
-        lightsRef.current.push(ambientLight1);
-
-        // Ana yönlü ışık ekle (sağ üstten, yumuşak)
-        const directionalLight1 = vtkLight.newInstance();
-        directionalLight1.setLightTypeToSceneLight();
-        directionalLight1.setPosition(10, 10, 10); // Sağ üstten
-        directionalLight1.setFocalPoint(0, 0, 0); // Merkeze doğru bakar
-        directionalLight1.setColor(1, 1, 1); // Beyaz ışık
-        directionalLight1.setIntensity(0.9); // Yeterli yoğunlukta
-        rendererRef.current?.addLight(directionalLight1);
-        lightsRef.current.push(directionalLight1);
+      case "plain-white": {
+        renderer.setBackground(1, 1, 1);
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 });
+        addSceneLight({
+          position: [10, 10, 10],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.9,
+        });
         break;
-
-      case "3point-faded":
-        // Arka planı dikey degradeye ayarla
-        rendererRef.current?.setBackground(0.941, 0.941, 0.961);
-        rendererRef.current?.setBackground2(1, 1, 1);
-
-        // Ortam ışığı ekle (yeterli miktarda)
-        const ambientLight2 = vtkLight.newInstance();
-        ambientLight2.setLightTypeToSceneLight();
-        ambientLight2.setColor(0.3, 0.3, 0.3); // Orta gri
-        ambientLight2.setIntensity(0.3);
-        rendererRef.current?.addLight(ambientLight2);
-        lightsRef.current.push(ambientLight2);
-
-        // Ana yönlü ışık ekle (sağ üstten)
-        const mainDirectionalLight = vtkLight.newInstance();
-        mainDirectionalLight.setLightTypeToSceneLight();
-        mainDirectionalLight.setPosition(10, 10, 10);
-        mainDirectionalLight.setFocalPoint(0, 0, 0);
-        mainDirectionalLight.setColor(1, 1, 1);
-        mainDirectionalLight.setIntensity(0.8);
-        rendererRef.current?.addLight(mainDirectionalLight);
-        lightsRef.current.push(mainDirectionalLight);
-
-        // Ek dolgu ışığı (sol alttan, çok hafif)
-        const fillLight = vtkLight.newInstance();
-        fillLight.setLightTypeToSceneLight();
-        fillLight.setPosition(-10, -10, 5);
-        fillLight.setFocalPoint(0, 0, 0);
-        fillLight.setColor(1, 1, 1);
-        fillLight.setIntensity(0.2);
-        rendererRef.current?.addLight(fillLight);
-        lightsRef.current.push(fillLight);
+      }
+      case "3point-faded": {
+        renderer.setBackground(0.96, 0.96, 0.975); // Tek ton yerine hafif açık gri
+        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
+        addSceneLight({
+          position: [10, 10, 10],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.8,
+        });
+        addSceneLight({
+          position: [-10, -10, 5],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.2,
+        });
         break;
-
-      case "simple-office":
-        // Arka plan rengi (açık gri duvarlar için)
-        rendererRef.current?.setBackground(0.9, 0.9, 0.9);
-
-        // Zemin oluştur ve rengini ayarla
+      }
+      case "simple-office": {
+        renderer.setBackground(0.9, 0.9, 0.9);
         const floorSource = vtkPlaneSource.newInstance({
           xResolution: 10,
           yResolution: 10,
@@ -255,63 +262,45 @@ export function useVtkScene() {
         floorSource.setOrigin(-5, -5, -1);
         floorSource.setPoint1(5, -5, -1);
         floorSource.setPoint2(-5, 5, -1);
-
         const floorMapper = vtkMapper.newInstance();
         floorMapper.setInputConnection(floorSource.getOutputPort());
-
         const floorActor = vtkActor.newInstance();
         floorActor.setMapper(floorMapper);
-        floorActor.getProperty().setColor(0.8, 0.8, 0.8); // Açık gri zemin
-        rendererRef.current?.addActor(floorActor);
+        floorActor.getProperty().setColor(0.8, 0.8, 0.8);
+        renderer.addActor(floorActor);
         floorActorRef.current = floorActor;
-
-        // Ortam ışığı ekle (genel aydınlık)
-        const ambientLight3 = vtkLight.newInstance();
-        ambientLight3.setLightTypeToSceneLight();
-        ambientLight3.setColor(0.2, 0.2, 0.2);
-        ambientLight3.setIntensity(0.2);
-        rendererRef.current?.addLight(ambientLight3);
-        lightsRef.current.push(ambientLight3);
-
-        // Doğal pencere ışığı (geniş ve yumuşak, sol üstten)
-        const windowLight = vtkLight.newInstance();
-        windowLight.setLightTypeToSceneLight();
-        windowLight.setPosition(-10, 5, 10); // Sol üstten gelen ışık
-        windowLight.setFocalPoint(0, 0, 0);
-        windowLight.setColor(0.95, 0.95, 1); // Hafif mavimsi beyaz (gün ışığı)
-        windowLight.setIntensity(0.8);
-        rendererRef.current?.addLight(windowLight);
-        lightsRef.current.push(windowLight);
+        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 });
+        addSceneLight({
+          position: [-10, 5, 10],
+          focalPoint: [0, 0, 0],
+          color: [0.95, 0.95, 1],
+          intensity: 0.8,
+        });
         break;
-
-      case "warm-studio":
-        // Arka planı sıcak bej tonuna ayarla
-        rendererRef.current?.setBackground(0.98, 0.96, 0.9); // RGB(250, 245, 230)
-
-        const warmAmbientLight = vtkLight.newInstance();
-        warmAmbientLight.setLightTypeToSceneLight();
-        warmAmbientLight.setColor(0.8, 0.7, 0.6); // Sıcak, hafif turuncumsu
-        warmAmbientLight.setIntensity(0.7); // Yüksek yoğunlukta ortam ışığı
-        rendererRef.current?.addLight(warmAmbientLight);
-        lightsRef.current.push(warmAmbientLight);
-
-        // Yumuşak ana ışık (düşük kontrast)
-        const softMainLight = vtkLight.newInstance();
-        softMainLight.setLightTypeToSceneLight();
-        softMainLight.setPosition(8, 8, 8);
-        softMainLight.setFocalPoint(0, 0, 0);
-        softMainLight.setColor(1, 0.95, 0.9); // Hafif sarımsı beyaz
-        softMainLight.setIntensity(0.5); // Orta yoğunluk
-        rendererRef.current?.addLight(softMainLight);
-        lightsRef.current.push(softMainLight);
+      }
+      case "warm-studio": {
+        renderer.setBackground(0.98, 0.96, 0.9);
+        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 });
+        addSceneLight({
+          position: [8, 8, 8],
+          focalPoint: [0, 0, 0],
+          color: [1, 0.95, 0.9],
+          intensity: 0.5,
+        });
         break;
-
-      default:
-        // Default to plain white
-        rendererRef.current?.setBackground(1, 1, 1);
+      }
+      default: {
+        renderer.setBackground(1, 1, 1);
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 });
         break;
+      }
     }
-    // Render the scene
+
+    // Camera clipping range & redraw
+    if (rendererRef.current && renderWindowRef.current) {
+      rendererRef.current.resetCameraClippingRange();
+      renderWindowRef.current.render();
+    }
   };
 
   // Display feature helpers
@@ -335,7 +324,9 @@ export function useVtkScene() {
         const data = mapper?.getInputData?.();
         if (data) {
           import("@kitware/vtk.js/Filters/Core/PolyDataNormals").then((mod) => {
-            const normals = (mod as any).default.newInstance({ splitting: false });
+            const normals = (mod as any).default.newInstance({
+              splitting: false,
+            });
             normals.setInputData(data);
             normals.update();
             mapper.setInputData(normals.getOutputData());
@@ -370,7 +361,7 @@ export function useVtkScene() {
     }
     gridPlaneSourcesRef.current = null;
     if (gridSubscriptionsRef.current) {
-      gridSubscriptionsRef.current.forEach(s => s?.unsubscribe?.());
+      gridSubscriptionsRef.current.forEach((s) => s?.unsubscribe?.());
       gridSubscriptionsRef.current = null;
     }
     rendererRef.current.resetCameraClippingRange();
@@ -378,7 +369,12 @@ export function useVtkScene() {
   };
 
   const showAxes = (enabled: boolean) => {
-    if (!rendererRef.current || !renderWindowRef.current || !genericRenderWindowRef.current) return;
+    if (
+      !rendererRef.current ||
+      !renderWindowRef.current ||
+      !genericRenderWindowRef.current
+    )
+      return;
     if (enabled) {
       if (axesWidgetRef.current) return; // already active
       const axes = vtkAxesActor.newInstance();
@@ -386,7 +382,9 @@ export function useVtkScene() {
       axesActorRef.current = axes;
       const widget = vtkOrientationMarkerWidget.newInstance({
         actor: axes,
-        interactor: genericRenderWindowRef.current.getRenderWindow().getInteractor(),
+        interactor: genericRenderWindowRef.current
+          .getRenderWindow()
+          .getInteractor(),
       });
       widget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_LEFT);
       widget.setViewportSize(0.18);
@@ -409,25 +407,32 @@ export function useVtkScene() {
   // Capture current render as image (PNG/JPEG) using VTK captureImages if available
   const captureImage = async (options?: {
     scale?: number;
-    format?: 'png' | 'jpeg';
+    format?: "png" | "jpeg";
     quality?: number; // 0-1 for jpeg
     filename?: string;
   }): Promise<boolean> => {
     const scale = options?.scale ?? 1;
-    const format = options?.format ?? 'png';
+    const format = options?.format ?? "png";
     const quality = options?.quality ?? 0.95;
-    const filename = options?.filename ?? `vizcad-render-${new Date().toISOString().replace(/[:.]/g,'-')}`;
+    const filename =
+      options?.filename ??
+      `vizcad-render-${new Date().toISOString().replace(/[:.]/g, "-")}`;
     if (!renderWindowRef.current || !vtkContainerRef.current) return false;
     try {
       const rw: any = renderWindowRef.current;
       // Preferred path
       if (rw.captureImages) {
         rw.render?.();
-        const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-        const imgs: string[] = await rw.captureImages({ scale, format: mime, mimeType: mime, quality });
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        const imgs: string[] = await rw.captureImages({
+          scale,
+          format: mime,
+          mimeType: mime,
+          quality,
+        });
         const uri = imgs?.[0];
         if (uri) {
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = uri;
           a.download = `${filename}-scale${scale}.${format}`;
           document.body.appendChild(a);
@@ -437,10 +442,14 @@ export function useVtkScene() {
         }
       }
       // Fallback canvas
-      const canvas: HTMLCanvasElement | null = vtkContainerRef.current.querySelector('canvas');
+      const canvas: HTMLCanvasElement | null =
+        vtkContainerRef.current.querySelector("canvas");
       if (!canvas) return false;
-      const dataURL = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', quality);
-      const a = document.createElement('a');
+      const dataURL = canvas.toDataURL(
+        format === "jpeg" ? "image/jpeg" : "image/png",
+        quality
+      );
+      const a = document.createElement("a");
       a.href = dataURL;
       a.download = `${filename}.${format}`;
       document.body.appendChild(a);
@@ -461,13 +470,13 @@ export function useVtkScene() {
     floorActorRef,
     backgroundPlaneRef,
     gridActorRef,
-  axesActorRef,
-  axesWidgetRef,
+    axesActorRef,
+    axesWidgetRef,
     vtkContainerRef,
     actorRef,
     setBackground,
     addLight,
-    resize, 
+    resize,
     clearAllLights,
     clearFloor,
     clearBackgroundPlane,
@@ -475,7 +484,7 @@ export function useVtkScene() {
     setWireframe,
     setSmoothShading,
     showGrid,
-    showAxes
-  ,captureImage
+    showAxes,
+    captureImage,
   };
 }
