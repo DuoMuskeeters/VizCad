@@ -30,6 +30,7 @@ import {
   Square,
   Maximize,
   Move3d,
+  Box,
 } from "lucide-react";
 import { ScenesTab } from "@/components/tabs/sceneTabs";
 import { LightsTab } from "@/components/tabs/LightsTab";
@@ -61,6 +62,7 @@ function AppPage() {
     clearFloor,
     clearBackgroundPlane,
     applyStudioScene,
+    captureImage
   } = useVtkScene();
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 100, y: 100 });
@@ -77,6 +79,7 @@ function AppPage() {
   const [wireframe, setWireframe] = useState(false);
   const [axes, setAxes] = useState(false);
   const [smooth, setSmooth] = useState(false);
+  const [perspective, setPerspective] = useState(false); // default parallel
   const [viewLocked, setViewLocked] = useState(false);
 
   // captureScreenshot kaldırıldı; artık hook içindeki captureImage kullanılacak.
@@ -175,6 +178,7 @@ function AppPage() {
           onDrop={handleDrop}
           isDragOver={isDragOver}
           selectedFile={selectedFile}
+          perspective={perspective}
         />
       );
     }
@@ -190,6 +194,7 @@ function AppPage() {
             onDrop={handleDrop}
             isDragOver={isDragOver}
             selectedFile={selectedFile}
+            perspective={perspective}
           />
         );
       case "lights":
@@ -210,6 +215,7 @@ function AppPage() {
             onDrop={handleDrop}
             isDragOver={isDragOver}
             selectedFile={selectedFile}
+            perspective={perspective}
           />
         );
     }
@@ -522,14 +528,21 @@ function AppPage() {
                         </h4>
                         <div className="space-y-2">
                           {(
-                            ["Wireframe", "Axes", "Smooth Shading"] as const
+                            [
+                              "Wireframe",
+                              "Axes",
+                              "Smooth Shading",
+                              "Perspective",
+                            ] as const
                           ).map((label) => {
                             const checked =
                               label === "Wireframe"
                                 ? wireframe
                                 : label === "Axes"
                                 ? axes
-                                : smooth;
+                                : label === "Smooth Shading"
+                                ? smooth
+                                : perspective;
                             return (
                               <div
                                 key={label}
@@ -559,12 +572,20 @@ function AppPage() {
                                             detail: { enabled },
                                           })
                                         );
-                                      } else {
+                                      } else if (label === "Smooth Shading") {
                                         setSmooth(enabled);
                                         window.dispatchEvent(
                                           new CustomEvent(
                                             "toggleSmoothShading",
                                             { detail: { enabled } }
+                                          )
+                                        );
+                                      } else if (label === "Perspective") {
+                                        setPerspective(enabled);
+                                        window.dispatchEvent(
+                                          new CustomEvent(
+                                            "toggleProjection",
+                                            { detail: { perspective: enabled } }
                                           )
                                         );
                                       }
@@ -728,6 +749,25 @@ function AppPage() {
                         }}
                       >
                         <Sun className="h-4 w-4" />
+                      </button>
+                      <button
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          perspective
+                            ? "bg-cyan-500 text-white"
+                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                        }`}
+                        title={perspective ? "Switch to Parallel" : "Switch to Perspective"}
+                        onClick={() => {
+                          const next = !perspective;
+                          setPerspective(next);
+                          window.dispatchEvent(
+                            new CustomEvent("toggleProjection", {
+                              detail: { perspective: next },
+                            })
+                          );
+                        }}
+                      >
+                        <Box className="h-4 w-4" />
                       </button>
                     </div>
 

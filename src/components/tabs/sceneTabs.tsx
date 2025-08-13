@@ -11,6 +11,7 @@ export function ScenesTab({
   onDrop,
   isDragOver,
   selectedFile,
+  perspective,
 }: {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onBrowseClick: () => void
@@ -19,6 +20,7 @@ export function ScenesTab({
   onDrop: (e: React.DragEvent) => void
   isDragOver: boolean
   selectedFile: File | null
+  perspective: boolean
 }) {
   const {
       vtkContainerRef,
@@ -440,7 +442,9 @@ export function ScenesTab({
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">Camera</span>
-            <span className="text-gray-900 font-medium">Perspective</span>
+            <span className="text-gray-900 font-medium">
+              {perspective ? "Perspective" : "Orthographic"}
+            </span>
           </div>
         </div>
       </div>
