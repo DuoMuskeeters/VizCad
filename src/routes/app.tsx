@@ -82,10 +82,8 @@ function AppPage() {
   const [perspective, setPerspective] = useState(false); // default parallel
   const [viewLocked, setViewLocked] = useState(false);
 
-  // captureScreenshot kaldırıldı; artık hook içindeki captureImage kullanılacak.
-
-  // Developer mode state (false=user view). Only Scenes tab enabled when false.
-  const [isDeveloper, setIsDeveloper] = useState(false);
+  const isDeveloper = false;
+  // const [isDeveloper, setIsDeveloper] = useState(false);
 
   // Unified file input ref
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -331,6 +329,7 @@ function AppPage() {
           <div className="text-sm font-medium text-gray-700">
             {selectedFile ? selectedFile.name : "No file selected"}
           </div>
+          {/* Developer mode toggle hidden in production
           <button
             onClick={() => {
               setIsDeveloper((prev) => {
@@ -348,6 +347,7 @@ function AppPage() {
           >
             {isDeveloper ? "Developer ON" : "Developer OFF"}
           </button>
+          */}
         </div>
 
         <div className="flex items-center gap-2">
