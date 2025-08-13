@@ -111,7 +111,7 @@ function HomePage() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 pt-8 border-t border-gray-200">
+              {/* <div className="grid grid-cols-3 gap-8 pt-8 border-t border-gray-200">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-gray-900 mb-1">
                     10K+
@@ -130,7 +130,7 @@ function HomePage() {
                   </div>
                   <div className="text-sm text-gray-600">Uptime</div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="relative group">
@@ -216,22 +216,16 @@ function HomePage() {
 
           <div className="relative max-w-5xl mx-auto">
             <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200">
-              <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center relative">
-                <div className="text-center space-y-6 z-10">
-                  <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto backdrop-blur-sm hover:bg-white/20 transition-colors cursor-pointer">
-                    <Play className="w-12 h-12 text-white ml-1" />
-                  </div>
-                  <div className="text-white">
-                    <h3 className="text-2xl font-semibold mb-3">
-                      3D Model to Render in 60 Seconds
-                    </h3>
-                    <p className="text-gray-300 text-lg">
-                      From upload to professional visualization
-                    </p>
-                  </div>
-                </div>
-                {/* Video overlay effects */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+              <div className="aspect-video relative">
+                <video 
+                  className="w-full h-full object-cover"
+                  controls
+                  preload="metadata"
+                  poster="/video-poster.jpg"
+                >
+                  <source src="/video.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
 
@@ -488,7 +482,7 @@ function HomePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-8">
+              {/* <div className="grid grid-cols-2 gap-8">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-cyan-500 mb-2">
                     10,000+
@@ -513,7 +507,7 @@ function HomePage() {
                   </div>
                   <div className="text-gray-600">Available</div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="relative">
@@ -528,7 +522,7 @@ function HomePage() {
                         Our Team
                       </h3>
                       <p className="text-gray-600">
-                        Passionate engineers and designers
+                        Passionate engineer
                       </p>
                     </div>
                   </div>
@@ -541,16 +535,6 @@ function HomePage() {
                     are committed to continuously developing this platform to
                     serve the creative and technical community.
                   </p>
-                  <div className="flex gap-4">
-                    <div className="flex -space-x-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full border-2 border-white"></div>
-                      <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full border-2 border-white"></div>
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full border-2 border-white"></div>
-                      <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full border-2 border-white flex items-center justify-center text-white text-sm font-semibold">
-                        +5
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -637,18 +621,16 @@ function HomePage() {
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-cyan-400" />
                   <a
-                    href="tel:+1-555-0123"
+                    href="tel:+90-536-247-1019"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    +1 (555) 012-3456
+                    +90 (536) 247-1019
                   </a>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-cyan-400 mt-0.5" />
                   <div>
-                    San Francisco, CA
-                    <br />
-                    United States
+                    Istanbul Türkiye
                   </div>
                 </div>
               </div>
