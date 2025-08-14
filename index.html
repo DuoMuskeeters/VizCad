@@ -21,6 +21,9 @@
       content="3D model viewer, CAD viewer, online CAD, WebGL 3D, STL viewer, OBJ viewer, PLY viewer, 3D rendering online, photorealistic render, browser CAD tool"
     />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://viz-cad.com/" />
+
     <!-- Open Graph (Social Media SEO) -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="VizCad – Professional 3D Model Viewer & Visualize Your 3D Models Instantly" />
@@ -37,8 +40,35 @@
     <!-- Apple Touch Icon -->
     <link rel="apple-touch-icon" href="/vizcad-logo.png" />
 
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "VizCad",
+      "description": "Professional 3D Model Viewer & Rendering in Your Browser. Upload STL, OBJ, PLY, and 3MF files and create stunning photorealistic renders instantly.",
+      "url": "https://viz-cad.com",
+      "applicationCategory": "WebApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript. WebGL support recommended.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "VizCad"
+      },
+      "screenshot": "https://viz-cad.com/heros.png"
+    }
+    </script>
   </head>
   <body>
     <div id="app"></div>
