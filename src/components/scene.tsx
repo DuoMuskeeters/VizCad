@@ -227,29 +227,57 @@ export function useVtkScene() {
     switch (sceneId) {
       case "plain-white": {
         renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 });
+        // Yüksek ambient - karanlık bölge kalmasın
+        addSceneLight({ color: [0.4, 0.4, 0.4], intensity: 0.4 });
+        // Ana ışık - camera ile hareket eder (tutarlı aydınlatma)
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
-          intensity: 0.9,
+          intensity: 0.35,
+          type: "camera"
+        });
+        // Karşı taraf fill ışığı - sabit pozisyon
+        addSceneLight({
+          position: [-8, -6, 6],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.4,
+        });
+        // Alttan ışık - bottom fill (artırıldı)
+        addSceneLight({
+          position: [0, 0, -8],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.4,
         });
         break;
       }
       case "3point-faded": {
-        renderer.setBackground(0.96, 0.96, 0.975); // Tek ton yerine hafif açık gri
-        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
+        renderer.setBackground(0.96, 0.96, 0.975);
+        // Yüksek ambient - gölgeler tamamen kararmayacak
+        addSceneLight({ color: [0.35, 0.35, 0.35], intensity: 0.35 });
+        // Ana key ışık - camera ile hareket eder
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
-          intensity: 0.8,
+          intensity: 0.4,
+          type: "camera"
         });
+        // Fill ışığı - güçlendirildi
         addSceneLight({
           position: [-10, -10, 5],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
-          intensity: 0.2,
+          intensity: 0.35,
+        });
+        // Alttan soft ışık (artırıldı)
+        addSceneLight({
+          position: [0, 0, -6],
+          focalPoint: [0, 0, 0],
+          color: [0.95, 0.95, 1],
+          intensity: 0.35,
         });
         break;
       }
@@ -269,29 +297,93 @@ export function useVtkScene() {
         floorActor.getProperty().setColor(0.8, 0.8, 0.8);
         renderer.addActor(floorActor);
         floorActorRef.current = floorActor;
-        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 });
+        // Ofis ambient - yüksek taban ışığı
+        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
+        // Ana ofis ışığı - camera ile hareket eder
         addSceneLight({
           position: [-10, 5, 10],
           focalPoint: [0, 0, 0],
           color: [0.95, 0.95, 1],
-          intensity: 0.8,
+          intensity: 0.35,
+          type: "camera"
+        });
+        // Karşı taraf fill
+        addSceneLight({
+          position: [8, -6, 6],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.3,
+        });
+        // Zemin yansıması simülasyonu
+        addSceneLight({
+          position: [0, 0, -5],
+          focalPoint: [0, 0, 0],
+          color: [0.9, 0.9, 0.9],
+          intensity: 0.2,
+        });
+        // Ek alttan ışık - ofis ortamı için (artırıldı)
+        addSceneLight({
+          position: [3, 3, -7],
+          focalPoint: [0, 0, 0],
+          color: [0.95, 0.95, 1],
+          intensity: 0.3,
         });
         break;
       }
       case "warm-studio": {
         renderer.setBackground(0.98, 0.96, 0.9);
-        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 });
+        // Yüksek sıcak ambient
+        addSceneLight({ color: [0.4, 0.35, 0.3], intensity: 0.4 });
+        // Ana sıcak ışık - camera ile hareket eder
         addSceneLight({
           position: [8, 8, 8],
           focalPoint: [0, 0, 0],
           color: [1, 0.95, 0.9],
-          intensity: 0.5,
+          intensity: 0.35,
+          type: "camera"
+        });
+        // Soğuk fill ışığı - kontrast için
+        addSceneLight({
+          position: [-6, -5, 5],
+          focalPoint: [0, 0, 0],
+          color: [0.9, 0.9, 1],
+          intensity: 0.3,
+        });
+        // Alttan sıcak ışık - stüdyo tamamlayıcısı (artırıldı)
+        addSceneLight({
+          position: [0, 0, -6],
+          focalPoint: [0, 0, 0],
+          color: [1, 0.95, 0.9],
+          intensity: 0.35,
         });
         break;
       }
       default: {
         renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 });
+        // Yüksek genel ambient - hiç karanlık kalmasın
+        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
+        // Ana ışık - camera ile hareket eder
+        addSceneLight({
+          position: [5, 5, 10],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.35,
+          type: "camera"
+        });
+        // Karşı fill ışığı
+        addSceneLight({
+          position: [-6, -5, 6],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.3,
+        });
+        // Alttan genel ışık (artırıldı)
+        addSceneLight({
+          position: [0, 0, -7],
+          focalPoint: [0, 0, 0],
+          color: [1, 1, 1],
+          intensity: 0.35,
+        });
         break;
       }
     }
