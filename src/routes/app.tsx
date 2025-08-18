@@ -258,7 +258,7 @@ function AppPage() {
   ];
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col pt-16">
+    <div className="relative h-full bg-gray-100 flex flex-col">
       {/* Unavailable Feature Modal */}
       {showUnavailableModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
