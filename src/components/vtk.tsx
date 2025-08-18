@@ -1,13 +1,9 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor"
-import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper"
-import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader"
-import vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader"
-import vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader"
-import { useVtkScene } from "./scene"
-import "@kitware/vtk.js/Rendering/Profiles/Geometry"
+import { useRef, useEffect, useState } from "react";
+import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
+import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
+import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
+import { useVtkScene } from "./scene";
+import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 
 interface DisplayState {
   wireframe: boolean
@@ -46,33 +42,9 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     showAxes,
   } = useVtkScene()
 
-  const [statusMessage, setStatusMessage] = useState<string>("Ready. Please select a 3D file.")
-
-  // Dosya tipini tespit et
-  const getFileType = (filename: string): string => {
-    const extension = filename.toLowerCase().split('.').pop()
-    return extension || 'unknown'
-  }
-
-  // Uygun reader'ı seç
-  const createReaderForFile = (filename: string) => {
-    const fileType = getFileType(filename)
-    
-    switch (fileType) {
-      case 'stl':
-        return vtkSTLReader.newInstance()
-      case 'obj':
-        return vtkOBJReader.newInstance()
-      case 'ply':
-        return vtkPLYReader.newInstance()
-      case '3mf':
-        console.warn('3MF format is not supported by VTK.js. Please convert to STL, OBJ, or PLY format.')
-        return null
-      default:
-        console.warn(`Unsupported file type: ${fileType}. Supported formats: STL, OBJ, PLY`)
-        return null
-    }
-  }
+  const [statusMessage, setStatusMessage] = useState<string>(
+    "Hazır. Lütfen bir STL dosyası seçin."
+  );
 
   // Apply incoming displayState when it changes (idempotent)
   useEffect(() => {
@@ -476,79 +448,31 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       return
     }
 
-    const fileType = getFileType(file.name)
-    setStatusMessage(`Reading ${fileType.toUpperCase()} file...`)
-    
-    const fileReader = new FileReader()
-    const reader = createReaderForFile(file.name)
-    
-    if (!reader) {
-      if (fileType === '3mf') {
-        setStatusMessage(`Error: 3MF format is not supported. Please convert to STL, OBJ, or PLY format.`)
-      } else {
-        setStatusMessage(`Error: Unsupported file format (.${fileType}). Supported formats: STL, OBJ, PLY`)
-      }
-      return
-    }
-    
-    readerRef.current = reader
+    setStatusMessage("STL dosyası okunuyor...");
+    const fileReader = new FileReader();
+    const reader = vtkSTLReader.newInstance();
+    readerRef.current = reader;
 
     fileReader.onload = async (event) => {
-      if (!rendererRef.current || !renderWindowRef.current || !event.target?.result) {
-        setStatusMessage("Error reading file.")
-        return
+      if (
+        !rendererRef.current ||
+        !renderWindowRef.current ||
+        !event.target?.result
+      ) {
+        setStatusMessage("Dosya okunurken bir hata oluştu.");
+        return;
       }
 
       console.log("Dosya başarıyla okundu. VTK pipeline başlatılıyor...")
 
-      const arrayBuffer = event.target.result as ArrayBuffer
-      
-      // Check if arrayBuffer is valid and has content
-      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        setStatusMessage("Error: File is empty or could not be read.")
-        console.error("Empty or invalid arrayBuffer")
-        return
-      }
-      
-      console.log("ArrayBuffer size:", arrayBuffer.byteLength, "bytes")
-      console.log("File type:", fileType)
-      
-      let source
-      try {
-        // Farklı formatlar için farklı parsing yöntemleri
-        if (fileType === 'stl') {
-          (reader as any).parseAsArrayBuffer(arrayBuffer)
-        } else if (fileType === 'ply') {
-          (reader as any).parseAsArrayBuffer(arrayBuffer)
-        } else if (fileType === 'obj') {
-          // OBJ dosyaları text formatında olduğu için string'e çevir
-          const textDecoder = new TextDecoder()
-          const objText = textDecoder.decode(arrayBuffer)
-          ;(reader as any).parseAsText(objText)
-        }
-        
-        source = reader.getOutputData(0)
+      const arrayBuffer = event.target.result as ArrayBuffer;
+      reader.parseAsArrayBuffer(arrayBuffer);
+      const source = reader.getOutputData(0);
 
-        if (!source) {
-          setStatusMessage(`Error: ${fileType.toUpperCase()} reader returned no data. File might be corrupted.`)
-          console.error(`${fileType.toUpperCase()} reader returned null/undefined source`)
-          return
-        }
-        
-        const pointCount = source.getPoints().getNumberOfPoints()
-        console.log(`${fileType.toUpperCase()} source created. Points:`, pointCount, "Cells:", source.getNumberOfCells())
-        
-        if (pointCount === 0) {
-          setStatusMessage(`Error: ${fileType.toUpperCase()} file contains no geometry points.`)
-          console.error(`${fileType.toUpperCase()} file has 0 points`)
-          return
-        }
-        
-        console.log(`${fileType.toUpperCase()} parsed successfully. Points:`, pointCount)
-      } catch (parseError) {
-        setStatusMessage("Error: Failed to parse STL file format.")
-        console.error("STL parsing error:", parseError)
-        return
+      if (!source || source.getPoints().getNumberOfPoints() === 0) {
+        setStatusMessage("Hata: STL dosyası geçersiz veya boş.");
+        console.error("Geçersiz STL kaynağı.");
+        return;
       }
       console.log("STL dosyası başarıyla parse edildi.")
 
@@ -633,13 +557,13 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       renderWindowRef.current.render()
       console.log("Final render çağrıldı. Modelin görünmesi gerekiyor.")
 
-  setStatusMessage("STL file loaded successfully.")
-    }
+      setStatusMessage("STL dosyası başarıyla yüklendi.");
+    };
 
     fileReader.onerror = () => {
-      setStatusMessage("File could not be read.")
-      console.error("FileReader error.")
-    }
+      setStatusMessage("Dosya okunamadı.");
+      console.error("FileReader error.");
+    };
 
     fileReader.readAsArrayBuffer(file)
 
@@ -661,35 +585,33 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
   }, [])
 
   return (
-  <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
-    <div
-      ref={vtkContainerRef}
-      className="w-full h-full flex-grow"
-      style={{
-        touchAction: "none",
-        minWidth: "250px",
-        maxWidth: "100%",
-        minHeight: "150px",
-        maxHeight: "90%",
-        cursor:
-          viewMode === "pan"
-            ? "grab"
-            : viewMode === "zoom"
+    <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
+      <div
+        ref={vtkContainerRef}
+        className={`w-full h-full flex-grow min-h-[400px]`}
+        style={{
+          touchAction: "none",
+          minWidth: "300px",
+          maxWidth: "100%",
+          maxHeight: "100vh",
+          cursor:
+            viewMode === "pan"
+              ? "grab"
+              : viewMode === "zoom"
               ? "zoom-in"
               : viewMode === "select"
-                ? "pointer"
-                : "default",
-      }}
-    />
-      <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-2 py-0.5 border-t border-gray-200 h-7 min-h-0">
-        <div className="flex items-center justify-between h-full">
-          <span className="truncate flex-1 mr-2">{statusMessage}</span>
-          <span className="text-gray-500 text-xs whitespace-nowrap">
-            <span className="hidden xs:inline">Mode: </span>
-            {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
+              ? "pointer"
+              : "default",
+        }}
+      />
+      <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <span>{statusMessage}</span>
+          <span className="text-gray-500">
+            Mode: {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
           </span>
         </div>
       </div>
-  </div>
-)
+    </div>
+  );
 }

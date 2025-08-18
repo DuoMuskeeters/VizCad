@@ -1,48 +1,12 @@
 "use client"
 
-import type React from "react"
-import { useTranslation } from "react-i18next"
-
-import { Link, useLocation, useNavigate } from "@tanstack/react-router"
-import { useState, useEffect } from "react"
-import { useTheme } from "./theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
-import { PaletteSelector } from "@/components/palette-selector"
-import LanguageSwitcher from "@/components/LanguageSwitcher"
+import { Link, useLocation } from "@tanstack/react-router"
 
 export default function Header() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
-  const isFaqPage = location.pathname === "/faq"
-  const isContactPage = location.pathname === "/contact"
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { theme } = useTheme()
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light")
-
-  useEffect(() => {
-    // Resolve 'system' -> matchMedia
-    if (theme === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = (e: MediaQueryListEvent) => {
-        setResolvedTheme(e.matches ? "dark" : "light");
-      };
-      setResolvedTheme(mq.matches ? "dark" : "light");
-      mq.addEventListener("change", handler);
-      return () => {
-        try {
-          mq.removeEventListener("change", handler);
-        } catch (e) {
-          // For older browsers
-          // @ts-ignore
-          mq.removeListener(handler);
-        }
-      };
-    } else {
-      setResolvedTheme(theme === "dark" ? "dark" : "light");
-    }
-  }, [theme]);
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
@@ -60,6 +24,7 @@ export default function Header() {
         element.scrollIntoView({ behavior: "smooth" })
       }
     }
+    setIsMobileMenuOpen(false)
   }
 
   const handleContactClick = () => {
@@ -83,21 +48,18 @@ export default function Header() {
       : undefined
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
-      style={headerInlineStyle}
-    >
-      <nav className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+      <nav className="w-full px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
           {/* Logo - Sol taraf */}
           <Link to="/" className="flex-shrink-0 flex items-center">
-            <span className="text-xl sm:text-2xl font-bold text-foreground">
-              <span style={{ color: "rgb(var(--primary))" }}>Viz</span>Cad
+            <span className="text-2xl  font-bold text-gray-900">
+              <span className="text-cyan-500">Viz</span>Cad
             </span>
           </Link>
 
-          {/* Desktop Navigation Menu */}
-          <div className="hidden md:flex items-center space-x-2 lg:space-x-3">
+          {/* Navigation Menu - Sağ taraf */}
+          <div className="hidden md:flex items-center space-x-6">
             <button
               onClick={() => handleNavClick("features")}
               className={buttonClass}
@@ -145,80 +107,14 @@ export default function Header() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center space-x-2">
-            <PaletteSelector />
-            <ModeToggle />
-            <LanguageSwitcher />
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-accent transition-all duration-200 transform hover:scale-105"
-            >
-              {isMobileMenuOpen ? (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12M6 12h12" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
+          <div className="md:hidden">
+            <button className="text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
           </div>
         </div>
-
-        {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg z-[60] mt-0">
-            <div className="px-4 py-4 space-y-3">
-              <button
-                onClick={() => handleNavClick("features")}
-                className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
-              >
-                {t("nav_features")}
-              </button>
-              <Link
-                to="/ModelSnap"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
-              >
-                ModelSnap
-              </Link>
-              <button
-                onClick={() => handleNavClick("about")}
-                className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
-              >
-                {t("nav_about")}
-              </button>
-              <Link
-                to="/faq"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
-              >
-                {t("nav_faq")}
-              </Link>
-              <Link
-                to="/contact"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
-              >
-                {t("nav_contact")}
-              </Link>
-              <LanguageSwitcher />
-              <Link
-                to="/app"
-                search={{}}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md transform hover:scale-102 hover:brightness-105 text-center mt-4"
-                style={{
-                  backgroundColor: "rgb(var(--primary))",
-                  color: "rgb(15 23 42)", // Dark slate for better contrast
-                }}
-              >
-                {t("nav_launch_app")}
-              </Link>
-            </div>
-          </div>
-        )}
       </nav>
     </header>
   )

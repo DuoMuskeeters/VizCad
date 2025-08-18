@@ -219,73 +219,73 @@ export function useVtkScene() {
 
     switch (sceneId) {
       case "plain-white": {
-        renderer.setBackground(1, 1, 1)
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 })
+        renderer.setBackground(1, 1, 1);
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 });
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.9,
-        })
-        break
+        });
+        break;
       }
       case "3point-faded": {
-        renderer.setBackground(0.96, 0.96, 0.975) // Tek ton yerine hafif açık gri
-        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 })
+        renderer.setBackground(0.96, 0.96, 0.975); // Tek ton yerine hafif açık gri
+        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.8,
-        })
+        });
         addSceneLight({
           position: [-10, -10, 5],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.2,
-        })
-        break
+        });
+        break;
       }
       case "simple-office": {
         renderer.setBackground(0.9, 0.9, 0.9)
         const floorSource = vtkPlaneSource.newInstance({
           xResolution: 10,
           yResolution: 10,
-        })
-        floorSource.setOrigin(-5, -5, -1)
-        floorSource.setPoint1(5, -5, -1)
-        floorSource.setPoint2(-5, 5, -1)
-        const floorMapper = vtkMapper.newInstance()
-        floorMapper.setInputConnection(floorSource.getOutputPort())
-        const floorActor = vtkActor.newInstance()
-        floorActor.setMapper(floorMapper)
-        floorActor.getProperty().setColor(0.8, 0.8, 0.8)
-        renderer.addActor(floorActor)
-        floorActorRef.current = floorActor
-        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 })
+        });
+        floorSource.setOrigin(-5, -5, -1);
+        floorSource.setPoint1(5, -5, -1);
+        floorSource.setPoint2(-5, 5, -1);
+        const floorMapper = vtkMapper.newInstance();
+        floorMapper.setInputConnection(floorSource.getOutputPort());
+        const floorActor = vtkActor.newInstance();
+        floorActor.setMapper(floorMapper);
+        floorActor.getProperty().setColor(0.8, 0.8, 0.8);
+        renderer.addActor(floorActor);
+        floorActorRef.current = floorActor;
+        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 });
         addSceneLight({
           position: [-10, 5, 10],
           focalPoint: [0, 0, 0],
           color: [0.95, 0.95, 1],
           intensity: 0.8,
-        })
-        break
+        });
+        break;
       }
       case "warm-studio": {
-        renderer.setBackground(0.98, 0.96, 0.9)
-        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 })
+        renderer.setBackground(0.98, 0.96, 0.9);
+        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 });
         addSceneLight({
           position: [8, 8, 8],
           focalPoint: [0, 0, 0],
           color: [1, 0.95, 0.9],
           intensity: 0.5,
-        })
-        break
+        });
+        break;
       }
       default: {
-        renderer.setBackground(1, 1, 1)
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 })
-        break
+        renderer.setBackground(1, 1, 1);
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 });
+        break;
       }
     }
 
