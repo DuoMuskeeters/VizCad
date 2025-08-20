@@ -7,7 +7,7 @@ export const Route = createRootRoute({
   component: () => (
     <>
       <Header />
-      <main className="bg-background pt-14 sm:pt-16 min-h-screen">
+      <main className="bg-background">
         <Outlet />
       </main>
       <TanStackRouterDevtools />

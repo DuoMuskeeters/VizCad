@@ -9,6 +9,7 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const handleNavClick = (sectionId: string) => {
+    setIsMobileMenuOpen(false) // Close mobile menu on navigation
     if (isAppPage) {
       // App sayfasındaysak ana sayfaya git ve section'a scroll yap
       window.location.href = `/#${sectionId}`
@@ -19,7 +20,6 @@ export default function Header() {
         element.scrollIntoView({ behavior: "smooth" })
       }
     }
-    setIsMobileMenuOpen(false)
   }
 
   return (
@@ -33,29 +33,29 @@ export default function Header() {
             </span>
           </Link>
 
-          {/* Navigation Menu - Desktop */}
-          <div className="hidden md:flex items-center space-x-6">
+          {/* Desktop Navigation Menu */}
+          <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
             <button
               onClick={() => handleNavClick("features")}
-              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer"
+              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer text-sm lg:text-base"
             >
               Features
             </button>
             <button
               onClick={() => handleNavClick("about")}
-              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer"
+              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer text-sm lg:text-base"
             >
               About Us
             </button>
             <button
               onClick={() => handleNavClick("contact")}
-              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer"
+              className="text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer text-sm lg:text-base"
             >
               Contact
             </button>
             <Link
               to="/app"
-              className="bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 hover:shadow-md"
+              className="bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base"
             >
               Launch App
             </Link>
@@ -63,52 +63,49 @@ export default function Header() {
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button
+            <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Toggle mobile menu"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {isMobileMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12M6 12l12 12"
-                  />
-                ) : (
+              {isMobileMenuOpen ? (
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
+                </svg>
+              )}
             </button>
           </div>
         </div>
 
+        {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md">
-            <div className="px-2 pt-2 pb-3 space-y-1">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-lg">
+            <div className="px-4 py-4 space-y-3">
               <button
                 onClick={() => handleNavClick("features")}
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:text-cyan-600 hover:bg-gray-50 rounded-md font-medium transition-colors"
+                className="w-full text-left text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-gray-50"
               >
                 Features
               </button>
               <button
                 onClick={() => handleNavClick("about")}
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:text-cyan-600 hover:bg-gray-50 rounded-md font-medium transition-colors"
+                className="w-full text-left text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-gray-50"
               >
                 About Us
               </button>
               <button
                 onClick={() => handleNavClick("contact")}
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:text-cyan-600 hover:bg-gray-50 rounded-md font-medium transition-colors"
+                className="w-full text-left text-gray-700 hover:text-cyan-600 font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-gray-50"
               >
                 Contact
               </button>
               <Link
                 to="/app"
-                className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:shadow-md mt-2"
                 onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md text-center"
               >
                 Launch App
               </Link>
