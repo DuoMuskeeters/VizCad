@@ -40,9 +40,8 @@ export function LightsTab() {
           {["Key Light", "Fill Light", "Rim Light"].map((light, index) => (
             <div
               key={light}
-              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
-                index === 0 ? "border-cyan-500 bg-cyan-50" : "border-gray-200"
-              }`}
+              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors border-gray-200`}
+              style={index === 0 ? { borderColor: "rgb(var(--primary))", backgroundColor: "rgb(var(--primary) / 0.06)" } : undefined}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-900">{light}</span>

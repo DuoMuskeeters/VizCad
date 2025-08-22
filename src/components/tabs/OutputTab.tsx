@@ -105,7 +105,10 @@ export function OutputTab() {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Export</h3>
         <div className="space-y-2">
-          <Button className="w-full bg-cyan-500 hover:bg-cyan-600 text-sm">
+          <Button className="w-full text-sm" style={{ backgroundColor: "rgb(var(--primary))", color: "rgb(var(--primary-foreground))" }}
+            onMouseEnter={(e)=>((e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgb(var(--primary-hover))")}
+            onMouseLeave={(e)=>((e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgb(var(--primary))")}
+          >
             <Download className="h-4 w-4 mr-2" />
             Export Image
           </Button>

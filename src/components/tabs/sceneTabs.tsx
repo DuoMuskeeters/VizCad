@@ -84,6 +84,11 @@ export function ScenesTab({
     },
   ]
 
+  // Styles that follow palette variables
+  const dragStyle = isDragOver
+    ? { borderColor: "rgb(var(--primary))", backgroundColor: "rgb(var(--primary) / 0.06)" }
+    : undefined
+
   // Studio scene uygulama fonksiyonu
   const applyStudioScene = (sceneId: string) => {
     setSelectedStudio(sceneId)
@@ -146,23 +151,22 @@ export function ScenesTab({
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Upload Model</h3>
         <div
-          className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer ${
-            isDragOver ? "border-cyan-500 bg-cyan-50" : "border-gray-300 hover:border-gray-400"
-          }`}
+          className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer`}
+          style={dragStyle}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           onClick={onBrowseClick}
         >
-          <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
+            <Upload className="h-5 w-5 mx-auto mb-1" style={{ color: "rgb(var(--muted-foreground))" }} />
           <p className="text-xs text-gray-600 mb-1">
             {isDragOver ? "Drop your 3D model here" : "Drag & drop 3D model or click to browse"}
           </p>
-          <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
+            <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
             Browse
           </Button>
           <input type="file" accept=".stl,.obj,.ply,.3mf" className="hidden" tabIndex={-1} onChange={onFileChange} />
-          {selectedFile && <div className="mt-2 text-xs text-cyan-700">Selected: {selectedFile.name}</div>}
+          {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
         </div>
       </div>
 
@@ -173,12 +177,13 @@ export function ScenesTab({
           {studioScenes.map((scene) => (
             <div
               key={scene.id}
-              className={`relative cursor-pointer rounded-lg border-2 transition-all hover:scale-105 ${
-                selectedStudio === scene.id && currentMode === "studio"
-                  ? "border-cyan-500 ring-2 ring-cyan-200"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
+              className={`relative cursor-pointer rounded-lg border-2 transition-all hover:scale-105`}
               onClick={() => applyStudioScene(scene.id)}
+              style={
+                selectedStudio === scene.id && currentMode === "studio"
+                  ? { borderColor: "rgb(var(--primary))", boxShadow: "0 0 0 4px rgb(var(--primary) / 0.08)" }
+                  : undefined
+              }
             >
               <div className={`h-20 rounded-t-md ${scene.preview}`}></div>
               <div className="p-2">
@@ -186,7 +191,10 @@ export function ScenesTab({
                 <div className="text-xs text-gray-500 mt-1">{scene.description}</div>
               </div>
               {selectedStudio === scene.id && currentMode === "studio" && (
-                <div className="absolute top-1 right-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center">
+                <div
+                  className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "rgb(var(--primary))" }}
+                >
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
               )}

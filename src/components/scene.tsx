@@ -1,28 +1,27 @@
+"use client"
+
 // scene.tsx
 
-import { useRef, useEffect } from "react";
-import type { RefObject } from "react";
-import vtkGenericRenderWindow, {
-  IGenericRenderWindowInitialValues,
-} from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow";
-import type vtkRenderer from "@kitware/vtk.js/Rendering/Core/Renderer";
-import type vtkRenderWindow from "@kitware/vtk.js/Rendering/Core/RenderWindow";
+import { useRef, useEffect } from "react"
+import vtkGenericRenderWindow from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow"
+import type vtkRenderer from "@kitware/vtk.js/Rendering/Core/Renderer"
+import type vtkRenderWindow from "@kitware/vtk.js/Rendering/Core/RenderWindow"
 
-import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
-import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
-import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
-import vtkLight from "@kitware/vtk.js/Rendering/Core/Light";
-import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource";
-import vtkAxesActor from "@kitware/vtk.js/Rendering/Core/AxesActor";
-import vtkOrientationMarkerWidget from "@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget";
-import "@kitware/vtk.js/Rendering/Profiles/Geometry";
-import vtkProp from "@kitware/vtk.js/Rendering/Core/Prop";
+import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor"
+import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper"
+import type vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader"
+import vtkLight from "@kitware/vtk.js/Rendering/Core/Light"
+import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource"
+import vtkAxesActor from "@kitware/vtk.js/Rendering/Core/AxesActor"
+import vtkOrientationMarkerWidget from "@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget"
+import "@kitware/vtk.js/Rendering/Profiles/Geometry"
+import type vtkProp from "@kitware/vtk.js/Rendering/Core/Prop"
 
 // Renk tipleri
-type RED = number;
-type GREEN = number;
-type BLUE = number;
-type RGB = [RED, GREEN, BLUE];
+type RED = number
+type GREEN = number
+type BLUE = number
+type RGB = [RED, GREEN, BLUE]
 
 // Işık tipleri
 export enum LightType {
@@ -32,118 +31,109 @@ export enum LightType {
 }
 
 export interface LightOptions {
-  position?: [number, number, number];
-  focalPoint?: [number, number, number];
-  color?: RGB;
-  intensity?: number;
-  positional?: boolean;
-  coneAngle?: number;
+  position?: [number, number, number]
+  focalPoint?: [number, number, number]
+  color?: RGB
+  intensity?: number
+  positional?: boolean
+  coneAngle?: number
 }
 
 export function useVtkScene() {
   // Ref'leri daha spesifik tiplerle ve null başlangıç değeriyle tanımlıyoruz
-  const vtkContainerRef = useRef<HTMLDivElement>(null!);
-  const genericRenderWindowRef = useRef<vtkGenericRenderWindow | null>(null);
-  const rendererRef = useRef<vtkRenderer | null>(null);
-  const renderWindowRef = useRef<vtkRenderWindow | null>(null);
-  const actorRef = useRef<vtkProp | null>(null);
-  const mapperRef = useRef<vtkMapper | null>(null);
-  const readerRef = useRef<vtkSTLReader | null>(null);
-  const lightsRef = useRef<vtkLight[]>([]);
-  const floorActorRef = useRef<vtkProp | null>(null);
-  const backgroundPlaneRef = useRef<vtkProp | null>(null);
-  const gridActorRef = useRef<vtkProp | null>(null);
-  const axesActorRef = useRef<vtkAxesActor | null>(null);
-  const axesWidgetRef = useRef<any | null>(null);
-  const viewLockedRef = useRef<boolean>(false);
-  const gridPlaneSourcesRef = useRef<any[] | null>(null);
-  const gridSubscriptionsRef = useRef<any[] | null>(null);
+  const vtkContainerRef = useRef<HTMLDivElement>(null!)
+  const genericRenderWindowRef = useRef<vtkGenericRenderWindow | null>(null)
+  const rendererRef = useRef<vtkRenderer | null>(null)
+  const renderWindowRef = useRef<vtkRenderWindow | null>(null)
+  const actorRef = useRef<vtkProp | null>(null)
+  const mapperRef = useRef<vtkMapper | null>(null)
+  const readerRef = useRef<vtkSTLReader | null>(null)
+  const lightsRef = useRef<vtkLight[]>([])
+  const floorActorRef = useRef<vtkProp | null>(null)
+  const backgroundPlaneRef = useRef<vtkProp | null>(null)
+  const gridActorRef = useRef<vtkProp | null>(null)
+  const axesActorRef = useRef<vtkAxesActor | null>(null)
+  const axesWidgetRef = useRef<any | null>(null)
+  const viewLockedRef = useRef<boolean>(false)
+  const gridPlaneSourcesRef = useRef<any[] | null>(null)
+  const gridSubscriptionsRef = useRef<any[] | null>(null)
 
   useEffect(() => {
     if (vtkContainerRef.current && !genericRenderWindowRef.current) {
-      const grw = vtkGenericRenderWindow.newInstance();
-      grw.setContainer(vtkContainerRef.current);
+      const grw = vtkGenericRenderWindow.newInstance()
+      grw.setContainer(vtkContainerRef.current)
 
-      genericRenderWindowRef.current = grw;
-      rendererRef.current = grw.getRenderer();
-      renderWindowRef.current = grw.getRenderWindow();
+      genericRenderWindowRef.current = grw
+      rendererRef.current = grw.getRenderer()
+      renderWindowRef.current = grw.getRenderWindow()
 
       // View lock event (disable interactor to freeze camera)
       const handleViewLock = (e: CustomEvent) => {
-        viewLockedRef.current = !!e.detail.enabled;
+        viewLockedRef.current = !!e.detail.enabled
         try {
-          const interactor = grw.getRenderWindow().getInteractor();
-          if (viewLockedRef.current) interactor?.disable?.();
-          else interactor?.enable?.();
+          const interactor = grw.getRenderWindow().getInteractor()
+          if (viewLockedRef.current) interactor?.disable?.()
+          else interactor?.enable?.()
         } catch {}
-      };
-      window.addEventListener(
-        "toggleViewLock",
-        handleViewLock as EventListener
-      );
+      }
+      window.addEventListener("toggleViewLock", handleViewLock as EventListener)
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
-      rendererRef.current.getRenderWindow()?.render();
-      console.log("VTK scene initialized");
+      rendererRef.current.getRenderWindow()?.render()
+      console.log("VTK scene initialized")
 
       // Cleanup function
       return () => {
-        console.log("Cleaning up VTK scene...");
-        window.removeEventListener(
-          "toggleViewLock",
-          handleViewLock as EventListener
-        );
+        console.log("Cleaning up VTK scene...")
+        window.removeEventListener("toggleViewLock", handleViewLock as EventListener)
         if (genericRenderWindowRef.current) {
-          genericRenderWindowRef.current.delete();
-          genericRenderWindowRef.current = null;
+          genericRenderWindowRef.current.delete()
+          genericRenderWindowRef.current = null
         }
-        rendererRef.current = null;
-        renderWindowRef.current = null;
-        console.log("VTK scene cleaned up");
-      };
+        rendererRef.current = null
+        renderWindowRef.current = null
+        console.log("VTK scene cleaned up")
+      }
     }
-  }, [vtkContainerRef]);
+  }, [vtkContainerRef])
 
   const setBackground = (color: RGB) => {
     if (rendererRef.current && renderWindowRef.current) {
-      rendererRef.current.setBackground(color);
-      renderWindowRef.current.render();
-      console.log("Background color set to:", color);
+      rendererRef.current.setBackground(color)
+      renderWindowRef.current.render()
+      console.log("Background color set to:", color)
     }
-  };
+  }
 
   const clearAllLights = () => {
-    if (!rendererRef.current) return;
+    if (!rendererRef.current) return
 
     lightsRef.current.forEach((light) => {
-      rendererRef.current?.removeLight(light);
-    });
-    lightsRef.current = [];
-  };
+      rendererRef.current?.removeLight(light)
+    })
+    lightsRef.current = []
+  }
 
   const clearFloor = () => {
-    if (!rendererRef.current || !floorActorRef.current) return;
+    if (!rendererRef.current || !floorActorRef.current) return
 
-    rendererRef.current.removeActor(floorActorRef.current);
-    floorActorRef.current.delete();
-    floorActorRef.current = null;
-  };
+    rendererRef.current.removeActor(floorActorRef.current)
+    floorActorRef.current.delete()
+    floorActorRef.current = null
+  }
 
   const clearBackgroundPlane = () => {
-    if (!rendererRef.current || !backgroundPlaneRef.current) return;
+    if (!rendererRef.current || !backgroundPlaneRef.current) return
 
-    rendererRef.current.removeActor(backgroundPlaneRef.current);
-    backgroundPlaneRef.current.delete();
-    backgroundPlaneRef.current = null;
-  };
-
+    rendererRef.current.removeActor(backgroundPlaneRef.current)
+    backgroundPlaneRef.current.delete()
+    backgroundPlaneRef.current = null
+  }
 
   const addLight = (type: LightType, options: LightOptions = {}) => {
     if (!rendererRef.current || !renderWindowRef.current) {
-      console.warn(
-        "Cannot add light: renderer or renderWindow not initialized"
-      );
-      return null;
+      console.warn("Cannot add light: renderer or renderWindow not initialized")
+      return null
     }
     const {
       position = [1, 1, 1],
@@ -152,314 +142,305 @@ export function useVtkScene() {
       intensity = 1.0,
       positional = false,
       coneAngle = 30,
-    } = options;
-    const light = vtkLight.newInstance();
+    } = options
+    const light = vtkLight.newInstance()
     switch (type) {
       case LightType.HEADLIGHT:
-        light.setLightTypeToHeadLight();
-        break;
+        light.setLightTypeToHeadLight()
+        break
       case LightType.CAMERA_LIGHT:
-        light.setLightTypeToCameraLight();
-        break;
+        light.setLightTypeToCameraLight()
+        break
       case LightType.SCENE_LIGHT:
       default:
-        light.setLightTypeToSceneLight();
-        break;
+        light.setLightTypeToSceneLight()
+        break
     }
-    light.setPosition(...position);
-    light.setFocalPoint(...focalPoint);
-    light.setColor(...color);
-    light.setIntensity(intensity);
+    light.setPosition(...position)
+    light.setFocalPoint(...focalPoint)
+    light.setColor(...color)
+    light.setIntensity(intensity)
     if (positional) {
-      light.setPositional(true);
-      light.setConeAngle(coneAngle);
+      light.setPositional(true)
+      light.setConeAngle(coneAngle)
     }
-    rendererRef.current.addLight(light);
-    renderWindowRef.current.render();
-    console.log(`Light of type ${type} added.`);
-    return light;
-  };
+    rendererRef.current.addLight(light)
+    renderWindowRef.current.render()
+    console.log(`Light of type ${type} added.`)
+    return light
+  }
 
   const resize = () => {
     if (genericRenderWindowRef.current) {
-      genericRenderWindowRef.current.resize();
-      console.log("VTK window resized.");
+      genericRenderWindowRef.current.resize()
+      console.log("VTK window resized.")
     }
-  };
+  }
+
   const applyStudioScene = (sceneId: string) => {
     // Clear existing lights, floor, and background plane
-    clearAllLights();
-    clearFloor();
-    clearBackgroundPlane();
-    const renderer = rendererRef.current;
-    if (!renderer) return;
+    clearAllLights()
+    clearFloor()
+    clearBackgroundPlane()
+    const renderer = rendererRef.current
+    if (!renderer) return
 
     // Helper for adding a light & tracking
     const addSceneLight = (config: {
-      position?: [number, number, number];
-      focalPoint?: [number, number, number];
-      color?: [number, number, number];
-      intensity?: number;
-      type?: "scene" | "head" | "camera";
+      position?: [number, number, number]
+      focalPoint?: [number, number, number]
+      color?: [number, number, number]
+      intensity?: number
+      type?: "scene" | "head" | "camera"
     }) => {
-      const l = vtkLight.newInstance();
+      const l = vtkLight.newInstance()
       switch (config.type) {
         case "head":
-          l.setLightTypeToHeadLight();
-          break;
+          l.setLightTypeToHeadLight()
+          break
         case "camera":
-          l.setLightTypeToCameraLight();
-          break;
+          l.setLightTypeToCameraLight()
+          break
         default:
-          l.setLightTypeToSceneLight();
+          l.setLightTypeToSceneLight()
       }
-      if (config.position) l.setPosition(...config.position);
-      if (config.focalPoint) l.setFocalPoint(...config.focalPoint);
-      if (config.color) l.setColor(...config.color);
-      if (config.intensity !== undefined) l.setIntensity(config.intensity);
-      renderer.addLight(l);
-      lightsRef.current.push(l);
-      return l;
-    };
+      if (config.position) l.setPosition(...config.position)
+      if (config.focalPoint) l.setFocalPoint(...config.focalPoint)
+      if (config.color) l.setColor(...config.color)
+      if (config.intensity !== undefined) l.setIntensity(config.intensity)
+      renderer.addLight(l)
+      lightsRef.current.push(l)
+      return l
+    }
 
     // Not: Gradient destek metodu tip tanımında yok; sadece düz background kullanılıyor.
 
     switch (sceneId) {
       case "plain-white": {
-        renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 });
+        renderer.setBackground(1, 1, 1)
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 })
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.9,
-        });
-        break;
+        })
+        break
       }
       case "3point-faded": {
-        renderer.setBackground(0.96, 0.96, 0.975); // Tek ton yerine hafif açık gri
-        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
+        renderer.setBackground(0.96, 0.96, 0.975) // Tek ton yerine hafif açık gri
+        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 })
         addSceneLight({
           position: [10, 10, 10],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.8,
-        });
+        })
         addSceneLight({
           position: [-10, -10, 5],
           focalPoint: [0, 0, 0],
           color: [1, 1, 1],
           intensity: 0.2,
-        });
-        break;
+        })
+        break
       }
       case "simple-office": {
-        renderer.setBackground(0.9, 0.9, 0.9);
+        renderer.setBackground(0.9, 0.9, 0.9)
         const floorSource = vtkPlaneSource.newInstance({
           xResolution: 10,
           yResolution: 10,
-        });
-        floorSource.setOrigin(-5, -5, -1);
-        floorSource.setPoint1(5, -5, -1);
-        floorSource.setPoint2(-5, 5, -1);
-        const floorMapper = vtkMapper.newInstance();
-        floorMapper.setInputConnection(floorSource.getOutputPort());
-        const floorActor = vtkActor.newInstance();
-        floorActor.setMapper(floorMapper);
-        floorActor.getProperty().setColor(0.8, 0.8, 0.8);
-        renderer.addActor(floorActor);
-        floorActorRef.current = floorActor;
-        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 });
+        })
+        floorSource.setOrigin(-5, -5, -1)
+        floorSource.setPoint1(5, -5, -1)
+        floorSource.setPoint2(-5, 5, -1)
+        const floorMapper = vtkMapper.newInstance()
+        floorMapper.setInputConnection(floorSource.getOutputPort())
+        const floorActor = vtkActor.newInstance()
+        floorActor.setMapper(floorMapper)
+        floorActor.getProperty().setColor(0.8, 0.8, 0.8)
+        renderer.addActor(floorActor)
+        floorActorRef.current = floorActor
+        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 })
         addSceneLight({
           position: [-10, 5, 10],
           focalPoint: [0, 0, 0],
           color: [0.95, 0.95, 1],
           intensity: 0.8,
-        });
-        break;
+        })
+        break
       }
       case "warm-studio": {
-        renderer.setBackground(0.98, 0.96, 0.9);
-        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 });
+        renderer.setBackground(0.98, 0.96, 0.9)
+        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 })
         addSceneLight({
           position: [8, 8, 8],
           focalPoint: [0, 0, 0],
           color: [1, 0.95, 0.9],
           intensity: 0.5,
-        });
-        break;
+        })
+        break
       }
       default: {
-        renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 });
-        break;
+        renderer.setBackground(1, 1, 1)
+        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 })
+        break
       }
     }
 
     // Camera clipping range & redraw
     if (rendererRef.current && renderWindowRef.current) {
-      rendererRef.current.resetCameraClippingRange();
-      renderWindowRef.current.render();
+      rendererRef.current.resetCameraClippingRange()
+      renderWindowRef.current.render()
     }
-  };
+  }
 
   // Display feature helpers
   const setWireframe = (enabled: boolean) => {
-    if (!actorRef.current || !renderWindowRef.current) return;
-    const prop: any = (actorRef.current as any).getProperty?.();
-    if (!prop) return;
-    if (enabled) prop.setRepresentationToWireframe();
-    else prop.setRepresentationToSurface();
-    renderWindowRef.current.render();
-  };
+    if (!actorRef.current || !renderWindowRef.current) return
+    const prop: any = (actorRef.current as any).getProperty?.()
+    if (!prop) return
+    if (enabled) prop.setRepresentationToWireframe()
+    else prop.setRepresentationToSurface()
+    renderWindowRef.current.render()
+  }
 
   const setSmoothShading = (enabled: boolean) => {
-    if (!actorRef.current || !renderWindowRef.current) return;
-    const prop: any = (actorRef.current as any).getProperty?.();
-    if (!prop) return;
+    if (!actorRef.current || !renderWindowRef.current) return
+    const prop: any = (actorRef.current as any).getProperty?.()
+    if (!prop) return
     if (enabled) {
       // Recompute normals if possible for better smooth shading
       try {
-        const mapper: any = (actorRef.current as any).getMapper?.();
-        const data = mapper?.getInputData?.();
+        const mapper: any = (actorRef.current as any).getMapper?.()
+        const data = mapper?.getInputData?.()
         if (data) {
           import("@kitware/vtk.js/Filters/Core/PolyDataNormals").then((mod) => {
             const normals = (mod as any).default.newInstance({
               splitting: false,
-            });
-            normals.setInputData(data);
-            normals.update();
-            mapper.setInputData(normals.getOutputData());
-            prop.setInterpolationToPhong?.();
-            renderWindowRef.current!.render();
-          });
+            })
+            normals.setInputData(data)
+            normals.update()
+            mapper.setInputData(normals.getOutputData())
+            prop.setInterpolationToPhong?.()
+            renderWindowRef.current!.render()
+          })
         } else {
-          prop.setInterpolationToPhong?.();
+          prop.setInterpolationToPhong?.()
         }
       } catch {
-        prop.setInterpolationToPhong?.();
+        prop.setInterpolationToPhong?.()
       }
     } else {
-      prop.setInterpolationToFlat?.();
+      prop.setInterpolationToFlat?.()
     }
-    renderWindowRef.current.render();
-  };
+    renderWindowRef.current.render()
+  }
 
   const showGrid = (_enabled: boolean) => {
-    if (!rendererRef.current || !renderWindowRef.current) return;
+    if (!rendererRef.current || !renderWindowRef.current) return
     if (gridActorRef.current) {
       if ((gridActorRef.current as any).actors) {
-        (gridActorRef.current as any).actors.forEach((a: any) => {
-          rendererRef.current!.removeActor(a);
-          a.delete?.();
-        });
+        ;(gridActorRef.current as any).actors.forEach((a: any) => {
+          rendererRef.current!.removeActor(a)
+          a.delete?.()
+        })
       } else {
-        rendererRef.current.removeActor(gridActorRef.current as any);
-        (gridActorRef.current as any).delete?.();
+        rendererRef.current.removeActor(gridActorRef.current as any)
+        ;(gridActorRef.current as any).delete?.()
       }
-      gridActorRef.current = null;
+      gridActorRef.current = null
     }
-    gridPlaneSourcesRef.current = null;
+    gridPlaneSourcesRef.current = null
     if (gridSubscriptionsRef.current) {
-      gridSubscriptionsRef.current.forEach((s) => s?.unsubscribe?.());
-      gridSubscriptionsRef.current = null;
+      gridSubscriptionsRef.current.forEach((s) => s?.unsubscribe?.())
+      gridSubscriptionsRef.current = null
     }
-    rendererRef.current.resetCameraClippingRange();
-    renderWindowRef.current.render();
-  };
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
+  }
 
   const showAxes = (enabled: boolean) => {
-    if (
-      !rendererRef.current ||
-      !renderWindowRef.current ||
-      !genericRenderWindowRef.current
-    )
-      return;
+    if (!rendererRef.current || !renderWindowRef.current || !genericRenderWindowRef.current) return
     if (enabled) {
-      if (axesWidgetRef.current) return; // already active
-      const axes = vtkAxesActor.newInstance();
-      (axes as any).setTotalLength?.(1.5, 1.5, 1.5);
-      axesActorRef.current = axes;
+      if (axesWidgetRef.current) return // already active
+      const axes = vtkAxesActor.newInstance()
+      ;(axes as any).setTotalLength?.(1.5, 1.5, 1.5)
+      axesActorRef.current = axes
       const widget = vtkOrientationMarkerWidget.newInstance({
         actor: axes,
-        interactor: genericRenderWindowRef.current
-          .getRenderWindow()
-          .getInteractor(),
-      });
-      widget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_LEFT);
-      widget.setViewportSize(0.18);
-      widget.setMinPixelSize(80);
-      widget.setMaxPixelSize(150);
-      widget.setEnabled(true);
-      axesWidgetRef.current = widget;
+        interactor: genericRenderWindowRef.current.getRenderWindow().getInteractor(),
+      })
+      widget.setViewportCorner(vtkOrientationMarkerWidget.Corners.BOTTOM_LEFT)
+      widget.setViewportSize(0.18)
+      widget.setMinPixelSize(80)
+      widget.setMaxPixelSize(150)
+      widget.setEnabled(true)
+      axesWidgetRef.current = widget
     } else if (axesWidgetRef.current) {
-      axesWidgetRef.current.setEnabled(false);
-      axesWidgetRef.current.delete();
-      axesWidgetRef.current = null;
+      axesWidgetRef.current.setEnabled(false)
+      axesWidgetRef.current.delete()
+      axesWidgetRef.current = null
       if (axesActorRef.current) {
-        (axesActorRef.current as any).delete?.();
-        axesActorRef.current = null;
+        ;(axesActorRef.current as any).delete?.()
+        axesActorRef.current = null
       }
     }
-    renderWindowRef.current.render();
-  };
+    renderWindowRef.current.render()
+  }
 
   // Capture current render as image (PNG/JPEG) using VTK captureImages if available
   const captureImage = async (options?: {
-    scale?: number;
-    format?: "png" | "jpeg";
-    quality?: number; // 0-1 for jpeg
-    filename?: string;
+    scale?: number
+    format?: "png" | "jpeg"
+    quality?: number // 0-1 for jpeg
+    filename?: string
   }): Promise<boolean> => {
-    const scale = options?.scale ?? 1;
-    const format = options?.format ?? "png";
-    const quality = options?.quality ?? 0.95;
-    const filename =
-      options?.filename ??
-      `vizcad-render-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-    if (!renderWindowRef.current || !vtkContainerRef.current) return false;
+    const scale = options?.scale ?? 1
+    const format = options?.format ?? "png"
+    const quality = options?.quality ?? 0.95
+    const filename = options?.filename ?? `vizcad-render-${new Date().toISOString().replace(/[:.]/g, "-")}`
+    if (!renderWindowRef.current || !vtkContainerRef.current) return false
     try {
-      const rw: any = renderWindowRef.current;
+      const rw: any = renderWindowRef.current
       // Preferred path
       if (rw.captureImages) {
-        rw.render?.();
-        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        rw.render?.()
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png"
         const imgs: string[] = await rw.captureImages({
           scale,
           format: mime,
           mimeType: mime,
           quality,
-        });
-        const uri = imgs?.[0];
+        })
+        const uri = imgs?.[0]
         if (uri) {
-          const a = document.createElement("a");
-          a.href = uri;
-          a.download = `${filename}-scale${scale}.${format}`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          return true;
+          const a = document.createElement("a")
+          a.href = uri
+          a.download = `${filename}-scale${scale}.${format}`
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          return true
         }
       }
       // Fallback canvas
-      const canvas: HTMLCanvasElement | null =
-        vtkContainerRef.current.querySelector("canvas");
-      if (!canvas) return false;
-      const dataURL = canvas.toDataURL(
-        format === "jpeg" ? "image/jpeg" : "image/png",
-        quality
-      );
-      const a = document.createElement("a");
-      a.href = dataURL;
-      a.download = `${filename}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      return true;
+      const canvas: HTMLCanvasElement | null = vtkContainerRef.current.querySelector("canvas")
+      if (!canvas) return false
+      const dataURL = canvas.toDataURL(format === "jpeg" ? "image/jpeg" : "image/png", quality)
+      const a = document.createElement("a")
+      a.href = dataURL
+      a.download = `${filename}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      return true
     } catch {
-      return false;
+      return false
     }
-  };
+  }
+
+  // This file contains pure VTK functionality and should never be affected by theme/palette changes
+  // Only the UI wrapper elements should respond to theme changes, not the 3D rendering area
 
   return {
     rendererRef: rendererRef,
@@ -486,5 +467,5 @@ export function useVtkScene() {
     showGrid,
     showAxes,
     captureImage,
-  };
+  }
 }

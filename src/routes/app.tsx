@@ -253,19 +253,44 @@ function AppPage() {
   // Quick view grid layout
   const quickViewGrid = [
     [null, "Top", null],
-    ["Left", "Front", "Right"],
+    ["Left", "Front", "Right"], 
     [null, "Bottom", "Back"],
   ];
 
   return (
-    <div className="relative h-full bg-gray-100 flex flex-col">
+    <div
+      className="relative h-full bg-gray-100 flex flex-col pt-14 sm:pt-16"
+      style={{
+        // force light palette for this subtree regardless of global .dark
+        ["--background"]: "255 255 255",
+        ["--foreground"]: "15 23 42",
+        ["--card"]: "255 255 255",
+        ["--card-foreground"]: "15 23 42",
+        ["--muted"]: "248 250 252",
+        ["--muted-foreground"]: "100 116 139",
+        ["--border"]: "226 232 240",
+        ["--input"]: "226 232 240",
+        // Explicit visual overrides so child elements (text, svgs) keep light colors
+        color: "rgb(15 23 42)",
+        backgroundColor: "rgb(255 255 255)",
+        borderColor: "rgb(226 232 240)",
+        fill: "rgb(15 23 42)",
+        stroke: "rgb(15 23 42)",
+  } as React.CSSProperties}
+    >
       {/* Unavailable Feature Modal */}
       {showUnavailableModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="relative bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex flex-col items-center text-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center border border-blue-200">
-                <Lock className="w-10 h-10 text-blue-400" />
+              <div
+                className="w-20 h-20 rounded-2xl flex items-center justify-center border"
+                style={{
+                  backgroundColor: "rgb(var(--primary) / 0.08)",
+                  borderColor: "rgb(var(--primary) / 0.16)",
+                }}
+              >
+                <Lock className="w-10 h-10" style={{ color: "rgb(var(--primary))" }} />
               </div>
 
               <div className="space-y-3">
@@ -279,7 +304,13 @@ function AppPage() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
+                style={{
+                  color: "rgb(var(--primary))",
+                  backgroundColor: "rgb(var(--primary) / 0.08)",
+                  borderColor: "rgb(var(--primary) / 0.2)",
+                }}
+              >
                 <Clock className="w-4 h-4" />
                 <span className="text-sm font-medium">Coming in Q2 2025</span>
               </div>
@@ -293,10 +324,13 @@ function AppPage() {
                   Got it
                 </Button>
                 <Button
-                  className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  className="flex-1"
                   onClick={() => {
                     setShowUnavailableModal(false);
                     // notification logic placeholder
+                  }}
+                  style={{
+                    backgroundColor: "rgb(var(--primary))",
                   }}
                 >
                   Notify me
@@ -378,12 +412,20 @@ function AppPage() {
                       key={tab.id}
                       onClick={() => handleTabClick(tab)}
                       className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${
-                        activeTab === tab.id && tab.available
-                          ? "text-cyan-600 bg-cyan-50 border-b-2 border-cyan-600"
-                          : !tab.available
+                        !tab.available
                           ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
                           : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}
+                      style={
+                        activeTab === tab.id && tab.available
+                          ? {
+                              color: "rgb(var(--primary))",
+                              backgroundColor: "rgb(var(--primary) / 0.08)",
+                              borderBottom: "2px solid",
+                              borderBottomColor: "rgb(var(--primary) / 0.3)",
+                            }
+                          : undefined
+                      }
                     >
                       <div className="relative">
                         <Icon
@@ -392,7 +434,10 @@ function AppPage() {
                           }`}
                         />
                         {!tab.available && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                          <div
+                            className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "rgb(var(--primary))" }}
+                          >
                             <Lock className="w-2 h-2 text-white" />
                           </div>
                         )}
@@ -412,7 +457,10 @@ function AppPage() {
                               Coming in Q2 2025
                             </div>
                           </div>
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                          <div
+                            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
+                            style={{ borderTopColor: "rgb(var(--border))" }}
+                          ></div>
                         </div>
                       )}
                     </button>
@@ -457,19 +505,24 @@ function AppPage() {
                         }
                       }}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow">
-                          <Navigation className="w-4 h-4 text-white" />
+                        <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center shadow"
+                          style={{
+                          backgroundColor: "rgb(var(--primary))",
+                          }}
+                        >
+                          <Navigation className="w-4 h-4" style={{ color: "rgb(var(--primary-foreground))" }} />
                         </div>
                         <h3 className="text-sm font-semibold text-gray-800">
                           Navigation
                         </h3>
-                      </div>
+                        </div>
                       <button
                         onClick={() => setShowNavigationModal(false)}
                         className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 transition"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4" style={{ color: "rgb(107,114,128)" }} />
                       </button>
                     </div>
 
@@ -478,7 +531,7 @@ function AppPage() {
                       {/* Quick Views */}
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <Target className="w-4 h-4 text-cyan-500" />
+                          <Target className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
                           Quick Views
                         </h4>
                         <div className="grid grid-cols-3 gap-2 max-w-[180px]">
@@ -492,11 +545,12 @@ function AppPage() {
                                   >
                                     {rowIndex === 0 && colIndex === 2 && (
                                       <button
-                                        className={`w-12 h-10 text-xs font-medium rounded-md transition ${
+                                        className={`w-12 h-10 text-xs font-medium rounded-md transition`}
+                                        style={
                                           activeView === "ISO"
-                                            ? "bg-cyan-500 text-white shadow"
-                                            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                        }`}
+                                            ? { backgroundColor: "rgb(var(--primary))", color: "rgb(var(--primary-foreground))", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }
+                                            : undefined
+                                        }
                                         onClick={() => handleViewChange("ISO")}
                                       >
                                         ISO
@@ -508,11 +562,12 @@ function AppPage() {
                               return (
                                 <button
                                   key={`${rowIndex}-${colIndex}`}
-                                  className={`w-12 h-10 text-xs font-medium rounded-md transition ${
+                                  className={`w-12 h-10 text-xs font-medium rounded-md transition`}
+                                  style={
                                     activeView === view
-                                      ? "bg-cyan-500 text-white shadow"
-                                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                  }`}
+                                      ? { backgroundColor: "rgb(var(--primary))", color: "rgb(var(--primary-foreground))", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }
+                                      : undefined
+                                  }
                                   onClick={() => handleViewChange(view)}
                                 >
                                   {view}
@@ -526,7 +581,7 @@ function AppPage() {
                       {/* Display Options */}
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-cyan-500" />
+                          <Eye className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
                           Display
                         </h4>
                         <div className="space-y-2">
@@ -557,7 +612,7 @@ function AppPage() {
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    className="sr-only peer"
+                                    className="sr-only"
                                     checked={checked}
                                     onChange={(e) => {
                                       const enabled = e.target.checked;
@@ -594,7 +649,12 @@ function AppPage() {
                                       }
                                     }}
                                   />
-                                  <div className="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:bg-cyan-500 after:content-[''] after:absolute after:w-4 after:h-4 after:bg-white after:rounded-full after:shadow after:transition-all after:top-0 after:left-0 peer-checked:after:translate-x-full"></div>
+                                  <div className="w-8 h-4 rounded-full relative" style={{ backgroundColor: checked ? "rgb(var(--primary))" : "rgb(229 231 235)" }}>
+                                    <div
+                                      className="absolute top-0 left-0 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                                      style={{ transform: checked ? "translateX(100%)" : "translateX(0)" }}
+                                    />
+                                  </div>
                                 </label>
                               </div>
                             );
@@ -605,7 +665,7 @@ function AppPage() {
                       {/* Navigation Actions */}
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <RotateCcw className="w-4 h-4 text-cyan-500" />
+                          <RotateCcw className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
                           Navigation
                         </h4>
                         <div className="grid grid-cols-2 gap-2">
@@ -658,10 +718,9 @@ function AppPage() {
                         <button
                           key={view}
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
-                            activeView === view
-                              ? "bg-cyan-500 text-white shadow-lg"
-                              : "text-black/60 hover:text-black hover:bg-gray-100"
+                            activeView === view ? "text-white shadow-lg" : "text-black/60 hover:text-black hover:bg-gray-100"
                           }`}
+                          style={activeView === view ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                           onClick={() => handleViewChange(view)}
                         >
                           {view}
@@ -698,10 +757,9 @@ function AppPage() {
                     <div className="flex items-center gap-1">
                       <button
                         className={`p-2 rounded-full transition-all duration-200 ${
-                          wireframe
-                            ? "bg-cyan-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                          wireframe ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
+                        style={wireframe ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Toggle Wireframe"
                         onClick={() => {
                           const next = !wireframe;
@@ -717,10 +775,9 @@ function AppPage() {
                       </button>
                       <button
                         className={`p-2 rounded-full transition-all duration-200 ${
-                          axes
-                            ? "bg-cyan-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                          axes ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
+                        style={axes ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Toggle Axes"
                         onClick={() => {
                           const next = !axes;
@@ -736,10 +793,9 @@ function AppPage() {
                       </button>
                       <button
                         className={`p-2 rounded-full transition-all duration-200 ${
-                          smooth
-                            ? "bg-cyan-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                          smooth ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
+                        style={smooth ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Smooth / Flat Shading"
                         onClick={() => {
                           const next = !smooth;
@@ -755,10 +811,9 @@ function AppPage() {
                       </button>
                       <button
                         className={`p-2 rounded-full transition-all duration-200 ${
-                          perspective
-                            ? "bg-cyan-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                          perspective ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
+                        style={perspective ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title={perspective ? "Switch to Parallel" : "Switch to Perspective"}
                         onClick={() => {
                           const next = !perspective;
@@ -847,10 +902,17 @@ function AppPage() {
                 </p>
                 <div className="space-y-3">
                   <Button
-                    className="bg-cyan-500 hover:bg-cyan-600 px-6 py-3"
+                    className="px-6 py-3"
                     onClick={openFileDialog}
+                    style={{
+                      backgroundColor: "rgb(var(--primary))",
+                      color: "rgb(var(--primary-foreground))",
+                      borderRadius: 8,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary-hover))")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary))")}
                   >
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-4 w-4 mr-2" style={{ color: "rgb(var(--primary-foreground))" }} />
                     Upload Your Model
                   </Button>
                   <input

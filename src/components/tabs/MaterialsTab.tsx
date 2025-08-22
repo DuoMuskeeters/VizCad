@@ -10,7 +10,7 @@ export function MaterialsTab() {
           {[
             { name: "Metal", color: "bg-gray-400" },
             { name: "Plastic", color: "bg-blue-400" },
-            { name: "Glass", color: "bg-cyan-200" },
+            { name: "Glass", color: "" },
             { name: "Wood", color: "bg-amber-600" },
             { name: "Fabric", color: "bg-red-400" },
             { name: "Ceramic", color: "bg-white border" },
@@ -19,7 +19,7 @@ export function MaterialsTab() {
               key={material.name}
               className="aspect-square rounded-lg cursor-pointer hover:scale-105 transition-transform flex items-center justify-center text-xs font-medium"
             >
-              <div className={`w-full h-full rounded-lg ${material.color} flex items-center justify-center`}>
+              <div className={`w-full h-full rounded-lg flex items-center justify-center`} style={material.name === "Glass" ? { backgroundColor: "rgb(var(--secondary) / 1)" } : undefined}>
                 <span className={material.name === "Ceramic" ? "text-gray-700" : "text-white"}>{material.name}</span>
               </div>
             </div>
@@ -31,12 +31,15 @@ export function MaterialsTab() {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Model Materials</h3>
         <div className="space-y-2">
-          {["Main Body", "Details", "Accents"].map((material, index) => (
+          {[
+            "Main Body",
+            "Details",
+            "Accents",
+          ].map((material, index) => (
             <div
               key={material}
-              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
-                index === 0 ? "border-cyan-500 bg-cyan-50" : "border-gray-200"
-              }`}
+              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors border-gray-200`}
+              style={index === 0 ? { borderColor: "rgb(var(--primary))", backgroundColor: "rgb(var(--primary) / 0.06)" } : undefined}
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-900">{material}</span>
