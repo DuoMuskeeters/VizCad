@@ -133,7 +133,7 @@ function HomePage() {
             {/* Sağ taraf - Uygulama önizlemesi */}
             <div className="relative group flex justify-center xl:justify-start">
               {/* Application Preview */}
-              <div className="relative bg-card rounded-2xl xl:rounded-3xl shadow-xl xl:shadow-2xl border border-border overflow-hidden group-hover:scale-105 transition-transform duration-700 ease-out w-full max-w-xl xl:max-w-none">
+              <div className="relative bg-card rounded-2xl xl:rounded-3xl shadow-xl xl:shadow-2xl border border-border overflow-hidden group-hover:scale-105 transition-transform duration-700 ease-out w-full max-w-xl xl:max-w-none hidden xl:block">
                 <div className="flex items-center gap-2 px-5 py-4 xl:px-6 xl:py-4 bg-muted border-b border-border">
                   <div className="w-3 h-3 bg-red-400 rounded-full"></div>
                   <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
@@ -271,140 +271,140 @@ function HomePage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-20">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 mb-6">
-          <Zap className="w-4 h-4 text-primary" />
-          Available Now
-        </div>
-        <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">Powerful 3D Visualization Tools</h2>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-          Start with our core visualization features today, with advanced rendering capabilities coming soon.
-        </p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 mb-6">
+              <Zap className="w-4 h-4 text-primary" />
+              Available Now
+            </div>
+            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">Powerful 3D Visualization Tools</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Start with our core visualization features today, with advanced rendering capabilities coming soon.
+            </p>
           </div>
 
           {/* Current Features - Responsive Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-24 justify-items-center">
-        {/* Card 1 - Instant Upload */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Upload className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Instant Upload</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Drag and drop your STL, OBJ, PLY, or 3MF files directly into the browser. No software installation or
-            account creation required.
-          </p>
-        </div>
+            {/* Card 1 - Instant Upload */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Upload className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Instant Upload</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Drag and drop your STL, OBJ, PLY, or 3MF files directly into the browser. No software installation or
+                account creation required.
+              </p>
+            </div>
 
-        {/* Card 2 - Display Controls */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center lg:mt-12">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Eye className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Display Controls</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Toggle wireframe mode, smooth shading, perspective/orthographic views, and coordinate axes. Real-time
-            visualization with instant feedback.
-          </p>
-        </div>
+            {/* Card 2 - Display Controls */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center lg:mt-12">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Eye className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Display Controls</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Toggle wireframe mode, smooth shading, perspective/orthographic views, and coordinate axes. Real-time
+                visualization with instant feedback.
+              </p>
+            </div>
 
-        {/* Card 3 - Fast Performance */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Zap className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Fast Performance</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Optimized WebGL rendering for smooth interaction. Works directly in your browser with no plugins or
-            downloads required.
-          </p>
-        </div>
+            {/* Card 3 - Fast Performance */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Zap className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Fast Performance</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Optimized WebGL rendering for smooth interaction. Works directly in your browser with no plugins or
+                downloads required.
+              </p>
+            </div>
 
-        {/* Card 4 - Studio Scenes */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Palette className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Studio Scenes</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Professional lighting presets including plain white, 3-point lighting, warm studio, and custom
-            background colors for clean presentations.
-          </p>
-        </div>
+            {/* Card 4 - Studio Scenes */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Palette className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Studio Scenes</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Professional lighting presets including plain white, 3-point lighting, warm studio, and custom
+                background colors for clean presentations.
+              </p>
+            </div>
 
-        {/* Card 5 - Camera Navigation */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center lg:mt-12">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Camera className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Camera Navigation</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Multiple view presets (Front, Back, Left, Right, Top, Bottom, Isometric) with zoom controls and camera
-            reset functionality.
-          </p>
-        </div>
+            {/* Card 5 - Camera Navigation */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center lg:mt-12">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Camera className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Camera Navigation</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Multiple view presets (Front, Back, Left, Right, Top, Bottom, Isometric) with zoom controls and camera
+                reset functionality.
+              </p>
+            </div>
 
-        {/* Card 6 - Cross-Platform */}
-        <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Globe className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground mb-4">Cross-Platform</h3>
-          <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-            Works on any device with a modern web browser. Desktop, tablet, or mobile - your 3D models are always
-            accessible.
-          </p>
-        </div>
+            {/* Card 6 - Cross-Platform */}
+            <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Globe className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">Cross-Platform</h3>
+              <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
+                Works on any device with a modern web browser. Desktop, tablet, or mobile - your 3D models are always
+                accessible.
+              </p>
+            </div>
           </div>
 
           {/* Coming Soon Section - Redesigned */}
           <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl p-8 border border-primary/10">
-        <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold text-foreground mb-4">Advanced Features Coming Soon</h3>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            We're working on powerful new features to make VizCad the ultimate 3D visualization platform.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Lightbulb className="w-6 h-6 text-primary" />
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-foreground mb-4">Advanced Features Coming Soon</h3>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                We're working on powerful new features to make VizCad the ultimate 3D visualization platform.
+              </p>
             </div>
-            <h4 className="font-semibold text-foreground mb-2">Custom Lighting</h4>
-            <p className="text-sm text-muted-foreground">Advanced light positioning and intensity controls</p>
-          </div>
 
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Camera className="w-6 h-6 text-primary" />
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Lightbulb className="w-6 h-6 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">Custom Lighting</h4>
+                <p className="text-sm text-muted-foreground">Advanced light positioning and intensity controls</p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Camera className="w-6 h-6 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">Camera Settings</h4>
+                <p className="text-sm text-muted-foreground">Focal length, aperture, and depth of field</p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Palette className="w-6 h-6 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">Material Editor</h4>
+                <p className="text-sm text-muted-foreground">Metallic, roughness, and transparency controls</p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Box className="w-6 h-6 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">Output Settings</h4>
+                <p className="text-sm text-muted-foreground">High-resolution exports and render quality</p>
+              </div>
             </div>
-            <h4 className="font-semibold text-foreground mb-2">Camera Settings</h4>
-            <p className="text-sm text-muted-foreground">Focal length, aperture, and depth of field</p>
-          </div>
 
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Palette className="w-6 h-6 text-primary" />
+            <div className="text-center mt-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                <Zap className="w-4 h-4 text-primary" />
+                Expected Q2 2025
+              </div>
             </div>
-            <h4 className="font-semibold text-foreground mb-2">Material Editor</h4>
-            <p className="text-sm text-muted-foreground">Metallic, roughness, and transparency controls</p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Box className="w-6 h-6 text-primary" />
-            </div>
-            <h4 className="font-semibold text-foreground mb-2">Output Settings</h4>
-            <p className="text-sm text-muted-foreground">High-resolution exports and render quality</p>
-          </div>
-        </div>
-
-        <div className="text-center mt-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
-            <Zap className="w-4 h-4 text-primary" />
-            Expected Q2 2025
-          </div>
-        </div>
           </div>
         </div>
       </section>
@@ -441,12 +441,19 @@ function HomePage() {
                     <span className="text-xl font-bold text-foreground">VizCad</span>
                   </div>
                   <p className="text-muted-foreground max-w-md">
-                    Professional 3D visualization made simple and accessible. Create stunning renders directly in your
-                    browser.
+                    VizCad is the vision of a mechatronics engineer who combines
+                    a passion for 3D visualization with years of experience in
+                    the 3d CAD design. Following years of hands-on work, a
+                    significant gap in the market was identified with the belief
+                    that professional tools should be accessible to everyone. We
+                    are committed to continuously developing this platform to
+                    serve the creative and technical community
                   </p>
                   <div className="flex gap-3">
                     <a
-                      href="#"
+                      href="https://x.com/VizCad0"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="w-8 h-8 bg-primary hover:bg-primary/80 rounded-lg flex items-center justify-center transition-colors"
                     >
                       <Twitter className="w-4 h-4 text-primary-foreground" />
@@ -483,7 +490,9 @@ function HomePage() {
               </p>
               <div className="flex gap-3">
                 <a
-                  href="#"
+                  href="https://x.com/VizCad0"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-8 h-8 bg-primary hover:bg-primary/80 rounded-lg flex items-center justify-center transition-colors"
                 >
                   <Twitter className="w-4 h-4 text-primary-foreground" />
@@ -513,6 +522,9 @@ function HomePage() {
                 <Link to="/faq" className="block hover:text-primary transition-colors">
                   FAQ
                 </Link>
+                <Link to="/contact" className="block hover:text-primary transition-colors">
+                  Contact
+                </Link>
               </div>
             </div>
 
@@ -522,8 +534,8 @@ function HomePage() {
               <div className="space-y-3 text-gray-400 text-sm">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-primary" />
-                  <a href="mailto:hello@vizcad.com" className="hover:text-primary transition-colors">
-                    info@vizcad.com
+                  <a href="mailto:info@viz-cad.com" className="hover:text-primary transition-colors">
+                    info@viz-cad.com
                   </a>
                 </div>
                 <div className="flex items-center gap-2">

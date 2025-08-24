@@ -13,6 +13,7 @@ export default function Header() {
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
   const isFaqPage = location.pathname === "/faq"
+  const isContactPage = location.pathname === "/contact"
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { theme } = useTheme()
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light")
@@ -40,10 +41,8 @@ export default function Header() {
   }, [theme])
 
   const handleNavClick = (sectionId: string) => {
-    setIsMobileMenuOpen(false) // Close mobile menu on navigation
-    if (isAppPage || isFaqPage) {
+    if (location.pathname !== "/") {
       navigate({ to: "/" }).then(() => {
-        // Wait for navigation to complete, then scroll to section
         setTimeout(() => {
           const element = document.getElementById(sectionId)
           if (element) {
@@ -52,13 +51,22 @@ export default function Header() {
         }, 100)
       })
     } else {
-      // Ana sayfadaysak direkt scroll yap
       const element = document.getElementById(sectionId)
       if (element) {
         element.scrollIntoView({ behavior: "smooth" })
       }
     }
   }
+
+  const handleContactClick = () => {
+    if (location.pathname !== "/contact") {
+      navigate({ to: "/contact" })
+    }
+  }
+
+  const buttonClass = isContactPage
+    ? "text-muted-foreground font-medium cursor-default text-sm lg:text-base"
+    : "text-muted-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base shadow-none"
 
   const headerInlineStyle: React.CSSProperties | undefined =
     isAppPage && resolvedTheme === "dark"
@@ -88,50 +96,37 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
             <button
               onClick={() => handleNavClick("features")}
-              className="text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base"
-              style={{ "--tw-text-opacity": "1" } as React.CSSProperties}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgb(var(--primary))")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+              className={buttonClass}
             >
               Features
             </button>
             <button
               onClick={() => handleNavClick("about")}
-              className="text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgb(var(--primary))")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+              className={buttonClass}
             >
               About Us
             </button>
             <Link
               to="/faq"
-              className="text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgb(var(--primary))")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+              className={buttonClass}
             >
               FAQ
             </Link>
-            <button
-              onClick={() => handleNavClick("contact")}
-              className="text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgb(var(--primary))")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+            <Link
+              to="/contact"
+              className={buttonClass}
             >
               Contact
-            </button>
+            </Link>
             <PaletteSelector />
             <ModeToggle />
             <Link
               to="/app"
               className="text-white font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base"
-              style={
-                {
-                  backgroundColor: "rgb(var(--primary))",
-                  "--tw-bg-opacity": "1",
-                } as React.CSSProperties
-              }
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary-hover))")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary))")}
+              style={{
+                backgroundColor: "rgb(var(--primary))",
+                color: "white",
+              }}
             >
               Launch App
             </Link>
@@ -160,7 +155,7 @@ export default function Header() {
 
         {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-background/95 backdrop-blur-md border-b border-border shadow-lg">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg z-[60] mt-0">
             <div className="px-4 py-4 space-y-3">
               <button
                 onClick={() => handleNavClick("features")}
@@ -181,23 +176,21 @@ export default function Header() {
               >
                 FAQ
               </Link>
-              <button
-                onClick={() => handleNavClick("contact")}
-                className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
+              <Link
+                to="/contact"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
               >
                 Contact
-              </button>
+              </Link>
               <Link
                 to="/app"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md text-center"
-                style={
-                  {
-                    backgroundColor: "rgb(var(--primary))",
-                  } as React.CSSProperties
-                }
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary-hover))")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary))")}
+                className="block w-full text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md text-center mt-4"
+                style={{
+                  backgroundColor: "rgb(var(--primary))",
+                  color: "white",
+                }}
               >
                 Launch App
               </Link>

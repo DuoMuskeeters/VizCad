@@ -1,6 +1,6 @@
 "use client"
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -9,8 +9,6 @@ export const Route = createFileRoute("/faq")({
 })
 
 function FAQ() {
-  const navigate = useNavigate()
-
   const faqs = [
     {
       id: "what-is-vizcad",
@@ -62,16 +60,6 @@ function FAQ() {
     },
   ]
 
-  const handleContactClick = () => {
-    navigate({ to: "/" })
-    setTimeout(() => {
-      const element = document.getElementById("contact")
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth" })
-      }
-    }, 100)
-  }
-
   return (
     <div className="min-h-screen bg-background pt-16 sm:pt-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -105,24 +93,6 @@ function FAQ() {
             </Accordion>
           </CardContent>
         </Card>
-
-        {/* Contact Section */}
-        <div className="mt-12 text-center">
-          <Card className="bg-gradient-to-r from-primary/10 to-accent/10 dark:from-primary/5 dark:to-accent/5 border-primary/20 dark:border-primary/30">
-            <CardContent className="pt-6">
-              <h3 className="text-xl font-semibold text-foreground mb-2">Still have questions?</h3>
-              <p className="text-muted-foreground mb-4">
-                Can't find the answer you're looking for? We're here to help!
-              </p>
-              <button
-                onClick={handleContactClick}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-md"
-              >
-                Contact Support
-              </button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

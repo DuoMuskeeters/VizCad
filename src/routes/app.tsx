@@ -1,19 +1,16 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react"
 
-import { VtkApp } from "@/components/vtk";
-import { Button } from "@/components/ui/button";
-import { createFileRoute } from "@tanstack/react-router";
+import { VtkApp } from "@/components/vtk"
+import { Button } from "@/components/ui/button"
+import { createFileRoute } from "@tanstack/react-router"
 import {
   Upload,
-  type File,
+  File,
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Settings,
-  Download,
-  Share2,
   Eye,
   Palette,
   Sun,
@@ -27,22 +24,20 @@ import {
   X,
   Target,
   Navigation,
-  Square,
   Maximize,
   Move3d,
   Box,
-} from "lucide-react";
-import { ScenesTab } from "@/components/tabs/sceneTabs";
-import { LightsTab } from "@/components/tabs/LightsTab";
-import { MaterialsTab } from "@/components/tabs/MaterialsTab";
-import { OutputTab } from "@/components/tabs/OutputTab";
-import { CameraTab } from "@/components/tabs/CameraTab";
-import vtkRenderer from "@kitware/vtk.js/Rendering/Core/Renderer";
-import { useVtkScene } from "@/components/scene";
+} from "lucide-react"
+import { ScenesTab } from "@/components/tabs/sceneTabs"
+import { LightsTab } from "@/components/tabs/LightsTab"
+import { MaterialsTab } from "@/components/tabs/MaterialsTab"
+import { OutputTab } from "@/components/tabs/OutputTab"
+import { CameraTab } from "@/components/tabs/CameraTab"
+import { useVtkScene } from "@/components/scene"
 
 export const Route = createFileRoute("/app")({
   component: AppPage,
-});
+})
 
 function AppPage() {
   const {
@@ -62,86 +57,88 @@ function AppPage() {
     clearFloor,
     clearBackgroundPlane,
     applyStudioScene,
-    captureImage
-  } = useVtkScene();
-  const [showNavigationModal, setShowNavigationModal] = useState(false);
-  const [modalPosition, setModalPosition] = useState({ x: 100, y: 100 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [activeView, setActiveView] = useState("ISO"); // Track active view
+    captureImage,
+  } = useVtkScene()
+  const [showNavigationModal, setShowNavigationModal] = useState(false)
+  const [modalPosition, setModalPosition] = useState({ x: 100, y: 100 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [activeView, setActiveView] = useState("ISO") // Track active view
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("scenes");
-  const [showUnavailableModal, setShowUnavailableModal] = useState(false);
-  const [clickedFeature, setClickedFeature] = useState("");
-  const [wireframe, setWireframe] = useState(false);
-  const [axes, setAxes] = useState(false);
-  const [smooth, setSmooth] = useState(false);
-  const [perspective, setPerspective] = useState(false); // default parallel
-  const [viewLocked, setViewLocked] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [activeTab, setActiveTab] = useState("scenes")
+  const [showUnavailableModal, setShowUnavailableModal] = useState(false)
+  const [clickedFeature, setClickedFeature] = useState("")
+  const [wireframe, setWireframe] = useState(false)
+  const [axes, setAxes] = useState(false)
+  const [smooth, setSmooth] = useState(false)
+  const [perspective, setPerspective] = useState(false) // default parallel
+  const [viewLocked, setViewLocked] = useState(false)
 
-  const isDeveloper = false;
+  const isDeveloper = false
   // const [isDeveloper, setIsDeveloper] = useState(false);
 
   // Unified file input ref
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const viewerRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const viewerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // Unified file change handler
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+      setSelectedFile(event.target.files[0])
     }
-  };
+  }
 
   // Open file dialog programmatically
   const openFileDialog = () => {
-    // Always allow file dialog, even if a file is already selected
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    fileInputRef.current?.click();
-  };
+    // Reset the file input value to allow re-selection of the same file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+    fileInputRef.current?.click()
+  }
 
   // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
+    e.preventDefault()
+    setIsDragOver(true)
+  }
 
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
+    e.preventDefault()
+    setIsDragOver(false)
+  }
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = e.dataTransfer.files;
+    e.preventDefault()
+    setIsDragOver(false)
+    const files = e.dataTransfer.files
     if (files && files[0]) {
-      setSelectedFile(files[0]);
+      setSelectedFile(files[0])
     }
-  };
+  }
 
   // Handle view change
   const handleViewChange = (view: string) => {
-    setActiveView(view);
-    const event = new CustomEvent("setView", { detail: { view } });
-    window.dispatchEvent(event);
-  };
+    setActiveView(view)
+    const event = new CustomEvent("setView", { detail: { view } })
+    window.dispatchEvent(event)
+  }
 
   // AYRIM: Reset View (aktif açıya dön) vs Zoom to Fit (modeli sığdır)
   const handleResetView = () => {
-    const event = new CustomEvent("setView", { detail: { view: activeView } });
-    window.dispatchEvent(event);
-  };
+    const event = new CustomEvent("setView", { detail: { view: activeView } })
+    window.dispatchEvent(event)
+  }
 
   // VTK renderer.resetCamera() mantığını tetikleyecek (yönü koruyarak fit eden) özel event
   const handleCameraFitAll = () => {
     // Current camera orientation preserved; VtkApp listener uses resetCamera which fits bounds.
-    window.dispatchEvent(new CustomEvent("zoomToFit"));
-  };
+    window.dispatchEvent(new CustomEvent("zoomToFit"))
+  }
 
   // Tab definitions (Scenes always available; others depend on dev mode)
   const tabs = [
@@ -155,19 +152,19 @@ function AppPage() {
       available: isDeveloper,
     },
     { id: "output", label: "Output", icon: ImageIcon, available: isDeveloper },
-  ];
+  ]
 
   const handleTabClick = (tab: any) => {
     if (tab.available) {
-      setActiveTab(tab.id);
+      setActiveTab(tab.id)
     } else {
-      setClickedFeature(tab.label);
-      setShowUnavailableModal(true);
+      setClickedFeature(tab.label)
+      setShowUnavailableModal(true)
     }
-  };
+  }
 
   const renderTabContent = () => {
-    const currentTab = tabs.find((tab) => tab.id === activeTab);
+    const currentTab = tabs.find((tab) => tab.id === activeTab)
 
     if (!currentTab?.available) {
       return (
@@ -181,7 +178,7 @@ function AppPage() {
           selectedFile={selectedFile}
           perspective={perspective}
         />
-      );
+      )
     }
 
     switch (activeTab) {
@@ -197,15 +194,15 @@ function AppPage() {
             selectedFile={selectedFile}
             perspective={perspective}
           />
-        );
+        )
       case "lights":
-        return <LightsTab />;
+        return <LightsTab />
       case "camera":
-        return <CameraTab />;
+        return <CameraTab />
       case "materials":
-        return <MaterialsTab />;
+        return <MaterialsTab />
       case "output":
-        return <OutputTab />;
+        return <OutputTab />
       default:
         return (
           <ScenesTab
@@ -218,65 +215,82 @@ function AppPage() {
             selectedFile={selectedFile}
             perspective={perspective}
           />
-        );
+        )
     }
-  };
+  }
 
   // Navigation modal drag handlers
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && viewerRef.current && panelRef.current) {
-        const parentRect = viewerRef.current.getBoundingClientRect();
-        const panelRect = panelRef.current.getBoundingClientRect();
-        let newX = e.clientX - dragOffset.x - parentRect.left;
-        let newY = e.clientY - dragOffset.y - parentRect.top;
+        const parentRect = viewerRef.current.getBoundingClientRect()
+        const panelRect = panelRef.current.getBoundingClientRect()
+        let newX = e.clientX - dragOffset.x - parentRect.left
+        let newY = e.clientY - dragOffset.y - parentRect.top
         // Clamp inside viewer
-        newX = Math.max(0, Math.min(newX, parentRect.width - panelRect.width));
-        newY = Math.max(
-          0,
-          Math.min(newY, parentRect.height - panelRect.height)
-        );
-        setModalPosition({ x: newX, y: newY });
+        newX = Math.max(0, Math.min(newX, parentRect.width - panelRect.width))
+        newY = Math.max(0, Math.min(newY, parentRect.height - panelRect.height))
+        setModalPosition({ x: newX, y: newY })
       }
-    };
-    const handleMouseUp = () => setIsDragging(false);
+    }
+    const handleMouseUp = () => setIsDragging(false)
     if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
     }
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging, dragOffset]);
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDragging, dragOffset])
 
   // Quick view grid layout
   const quickViewGrid = [
     [null, "Top", null],
-    ["Left", "Front", "Right"], 
+    ["Left", "Front", "Right"],
     [null, "Bottom", "Back"],
-  ];
+  ]
+
+  const handleTryVizCad = () => {
+    const dragonModelPath = "/public/Dragon 2.5.stl" 
+    fetch(dragonModelPath)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load the dragon model.")
+        }
+        return response.blob()
+      })
+      .then((blob) => {
+        const file = new window.File([blob], "Dragon 2.5.stl", { type: blob.type })
+        setSelectedFile(file)
+      })
+      .catch((error) => {
+        console.error("Error loading the dragon model:", error)
+      })
+  }
 
   return (
     <div
       className="relative h-full bg-gray-100 flex flex-col pt-14 sm:pt-16"
-      style={{
-        // force light palette for this subtree regardless of global .dark
-        ["--background"]: "255 255 255",
-        ["--foreground"]: "15 23 42",
-        ["--card"]: "255 255 255",
-        ["--card-foreground"]: "15 23 42",
-        ["--muted"]: "248 250 252",
-        ["--muted-foreground"]: "100 116 139",
-        ["--border"]: "226 232 240",
-        ["--input"]: "226 232 240",
-        // Explicit visual overrides so child elements (text, svgs) keep light colors
-        color: "rgb(15 23 42)",
-        backgroundColor: "rgb(255 255 255)",
-        borderColor: "rgb(226 232 240)",
-        fill: "rgb(15 23 42)",
-        stroke: "rgb(15 23 42)",
-  } as React.CSSProperties}
+      style={
+        {
+          // force light palette for this subtree regardless of global .dark
+          ["--background"]: "255 255 255",
+          ["--foreground"]: "15 23 42",
+          ["--card"]: "255 255 255",
+          ["--card-foreground"]: "15 23 42",
+          ["--muted"]: "248 250 252",
+          ["--muted-foreground"]: "100 116 139",
+          ["--border"]: "226 232 240",
+          ["--input"]: "226 232 240",
+          // Explicit visual overrides so child elements (text, svgs) keep light colors
+          color: "rgb(15 23 42)",
+          backgroundColor: "rgb(255 255 255)",
+          borderColor: "rgb(226 232 240)",
+          fill: "rgb(15 23 42)",
+          stroke: "rgb(15 23 42)",
+        } as React.CSSProperties
+      }
     >
       {/* Unavailable Feature Modal */}
       {showUnavailableModal && (
@@ -294,17 +308,15 @@ function AppPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-2xl font-semibold text-gray-900">
-                  {clickedFeature} Module
-                </h3>
+                <h3 className="text-2xl font-semibold text-gray-900">{clickedFeature} Module</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  The {clickedFeature.toLowerCase()} module is currently under
-                  development. We are working to bring you this feature as soon
-                  as possible.
+                  The {clickedFeature.toLowerCase()} module is currently under development. We are working to bring you
+                  this feature as soon as possible.
                 </p>
               </div>
 
-              <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
                 style={{
                   color: "rgb(var(--primary))",
                   backgroundColor: "rgb(var(--primary) / 0.08)",
@@ -326,8 +338,18 @@ function AppPage() {
                 <Button
                   className="flex-1"
                   onClick={() => {
-                    setShowUnavailableModal(false);
-                    // notification logic placeholder
+                    setShowUnavailableModal(false)
+                    const email = prompt("Enter your email to get notified when this feature is available:")
+                    if (email && email.includes("@")) {
+                      // Create mailto link for notification signup
+                      const subject = encodeURIComponent(`Notify me about ${clickedFeature} feature`)
+                      const body = encodeURIComponent(
+                        `Hi VizCad team,\n\nPlease notify me when the ${clickedFeature} feature becomes available.\n\nEmail: ${email}\n\nThanks!`,
+                      )
+                      window.location.href = `mailto:info@viz-cad.com?subject=${subject}&body=${body}`
+                    } else if (email !== null) {
+                      alert("Please enter a valid email address")
+                    }
                   }}
                   style={{
                     backgroundColor: "rgb(var(--primary))",
@@ -386,15 +408,25 @@ function AppPage() {
 
         <div className="flex items-center gap-2">
           {/* File Operations */}
-          <Button variant="ghost" size="sm" className="p-2">
-            <Share2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="p-2">
-            <Download className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="p-2">
-            <Settings className="h-4 w-4" />
-          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="bg-primary text-white font-medium px-6 py-3 rounded-lg shadow-md hover:bg-primary/90 transition-all duration-200"
+            onClick={() => {
+              const dragonModelPath = "/public/Dragon 2.5.stl"
+              fetch(dragonModelPath)
+                .then((response) => response.blob())
+                .then((blob) => {
+                  const file = new window.File([blob], "Dragon 2.5.stl", { type: "application/octet-stream" })
+                  setSelectedFile(file)
+                })
+                .catch((error) => {
+                  console.error("Error loading dragon model:", error)
+                })
+            }}
+          >
+            Try VizCad
+          </Button>  
         </div>
       </div>
 
@@ -406,7 +438,7 @@ function AppPage() {
             <div className="border-b border-gray-200">
               <div className="flex">
                 {tabs.map((tab) => {
-                  const Icon = tab.icon;
+                  const Icon = tab.icon
                   return (
                     <button
                       key={tab.id}
@@ -428,11 +460,7 @@ function AppPage() {
                       }
                     >
                       <div className="relative">
-                        <Icon
-                          className={`h-4 w-4 ${
-                            !tab.available ? "opacity-50" : ""
-                          }`}
-                        />
+                        <Icon className={`h-4 w-4 ${!tab.available ? "opacity-50" : ""}`} />
                         {!tab.available && (
                           <div
                             className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
@@ -442,20 +470,14 @@ function AppPage() {
                           </div>
                         )}
                       </div>
-                      <span className={!tab.available ? "opacity-50" : ""}>
-                        {tab.label}
-                      </span>
+                      <span className={!tab.available ? "opacity-50" : ""}>{tab.label}</span>
 
                       {/* Tooltip for unavailable tabs */}
                       {!tab.available && (
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                           <div className="text-center">
-                            <div className="font-medium">
-                              {tab.label} Module
-                            </div>
-                            <div className="text-gray-300 mt-1">
-                              Coming in Q2 2025
-                            </div>
+                            <div className="font-medium">{tab.label} Module</div>
+                            <div className="text-gray-300 mt-1">Coming in Q2 2025</div>
                           </div>
                           <div
                             className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
@@ -464,19 +486,39 @@ function AppPage() {
                         </div>
                       )}
                     </button>
-                  );
+                  )
                 })}
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-l border-gray-200"
+                  title="Close Sidebar"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
               </div>
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto transition-all duration-300">
-              {renderTabContent()}
-            </div>
+            <div className="flex-1 overflow-y-auto transition-all duration-300">{renderTabContent()}</div>
           </div>
         )}
 
-        {/* Main Viewer Area */}
+        {!sidebarOpen && (
+          <div className="flex items-center justify-center w-12 bg-white border-r border-gray-200 shadow-sm">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+              title="Open Sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
           {selectedFile ? (
             <div className="flex-1 p-4 min-h-0">
@@ -496,28 +538,26 @@ function AppPage() {
                       className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-900/5 to-gray-900/10 border-b cursor-grab active:cursor-grabbing"
                       onMouseDown={(e) => {
                         if (panelRef.current) {
-                          const rect = panelRef.current.getBoundingClientRect();
-                          setIsDragging(true);
+                          const rect = panelRef.current.getBoundingClientRect()
+                          setIsDragging(true)
                           setDragOffset({
                             x: e.clientX - rect.left,
                             y: e.clientY - rect.top,
-                          });
+                          })
                         }
                       }}
                     >
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-xl flex items-center justify-center shadow"
                           style={{
-                          backgroundColor: "rgb(var(--primary))",
+                            backgroundColor: "rgb(var(--primary))",
                           }}
                         >
                           <Navigation className="w-4 h-4" style={{ color: "rgb(var(--primary-foreground))" }} />
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800">
-                          Navigation
-                        </h3>
-                        </div>
+                        <h3 className="text-sm font-semibold text-gray-800">Navigation</h3>
+                      </div>
                       <button
                         onClick={() => setShowNavigationModal(false)}
                         className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 transition"
@@ -539,16 +579,17 @@ function AppPage() {
                             row.map((view, colIndex) => {
                               if (!view) {
                                 return (
-                                  <div
-                                    key={`${rowIndex}-${colIndex}`}
-                                    className="w-12 h-10"
-                                  >
+                                  <div key={`${rowIndex}-${colIndex}`} className="w-12 h-10">
                                     {rowIndex === 0 && colIndex === 2 && (
                                       <button
                                         className={`w-12 h-10 text-xs font-medium rounded-md transition`}
                                         style={
                                           activeView === "ISO"
-                                            ? { backgroundColor: "rgb(var(--primary))", color: "rgb(var(--primary-foreground))", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }
+                                            ? {
+                                                backgroundColor: "rgb(var(--primary))",
+                                                color: "rgb(var(--primary-foreground))",
+                                                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                              }
                                             : undefined
                                         }
                                         onClick={() => handleViewChange("ISO")}
@@ -557,7 +598,7 @@ function AppPage() {
                                       </button>
                                     )}
                                   </div>
-                                );
+                                )
                               }
                               return (
                                 <button
@@ -565,15 +606,19 @@ function AppPage() {
                                   className={`w-12 h-10 text-xs font-medium rounded-md transition`}
                                   style={
                                     activeView === view
-                                      ? { backgroundColor: "rgb(var(--primary))", color: "rgb(var(--primary-foreground))", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }
+                                      ? {
+                                          backgroundColor: "rgb(var(--primary))",
+                                          color: "rgb(var(--primary-foreground))",
+                                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                        }
                                       : undefined
                                   }
                                   onClick={() => handleViewChange(view)}
                                 >
                                   {view}
                                 </button>
-                              );
-                            })
+                              )
+                            }),
                           )}
                         </div>
                       </div>
@@ -585,71 +630,56 @@ function AppPage() {
                           Display
                         </h4>
                         <div className="space-y-2">
-                          {(
-                            [
-                              "Wireframe",
-                              "Axes",
-                              "Smooth Shading",
-                              "Perspective",
-                            ] as const
-                          ).map((label) => {
+                          {(["Wireframe", "Axes", "Smooth Shading", "Perspective"] as const).map((label) => {
                             const checked =
                               label === "Wireframe"
                                 ? wireframe
                                 : label === "Axes"
-                                ? axes
-                                : label === "Smooth Shading"
-                                ? smooth
-                                : perspective;
+                                  ? axes
+                                  : label === "Smooth Shading"
+                                    ? smooth
+                                    : perspective
                             return (
-                              <div
-                                key={label}
-                                className="flex items-center justify-between"
-                              >
-                                <span className="text-xs text-gray-600">
-                                  {label}
-                                </span>
+                              <div key={label} className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">{label}</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
                                     className="sr-only"
                                     checked={checked}
                                     onChange={(e) => {
-                                      const enabled = e.target.checked;
+                                      const enabled = e.target.checked
                                       if (label === "Wireframe") {
-                                        setWireframe(enabled);
+                                        setWireframe(enabled)
                                         window.dispatchEvent(
                                           new CustomEvent("toggleWireframe", {
                                             detail: { enabled },
-                                          })
-                                        );
+                                          }),
+                                        )
                                       } else if (label === "Axes") {
-                                        setAxes(enabled);
+                                        setAxes(enabled)
                                         window.dispatchEvent(
                                           new CustomEvent("toggleAxes", {
                                             detail: { enabled },
-                                          })
-                                        );
+                                          }),
+                                        )
                                       } else if (label === "Smooth Shading") {
-                                        setSmooth(enabled);
+                                        setSmooth(enabled)
                                         window.dispatchEvent(
-                                          new CustomEvent(
-                                            "toggleSmoothShading",
-                                            { detail: { enabled } }
-                                          )
-                                        );
+                                          new CustomEvent("toggleSmoothShading", { detail: { enabled } }),
+                                        )
                                       } else if (label === "Perspective") {
-                                        setPerspective(enabled);
+                                        setPerspective(enabled)
                                         window.dispatchEvent(
-                                          new CustomEvent(
-                                            "toggleProjection",
-                                            { detail: { perspective: enabled } }
-                                          )
-                                        );
+                                          new CustomEvent("toggleProjection", { detail: { perspective: enabled } }),
+                                        )
                                       }
                                     }}
                                   />
-                                  <div className="w-8 h-4 rounded-full relative" style={{ backgroundColor: checked ? "rgb(var(--primary))" : "rgb(229 231 235)" }}>
+                                  <div
+                                    className="w-8 h-4 rounded-full relative"
+                                    style={{ backgroundColor: checked ? "rgb(var(--primary))" : "rgb(229 231 235)" }}
+                                  >
                                     <div
                                       className="absolute top-0 left-0 w-4 h-4 bg-white rounded-full shadow transition-transform"
                                       style={{ transform: checked ? "translateX(100%)" : "translateX(0)" }}
@@ -657,7 +687,7 @@ function AppPage() {
                                   </div>
                                 </label>
                               </div>
-                            );
+                            )
                           })}
                         </div>
                       </div>
@@ -706,19 +736,13 @@ function AppPage() {
 
                     {/* View Presets */}
                     <div className="flex items-center gap-1">
-                      {[
-                        "Front",
-                        "Back",
-                        "Left",
-                        "Right",
-                        "Top",
-                        "Bottom",
-                        "ISO",
-                      ].map((view) => (
+                      {["Front", "Back", "Left", "Right", "Top", "Bottom", "ISO"].map((view) => (
                         <button
                           key={view}
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
-                            activeView === view ? "text-white shadow-lg" : "text-black/60 hover:text-black hover:bg-gray-100"
+                            activeView === view
+                              ? "text-white shadow-lg"
+                              : "text-black/60 hover:text-black hover:bg-gray-100"
                           }`}
                           style={activeView === view ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                           onClick={() => handleViewChange(view)}
@@ -732,19 +756,17 @@ function AppPage() {
                     <div className="flex items-center gap-1">
                       <button
                         className={`p-2 rounded-full transition-all duration-200 ${
-                          viewLocked
-                            ? "bg-red-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
+                          viewLocked ? "bg-red-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
                         title={viewLocked ? "Unlock View" : "Lock View"}
                         onClick={() => {
-                          const next = !viewLocked;
-                          setViewLocked(next);
+                          const next = !viewLocked
+                          setViewLocked(next)
                           window.dispatchEvent(
                             new CustomEvent("toggleViewLock", {
                               detail: { enabled: next },
-                            })
-                          );
+                            }),
+                          )
                         }}
                       >
                         <Lock className="h-4 w-4" />
@@ -762,13 +784,13 @@ function AppPage() {
                         style={wireframe ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Toggle Wireframe"
                         onClick={() => {
-                          const next = !wireframe;
-                          setWireframe(next);
+                          const next = !wireframe
+                          setWireframe(next)
                           window.dispatchEvent(
                             new CustomEvent("toggleWireframe", {
                               detail: { enabled: next },
-                            })
-                          );
+                            }),
+                          )
                         }}
                       >
                         <Eye className="h-4 w-4" />
@@ -780,13 +802,13 @@ function AppPage() {
                         style={axes ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Toggle Axes"
                         onClick={() => {
-                          const next = !axes;
-                          setAxes(next);
+                          const next = !axes
+                          setAxes(next)
                           window.dispatchEvent(
                             new CustomEvent("toggleAxes", {
                               detail: { enabled: next },
-                            })
-                          );
+                            }),
+                          )
                         }}
                       >
                         <Move3d className="h-4 w-4" />
@@ -798,13 +820,13 @@ function AppPage() {
                         style={smooth ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title="Smooth / Flat Shading"
                         onClick={() => {
-                          const next = !smooth;
-                          setSmooth(next);
+                          const next = !smooth
+                          setSmooth(next)
                           window.dispatchEvent(
                             new CustomEvent("toggleSmoothShading", {
                               detail: { enabled: next },
-                            })
-                          );
+                            }),
+                          )
                         }}
                       >
                         <Sun className="h-4 w-4" />
@@ -816,13 +838,13 @@ function AppPage() {
                         style={perspective ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                         title={perspective ? "Switch to Parallel" : "Switch to Perspective"}
                         onClick={() => {
-                          const next = !perspective;
-                          setPerspective(next);
+                          const next = !perspective
+                          setPerspective(next)
                           window.dispatchEvent(
                             new CustomEvent("toggleProjection", {
                               detail: { perspective: next },
-                            })
-                          );
+                            }),
+                          )
                         }}
                       >
                         <Box className="h-4 w-4" />
@@ -837,8 +859,8 @@ function AppPage() {
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Zoom In"
                         onClick={() => {
-                          const event = new CustomEvent("zoomIn");
-                          window.dispatchEvent(event);
+                          const event = new CustomEvent("zoomIn")
+                          window.dispatchEvent(event)
                         }}
                       >
                         <ZoomIn className="h-4 w-4" />
@@ -847,8 +869,8 @@ function AppPage() {
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title="Zoom Out"
                         onClick={() => {
-                          const event = new CustomEvent("zoomOut");
-                          window.dispatchEvent(event);
+                          const event = new CustomEvent("zoomOut")
+                          window.dispatchEvent(event)
                         }}
                       >
                         <ZoomOut className="h-4 w-4" />
@@ -871,10 +893,7 @@ function AppPage() {
                   </div>
                 </div>
 
-                <VtkApp
-                  file={selectedFile}
-                  displayState={{ wireframe, grid: false, axes, smooth }}
-                />
+                <VtkApp file={selectedFile} displayState={{ wireframe, grid: false, axes, smooth }} />
                 {selectedFile && (
                   <button
                     onClick={() => captureImage?.({ scale: 2, format: "png" })}
@@ -892,13 +911,10 @@ function AppPage() {
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Upload className="h-12 w-12 text-gray-400" />
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-                  Welcome to VizCad Render Studio
-                </h2>
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">Welcome to VizCad Render Studio</h2>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Upload a 3D model file to start creating photorealistic
-                  renders. Configure lighting, materials, and camera settings
-                  for professional results.
+                  Upload a 3D model file to start creating photorealistic renders. Configure lighting, materials, and
+                  camera settings for professional results.
                 </p>
                 <div className="space-y-3">
                   <Button
@@ -906,13 +922,18 @@ function AppPage() {
                     onClick={openFileDialog}
                     style={{
                       backgroundColor: "rgb(var(--primary))",
-                      color: "rgb(var(--primary-foreground))",
-                      borderRadius: 8,
+                      color: "white",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary-hover))")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgb(var(--primary))")}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "rgb(var(--primary-hover))"
+                      e.currentTarget.style.color = "white"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "rgb(var(--primary))"
+                      e.currentTarget.style.color = "white"
+                    }}
                   >
-                    <Upload className="h-4 w-4 mr-2" style={{ color: "rgb(var(--primary-foreground))" }} />
+                    <Upload className="h-4 w-4 mr-2" style={{ color: "white" }} />
                     Upload Your Model
                   </Button>
                   <input
@@ -925,20 +946,12 @@ function AppPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span>Supported formats:</span>
                     <div className="flex gap-2">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        STL
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        OBJ
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        PLY
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        3MF
-                      </span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">STL</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">OBJ</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">PLY</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">3MF</span>
                     </div>
-                  </div>
+                  </div>  
                 </div>
               </div>
             </div>
@@ -946,8 +959,7 @@ function AppPage() {
         </div>
       </div>
 
-      {/* Bottom Status Bar */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600">
+      <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600 h-10 flex-shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-gray-600">Ready</span>
           {selectedFile && (
@@ -967,5 +979,5 @@ function AppPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
