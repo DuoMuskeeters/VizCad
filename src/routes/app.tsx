@@ -348,7 +348,7 @@ function AppPage() {
                       };
 
                       emailjs
-                        .send("service_58u66u9", "template_o6ug7u5", templateParams, "2EhLYfAt6PzN8J5Ue")
+                        .send("service_7d3dqff", "template_iyg3c0t", templateParams, "2EhLYfAt6PzN8J5Ue")
                         .then(
                           () => {
                             alert("Your notification request has been sent successfully!");

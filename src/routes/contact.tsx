@@ -46,7 +46,7 @@ function ContactPage() {
 
     if (form.current) {
       emailjs
-        .sendForm('service_58u66u9', 'template_o6ug7u5', form.current, {
+        .sendForm('service_7d3dqff', 'template_o6ug7u5', form.current, {
           publicKey: '2EhLYfAt6PzN8J5Ue',
         })
         .then(
