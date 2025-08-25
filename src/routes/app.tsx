@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
+import emailjs from "@emailjs/browser"
 
 import { VtkApp } from "@/components/vtk"
 import { Button } from "@/components/ui/button"
@@ -338,15 +339,24 @@ function AppPage() {
                 <Button
                   className="flex-1"
                   onClick={() => {
-                    setShowUnavailableModal(false)
-                    const email = prompt("Enter your email to get notified when this feature is available:")
+                    setShowUnavailableModal(false);
+                    const email = prompt("Enter your email to get notified when this feature is available:");
                     if (email && email.includes("@")) {
-                      // Create mailto link for notification signup
-                      const subject = encodeURIComponent(`Notify me about ${clickedFeature} feature`)
-                      const body = encodeURIComponent(
-                        `Hi VizCad team,\n\nPlease notify me when the ${clickedFeature} feature becomes available.\n\nEmail: ${email}\n\nThanks!`,
-                      )
-                      window.location.href = `mailto:info@viz-cad.com?subject=${subject}&body=${body}`
+                      const templateParams = {
+                        user_email: email,
+                        feature: clickedFeature,
+                      };
+
+                      emailjs
+                        .send("service_58u66u9", "template_o6ug7u5", templateParams, "2EhLYfAt6PzN8J5Ue")
+                        .then(
+                          () => {
+                            alert("Your notification request has been sent successfully!");
+                          },
+                          (error: { text: string }) => {
+                            alert("Failed to send notification request: " + error.text);
+                          },
+                        );
                     } else if (email !== null) {
                       alert("Please enter a valid email address")
                     }

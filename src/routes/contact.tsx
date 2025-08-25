@@ -1,11 +1,11 @@
 "use client"
 
-import type React from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Phone, MapPin, Send, MessageCircle } from "lucide-react"
-import { useState } from "react"
+import { useState, useRef } from "react"
+import emailjs from "@emailjs/browser";
 import Header from "@/components/Header";
 
 export const Route = createFileRoute("/contact")({
@@ -20,6 +20,7 @@ function ContactPage() {
     message: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const form = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,6 +40,27 @@ function ContactPage() {
       setIsSubmitting(false)
     }, 1000)
   }
+
+  const sendEmail = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (form.current) {
+      emailjs
+        .sendForm('service_58u66u9', 'template_o6ug7u5', form.current, {
+          publicKey: '2EhLYfAt6PzN8J5Ue',
+        })
+        .then(
+          () => {
+            alert('Your message has been sent successfully!');
+            },
+            (error: { text: string }) => {
+            alert('Message could not be sent: ' + error.text);
+          },
+        );
+    } else {
+      console.error("Form reference is null.");
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -74,14 +96,12 @@ function ContactPage() {
               <CardDescription>Fill out the form below and we'll get back to you</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form ref={form} onSubmit={sendEmail} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-foreground">Name *</label>
                   <input
                     type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
+                    name="user_name"
                     required
                     className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
                     placeholder="Your name"
@@ -91,9 +111,7 @@ function ContactPage() {
                   <label className="block text-sm font-medium mb-2 text-foreground">Email *</label>
                   <input
                     type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
+                    name="user_email"
                     required
                     className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
                     placeholder="your@email.com"
@@ -104,8 +122,6 @@ function ContactPage() {
                   <input
                     type="text"
                     name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
                     className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
                     placeholder="What's this about?"
                   />
@@ -114,8 +130,6 @@ function ContactPage() {
                   <label className="block text-sm font-medium mb-2 text-foreground">Message *</label>
                   <textarea
                     name="message"
-                    value={formData.message}
-                    onChange={handleChange}
                     required
                     rows={5}
                     className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground resize-vertical"
