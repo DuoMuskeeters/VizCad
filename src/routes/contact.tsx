@@ -51,10 +51,10 @@ function ContactPage() {
         })
         .then(
           () => {
-            alert('Your message has been sent successfully!');
             if (form.current) {
               form.current.reset();
             }
+            alert('Your message has been sent successfully!');
             },
             (error: { text: string }) => {
             alert('Message could not be sent');
@@ -143,11 +143,6 @@ function ContactPage() {
                   type="submit"
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   disabled={isSubmitting}
-                  onClick={() => {
-                  if (form.current) {
-                    form.current.reset();
-                  }
-                  }}
                 >
                   <Send className="w-4 h-4 mr-2" />
                   {isSubmitting ? "Sending..." : "Send Message"}
