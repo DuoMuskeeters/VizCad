@@ -52,9 +52,12 @@ function ContactPage() {
         .then(
           () => {
             alert('Your message has been sent successfully!');
+            if (form.current) {
+              form.current.reset();
+            }
             },
             (error: { text: string }) => {
-            alert('Message could not be sent: ' + error.text);
+            alert('Message could not be sent');
           },
         );
     } else {
