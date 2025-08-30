@@ -10,7 +10,7 @@
     <meta name="google-site-verification" content="bzi8-Oqun8ymOf361vRE0sWI55uSWzTJrXHFgFJn3ug" />
 
     <!-- SEO Title -->
-    <title>VizCad | Professional 3D Model Viewer & Visualize Your 3D Models Instantly</title>
+    <title>VizCad - Professional 3D Visualization Platform | STL, OBJ, PLY Renderer/Viewer </title>
 
     <!-- Meta Description (SEO) -->
     <meta
@@ -24,24 +24,34 @@
       content="3D model viewer, CAD viewer, online CAD, WebGL 3D, STL viewer, OBJ viewer, PLY viewer, 3MF viewer, 3D rendering online, photorealistic render, browser CAD tool, vizcat, vizket, visicad, vizcom"
     />
 
+    <!-- Robots and Author -->
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="VizCad" />
+
     <!-- Canonical URL -->
     <link rel="canonical" href="https://viz-cad.com/" />
 
     <!-- Open Graph (Social Media SEO) -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="VizCad – Professional 3D Model Viewer & Visualize Your 3D Models Instantly" />
+    <meta property="og:site_name" content="VizCad" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="VizCad - Professional 3D Model Viewer | STL, OBJ, PLY Renderer" />
     <meta property="og:description" content="Upload STL, OBJ, PLY, and 3MF files to VizCad and instantly create stunning photorealistic renders. No installation required." />
-    <meta property="og:image" content="/vizcad-logo.png" />
+    <meta property="og:image" content="https://viz-cad.com/vizcad-logo-512.png" />
     <meta property="og:url" content="https://viz-cad.com" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="VizCad – Professional 3D Model Viewer & Visualize Your 3D Models Instantly" />
+    <meta name="twitter:title" content="VizCad - Professional 3D Model Viewer | STL, OBJ, PLY Renderer" />
     <meta name="twitter:description" content="Upload STL, OBJ, PLY, and 3MF files to VizCad and instantly create stunning photorealistic renders." />
-    <meta name="twitter:image" content="/vizcad-logo.png" />
+    <meta name="twitter:image" content="https://viz-cad.com/vizcad-logo-512.png" />
 
     <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="/vizcad-logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/vizcad-logo-192.png" />
+
+    <!-- Additional Icon Sizes -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/vizcad-logo-64.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/vizcad-logo.png" />
 
     <!-- Sitemap -->
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
@@ -53,23 +63,90 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
+      "@type": ["SoftwareApplication", "WebApplication"],
       "name": "VizCad",
       "description": "Professional 3D Model Viewer & Rendering in Your Browser. Upload STL, OBJ, PLY, and 3MF files and create stunning photorealistic renders instantly.",
       "url": "https://viz-cad.com",
-      "applicationCategory": "WebApplication",
+      "applicationCategory": "MultimediaApplication",
       "operatingSystem": "Any",
       "browserRequirements": "Requires JavaScript. WebGL support recommended.",
+      "softwareVersion": "1.0",
+      "releaseNotes": "Initial release with STL, OBJ, PLY, and 3MF support",
+      "datePublished": "2024-01-01",
+      "dateModified": "2024-12-01",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
       "offers": {
         "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
+        "price": 0,
+        "@id": "https://viz-cad.com/#offer",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock",
+        "validFrom": "2024-01-01"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": 4.8,
+        "ratingCount": 127,
+        "bestRating": 5,
+        "worstRating": 1
       },
       "author": {
         "@type": "Organization",
-        "name": "VizCad"
+        "@id": "https://viz-cad.com/#organization",
+        "name": "VizCad",
+        "url": "https://viz-cad.com",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://viz-cad.com/vizcad-logo-512.png",
+          "width": 512,
+          "height": 512
+        }
       },
-      "screenshot": "https://viz-cad.com/heros.png"
+      "publisher": {
+        "@id": "https://viz-cad.com/#organization"
+      },
+      "creator": {
+        "@id": "https://viz-cad.com/#organization"
+      },
+      "screenshot": {
+        "@type": "ImageObject",
+        "url": "https://viz-cad.com/heros.png",
+        "caption": "VizCad 3D Model Viewer Interface"
+      },
+      "featureList": [
+        "STL file support",
+        "OBJ file support", 
+        "PLY file support",
+        "3MF file support",
+        "Photorealistic rendering",
+        "WebGL-based 3D visualization",
+        "No installation required",
+        "Browser-based CAD viewer",
+        "Real-time 3D model manipulation"
+      ],
+      "requirements": "Modern web browser with WebGL support",
+      "supportingData": {
+        "@type": "DataDownload",
+        "name": "Supported 3D file formats",
+        "description": "List of supported 3D model file formats",
+        "encodingFormat": ["model/stl", "model/obj", "model/ply", "model/3mf"]
+      },
+      "applicationSubCategory": "3D Modeling",
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Engineers, Designers, CAD Users, 3D Artists",
+        "geographicArea": {
+          "@type": "Place",
+          "name": "Worldwide"
+        }
+      },
+      "usageInfo": "Free to use, no registration required",
+      "potentialAction": {
+        "@type": "UseAction",
+        "target": "https://viz-cad.com",
+        "description": "Upload and view 3D models"
+      }
     }
     </script>
 

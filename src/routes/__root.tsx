@@ -11,8 +11,6 @@ export const Route = createRootRoute({
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <PaletteProvider>
         <div className="min-h-screen bg-background text-foreground">
-          {/* Global SEO meta tags */}
-          <SEO />
           <Header />
           <main className="bg-background">
             <Outlet />
