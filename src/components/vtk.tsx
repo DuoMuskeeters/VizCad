@@ -44,7 +44,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     showAxes,
   } = useVtkScene()
 
-  const [statusMessage, setStatusMessage] = useState<string>("Hazır. Lütfen bir STL dosyası seçin.")
+  const [statusMessage, setStatusMessage] = useState<string>("Ready. Please select an STL file.")
 
   // Apply incoming displayState when it changes (idempotent)
   useEffect(() => {
@@ -448,14 +448,14 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       return
     }
 
-    setStatusMessage("STL dosyası okunuyor...")
+  setStatusMessage("Reading STL file...")
     const fileReader = new FileReader()
     const reader = vtkSTLReader.newInstance()
     readerRef.current = reader
 
     fileReader.onload = async (event) => {
       if (!rendererRef.current || !renderWindowRef.current || !event.target?.result) {
-        setStatusMessage("Dosya okunurken bir hata oluştu.")
+        setStatusMessage("Error reading file.")
         return
       }
 
@@ -466,8 +466,8 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       const source = reader.getOutputData(0)
 
       if (!source || source.getPoints().getNumberOfPoints() === 0) {
-        setStatusMessage("Hata: STL dosyası geçersiz veya boş.")
-        console.error("Geçersiz STL kaynağı.")
+        setStatusMessage("Error: STL file is invalid or empty.")
+        console.error("Invalid STL source.")
         return
       }
       console.log("STL dosyası başarıyla parse edildi.")
@@ -553,11 +553,11 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       renderWindowRef.current.render()
       console.log("Final render çağrıldı. Modelin görünmesi gerekiyor.")
 
-      setStatusMessage("STL dosyası başarıyla yüklendi.")
+  setStatusMessage("STL file loaded successfully.")
     }
 
     fileReader.onerror = () => {
-      setStatusMessage("Dosya okunamadı.")
+      setStatusMessage("File could not be read.")
       console.error("FileReader error.")
     }
 
@@ -581,27 +581,28 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
   }, [])
 
   return (
-    <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
-      <div
-        ref={vtkContainerRef}
-        className={`w-full h-full flex-grow min-h-[300px] sm:min-h-[400px]`}
-        style={{
-          touchAction: "none",
-          minWidth: "250px",
-          maxWidth: "100%",
-          maxHeight: "100vh",
-          cursor:
-            viewMode === "pan"
-              ? "grab"
-              : viewMode === "zoom"
-                ? "zoom-in"
-                : viewMode === "select"
-                  ? "pointer"
-                  : "default",
-        }}
-      />
-      <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-2 sm:px-3 py-1 border-t border-gray-200">
-        <div className="flex items-center justify-between">
+  <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
+    <div
+      ref={vtkContainerRef}
+      className="w-full h-full flex-grow"
+      style={{
+        touchAction: "none",
+        minWidth: "250px",
+        maxWidth: "100%",
+        minHeight: "150px",
+        maxHeight: "90%",
+        cursor:
+          viewMode === "pan"
+            ? "grab"
+            : viewMode === "zoom"
+              ? "zoom-in"
+              : viewMode === "select"
+                ? "pointer"
+                : "default",
+      }}
+    />
+      <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-2 py-0.5 border-t border-gray-200 h-7 min-h-0">
+        <div className="flex items-center justify-between h-full">
           <span className="truncate flex-1 mr-2">{statusMessage}</span>
           <span className="text-gray-500 text-xs whitespace-nowrap">
             <span className="hidden xs:inline">Mode: </span>
@@ -609,6 +610,6 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
           </span>
         </div>
       </div>
-    </div>
-  )
+  </div>
+)
 }

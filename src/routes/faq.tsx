@@ -3,60 +3,54 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTranslation } from "react-i18next"
 
 export const Route = createFileRoute("/faq")({
   component: FAQ,
 })
 
 function FAQ() {
+  const { t } = useTranslation()
   const faqs = [
     {
       id: "what-is-vizcad",
-      question: "What is VizCAD?",
-      answer:
-        "VizCAD is a powerful 3D visualization and CAD application that allows you to create, edit, and visualize 3D models directly in your web browser. It provides professional-grade tools for 3D modeling, rendering, and analysis without requiring any software installation.",
+      question: t("faq.what-is-vizcad.question"),
+      answer: t("faq.what-is-vizcad.answer"),
     },
     {
       id: "browser-support",
-      question: "Which browsers are supported?",
-      answer:
-        "VizCAD works best on modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version of your browser for optimal performance. WebGL support is required for 3D rendering capabilities.",
+      question: t("faq.browser-support.question"),
+      answer: t("faq.browser-support.answer"),
     },
     {
       id: "file-formats",
-      question: "What file formats does VizCAD support?",
-      answer:
-        "VizCAD supports a wide range of 3D file formats including STL, OBJ, PLY, VTK, and many others. You can import existing 3D models and export your work in various formats for compatibility with other CAD software.",
+      question: t("faq.file-formats.question"),
+      answer: t("faq.file-formats.answer"),
     },
     {
       id: "getting-started",
-      question: "How do I get started with VizCAD?",
-      answer:
-        "Simply click the 'Launch App' button in the header to start using VizCAD immediately. No registration or download is required. The interface is intuitive with helpful tooltips and guides to help you begin creating 3D models right away.",
+      question: t("faq.getting-started.question"),
+      answer: t("faq.getting-started.answer"),
     },
     {
       id: "performance",
-      question: "What are the system requirements?",
-      answer:
-        "VizCAD runs entirely in your web browser, so you only need a modern browser with WebGL support. For best performance, we recommend at least 4GB of RAM and a dedicated graphics card, especially when working with complex 3D models.",
+      question: t("faq.performance.question"),
+      answer: t("faq.performance.answer"),
     },
     {
       id: "collaboration",
-      question: "Can I collaborate with others on VizCAD projects?",
-      answer:
-        "Currently, VizCAD focuses on individual 3D modeling and visualization. However, you can easily export and share your 3D models with colleagues using supported file formats. Collaboration features are planned for future releases.",
+      question: t("faq.collaboration.question"),
+      answer: t("faq.collaboration.answer"),
     },
     {
       id: "pricing",
-      question: "Is VizCAD free to use?",
-      answer:
-        "VizCAD offers a free tier with core 3D modeling and visualization features. Advanced features and enhanced performance options may be available through premium plans. Check our pricing section for the most current information.",
+      question: t("faq.pricing.question"),
+      answer: t("faq.pricing.answer"),
     },
     {
       id: "data-security",
-      question: "How secure is my data in VizCAD?",
-      answer:
-        "Your 3D models and data are processed locally in your browser whenever possible. We take data security seriously and implement industry-standard security measures. Your files are only uploaded when you explicitly choose to save or share them.",
+      question: t("faq.data-security.question"),
+      answer: t("faq.data-security.answer"),
     },
   ]
 
@@ -66,19 +60,18 @@ function FAQ() {
         {/* Header Section */}
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            Frequently Asked <span className="text-primary">Questions</span>
+            {t("faq.header.title")} <span className="text-primary">{t("faq.header.titleAccent")}</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Find answers to common questions about VizCAD's features, capabilities, and how to get the most out of our
-            3D visualization platform.
+            {t("faq.header.subtitle")}
           </p>
         </div>
 
         {/* FAQ Content */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl text-center">Common Questions</CardTitle>
-            <CardDescription className="text-center">Click on any question below to see the answer</CardDescription>
+            <CardTitle className="text-2xl text-center">{t("faq.card.title")}</CardTitle>
+            <CardDescription className="text-center">{t("faq.card.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">

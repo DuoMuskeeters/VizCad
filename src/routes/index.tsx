@@ -1,6 +1,7 @@
 "use client"
 
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { useEffect } from "react"
 import {
@@ -26,7 +27,8 @@ export const Route = createFileRoute("/")({
   component: HomePage,
 })
 
-function HomePage() {
+export function HomePage() {
+  const { t } = useTranslation()
   // Prevent automatic scrolling to video section on page load
   useEffect(() => {
     // Clear any hash in URL that might cause auto-scroll
@@ -72,16 +74,15 @@ function HomePage() {
               <div className="space-y-8 sm:space-y-10 xl:space-y-8">
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-sm">
                   <Zap className="w-4 h-4" />
-                  Professional 3D Visualization Platform
+                  {t("hero_badge")}
                 </div>
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-7xl font-bold text-foreground leading-tight text-center xl:text-left">
-                  Visualize Your
-                  <span className="block text-primary">3D Models</span>
-                  <span className="block">Instantly</span>
+                  {t("hero_title_1")}
+                  <span className="block text-primary">{t("hero_title_2")}</span>
+                  <span className="block">{t("hero_title_3")}</span>
                 </h1>
                 <p className="text-xl sm:text-2xl lg:text-2xl xl:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto xl:max-w-2xl xl:mx-0">
-                  Upload STL, OBJ, PLY files and create stunning photorealistic renders with professional lighting,
-                  materials, and camera controls. No software installation required.
+                  {t("hero_desc")}
                 </p>
               </div>
 
@@ -93,7 +94,7 @@ function HomePage() {
                 >
                   <Link to="/app" className="flex items-center gap-3">
                     <Upload className="w-6 h-6" />
-                    Start Rendering Now
+                    {t("hero_cta")}
                     <ArrowRight className="w-6 h-6" />
                   </Link>
                 </Button>
@@ -104,7 +105,7 @@ function HomePage() {
                   onClick={scrollToVideo}
                 >
                   <Play className="w-6 h-6 mr-3" />
-                  Watch Demo
+                  {t("hero_demo")}
                 </Button>
               </div>
 
@@ -113,19 +114,19 @@ function HomePage() {
                   <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-green-500" />
                   </div>
-                  <span>Free to use</span>
+                  <span>{t("hero_feature_free")}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-green-500" />
                   </div>
-                  <span>No installation required</span>
+                  <span>{t("hero_feature_no_install")}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-green-500" />
                   </div>
-                  <span>Professional results</span>
+                  <span>{t("hero_feature_pro")}</span>
                 </div>
               </div>
             </div>
@@ -186,9 +187,9 @@ function HomePage() {
       <section id="video-demo" className="py-24 bg-background relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">See VizCad in Action</h2>
+            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">{t("video_title")}</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Watch how easy it is to upload your 3D models and create professional renders in minutes, not hours.
+              {t("video_desc")}
             </p>
           </div>
 
@@ -213,7 +214,7 @@ function HomePage() {
                   }}
                 >
                   <source src="/video.mp4" type="video/mp4" />
-                  Your browser does not support the video tag.
+                  {t("video_no_support")}
                 </video>
 
                 {/* Custom Play Button Overlay */}
@@ -229,8 +230,8 @@ function HomePage() {
 
                 {/* Video Info Overlay */}
                 <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="text-xl font-semibold mb-1">3D Model to Render in 60 Seconds</h3>
-                  <p className="text-gray-300">From upload to professional visualization</p>
+                  <h3 className="text-xl font-semibold mb-1">{t("video_overlay_title")}</h3>
+                  <p className="text-gray-300">{t("video_overlay_desc")}</p>
                 </div>
               </div>
             </div>
@@ -241,22 +242,22 @@ function HomePage() {
                 <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-8 h-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">Fast Upload</h3>
-                <p className="text-muted-foreground">Drag & drop your models instantly</p>
+                <h3 className="text-xl font-semibold text-foreground mb-2">{t("video_feature_1_title")}</h3>
+                <p className="text-muted-foreground">{t("video_feature_1_desc")}</p>
               </div>
               <div className="text-center">
                 <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Eye className="w-8 h-8 text-accent" />
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">Real-time Visualization</h3>
-                <p className="text-muted-foreground">See changes as you make them</p>
+                <h3 className="text-xl font-semibold text-foreground mb-2">{t("video_feature_2_title")}</h3>
+                <p className="text-muted-foreground">{t("video_feature_2_desc")}</p>
               </div>
               <div className="text-center sm:col-span-2 md:col-span-1">
                 <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Zap className="w-8 h-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">Professional Rendering</h3>
-                <p className="text-muted-foreground">Studio-quality results in minutes</p>
+                <h3 className="text-xl font-semibold text-foreground mb-2">{t("video_feature_3_title")}</h3>
+                <p className="text-muted-foreground">{t("video_feature_3_desc")}</p>
               </div>
             </div>
           </div>
@@ -273,11 +274,11 @@ function HomePage() {
           <div className="text-center mb-20">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 mb-6">
               <Zap className="w-4 h-4 text-primary" />
-              Available Now
+              {t("features_badge")}
             </div>
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">Powerful 3D Visualization Tools</h2>
+            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">{t("features_title")}</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Start with our core visualization features today, with advanced rendering capabilities coming soon.
+              {t("features_desc")}
             </p>
           </div>
 
@@ -288,10 +289,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Upload className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Instant Upload</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_1_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Drag and drop your STL, OBJ, PLY, or 3MF files directly into the browser. No software installation or
-                account creation required.
+                {t("features_card_1_desc")}
               </p>
             </div>
 
@@ -300,10 +300,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Eye className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Display Controls</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_2_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Toggle wireframe mode, smooth shading, perspective/orthographic views, and coordinate axes. Real-time
-                visualization with instant feedback.
+                {t("features_card_2_desc")}
               </p>
             </div>
 
@@ -312,10 +311,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Fast Performance</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_3_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Optimized WebGL rendering for smooth interaction. Works directly in your browser with no plugins or
-                downloads required.
+                {t("features_card_3_desc")}
               </p>
             </div>
 
@@ -324,10 +322,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Palette className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Studio Scenes</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_4_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Professional lighting presets including plain white, 3-point lighting, warm studio, and custom
-                background colors for clean presentations.
+                {t("features_card_4_desc")}
               </p>
             </div>
 
@@ -336,10 +333,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Camera className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Camera Navigation</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_5_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Multiple view presets (Front, Back, Left, Right, Top, Bottom, Isometric) with zoom controls and camera
-                reset functionality.
+                {t("features_card_5_desc")}
               </p>
             </div>
 
@@ -348,10 +344,9 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Globe className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Cross-Platform</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_6_title")}</h3>
               <p className="text-base text-muted-foreground leading-relaxed flex-1 flex items-center">
-                Works on any device with a modern web browser. Desktop, tablet, or mobile - your 3D models are always
-                accessible.
+                {t("features_card_6_desc")}
               </p>
             </div>
           </div>
@@ -359,9 +354,9 @@ function HomePage() {
           {/* Coming Soon Section - Redesigned */}
           <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl p-8 border border-primary/10">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-foreground mb-4">Advanced Features Coming Soon</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_coming_title")}</h3>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                We're working on powerful new features to make VizCad the ultimate 3D visualization platform.
+                {t("features_coming_desc")}
               </p>
             </div>
 
@@ -370,39 +365,39 @@ function HomePage() {
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Lightbulb className="w-6 h-6 text-primary" />
                 </div>
-                <h4 className="font-semibold text-foreground mb-2">Custom Lighting</h4>
-                <p className="text-sm text-muted-foreground">Advanced light positioning and intensity controls</p>
+                <h4 className="font-semibold text-foreground mb-2">{t("features_coming_card_1_title")}</h4>
+                <p className="text-sm text-muted-foreground">{t("features_coming_card_1_desc")}</p>
               </div>
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Camera className="w-6 h-6 text-primary" />
                 </div>
-                <h4 className="font-semibold text-foreground mb-2">Camera Settings</h4>
-                <p className="text-sm text-muted-foreground">Focal length, aperture, and depth of field</p>
+                <h4 className="font-semibold text-foreground mb-2">{t("features_coming_card_2_title")}</h4>
+                <p className="text-sm text-muted-foreground">{t("features_coming_card_2_desc")}</p>
               </div>
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Palette className="w-6 h-6 text-primary" />
                 </div>
-                <h4 className="font-semibold text-foreground mb-2">Material Editor</h4>
-                <p className="text-sm text-muted-foreground">Metallic, roughness, and transparency controls</p>
+                <h4 className="font-semibold text-foreground mb-2">{t("features_coming_card_3_title")}</h4>
+                <p className="text-sm text-muted-foreground">{t("features_coming_card_3_desc")}</p>
               </div>
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Box className="w-6 h-6 text-primary" />
                 </div>
-                <h4 className="font-semibold text-foreground mb-2">Output Settings</h4>
-                <p className="text-sm text-muted-foreground">High-resolution exports and render quality</p>
+                <h4 className="font-semibold text-foreground mb-2">{t("features_coming_card_4_title")}</h4>
+                <p className="text-sm text-muted-foreground">{t("features_coming_card_4_desc")}</p>
               </div>
             </div>
 
             <div className="text-center mt-8">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
                 <Zap className="w-4 h-4 text-primary" />
-                Expected Q2 2025
+                {t("features_coming_badge")}
               </div>
             </div>
           </div>
@@ -416,17 +411,13 @@ function HomePage() {
             <div className="space-y-8">
               <div className="space-y-6">
                 <h2 className="text-3xl lg:text-4xl font-bold text-foreground leading-tight text-center">
-                  Making 3D Visualization Accessible to Everyone
+                  {t("about_title")}
                 </h2>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  VizCad was born from the frustration of complex, expensive 3D rendering software. We believe that
-                  creating beautiful visualizations of your 3D models shouldn't require extensive knowledge of
-                  professional 3D design or expensive software licenses.
+                  {t("about_desc_1")}
                 </p>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  Our mission is to make professional 3D rendering accessible by providing powerful, intuitive tools
-                  that work directly in your web browser. Whether you're an engineer, architect, designer, or hobbyist,
-                  VizCad gives you the tools to showcase your work beautifully.
+                  {t("about_desc_2")}
                 </p>
               </div>
             </div>
@@ -441,13 +432,7 @@ function HomePage() {
                     <span className="text-xl font-bold text-foreground">VizCad</span>
                   </div>
                   <p className="text-muted-foreground max-w-md">
-                    VizCad is the vision of a mechatronics engineer who combines
-                    a passion for 3D visualization with years of experience in
-                    the 3d CAD design. Following years of hands-on work, a
-                    significant gap in the market was identified with the belief
-                    that professional tools should be accessible to everyone. We
-                    are committed to continuously developing this platform to
-                    serve the creative and technical community
+                    {t("about_card_desc")}
                   </p>
                   <div className="flex gap-3">
                     <a
@@ -485,8 +470,7 @@ function HomePage() {
                 <span className="text-xl font-bold">VizCad</span>
               </div>
               <p className="text-gray-400 max-w-md">
-                Professional 3D visualization made simple and accessible. Create stunning renders directly in your
-                browser.
+                {t("footer_company_desc")}
               </p>
               <div className="flex gap-3">
                 <a
@@ -508,54 +492,54 @@ function HomePage() {
 
             {/* Quick links */}
             <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
+              <h4 className="font-semibold mb-4">{t("footer_quick_links")}</h4>
               <div className="space-y-2 text-gray-400">
                 <Link to="/app" className="block hover:text-primary transition-colors">
-                  Launch App
+                  {t("nav_launch_app")}
                 </Link>
                 <a href="#features" className="block hover:text-primary transition-colors">
-                  Features
+                  {t("nav_features")}
                 </a>
                 <a href="#about" className="block hover:text-primary transition-colors">
-                  About Us
+                  {t("nav_about")}
                 </a>
                 <Link to="/faq" className="block hover:text-primary transition-colors">
-                  FAQ
+                  {t("nav_faq")}
                 </Link>
                 <Link to="/contact" className="block hover:text-primary transition-colors">
-                  Contact
+                  {t("nav_contact")}
                 </Link>
               </div>
             </div>
 
             {/* Contact info */}
             <div>
-              <h4 className="font-semibold mb-4">Contact</h4>
+              <h4 className="font-semibold mb-4">{t("footer_contact")}</h4>
               <div className="space-y-3 text-gray-400 text-sm">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-primary" />
                   <a href="mailto:info@viz-cad.com" className="hover:text-primary transition-colors">
-                    info@viz-cad.com
+                    {t("footer_email")}
                   </a>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary" />
                   <a href="tel:+90-536-247-1019" className="hover:text-primary transition-colors">
-                    +90 (536) 247-1019
+                    {t("footer_phone")}
                   </a>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-primary mt-0.5" />
-                  <div>Istanbul Türkiye</div>
+                  <div>{t("footer_location")}</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Bottom section */}
-          <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-gray-500 text-sm">&copy; 2025 VizCad. All rights reserved.</div>
-          </div>
+            <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-gray-500 text-sm">{t("footer_copyright")}</div>
+            </div>
         </div>
       </footer>
     </div>

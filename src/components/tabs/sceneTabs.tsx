@@ -1,6 +1,7 @@
 import { Edit3, ImageIcon, Trash2, Upload } from "lucide-react"
 import { Button } from "../ui/button"
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useVtkScene } from "../scene"
 
 export function ScenesTab({
@@ -49,35 +50,36 @@ export function ScenesTab({
     "studio",
   )
 
+  const { t } = useTranslation()
   const studioScenes = [
     {
       id: "plain-white",
-      name: "Plain White",
-      description: "Clean white background",
+      name: t("scene_plainWhite"),
+      description: t("scene_plainWhite_desc"),
       gradient: "bg-white border-2 border-gray-200",
       preview: "bg-gradient-to-br from-gray-50 to-white",
       backgroundColor: "#ffffff",
     },
     {
       id: "3point-faded",
-      name: "3-Point Faded",
-      description: "Professional studio lighting",
+      name: t("scene_3PointFaded"),
+      description: t("scene_3PointFaded_desc"),
       gradient: "bg-gradient-to-br from-gray-100 via-gray-50 to-white",
       preview: "bg-gradient-to-br from-gray-200 via-gray-100 to-white",
       backgroundColor: "#f0f0f5",
     },
     {
       id: "simple-office",
-      name: "Simple Office",
-      description: "Soft office environment",
+      name: t("scene_simpleOffice"),
+      description: t("scene_simpleOffice_desc"),
       gradient: "bg-gradient-to-br from-blue-50 via-gray-50 to-white",
       preview: "bg-gradient-to-br from-blue-100 via-gray-100 to-white",
       backgroundColor: "#e6e6e6",
     },
     {
       id: "warm-studio",
-      name: "Warm Studio",
-      description: "Warm ambient lighting",
+      name: t("scene_warmStudio"),
+      description: t("scene_warmStudio_desc"),
       gradient: "bg-gradient-to-br from-orange-50 via-yellow-50 to-white",
       preview: "bg-gradient-to-br from-orange-100 via-yellow-100 to-white",
       backgroundColor: "#faf5e6",
@@ -140,7 +142,7 @@ export function ScenesTab({
       return "Custom Image"
     } else {
       const currentScene = studioScenes.find((s) => s.id === selectedStudio)
-      return currentScene?.name || "Plain White"
+  return currentScene?.name || t("scene_plainWhite")
     }
   }
 
@@ -149,7 +151,7 @@ export function ScenesTab({
     <div className="p-4 space-y-6">
       {/* File Upload - Drag & Drop + Click */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Upload Model</h3>
+  <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("scene_uploadModel")}</h3>
         <div
           className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer`}
           style={dragStyle}
@@ -160,10 +162,10 @@ export function ScenesTab({
         >
             <Upload className="h-5 w-5 mx-auto mb-1" style={{ color: "rgb(var(--muted-foreground))" }} />
           <p className="text-xs text-gray-600 mb-1">
-            {isDragOver ? "Drop your 3D model here" : "Drag & drop 3D model or click to browse"}
+            {isDragOver ? t("scene_dropModel") : t("scene_dragDropOrBrowse")}
           </p>
             <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
-            Browse
+            {t("scene_browse")}
           </Button>
           <input type="file" accept=".stl,.obj,.ply,.3mf" className="hidden" tabIndex={-1} onChange={onFileChange} />
           {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
@@ -172,7 +174,7 @@ export function ScenesTab({
 
       {/* Studio Scenes */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Studio Scenes</h3>
+  <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("scene_studioScenes")}</h3>
         <div className="grid grid-cols-2 gap-3">
           {studioScenes.map((scene) => (
             <div
@@ -205,11 +207,11 @@ export function ScenesTab({
 
       {/* Custom Background Color */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Custom Background</h3>
+  <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("scene_customBackground")}</h3>
         <div className="space-y-3">
           {/* Solid Color Section */}
           <div>
-            <label className="text-xs text-gray-600 mb-2 block">Solid Color</label>
+            <label className="text-xs text-gray-600 mb-2 block">{t("scene_solidColor")}</label>
             <div className="flex items-center gap-3">
               <div
                 className="w-12 h-8 rounded-md border-2 border-gray-300 cursor-pointer shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
@@ -236,7 +238,7 @@ export function ScenesTab({
                 className="text-xs px-3 py-1 bg-transparent flex-shrink-0"
                 onClick={() => setShowColorPicker(!showColorPicker)}
               >
-                Pick
+                {t("scene_pick")}
               </Button>
             </div>
 
@@ -338,18 +340,18 @@ export function ScenesTab({
 
       {/* Scene Properties - Aktif sahne için */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Scene Properties</h3>
+  <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("scene_properties")}</h3>
         <div className="bg-gray-50 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Resolution</span>
+            <span className="text-gray-600">{t("scene_resolution")}</span>
             <span className="text-gray-900 font-medium">1920×1080</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Lighting Mode</span>
+            <span className="text-gray-600">{t("scene_lightingMode")}</span>
             <span className="text-gray-900 font-medium">{getCurrentLightingMode()}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Background</span>
+            <span className="text-gray-600">{t("scene_background")}</span>
             <div className="flex items-center gap-2">
               <>
                 <div
@@ -361,9 +363,9 @@ export function ScenesTab({
             </div>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Camera</span>
+            <span className="text-gray-600">{t("scene_camera")}</span>
             <span className="text-gray-900 font-medium">
-              {perspective ? "Perspective" : "Orthographic"}
+              {perspective ? t("scene_perspective") : t("scene_orthographic")}
             </span>
           </div>
         </div>

@@ -29,6 +29,7 @@ import {
   Move3d,
   Box,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { ScenesTab } from "@/components/tabs/sceneTabs"
 import { LightsTab } from "@/components/tabs/LightsTab"
 import { MaterialsTab } from "@/components/tabs/MaterialsTab"
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/app")({
 })
 
 function AppPage() {
+  const { t } = useTranslation()
   const {
     vtkContainerRef,
     rendererRef,
@@ -143,16 +145,16 @@ function AppPage() {
 
   // Tab definitions (Scenes always available; others depend on dev mode)
   const tabs = [
-    { id: "scenes", label: "Scenes", icon: Layers, available: true },
-    { id: "lights", label: "Lights", icon: Lightbulb, available: isDeveloper },
-    { id: "camera", label: "Camera", icon: Camera, available: isDeveloper },
+    { id: "scenes", label: t("app_tabs_scenes"), icon: Layers, available: true },
+    { id: "lights", label: t("app_tabs_lights"), icon: Lightbulb, available: isDeveloper },
+    { id: "camera", label: t("app_tabs_camera"), icon: Camera, available: isDeveloper },
     {
       id: "materials",
-      label: "Materials",
+      label: t("app_tabs_materials"),
       icon: Palette,
       available: isDeveloper,
     },
-    { id: "output", label: "Output", icon: ImageIcon, available: isDeveloper },
+    { id: "output", label: t("app_tabs_output"), icon: ImageIcon, available: isDeveloper },
   ]
 
   const handleTabClick = (tab: any) => {
@@ -247,32 +249,32 @@ function AppPage() {
 
   // Quick view grid layout
   const quickViewGrid = [
-    [null, "Top", null],
-    ["Left", "Front", "Right"],
-    [null, "Bottom", "Back"],
+  [null, t("app_navigation_top"), null],
+  [t("app_navigation_left"), t("app_navigation_front"), t("app_navigation_right")],
+  [null, t("app_navigation_bottom"), t("app_navigation_back")],
   ]
 
   const handleTryVizCad = () => {
-    const dragonModelPath = "/public/Dragon 2.5.stl" 
+    const dragonModelPath = "/dragon.stl";
     fetch(dragonModelPath)
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Failed to load the dragon model.")
+          throw new Error("Failed to load the dragon model.");
         }
-        return response.blob()
+        return response.blob();
       })
       .then((blob) => {
-        const file = new window.File([blob], "Dragon 2.5.stl", { type: blob.type })
-        setSelectedFile(file)
+        const file = new window.File([blob], "dragon.stl", { type: blob.type });
+        setSelectedFile(file);
       })
       .catch((error) => {
-        console.error("Error loading the dragon model:", error)
-      })
-  }
+        console.error("Error loading the dragon model:", error);
+      });
+  } 
 
   return (
     <div
-      className="relative h-full bg-gray-100 flex flex-col pt-14 sm:pt-16"
+      className="relative min-h-[1000px] h-fit bg-gray-100 flex flex-col pt-14 sm:pt-16"
       style={
         {
           // force light palette for this subtree regardless of global .dark
@@ -309,10 +311,9 @@ function AppPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-2xl font-semibold text-gray-900">{clickedFeature} Module</h3>
+                <h3 className="text-2xl font-semibold text-gray-900">{t("app_unavailable_title", { feature: clickedFeature })}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  The {clickedFeature.toLowerCase()} module is currently under development. We are working to bring you
-                  this feature as soon as possible.
+                  {t("app_unavailable_desc", { feature: clickedFeature.toLowerCase() })}
                 </p>
               </div>
 
@@ -325,7 +326,7 @@ function AppPage() {
                 }}
               >
                 <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">Coming in Q2 2025</span>
+                <span className="text-sm font-medium">{t("app_unavailable_coming")}</span>
               </div>
 
               <div className="flex gap-3 w-full">
@@ -334,13 +335,13 @@ function AppPage() {
                   className="flex-1 bg-transparent"
                   onClick={() => setShowUnavailableModal(false)}
                 >
-                  Got it
+                  {t("app_unavailable_gotIt")}
                 </Button>
                 <Button
                   className="flex-1"
                   onClick={() => {
                     setShowUnavailableModal(false);
-                    const email = prompt("Enter your email to get notified when this feature is available:");
+                    const email = prompt(t("app_unavailable_prompt"));
                     if (email && email.includes("@")) {
                       const templateParams = {
                         user_email: email,
@@ -351,21 +352,21 @@ function AppPage() {
                         .send("service_7d3dqff", "template_iyg3c0t", templateParams, "2EhLYfAt6PzN8J5Ue")
                         .then(
                           () => {
-                            alert("Your notification request has been sent successfully!");
+                            alert(t("app_unavailable_success"));
                           },
                           (error: { text: string }) => {
-                            alert("Failed to send notification request: " + error.text);
+                            alert(t("app_unavailable_error", { error: error.text }));
                           },
                         );
                     } else if (email !== null) {
-                      alert("Please enter a valid email address")
+                      alert(t("app_unavailable_invalidEmail"))
                     }
                   }}
                   style={{
                     backgroundColor: "rgb(var(--primary))",
                   }}
                 >
-                  Notify me
+                  {t("app_unavailable_notifyMe")}
                 </Button>
               </div>
             </div>
@@ -393,7 +394,7 @@ function AppPage() {
             <Navigation className="h-4 w-4" />
           </Button>
           <div className="text-sm font-medium text-gray-700">
-            {selectedFile ? selectedFile.name : "No file selected"}
+            {selectedFile ? selectedFile.name : t("app_toolbar_noFile")}
           </div>
           {/* Developer mode toggle hidden in production
           <button
@@ -435,99 +436,111 @@ function AppPage() {
                 })
             }}
           >
-            Try VizCad
-          </Button>  
+            {t("app_toolbar_tryVizCad")}
+          </Button>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Render Studio */}
-        {sidebarOpen && (
-          <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-            {/* Tab Navigation */}
-            <div className="border-b border-gray-200">
-              <div className="flex">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => handleTabClick(tab)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${
-                        !tab.available
-                          ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                      }`}
-                      style={
-                        activeTab === tab.id && tab.available
-                          ? {
-                              color: "rgb(var(--primary))",
-                              backgroundColor: "rgb(var(--primary) / 0.08)",
-                              borderBottom: "2px solid",
-                              borderBottomColor: "rgb(var(--primary) / 0.3)",
-                            }
-                          : undefined
-                      }
-                    >
-                      <div className="relative">
-                        <Icon className={`h-4 w-4 ${!tab.available ? "opacity-50" : ""}`} />
-                        {!tab.available && (
-                          <div
-                            className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "rgb(var(--primary))" }}
-                          >
-                            <Lock className="w-2 h-2 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <span className={!tab.available ? "opacity-50" : ""}>{tab.label}</span>
-
-                      {/* Tooltip for unavailable tabs */}
-                      {!tab.available && (
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                          <div className="text-center">
-                            <div className="font-medium">{tab.label} Module</div>
-                            <div className="text-gray-300 mt-1">Coming in Q2 2025</div>
-                          </div>
-                          <div
-                            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
-                            style={{ borderTopColor: "rgb(var(--border))" }}
-                          ></div>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-l border-gray-200"
-                  title="Close Sidebar"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto transition-all duration-300">{renderTabContent()}</div>
-          </div>
-        )}
-
-        {!sidebarOpen && (
-          <div className="flex items-center justify-center w-12 bg-white border-r border-gray-200 shadow-sm">
+        <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 relative`}>
+          {/* Sidebar kapalıyken sol kenarda ince toggle */}
+          {!sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-              title="Open Sidebar"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              title={t("app_sidebar_open")}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
-          </div>
-        )}
+          )}
+          
+          {sidebarOpen && (
+            <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+              {/* Tab Navigation */}
+              <div className="border-b border-gray-200">
+                <div className="flex">
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => handleTabClick(tab)}
+                        className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${
+                          !tab.available
+                            ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                        style={
+                          activeTab === tab.id && tab.available
+                            ? {
+                                color: "rgb(var(--primary))",
+                                backgroundColor: "rgb(var(--primary) / 0.08)",
+                                borderBottom: "2px solid",
+                                borderBottomColor: "rgb(var(--primary) / 0.3)",
+                              }
+                            : undefined
+                        }
+                      >
+                        <div className="relative">
+                          <Icon className={`h-4 w-4 ${!tab.available ? "opacity-50" : ""}`} />
+                          {!tab.available && (
+                            <div
+                              className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                              style={{ backgroundColor: "rgb(var(--primary))" }}
+                            >
+                              <Lock className="w-2 h-2 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <span className={!tab.available ? "opacity-50" : ""}>{tab.label}</span>
+
+                        {/* Tooltip for unavailable tabs */}
+                        {!tab.available && (
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            <div className="text-center">
+                              <div className="font-medium">{tab.label} Module</div>
+                              <div className="text-gray-300 mt-1">Coming in Q2 2025</div>
+                            </div>
+                            <div
+                              className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
+                              style={{ borderTopColor: "rgb(var(--border))" }}
+                            ></div>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto transition-all duration-300">
+                {renderTabContent()}
+              </div>
+            </div>
+          )}
+          
+          {/* Toggle Button - Sidebar container'ının içinde (sadece sidebar açıkken göster) */}
+          {sidebarOpen && (
+            <Button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white border border-gray-200 rounded-full shadow p-1 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900 transition-colors z-50"
+              style={{ width: 28, height: 28 }}
+              title={t("app_sidebar_close")}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  d="M15 19l-7-7 7-7" 
+                />
+              </svg>
+            </Button>
+          )}
+        </div>
 
         <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
           {selectedFile ? (
@@ -566,7 +579,7 @@ function AppPage() {
                         >
                           <Navigation className="w-4 h-4" style={{ color: "rgb(var(--primary-foreground))" }} />
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800">Navigation</h3>
+                        <h3 className="text-sm font-semibold text-gray-800">{t("app_navigation_title")}</h3>
                       </div>
                       <button
                         onClick={() => setShowNavigationModal(false)}
@@ -582,7 +595,7 @@ function AppPage() {
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <Target className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
-                          Quick Views
+                          {t("app_navigation_quickViews")}
                         </h4>
                         <div className="grid grid-cols-3 gap-2 max-w-[180px]">
                           {quickViewGrid.map((row, rowIndex) =>
@@ -625,7 +638,7 @@ function AppPage() {
                                   }
                                   onClick={() => handleViewChange(view)}
                                 >
-                                  {view}
+                                  {t(`app_navigation_${view.toLowerCase()}`)}
                                 </button>
                               )
                             }),
@@ -637,7 +650,7 @@ function AppPage() {
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <Eye className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
-                          Display
+                          {t("app_navigation_display")}
                         </h4>
                         <div className="space-y-2">
                           {(["Wireframe", "Axes", "Smooth Shading", "Perspective"] as const).map((label) => {
@@ -651,7 +664,7 @@ function AppPage() {
                                     : perspective
                             return (
                               <div key={label} className="flex items-center justify-between">
-                                <span className="text-xs text-gray-600">{label}</span>
+                                <span className="text-xs text-gray-600">{t(`app_navigation_${label.replace(/\s/g, "").toLowerCase()}`)}</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -706,7 +719,7 @@ function AppPage() {
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <RotateCcw className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
-                          Navigation
+                          {t("app_navigation_title")}
                         </h4>
                         <div className="grid grid-cols-2 gap-2">
                           <button
@@ -714,14 +727,14 @@ function AppPage() {
                             onClick={handleResetView}
                           >
                             <RotateCcw className="w-3 h-3" />
-                            Reset
+                            {t("app_navigation_reset")}
                           </button>
                           <button
                             className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-xs rounded-md flex items-center justify-center gap-1"
                             onClick={handleCameraFitAll}
                           >
                             <Maximize className="w-3 h-3" />
-                            Fit All
+                            {t("app_navigation_fitAll")}
                           </button>
                         </div>
                       </div>
@@ -746,7 +759,7 @@ function AppPage() {
 
                     {/* View Presets */}
                     <div className="flex items-center gap-1">
-                      {["Front", "Back", "Left", "Right", "Top", "Bottom", "ISO"].map((view) => (
+                      {(["Front", "Back", "Left", "Right", "Top", "Bottom", "ISO"]).map((view) => (
                         <button
                           key={view}
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
@@ -757,7 +770,7 @@ function AppPage() {
                           style={activeView === view ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                           onClick={() => handleViewChange(view)}
                         >
-                          {view}
+                          {t(`app_navigation_${view.toLowerCase()}`)}
                         </button>
                       ))}
                     </div>
@@ -768,7 +781,7 @@ function AppPage() {
                         className={`p-2 rounded-full transition-all duration-200 ${
                           viewLocked ? "bg-red-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
-                        title={viewLocked ? "Unlock View" : "Lock View"}
+                        title={viewLocked ? t("app_navigation_unlockView") : t("app_navigation_lockView")}
                         onClick={() => {
                           const next = !viewLocked
                           setViewLocked(next)
@@ -792,7 +805,7 @@ function AppPage() {
                           wireframe ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
                         style={wireframe ? { backgroundColor: "rgb(var(--primary))" } : undefined}
-                        title="Toggle Wireframe"
+                        title={t("app_navigation_toggleWireframe")}
                         onClick={() => {
                           const next = !wireframe
                           setWireframe(next)
@@ -810,7 +823,7 @@ function AppPage() {
                           axes ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
                         style={axes ? { backgroundColor: "rgb(var(--primary))" } : undefined}
-                        title="Toggle Axes"
+                        title={t("app_navigation_toggleAxes")}
                         onClick={() => {
                           const next = !axes
                           setAxes(next)
@@ -828,7 +841,7 @@ function AppPage() {
                           smooth ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
                         style={smooth ? { backgroundColor: "rgb(var(--primary))" } : undefined}
-                        title="Smooth / Flat Shading"
+                        title={t("app_navigation_smoothFlat")}
                         onClick={() => {
                           const next = !smooth
                           setSmooth(next)
@@ -846,7 +859,7 @@ function AppPage() {
                           perspective ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"
                         }`}
                         style={perspective ? { backgroundColor: "rgb(var(--primary))" } : undefined}
-                        title={perspective ? "Switch to Parallel" : "Switch to Perspective"}
+                        title={perspective ? t("app_navigation_switchToParallel") : t("app_navigation_switchToPerspective")}
                         onClick={() => {
                           const next = !perspective
                           setPerspective(next)
@@ -867,7 +880,7 @@ function AppPage() {
                     <div className="flex items-center gap-1">
                       <button
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title="Zoom In"
+                        title={t("app_navigation_zoomIn")}
                         onClick={() => {
                           const event = new CustomEvent("zoomIn")
                           window.dispatchEvent(event)
@@ -877,7 +890,7 @@ function AppPage() {
                       </button>
                       <button
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title="Zoom Out"
+                        title={t("app_navigation_zoomOut")}
                         onClick={() => {
                           const event = new CustomEvent("zoomOut")
                           window.dispatchEvent(event)
@@ -887,14 +900,14 @@ function AppPage() {
                       </button>
                       <button
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title="Zoom to Fit"
+                        title={t("app_navigation_zoomToFit")}
                         onClick={handleCameraFitAll}
                       >
                         <Maximize className="h-4 w-4" />
                       </button>
                       <button
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title="Reset View"
+                        title={t("app_navigation_resetView")}
                         onClick={handleResetView}
                       >
                         <RotateCcw className="h-4 w-4" />
@@ -907,7 +920,7 @@ function AppPage() {
                 {selectedFile && (
                   <button
                     onClick={() => captureImage?.({ scale: 2, format: "png" })}
-                    title="Capture Screenshot"
+                        title={t("app_navigation_captureScreenshot")}
                     className="absolute top-6 right-6 z-10 p-3 rounded-full bg-white shadow-lg border border-gray-200 text-black/70 hover:text-black hover:shadow-xl hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Camera className="h-5 w-5" />
@@ -921,10 +934,9 @@ function AppPage() {
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Upload className="h-12 w-12 text-gray-400" />
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-4">Welcome to VizCad Render Studio</h2>
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">{t("app_welcome_title")}</h2>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Upload a 3D model file to start creating photorealistic renders. Configure lighting, materials, and
-                  camera settings for professional results.
+                  {t("app_welcome_desc")}
                 </p>
                 <div className="space-y-3">
                   <Button
@@ -944,7 +956,7 @@ function AppPage() {
                     }}
                   >
                     <Upload className="h-4 w-4 mr-2" style={{ color: "white" }} />
-                    Upload Your Model
+                    {t("app_welcome_upload")}
                   </Button>
                   <input
                     ref={fileInputRef}
@@ -954,12 +966,12 @@ function AppPage() {
                     onChange={handleFileChange}
                   />
                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>Supported formats:</span>
+                    <span>{t("app_welcome_supportedFormats")}</span>
                     <div className="flex gap-2">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">STL</span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">OBJ</span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">PLY</span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">3MF</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_stl")}</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_obj")}</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_ply")}</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_mf")}</span>
                     </div>
                   </div>  
                 </div>
@@ -971,18 +983,18 @@ function AppPage() {
 
       <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600 h-10 flex-shrink-0">
         <div className="flex items-center gap-4">
-          <span className="text-gray-600">Ready</span>
+          <span className="text-gray-600">{t("app_status_ready")}</span>
           {selectedFile && (
             <>
               <span>•</span>
-              <span>Model: {selectedFile.name}</span>
+              <span>{t("app_status_model")}: {selectedFile.name}</span>
             </>
           )}
         </div>
         <div className="flex items-center gap-4">
-          <span>Resolution: 1920x1080</span>
+          <span>{t("app_status_resolution")}: 1920x1080</span>
           <span>•</span>
-          <span>Quality: High</span>
+          <span>{t("app_status_quality")}: {t("app_status_qualityHigh")}</span>
           <Button variant="ghost" size="sm" className="p-1">
             <Info className="h-4 w-4" />
           </Button>

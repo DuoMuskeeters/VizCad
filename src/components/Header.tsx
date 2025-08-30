@@ -1,14 +1,17 @@
 "use client"
 
 import type React from "react"
+import { useTranslation } from "react-i18next"
 
 import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 import { useState, useEffect } from "react"
 import { useTheme } from "./theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
 import { PaletteSelector } from "@/components/palette-selector"
+import LanguageSwitcher from "@/components/LanguageSwitcher"
 
 export default function Header() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
@@ -21,24 +24,25 @@ export default function Header() {
   useEffect(() => {
     // Resolve 'system' -> matchMedia
     if (theme === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)")
-      setResolvedTheme(mq.matches ? "dark" : "light")
-      const handler = (e: MediaQueryListEvent) => setResolvedTheme(e.matches ? "dark" : "light")
-      try {
-        mq.addEventListener("change", handler)
-      } catch (e) {
-        mq.addListener(handler)
-      }
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const handler = (e: MediaQueryListEvent) => {
+        setResolvedTheme(e.matches ? "dark" : "light");
+      };
+      setResolvedTheme(mq.matches ? "dark" : "light");
+      mq.addEventListener("change", handler);
       return () => {
         try {
-          mq.removeEventListener("change", handler)
+          mq.removeEventListener("change", handler);
         } catch (e) {
-          mq.removeListener(handler)
+          // For older browsers
+          // @ts-ignore
+          mq.removeListener(handler);
         }
-      }
+      };
+    } else {
+      setResolvedTheme(theme === "dark" ? "dark" : "light");
     }
-    setResolvedTheme(theme === "dark" ? "dark" : "light")
-  }, [theme])
+  }, [theme]);
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
@@ -98,28 +102,29 @@ export default function Header() {
               onClick={() => handleNavClick("features")}
               className={buttonClass}
             >
-              Features
-            </button>
-            <button
-              onClick={() => handleNavClick("about")}
-              className={buttonClass}
-            >
-              About Us
+              {t("nav_features")}
             </button>
             <Link
               to="/faq"
               className={buttonClass}
             >
-              FAQ
+              {t("nav_faq")}
             </Link>
             <Link
               to="/contact"
               className={buttonClass}
             >
-              Contact
+              {t("nav_contact")}
             </Link>
+            <button
+              onClick={() => handleNavClick("about")}
+              className={buttonClass}
+            >
+              {t("nav_about")}
+            </button>
             <PaletteSelector />
             <ModeToggle />
+            <LanguageSwitcher />
             <Link
               to="/app"
               className="text-white font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base"
@@ -128,7 +133,7 @@ export default function Header() {
                 color: "white",
               }}
             >
-              Launch App
+              {t("nav_launch_app")}
             </Link>
           </div>
 
@@ -136,6 +141,7 @@ export default function Header() {
           <div className="md:hidden flex items-center space-x-2">
             <PaletteSelector />
             <ModeToggle />
+            <LanguageSwitcher />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-accent transition-colors"
@@ -161,28 +167,29 @@ export default function Header() {
                 onClick={() => handleNavClick("features")}
                 className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
               >
-                Features
+                {t("nav_features")}
               </button>
               <button
                 onClick={() => handleNavClick("about")}
                 className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
               >
-                About Us
+                {t("nav_about")}
               </button>
               <Link
                 to="/faq"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
               >
-                FAQ
+                {t("nav_faq")}
               </Link>
               <Link
                 to="/contact"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
               >
-                Contact
+                {t("nav_contact")}
               </Link>
+              <LanguageSwitcher />
               <Link
                 to="/app"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -192,7 +199,7 @@ export default function Header() {
                   color: "white",
                 }}
               >
-                Launch App
+                {t("nav_launch_app")}
               </Link>
             </div>
           </div>
