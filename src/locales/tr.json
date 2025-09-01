@@ -101,43 +101,53 @@
     "header": {
       "title": "Sıkça Sorulan",
       "titleAccent": "Sorular",
-      "subtitle": "VizCAD’in özellikleri, yetenekleri ve 3D görselleştirme platformumuzdan en iyi şekilde yararlanma hakkında sık sorulan soruların yanıtlarını bulun."
+      "subtitle": "VizCAD'in özellikleri, yetenekleri ve 3D görselleştirme platformumuzdan en iyi şekilde nasıl yararlanabileceğinize dair yaygın soruların cevaplarını bulun."
     },
     "card": {
       "title": "Genel Sorular",
       "description": "Cevabı görmek için aşağıdaki sorulardan birine tıklayın"
     },
-    "what-is-vizcad": {
-      "question": "VizCAD nedir?",
-      "answer": "VizCAD, doğrudan web tarayıcınızda 3D modeller oluşturmanızı, düzenlemenizi ve görselleştirmenizi sağlayan güçlü bir 3D görselleştirme ve CAD uygulamasıdır. Yazılım kurulumu gerekmeden 3D modelleme, render ve analiz için profesyonel araçlar sunar."
-    },
-    "browser-support": {
-      "question": "Hangi tarayıcılar destekleniyor?",
-      "answer": "VizCAD, Chrome, Firefox, Safari ve Edge gibi modern tarayıcılarda en iyi şekilde çalışır. En iyi performans için tarayıcınızın en güncel sürümünü kullanmanızı öneririz. 3D render için WebGL desteği gereklidir."
-    },
-    "file-formats": {
-      "question": "VizCAD hangi dosya formatlarını destekler?",
-      "answer": "VizCAD, STL, OBJ, PLY, VTK ve birçok farklı 3D dosya formatını destekler. Mevcut modelleri içe aktarabilir, çalışmalarınızı farklı CAD yazılımlarıyla uyumlu çeşitli formatlarda dışa aktarabilirsiniz."
-    },
-    "getting-started": {
-      "question": "VizCAD ile nasıl başlayabilirim?",
-      "answer": "Üst menüdeki 'Uygulamayı Aç' butonuna tıklamanız yeterlidir. Kayıt ya da indirme gerekmez. Arayüz sezgiseldir ve başlangıç için ipuçlarıyla kolayca 3D modeller oluşturabilirsiniz."
-    },
-    "performance": {
-      "question": "Sistem gereksinimleri nelerdir?",
-      "answer": "VizCAD tamamen tarayıcınızda çalışır, bu yüzden yalnızca WebGL destekli modern bir tarayıcıya ihtiyacınız vardır. En iyi performans için en az 4GB RAM ve tercihen ekran kartı önerilir, özellikle karmaşık modeller üzerinde çalışırken."
-    },
-    "collaboration": {
-      "question": "VizCAD projelerinde başkalarıyla işbirliği yapabilir miyim?",
-      "answer": "Şu anda VizCAD bireysel modelleme ve görselleştirmeye odaklanmaktadır. Ancak dosyalarınızı dışa aktararak kolayca paylaşabilirsiniz. Gelecek sürümlerde işbirliği özellikleri planlanmaktadır."
-    },
-    "pricing": {
-      "question": "VizCAD ücretsiz mi?",
-      "answer": "VizCAD, temel 3D modelleme ve görselleştirme özelliklerini içeren ücretsiz bir kullanım sunar. Gelişmiş özellikler ve ek performans seçenekleri premium planlarla sunulabilir. En güncel bilgiler için fiyatlandırma bölümünü kontrol edin."
-    },
-    "data-security": {
-      "question": "Verilerim VizCAD’de ne kadar güvende?",
-      "answer": "3D modelleriniz ve verileriniz mümkün olduğunda tarayıcınızda yerel olarak işlenir. Veri güvenliğini ciddiye alıyoruz ve sektör standartlarında güvenlik önlemleri uyguluyoruz. Dosyalar yalnızca açıkça kaydetmeyi veya paylaşmayı seçtiğinizde yüklenir."
+    "questions": {
+      "what-is-vizcad": {
+        "question": "VizCAD nedir?",
+        "answer": "VizCAD, mevcut CAD tasarımlarınızı karmaşık yazılımlara ihtiyaç duymadan, web üzerinden kolayca görselleştirmenizi sağlayan bir platformdur. Mühendisler, mimarlar ve ürün tasarımcıları gibi profesyonellerin, tasarımlarını hızlı ve profesyonel bir şekilde görselleştirmelerine yardımcı olur."
+      },
+      "supported-browsers": {
+        "question": "VizCAD'i kullanmak için hangi tarayıcıları kullanmalıyım?",
+        "answer": "VizCAD, WebGL desteğine sahip tüm modern web tarayıcılarında çalışır. Bilgisayar, tablet veya telefon gibi herhangi bir cihazdan erişim sağlayabilirsiniz."
+      },
+      "file-formats": {
+        "question": "VizCAD hangi dosya formatlarını destekliyor?",
+        "answer": "VizCAD şu an için STL, OBJ, PLY ve 3MF dosya formatlarını desteklemektedir."
+      },
+      "getting-started": {
+        "question": "VizCAD'i kullanmaya nasıl başlayabilirim?",
+        "answer": "VizCAD'i kullanmaya başlamak oldukça kolay. Doğrudan tarayıcınız üzerinden STL, OBJ, PLY veya 3MF dosyanızı sürükleyip bırakmanız yeterlidir. Herhangi bir yazılım yüklemenize veya hesap oluşturmanıza gerek yoktur."
+      },
+      "system-requirements": {
+        "question": "Sistem gereksinimleri nelerdir?",
+        "answer": "Uygulama tamamen web tarayıcınızda çalıştığı için özel bir kurulum gerektirmez. Pürüzsüz bir deneyim için WebGL desteğine sahip modern bir tarayıcı yeterlidir. Performans, tarayıcının ve cihazın özelliklerine göre değişiklik gösterebilir."
+      },
+      "collaboration": {
+        "question": "VizCAD projelerinde başkalarıyla iş birliği yapabilir miyim?",
+        "answer": "VizCAD, bir ekip çalışması sırasında tasarım dosyalarına erişim sorununu çözmek amacıyla ortaya çıkmıştır. Uygulama, tasarımları herkes için erişilebilir kılsa da, şu an için dahili iş birliği özelliklerine dair bir bilgi bulunmamaktadır."
+      },
+      "is-it-free": {
+        "question": "VizCAD'i kullanmak ücretsiz mi?",
+        "answer": "Evet, VizCAD Freemium bir modelle tasarlanmıştır. Bu model sayesinde, temel özellikleri ücretsiz olarak kullanabilirsiniz. Daha gelişmiş araçlara ve özelliklere erişim için ise premium abonelik seçenekleri sunulacaktır."
+      },
+      "data-security": {
+        "question": "VizCAD'deki verilerim ne kadar güvenli?",
+        "answer": "VizCAD, bulut tabanlı bir sistem yerine istemci tarafında (client-side) görüntüleme yapar. Bu, verilerinizin mümkün olduğunca yerel olarak, yani tarayıcınızda işlendiği anlamına gelir. Bu yaklaşım, dosyalarınızın harici sunucularda saklanma ihtiyacını ortadan kaldırarak güvenliği artırır."
+      },
+      "how-is-it-different": {
+        "question": "VizCAD, AutoCAD gibi rakiplerden hangi yönleriyle ayrılıyor?",
+        "answer": "VizCAD'in en büyük farkı, Autodesk gibi karmaşık ve pahalı yazılımların aksine, profesyonel bir hizmeti kullanıcı dostu bir arayüzle sunmasıdır. Piyasada bulunan amatör seviye CAD görüntüleyicilerinden farklı olarak, VizCAD ile tüm kullanıcılar, karmaşık yazılım bilgisine ihtiyaç duymadan tasarımlarını yüksek kalitede görsellere dönüştürebilir."
+      },
+      "development-process": {
+        "question": "VizCAD'in gelişim süreci nasıl oldu ve en önemli dönüm noktaları nelerdi?",
+        "answer": "VizCAD'in ilk MVP (Minimum Viable Product) sürümü, yalnızca bir CAD dosyası önizleme aracıydı. Kullanıcılardan gelen geri bildirimlerle, teknik özelliklerden ziyade görselleştirme araçlarına odaklanma kararı alındı. Bu dönüşüm, ürünü basit bir önizleme aracından güçlü bir görselleştirme platformuna dönüştürerek ürün yol haritasının yeniden çizilmesini sağladı."
+      }
     }
   },
   "app_tabs_scenes": "Sahneler",
@@ -223,6 +233,13 @@
   "scene_background": "Arka Plan",
   "scene_camera": "Kamera",
   "scene_perspective": "Perspektif",
-  "scene_orthographic": "Ortografik"
+  "scene_orthographic": "Ortografik",
+  "seo_title": "VizCad - Profesyonel CAD Görüntüleyici | STL, OBJ, PLY Dosyaları",
+  "seo_description": "Tarayıcınızda profesyonel 3D CAD görüntüleyici. STL, OBJ, PLY ve 3MF dosyalarını yükleyin ve anında fotorealistik renderlar oluşturun. Kurulum gerektirmez. Ücretsiz CAD görselleştirme aracı.",
+  "seo_keywords": "profesyonel CAD görüntüleyici, 3D model görüntüleyici, STL görüntüleyici online, OBJ dosya görüntüleyici, PLY görüntüleyici, 3MF görüntüleyici, CAD görselleştirme, tarayıcı CAD aracı, 3D rendering online, WebGL CAD, online 3D görüntüleyici",
+  "seo_og_title": "VizCad - Profesyonel CAD Görüntüleyici | STL, OBJ, PLY Dosyaları",
+  "seo_og_description": "Tarayıcınızda profesyonel 3D CAD görüntüleyici. STL, OBJ, PLY dosyalarını yükleyin ve anında fotorealistik renderlar oluşturun. Kurulum gerektirmez.",
+  "seo_twitter_title": "VizCad - Profesyonel CAD Görüntüleyici | 3D Dosya Görüntüleyici",
+  "seo_twitter_description": "Tarayıcınızda profesyonel 3D CAD görüntüleyici. STL, OBJ, PLY dosyalarını yükleyin ve anında render edin."
 }
 

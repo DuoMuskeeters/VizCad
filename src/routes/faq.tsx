@@ -4,8 +4,62 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTranslation } from "react-i18next"
+import { detectLanguage, seoContent } from "@/utils/language"
 
+// faq.tsx (FAQ Page)
 export const Route = createFileRoute("/faq")({
+  head: () => {
+    const lang = detectLanguage()
+    const content = seoContent[lang].faq
+    
+    return {
+      title: content.title,
+      meta: [
+        {
+          name: "description",
+          content: content.description,
+        },
+        {
+          name: "keywords",
+          content: content.keywords,
+        },
+        {
+          property: "og:title",
+          content: content.ogTitle,
+        },
+        {
+          property: "og:description",
+          content: content.ogDescription,
+        },
+        {
+          property: "og:url",
+          content: "https://vizcad.com/faq",
+        },
+        {
+          property: "og:image",
+          content: `https://vizcad.com/og-faq-${lang}.png`,
+        },
+        {
+          name: "twitter:title",
+          content: content.twitterTitle,
+        },
+        {
+          name: "twitter:description",
+          content: content.twitterDescription,
+        },
+        {
+          name: "twitter:image",
+          content: `https://vizcad.com/twitter-faq-${lang}.png`,
+        },
+      ],
+      links: [
+        {
+          rel: "canonical",
+          href: "https://vizcad.com/faq",
+        },
+      ],
+    }
+  },
   component: FAQ,
 })
 
@@ -14,43 +68,53 @@ function FAQ() {
   const faqs = [
     {
       id: "what-is-vizcad",
-      question: t("faq.what-is-vizcad.question"),
-      answer: t("faq.what-is-vizcad.answer"),
+      question: t("faq.questions.what-is-vizcad.question"),
+      answer: t("faq.questions.what-is-vizcad.answer"),
     },
     {
-      id: "browser-support",
-      question: t("faq.browser-support.question"),
-      answer: t("faq.browser-support.answer"),
+      id: "supported-browsers",
+      question: t("faq.questions.supported-browsers.question"),
+      answer: t("faq.questions.supported-browsers.answer"),
     },
     {
       id: "file-formats",
-      question: t("faq.file-formats.question"),
-      answer: t("faq.file-formats.answer"),
+      question: t("faq.questions.file-formats.question"),
+      answer: t("faq.questions.file-formats.answer"),
     },
     {
       id: "getting-started",
-      question: t("faq.getting-started.question"),
-      answer: t("faq.getting-started.answer"),
+      question: t("faq.questions.getting-started.question"),
+      answer: t("faq.questions.getting-started.answer"),
     },
     {
-      id: "performance",
-      question: t("faq.performance.question"),
-      answer: t("faq.performance.answer"),
+      id: "system-requirements",
+      question: t("faq.questions.system-requirements.question"),
+      answer: t("faq.questions.system-requirements.answer"),
     },
     {
       id: "collaboration",
-      question: t("faq.collaboration.question"),
-      answer: t("faq.collaboration.answer"),
+      question: t("faq.questions.collaboration.question"),
+      answer: t("faq.questions.collaboration.answer"),
     },
     {
-      id: "pricing",
-      question: t("faq.pricing.question"),
-      answer: t("faq.pricing.answer"),
+      id: "is-it-free",
+      question: t("faq.questions.is-it-free.question"),
+      answer: t("faq.questions.is-it-free.answer"),
     },
     {
       id: "data-security",
-      question: t("faq.data-security.question"),
-      answer: t("faq.data-security.answer"),
+      question: t("faq.questions.data-security.question"),
+      answer: t("faq.questions.data-security.answer"),
+    },
+    {
+      id: "how-is-it-different",
+      question: t("faq.questions.how-is-it-different.question"),
+      answer: t("faq.questions.how-is-it-different.answer"),
+    },
+    {
+      id: "development-process",
+      question: t("faq.questions.development-process.question"),
+      answer: t("faq.questions.development-process.answer"),
     },
   ]
 

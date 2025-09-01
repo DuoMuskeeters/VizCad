@@ -1,5 +1,6 @@
 "use client"
 
+import { detectLanguage, seoContent } from "@/utils/language"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -23,7 +24,68 @@ import {
   Linkedin,
 } from "lucide-react"
 
+// index.tsx (Homepage)
 export const Route = createFileRoute("/")({
+  head: () => {
+    const lang = detectLanguage()
+    const content = seoContent[lang].home
+    
+    return {
+      title: content.title,
+      meta: [
+        {
+          name: "description",
+          content: content.description,
+        },
+        {
+          name: "keywords",
+          content: content.keywords,
+        },
+        {
+          property: "og:title",
+          content: content.ogTitle,
+        },
+        {
+          property: "og:description",
+          content: content.ogDescription,
+        },
+        {
+          property: "og:url",
+          content: "https://vizcad.com",
+        },
+        {
+          property: "og:image",
+          content: `https://vizcad.com/og-home-${lang}.png`,
+        },
+        {
+          property: "og:image:width",
+          content: "1200",
+        },
+        {
+          property: "og:image:height",
+          content: "630",
+        },
+        {
+          name: "twitter:title",
+          content: content.twitterTitle,
+        },
+        {
+          name: "twitter:description",
+          content: content.twitterDescription,
+        },
+        {
+          name: "twitter:image",
+          content: `https://vizcad.com/twitter-home-${lang}.png`,
+        },
+      ],
+      links: [
+        {
+          rel: "canonical",
+          href: "https://vizcad.com",
+        },
+      ],
+    }
+  },
   component: HomePage,
 })
 

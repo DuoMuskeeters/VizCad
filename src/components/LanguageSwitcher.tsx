@@ -7,6 +7,12 @@ import { Languages } from "lucide-react"
 export default function LanguageSwitcher() {
   const { i18n } = useTranslation()
   const current = i18n.language
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang)
+    localStorage.setItem('vizcad-language', lang)
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -15,10 +21,10 @@ export default function LanguageSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => i18n.changeLanguage("en")} className="flex items-center gap-2">
+        <DropdownMenuItem onClick={() => handleLanguageChange("en")} className="flex items-center gap-2">
           EN {current === "en" && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => i18n.changeLanguage("tr") } className="flex items-center gap-2">
+        <DropdownMenuItem onClick={() => handleLanguageChange("tr") } className="flex items-center gap-2">
           TR {current === "tr" && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
       </DropdownMenuContent>

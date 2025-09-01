@@ -8,10 +8,64 @@ import { useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import emailjs from "@emailjs/browser";
 import Header from "@/components/Header";
+import { detectLanguage, seoContent } from "@/utils/language"
 
 export const Route = createFileRoute("/contact")({
+  head: () => {
+    const lang = detectLanguage()
+    const content = seoContent[lang].contact
+    
+    return {
+      title: content.title,
+      meta: [
+        {
+          name: "description",
+          content: content.description,
+        },
+        {
+          name: "keywords",
+          content: content.keywords,
+        },
+        {
+          property: "og:title",
+          content: content.ogTitle,
+        },
+        {
+          property: "og:description",
+          content: content.ogDescription,
+        },
+        {
+          property: "og:url",
+          content: "https://vizcad.com/contact",
+        },
+        {
+          property: "og:image",
+          content: `https://vizcad.com/og-contact-${lang}.png`,
+        },
+        {
+          name: "twitter:title",
+          content: content.twitterTitle,
+        },
+        {
+          name: "twitter:description",
+          content: content.twitterDescription,
+        },
+        {
+          name: "twitter:image",
+          content: `https://vizcad.com/twitter-contact-${lang}.png`,
+        },
+      ],
+      links: [
+        {
+          rel: "canonical",
+          href: "https://vizcad.com/contact",
+        },
+      ],
+    }
+  },
   component: ContactPage,
 })
+
 
 function ContactPage() {
   const { t } = useTranslation()

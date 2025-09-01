@@ -107,37 +107,47 @@
       "title": "Common Questions",
       "description": "Click on any question below to see the answer"
     },
-    "what-is-vizcad": {
-      "question": "What is VizCAD?",
-      "answer": "VizCAD is a powerful 3D visualization and CAD application that allows you to create, edit, and visualize 3D models directly in your web browser. It provides professional-grade tools for 3D modeling, rendering, and analysis without requiring any software installation."
-    },
-    "browser-support": {
-      "question": "Which browsers are supported?",
-      "answer": "VizCAD works best on modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version of your browser for optimal performance. WebGL support is required for 3D rendering capabilities."
-    },
-    "file-formats": {
-      "question": "What file formats does VizCAD support?",
-      "answer": "VizCAD supports a wide range of 3D file formats including STL, OBJ, PLY, VTK, and many others. You can import existing 3D models and export your work in various formats for compatibility with other CAD software."
-    },
-    "getting-started": {
-      "question": "How do I get started with VizCAD?",
-      "answer": "Simply click the 'Launch App' button in the header to start using VizCAD immediately. No registration or download is required. The interface is intuitive with helpful tooltips and guides to help you begin creating 3D models right away."
-    },
-    "performance": {
-      "question": "What are the system requirements?",
-      "answer": "VizCAD runs entirely in your web browser, so you only need a modern browser with WebGL support. For best performance, we recommend at least 4GB of RAM and a dedicated graphics card, especially when working with complex 3D models."
-    },
-    "collaboration": {
-      "question": "Can I collaborate with others on VizCAD projects?",
-      "answer": "Currently, VizCAD focuses on individual 3D modeling and visualization. However, you can easily export and share your 3D models with colleagues using supported file formats. Collaboration features are planned for future releases."
-    },
-    "pricing": {
-      "question": "Is VizCAD free to use?",
-      "answer": "VizCAD offers a free tier with core 3D modeling and visualization features. Advanced features and enhanced performance options may be available through premium plans. Check our pricing section for the most current information."
-    },
-    "data-security": {
-      "question": "How secure is my data in VizCAD?",
-      "answer": "Your 3D models and data are processed locally in your browser whenever possible. We take data security seriously and implement industry-standard security measures. Your files are only uploaded when you explicitly choose to save or share them."
+    "questions": {
+      "what-is-vizcad": {
+        "question": "What is VizCAD?",
+        "answer": "VizCAD is a platform that allows you to easily visualize your existing CAD designs through the web without the need for complex software. It helps professionals like engineers, architects, and product designers to quickly and professionally visualize their designs."
+      },
+      "supported-browsers": {
+        "question": "Which browsers should I use for VizCAD?",
+        "answer": "VizCAD works on all modern web browsers with WebGL support. You can access it from any device such as a computer, tablet, or mobile phone."
+      },
+      "file-formats": {
+        "question": "What file formats does VizCAD support?",
+        "answer": "VizCAD currently supports STL, OBJ, PLY, and 3MF file formats."
+      },
+      "getting-started": {
+        "question": "How do I get started with VizCAD?",
+        "answer": "Getting started with VizCAD is quite easy. You just need to drag and drop your STL, OBJ, PLY, or 3MF file directly into your browser. No software installation or account creation is required."
+      },
+      "system-requirements": {
+        "question": "What are the system requirements?",
+        "answer": "The application runs entirely in your web browser, so no special installation is required. A modern browser with WebGL support is sufficient for a smooth experience. Performance may vary depending on the browser and device specifications."
+      },
+      "collaboration": {
+        "question": "Can I collaborate with others on VizCAD projects?",
+        "answer": "VizCAD emerged to solve the problem of accessing design files during teamwork. While the application makes designs accessible to everyone, there is currently no information about built-in collaboration features."
+      },
+      "is-it-free": {
+        "question": "Is VizCAD free to use?",
+        "answer": "Yes, VizCAD is designed with a Freemium model. With this model, you can use the core features for free. Premium subscription options will be offered for access to more advanced tools and features."
+      },
+      "data-security": {
+        "question": "How secure is my data in VizCAD?",
+        "answer": "VizCAD performs client-side rendering instead of using a cloud-based system. This means your data is processed locally, in your browser, as much as possible. This approach increases security by eliminating the need to store your files on external servers."
+      },
+      "how-is-it-different": {
+        "question": "How does VizCAD differ from competitors like AutoCAD?",
+        "answer": "VizCAD's biggest difference is that it offers a professional service with a user-friendly interface, unlike complex and expensive software like Autodesk. Unlike amateur-level CAD viewers on the market, VizCAD allows all users to convert their designs into high-quality visuals without needing extensive software knowledge."
+      },
+      "development-process": {
+        "question": "What was VizCAD's development process like and what were the main turning points?",
+        "answer": "The initial MVP (Minimum Viable Product) version of VizCAD was just a CAD file preview tool. Based on user feedback, the decision was made to focus on visualization tools rather than technical features. This transformation turned the product from a simple preview tool into a powerful visualization platform and led to a redesign of the product roadmap."
+      }
     }
   },
   "app_tabs_scenes": "Scenes",
@@ -223,5 +233,12 @@
   "scene_background": "Background",
   "scene_camera": "Camera",
   "scene_perspective": "Perspective",
-  "scene_orthographic": "Orthographic"
+  "scene_orthographic": "Orthographic",
+  "seo_title": "VizCad - Professional CAD Viewer | STL, OBJ, PLY Files",
+  "seo_description": "Professional 3D CAD viewer in your browser. Upload STL, OBJ, PLY, and 3MF files for instant photorealistic rendering. No installation required. Free CAD visualization tool.",
+  "seo_keywords": "professional CAD viewer, 3D model viewer, STL viewer online, OBJ file viewer, PLY viewer, 3MF viewer, CAD visualization, browser CAD tool, 3D rendering online, WebGL CAD, online 3D viewer",
+  "seo_og_title": "VizCad - Professional CAD Viewer | STL, OBJ, PLY Files",
+  "seo_og_description": "Professional 3D CAD viewer in your browser. Upload STL, OBJ, PLY files for instant photorealistic rendering. No installation required.",
+  "seo_twitter_title": "VizCad - Professional CAD Viewer | 3D File Viewer",
+  "seo_twitter_description": "Professional 3D CAD viewer in your browser. Upload STL, OBJ, PLY files for instant rendering."
 }
