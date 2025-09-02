@@ -1,30 +1,67 @@
-// Language detection function (add this to your utils)
 export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
-  // 1. localStorage'dan kontrol et (eğer daha önce seçilmişse)
-  const savedLang = localStorage.getItem('vizcad-language')
-  if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr' || savedLang === 'hi') {
-    return savedLang as 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi'
+  // 1. Cookie'den kontrol et (server/client arası tutarlılık için)
+  try {
+    const cookieMatch = document.cookie.match(/(?:^|; )vizcad-language=([^;]+)/)
+    if (cookieMatch && cookieMatch[1]) {
+      const c = decodeURIComponent(cookieMatch[1])
+      if (c === 'tr' || c === 'en' || c === 'de' || c === 'es' || c === 'fr' || c === 'hi') {
+        return c as 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi'
+      }
+    }
+  } catch (e) {
+    // ignore cookie errors
   }
 
-  // 2. Browser dilinden kontrol et
-  const browserLang = navigator.language.toLowerCase()
-  if (browserLang.startsWith('tr')) {
-    return 'tr'
-  }
-  if (browserLang.startsWith('de')) {
-    return 'de'
-  }
-  if (browserLang.startsWith('es')) {
-    return 'es'
-  }
-  if (browserLang.startsWith('fr')) {
-    return 'fr'
-  }
-  if (browserLang.startsWith('hi')) {
-    return 'hi'
+  // 2. localStorage'dan kontrol et (eğer daha önce seçilmişse)
+  try {
+    const savedLang = localStorage.getItem('vizcad-language')
+    if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr' || savedLang === 'hi') {
+      return savedLang as 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi'
+    }
+  } catch (e) {
+    // ignore localStorage errors (privacy mode)
   }
 
-  // 3. Default olarak İngilizce
+  // 3. Browser dilinden kontrol et (bölgeye göre daha iyi eşleşme)
+  try {
+    // Önce primary language'ı kontrol et
+    const browserLang = navigator.language.toLowerCase()
+    if (browserLang.startsWith('tr')) {
+      return 'tr'
+    }
+    if (browserLang.startsWith('de')) {
+      return 'de'
+    }
+    if (browserLang.startsWith('es')) {
+      return 'es'
+    }
+    if (browserLang.startsWith('fr')) {
+      return 'fr'
+    }
+    if (browserLang.startsWith('hi')) {
+      return 'hi'
+    }
+    if (browserLang.startsWith('en')) {
+      return 'en'
+    }
+
+    // navigator.languages array'ini de kontrol et (fallback languages)
+    if (navigator.languages) {
+      for (const lang of navigator.languages) {
+        const langCode = lang.toLowerCase()
+        if (langCode.startsWith('tr')) return 'tr'
+        if (langCode.startsWith('de')) return 'de'
+        if (langCode.startsWith('es')) return 'es'
+        if (langCode.startsWith('fr')) return 'fr'
+        if (langCode.startsWith('hi')) return 'hi'
+        if (langCode.startsWith('en')) return 'en'
+      }
+    }
+  } catch (e) {
+    // ignore navigator errors
+  }
+
+  // 4. Default olarak İngilizce
   return 'en'
 }
 

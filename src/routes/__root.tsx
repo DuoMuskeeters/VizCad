@@ -4,6 +4,7 @@ import Header from "../components/Header"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { detectLanguage, seoContent } from "@/utils/language"
+import SeoUpdater from "@/components/SeoUpdater"
 
 export const Route = createRootRoute({
   head: () => {
@@ -98,6 +99,37 @@ export const Route = createRootRoute({
           rel: "canonical",
           href: "https://vizcad.com",
         },
+        // Alternate language links for better SEO
+        {
+          rel: "alternate",
+          hreflang: "en",
+          href: "https://vizcad.com",
+        },
+        {
+          rel: "alternate",
+          hreflang: "tr",
+          href: "https://vizcad.com",
+        },
+        {
+          rel: "alternate",
+          hreflang: "de",
+          href: "https://vizcad.com",
+        },
+        {
+          rel: "alternate",
+          hreflang: "es",
+          href: "https://vizcad.com",
+        },
+        {
+          rel: "alternate",
+          hreflang: "fr",
+          href: "https://vizcad.com",
+        },
+        {
+          rel: "alternate",
+          hreflang: "hi",
+          href: "https://vizcad.com",
+        },
       ],
     }
   },
@@ -110,6 +142,7 @@ export const Route = createRootRoute({
           <main className="bg-background">
             <Outlet />
           </main>
+          <SeoUpdater />
           <TanStackRouterDevtools />
           <Scripts />
         </div>
