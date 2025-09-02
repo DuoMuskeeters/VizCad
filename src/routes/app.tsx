@@ -146,6 +146,8 @@ function AppPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
+  const welcomeRef = useRef<HTMLDivElement>(null)
 
   // Unified file change handler
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -306,6 +308,53 @@ function AppPage() {
     }
   }, [isDragging, dragOffset])
 
+  // Close sidebar on small (phone) screens by default and keep it responsive across rotation
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const checkIsPhone = () => {
+      // Use the smaller viewport dimension so rotation (portrait/landscape) is handled
+      const minDim = Math.min(window.innerWidth, window.innerHeight)
+      const isPhone = minDim <= 640
+      setSidebarOpen(!isPhone)
+    }
+
+    // Run once on mount to set initial state
+    checkIsPhone()
+
+    window.addEventListener("resize", checkIsPhone)
+    window.addEventListener("orientationchange", checkIsPhone)
+
+    return () => {
+      window.removeEventListener("resize", checkIsPhone)
+      window.removeEventListener("orientationchange", checkIsPhone)
+    }
+  }, [])
+
+  // When on phone and menus (sidebar) are closed, center the scene or welcome text
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const minDim = Math.min(window.innerWidth, window.innerHeight)
+    const isPhone = minDim <= 640
+    if (!isPhone || sidebarOpen) return
+
+    if (selectedFile) {
+      // Center the VTK scene camera for mobile with menus closed
+      window.dispatchEvent(new CustomEvent("resetCamera"))
+    } else {
+      // No file -> welcome text. Scroll the welcome container so text is centered in viewport.
+      try {
+        if (welcomeRef.current) {
+          welcomeRef.current.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" })
+        } else {
+          pageRef.current?.scrollIntoView({ block: "center", inline: "center", behavior: "auto" })
+        }
+      } catch (e) {
+        window.scrollTo({ top: 0 })
+      }
+    }
+  }, [sidebarOpen, selectedFile])
+
   // Quick view grid layout
   const quickViewGrid = [
   [null, t("app_navigation_top"), null],
@@ -333,6 +382,7 @@ function AppPage() {
 
   return (
     <div
+      ref={pageRef}
       className="relative min-h-[1000px] h-fit bg-gray-100 flex flex-col pt-14 sm:pt-16"
       style={
         {
@@ -989,7 +1039,7 @@ function AppPage() {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md mx-auto p-8">
+              <div ref={welcomeRef} className="text-center max-w-md mx-auto p-8">
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Upload className="h-12 w-12 text-gray-400" />
                 </div>
