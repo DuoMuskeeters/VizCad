@@ -27,6 +27,18 @@ export default function LanguageSwitcher() {
         <DropdownMenuItem onClick={() => handleLanguageChange("tr") } className="flex items-center gap-2">
           TR {current === "tr" && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleLanguageChange("de") } className="flex items-center gap-2">
+          DE {current === "de" && <span className="ml-auto text-xs">✓</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleLanguageChange("es") } className="flex items-center gap-2">
+          ES {current === "es" && <span className="ml-auto text-xs">✓</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleLanguageChange("fr") } className="flex items-center gap-2">
+          FR {current === "fr" && <span className="ml-auto text-xs">✓</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleLanguageChange("hi") } className="flex items-center gap-2">
+          HI {current === "hi" && <span className="ml-auto text-xs">✓</span>}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
