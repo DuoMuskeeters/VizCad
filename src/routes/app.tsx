@@ -187,8 +187,9 @@ function AppPage() {
 
   // Handle view change
   const handleViewChange = (view: string) => {
-    setActiveView(view)
-    const event = new CustomEvent("setView", { detail: { view } })
+    const capitalizedView = view.charAt(0).toUpperCase() + view.slice(1).toLowerCase()
+    setActiveView(capitalizedView)
+    const event = new CustomEvent("setView", { detail: { view: capitalizedView } })
     window.dispatchEvent(event)
   }
 
@@ -357,28 +358,35 @@ function AppPage() {
 
   // Quick view grid layout
   const quickViewGrid = [
-  [null, t("app_navigation_top"), null],
-  [t("app_navigation_left"), t("app_navigation_front"), t("app_navigation_right")],
-  [null, t("app_navigation_bottom"), t("app_navigation_back")],
+  [null, "top", null],
+  ["left", "front", "right"],
+  [null, "bottom", "back"],
   ]
 
   const handleTryVizCad = () => {
-    const dragonModelPath = "/dragon.stl";
+    const dragonModelPath = "/dragon.stl"; // Boşluksuz dosya adı
+    console.log("Trying to load dragon model from:", dragonModelPath);
+
     fetch(dragonModelPath)
       .then((response) => {
+        console.log("Fetch response:", response);
         if (!response.ok) {
-          throw new Error("Failed to load the dragon model.");
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.blob();
       })
       .then((blob) => {
-        const file = new window.File([blob], "dragon.stl", { type: blob.type });
+        console.log("Blob received:", blob);
+        const file = new window.File([blob], "dragon.stl", { type: blob.type || "application/octet-stream" });
+        console.log("File created:", file);
         setSelectedFile(file);
+        console.log("File set as selected file");
       })
       .catch((error) => {
         console.error("Error loading the dragon model:", error);
+        alert(`Failed to load dragon model: ${error.message}`);
       });
-  } 
+  }  
 
   return (
     <div
@@ -533,11 +541,11 @@ function AppPage() {
             size="sm"
             className="bg-primary text-white font-medium px-6 py-3 rounded-lg shadow-md hover:bg-primary/90 transition-all duration-200"
             onClick={() => {
-              const dragonModelPath = "/public/Dragon 2.5.stl"
+              const dragonModelPath = "/dragon.stl"
               fetch(dragonModelPath)
                 .then((response) => response.blob())
                 .then((blob) => {
-                  const file = new window.File([blob], "Dragon 2.5.stl", { type: "application/octet-stream" })
+                  const file = new window.File([blob], "dragon.stl", { type: "application/octet-stream" })
                   setSelectedFile(file)
                 })
                 .catch((error) => {
@@ -716,7 +724,7 @@ function AppPage() {
                                       <button
                                         className={`w-12 h-10 text-xs font-medium rounded-md transition`}
                                         style={
-                                          activeView === "ISO"
+                                          activeView === "Iso"
                                             ? {
                                                 backgroundColor: "rgb(var(--primary))",
                                                 color: "rgb(var(--primary-foreground))",
@@ -724,7 +732,7 @@ function AppPage() {
                                               }
                                             : undefined
                                         }
-                                        onClick={() => handleViewChange("ISO")}
+                                        onClick={() => handleViewChange("iso")}
                                       >
                                         ISO
                                       </button>
@@ -868,18 +876,18 @@ function AppPage() {
 
                     {/* View Presets */}
                     <div className="flex items-center gap-1">
-                      {(["Front", "Back", "Left", "Right", "Top", "Bottom", "ISO"]).map((view) => (
+                      {(["front", "back", "left", "right", "top", "bottom", "iso"]).map((view) => (
                         <button
                           key={view}
                           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
-                            activeView === view
+                            activeView === view.charAt(0).toUpperCase() + view.slice(1).toLowerCase()
                               ? "text-white shadow-lg"
                               : "text-black/60 hover:text-black hover:bg-gray-100"
                           }`}
-                          style={activeView === view ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                          style={activeView === view.charAt(0).toUpperCase() + view.slice(1).toLowerCase() ? { backgroundColor: "rgb(var(--primary))" } : undefined}
                           onClick={() => handleViewChange(view)}
                         >
-                          {t(`app_navigation_${view.toLowerCase()}`)}
+                          {t(`app_navigation_${view}`)}
                         </button>
                       ))}
                     </div>
