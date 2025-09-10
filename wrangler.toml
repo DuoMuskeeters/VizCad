@@ -1,0 +1,6 @@
+
+name = "vizcad"
+compatibility_date = "2025-04-01"
+assets = {  
+    not_found_handling = "single-page-application"
+}

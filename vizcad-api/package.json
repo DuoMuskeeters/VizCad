@@ -1,0 +1,20 @@
+{
+  "name": "vizcad-api",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "db:create": "wrangler d1 create vizcad-db",
+    "db:migrate": "wrangler d1 execute vizcad-db --file=migrations/001_initial_schema.sql",
+    "db:studio": "wrangler d1 studio vizcad-db",
+    "db:setup": "node setup-db.js",
+    "db:migrate-only": "node migrate-db.js"
+  },
+  "dependencies": {
+    "hono": "^4.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^4.4.0"
+  }
+}

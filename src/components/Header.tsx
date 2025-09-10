@@ -105,6 +105,12 @@ export default function Header() {
               {t("nav_features")}
             </button>
             <Link
+              to="/store"
+              className={buttonClass}
+            >
+              Store
+            </Link>
+            <Link
               to="/faq"
               className={buttonClass}
             >
@@ -169,6 +175,13 @@ export default function Header() {
               >
                 {t("nav_features")}
               </button>
+              <Link
+                to="/store"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
+              >
+                Store
+              </Link>
               <button
                 onClick={() => handleNavClick("about")}
                 className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"

@@ -27,5 +27,5 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
-  },
+  }
 }

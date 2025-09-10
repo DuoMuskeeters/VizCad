@@ -1,0 +1,13 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "vizcad-api",
+    "main": "src/index.ts",
+    "compatibility_date": "2025-09-09",
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "vizcad-db",
+            "database_id": "1a9278fe-6b27-496e-866a-0edf010f1175"
+        }
+    ]
+}
