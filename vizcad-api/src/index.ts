@@ -134,26 +134,42 @@ app.get('/api/search', async (c) => {
 // Create new model (Upload)
 app.post('/api/models', async (c) => {
   try {
-    const body = await c.req.json()
+    // Handle FormData for file upload
+    const formData = await c.req.formData()
+    
+    // Extract fields from FormData
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string || ''
+    const category = formData.get('category') as string
+    const price = parseFloat(formData.get('price') as string) || 0
+    const tags = formData.get('tags') as string || '[]'
+    const created_by = formData.get('created_by') as string || 'Anonymous'
+    const file = formData.get('file') as File
     
     // Validate required fields
-    const { name, description, file_url, file_size, file_type, price, category, tags, created_by } = body
-    
-    if (!name || !description || !file_url || !file_type || !category || !created_by) {
+    if (!name || !category || !file) {
       return c.json({ 
         success: false,
-        error: 'Missing required fields: name, description, file_url, file_type, category, created_by' 
+        error: 'Missing required fields: name, category, file' 
       }, 400)
     }
     
+    // Get file info
+    const file_type = file.name.split('.').pop()?.toLowerCase() || ''
+    const file_size = file.size
+    
     // Validate file type
     const allowedTypes = ['stl', 'obj', 'ply']
-    if (!allowedTypes.includes(file_type.toLowerCase())) {
+    if (!allowedTypes.includes(file_type)) {
       return c.json({ 
         success: false,
         error: 'Invalid file type. Allowed types: stl, obj, ply' 
       }, 400)
     }
+    
+    // For now, we'll use a placeholder file URL
+    // In production, you'd upload to cloud storage
+    const file_url = `/uploads/${Date.now()}-${file.name}`
     
     // Insert new model
     const { results } = await c.env.DB.prepare(`
@@ -164,11 +180,11 @@ app.post('/api/models', async (c) => {
       name, 
       description, 
       file_url, 
-      file_size || 0, 
-      file_type.toLowerCase(), 
-      price || 0, 
+      file_size, 
+      file_type, 
+      price, 
       category.toLowerCase(), 
-      JSON.stringify(tags || []), 
+      tags, 
       created_by
     ).all()
     

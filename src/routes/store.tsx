@@ -106,10 +106,18 @@ const formatFileSize = (sizeInBytes: number): string => {
 }
 
 const parseTags = (tags: string): string[] => {
+  if (!tags || tags.trim() === '') return []
+  
   try {
-    return JSON.parse(tags || '[]')
+    // Eğer JSON formatında ise parse et
+    if (tags.startsWith('[') && tags.endsWith(']')) {
+      return JSON.parse(tags)
+    }
+    // Eğer comma separated ise split et
+    return tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
   } catch {
-    return []
+    // Hata durumunda comma separated olarak dene
+    return tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
   }
 }
 
@@ -136,6 +144,18 @@ export function StorePage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [selectedModel, setSelectedModel] = useState<StlModel | null>(null)
   const [priceFilter, setPriceFilter] = useState("all")
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadKey, setUploadKey] = useState("")
+  const [showUploadForm, setShowUploadForm] = useState(false)
+  const [uploadFormData, setUploadFormData] = useState({
+    name: "",
+    description: "",
+    category: "",
+    price: 0,
+    tags: [] as string[],
+    file: null as File | null
+  })
+  const [tagInput, setTagInput] = useState("")
 
   // Load data on component mount
   useEffect(() => {
@@ -239,7 +259,13 @@ export function StorePage() {
   }, [models, selectedCategory, searchQuery, priceFilter, sortBy, categories])
 
   const handleDownload = (model: StlModel) => {
-    // In a real app, this would trigger a proper download
+    // Check if model is free
+    if (model.price && model.price > 0) {
+      alert(`This model costs $${model.price}. Purchase required to download.`)
+      return
+    }
+    
+    // Download free model
     const link = document.createElement('a')
     link.href = model.file_url
     link.download = `${model.name.replace(/\s+/g, '-').toLowerCase()}.${model.file_type}`
@@ -251,6 +277,75 @@ export function StorePage() {
   const handlePreview = (model: StlModel) => {
     // Navigate to the app with this model
     window.location.href = `/app?model=${encodeURIComponent(model.file_url)}`
+  }
+
+  const addTag = (tag: string) => {
+    const trimmedTag = tag.trim()
+    if (trimmedTag && !uploadFormData.tags.includes(trimmedTag) && uploadFormData.tags.length < 3) {
+      setUploadFormData({
+        ...uploadFormData,
+        tags: [...uploadFormData.tags, trimmedTag]
+      })
+    }
+    setTagInput("")
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    setUploadFormData({
+      ...uploadFormData,
+      tags: uploadFormData.tags.filter(tag => tag !== tagToRemove)
+    })
+  }
+
+  const handleTagKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    console.log('Key pressed:', e.key) // Debug
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      console.log('Enter pressed, tagInput:', tagInput) // Debug
+      if (tagInput.trim()) {
+        addTag(tagInput)
+      }
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!uploadFormData.file || !uploadFormData.name || !uploadFormData.category) {
+      alert("Please fill all required fields!")
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFormData.file)
+      formData.append('name', uploadFormData.name)
+      formData.append('description', uploadFormData.description)
+      formData.append('category', uploadFormData.category)
+      formData.append('price', uploadFormData.price.toString())
+      formData.append('tags', JSON.stringify(uploadFormData.tags))
+      formData.append('created_by', 'Anonymous')
+
+      const response = await fetch(`${API_BASE_URL}/models`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert("Model uploaded successfully!")
+        setShowUploadForm(false)
+        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null})
+        setTagInput("")
+        // Refresh models list
+        window.location.reload()
+      } else {
+        const error = await response.json()
+        alert(`Upload failed: ${error.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert("Upload failed!")
+    }
   }
 
   if (loading) {
@@ -311,7 +406,7 @@ export function StorePage() {
               <SelectTrigger className="w-full lg:w-48">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border">
                 <SelectItem value="popularity">Most Popular</SelectItem>
                 <SelectItem value="rating">Highest Rated</SelectItem>
                 <SelectItem value="newest">Newest</SelectItem>
@@ -326,7 +421,7 @@ export function StorePage() {
               <SelectTrigger className="w-full lg:w-32">
                 <SelectValue placeholder="Price" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border">
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="free">Free</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
@@ -421,6 +516,173 @@ export function StorePage() {
               <p className="text-muted-foreground">
                 {filteredModels.length} model{filteredModels.length !== 1 ? 's' : ''} found
               </p>
+              
+              {/* Upload Button */}
+              <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Package className="h-4 w-4 mr-2" />
+                    Upload Model
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Upload Access</DialogTitle>
+                    <DialogDescription>
+                      Enter your upload key to proceed
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      type="text"
+                      placeholder="Upload Key"
+                      value={uploadKey}
+                      onChange={(e) => setUploadKey(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowUploadModal(false)
+                          setUploadKey("")
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        onClick={() => {
+                          if (uploadKey === "vizcad2024") {
+                            setShowUploadModal(false)
+                            setShowUploadForm(true)
+                            setUploadKey("")
+                          } else {
+                            alert("Invalid upload key!")
+                          }
+                        }}
+                      >
+                        Continue
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Upload Form Modal */}
+              <Dialog open={showUploadForm} onOpenChange={setShowUploadForm}>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Upload 3D Model</DialogTitle>
+                    <DialogDescription>
+                      Share your 3D model with the community
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Model Name</label>
+                        <Input
+                          placeholder="Enter model name"
+                          value={uploadFormData.name}
+                          onChange={(e) => setUploadFormData({...uploadFormData, name: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Category</label>
+                        <Select value={uploadFormData.category} onValueChange={(value) => setUploadFormData({...uploadFormData, category: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border">
+                            <SelectItem value="art">ART</SelectItem>
+                            <SelectItem value="mechanical">MECHANICAL</SelectItem>
+                            <SelectItem value="functional">FUNCTIONAL</SelectItem>
+                            <SelectItem value="games">GAMES</SelectItem>
+                            <SelectItem value="home">HOME</SelectItem>
+                            <SelectItem value="toys">TOYS</SelectItem>
+                            <SelectItem value="tools">TOOLS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <Input
+                        placeholder="Describe your model"
+                        value={uploadFormData.description}
+                        onChange={(e) => setUploadFormData({...uploadFormData, description: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Price ($)</label>
+                        <Input
+                          type="number"
+                          placeholder="0 for free"
+                          value={uploadFormData.price}
+                          onChange={(e) => setUploadFormData({...uploadFormData, price: parseFloat(e.target.value) || 0})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Tags (Max 3)</label>
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Type tag and press Enter"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={handleTagKeyPress}
+                            disabled={uploadFormData.tags.length >= 3}
+                          />
+                          <div className="flex flex-wrap gap-1">
+                            {uploadFormData.tags.map((tag, index) => (
+                              <Badge 
+                                key={index} 
+                                variant="secondary" 
+                                className="text-xs cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => removeTag(tag)}
+                              >
+                                {tag} ×
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">3D Model File</label>
+                      <Input
+                        type="file"
+                        accept=".stl,.obj,.ply"
+                        onChange={(e) => setUploadFormData({...uploadFormData, file: e.target.files?.[0] || null})}
+                      />
+                    </div>
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowUploadForm(false)
+                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null})
+                          setTagInput("")
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        onClick={handleUpload}
+                      >
+                        Upload Model
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Models Grid/List */}
@@ -647,7 +909,7 @@ export function StorePage() {
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handleDownload(model)}>
                               <Download className="h-4 w-4 mr-1" />
-                              Download
+                              {!model.price || model.price === 0 ? 'Download' : `Buy $${model.price}`}
                             </Button>
                           </div>
                         </div>
