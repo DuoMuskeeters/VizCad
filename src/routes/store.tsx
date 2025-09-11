@@ -33,6 +33,7 @@ import {
 import { useState, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { detectLanguage, seoContent } from "@/utils/language"
+import ThumbnailGenerator from "@/components/ThumbnailGenerator"
 
 export const Route = createFileRoute("/store")({
   component: StorePage,
@@ -49,6 +50,7 @@ interface StlModel {
   price: number
   tags: string
   created_by: string
+  thumbnail_url?: string
   created_at: string
   updated_at: string
 }
@@ -147,13 +149,16 @@ export function StorePage() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploadKey, setUploadKey] = useState("")
   const [showUploadForm, setShowUploadForm] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [uploadFormData, setUploadFormData] = useState({
     name: "",
     description: "",
     category: "",
     price: 0,
     tags: [] as string[],
-    file: null as File | null
+    file: null as File | null,
+    thumbnail: null as string | null,
+    thumbnailError: false
   })
   const [tagInput, setTagInput] = useState("")
 
@@ -323,7 +328,12 @@ export function StorePage() {
       formData.append('category', uploadFormData.category)
       formData.append('price', uploadFormData.price.toString())
       formData.append('tags', JSON.stringify(uploadFormData.tags))
-      formData.append('created_by', 'Anonymous')
+      formData.append('created_by', 'GM')
+      
+      // Add thumbnail if available
+      if (uploadFormData.thumbnail) {
+        formData.append('thumbnail', uploadFormData.thumbnail)
+      }
 
       const response = await fetch(`${API_BASE_URL}/models`, {
         method: 'POST',
@@ -332,12 +342,17 @@ export function StorePage() {
 
       if (response.ok) {
         const result = await response.json()
-        alert("Model uploaded successfully!")
         setShowUploadForm(false)
-        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null})
+        setShowSuccessModal(true)
+        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false})
         setTagInput("")
-        // Refresh models list
-        window.location.reload()
+        
+        // Auto close success modal after 0.75 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false)
+          // Refresh models list
+          window.location.reload()
+        }, 750)
       } else {
         const error = await response.json()
         alert(`Upload failed: ${error.error || 'Unknown error'}`)
@@ -657,9 +672,44 @@ export function StorePage() {
                       <Input
                         type="file"
                         accept=".stl,.obj,.ply"
-                        onChange={(e) => setUploadFormData({...uploadFormData, file: e.target.files?.[0] || null})}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null
+                          setUploadFormData({...uploadFormData, file, thumbnail: null, thumbnailError: false})
+                        }}
                       />
                     </div>
+                    
+                    {/* Hidden Thumbnail Generator - runs in background */}
+                    {uploadFormData.file && (
+                      <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
+                        <ThumbnailGenerator
+                          file={uploadFormData.file}
+                          onThumbnailGenerated={(thumbnail) => {
+                            console.log('Thumbnail generated successfully')
+                            setUploadFormData(prev => ({...prev, thumbnail, thumbnailError: false}))
+                          }}
+                          onError={(error) => {
+                            console.error('Thumbnail error:', error)
+                            setUploadFormData(prev => ({...prev, thumbnailError: true}))
+                          }}
+                          width={200}
+                          height={200}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Show thumbnail generation status */}
+                    {uploadFormData.file && (
+                      <div className="text-sm text-muted-foreground">
+                        {uploadFormData.thumbnailError ? (
+                          <span className="text-red-600">❌ Thumbnail generation failed</span>
+                        ) : uploadFormData.thumbnail ? (
+                          <span className="text-green-600">✓ Thumbnail generated</span>
+                        ) : (
+                          <span>🔄 Generating thumbnail...</span>
+                        )}
+                      </div>
+                    )}
                     
                     <div className="flex gap-2 pt-4">
                       <Button
@@ -667,7 +717,7 @@ export function StorePage() {
                         className="flex-1"
                         onClick={() => {
                           setShowUploadForm(false)
-                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null})
+                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false})
                           setTagInput("")
                         }}
                       >
@@ -683,6 +733,24 @@ export function StorePage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              
+              {/* Success Modal */}
+              <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-center">Upload Successful!</DialogTitle>
+                  </DialogHeader>
+                  <div className="py-6 text-center">
+                    <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-lg font-medium text-green-800 mb-2">Model uploaded successfully!</p>
+                    <p className="text-sm text-muted-foreground">Redirecting in a moment...</p>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Models Grid/List */}
@@ -692,7 +760,15 @@ export function StorePage() {
                   <Card key={model.id} className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col aspect-square">
                     <div className="relative overflow-hidden rounded-t-lg">
                       <div className="w-full aspect-square bg-muted flex items-center justify-center">
-                        <Package className="h-12 w-12 text-muted-foreground" />
+                        {model.thumbnail_url ? (
+                          <img 
+                            src={model.thumbnail_url} 
+                            alt={model.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package className="h-12 w-12 text-muted-foreground" />
+                        )}
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="absolute bottom-4 left-4 right-4 flex gap-2">
@@ -880,8 +956,16 @@ export function StorePage() {
                   <Card key={model.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex gap-4">
-                        <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
-                          <Package className="h-8 w-8 text-muted-foreground" />
+                        <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                          {model.thumbnail_url ? (
+                            <img 
+                              src={model.thumbnail_url} 
+                              alt={model.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-8 w-8 text-muted-foreground" />
+                          )}
                         </div>
                         <div className="flex-1 space-y-2">
                           <div className="flex items-start justify-between">

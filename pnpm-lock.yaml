@@ -98,6 +98,9 @@ importers:
       vite-ssg:
         specifier: ^28.1.0
         version: 28.1.0(prettier@3.5.3)(unhead@2.0.14)(vite@6.3.5(@types/node@24.0.3)(jiti@2.4.2)(lightningcss@1.30.1)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.1))(vue@3.5.19(typescript@5.8.3))
+      vtk.js:
+        specifier: ^34.11.1
+        version: 34.11.1(@babel/preset-env@7.27.2(@babel/core@7.27.4))(autoprefixer@10.4.21(postcss@8.5.6))(webpack@5.99.9)(wslink@2.3.4)
     devDependencies:
       '@cloudflare/vite-plugin':
         specifier: ^1.11.4
@@ -667,6 +670,10 @@ packages:
 
   '@babel/runtime@7.27.6':
     resolution: {integrity: sha512-vbavdySgbTTrmFE+EsiqUTzlOr5bzlnJtUv9PynGCAKvfQqjIXbvFdumPM/GxMDfyuGMJaJAU6TO4zc1Jf1i8Q==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.28.4':
+    resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.27.2':
@@ -3838,6 +3845,14 @@ packages:
     resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
     engines: {node: '>=0.10.0'}
 
+  vtk.js@34.11.1:
+    resolution: {integrity: sha512-OwmkWv7GTkKhe9Qduyb+Nk7QsCJOoZPx7LJydddO+VTbY+GQQju6hjgwRLYdv6IBUu0RM5kh8CvXQTa50wx8rg==}
+    hasBin: true
+    peerDependencies:
+      '@babel/preset-env': ^7.17.10
+      autoprefixer: ^10.4.7
+      wslink: '>=1.1.0 || ^2.0.0'
+
   vue@3.5.19:
     resolution: {integrity: sha512-ZRh0HTmw6KChRYWgN8Ox/wi7VhpuGlvMPrHjIsdRbzKNgECFLzy+dKL5z9yGaBSjCpmcfJCbh3I1tNSRmBz2tg==}
     peerDependencies:
@@ -4665,6 +4680,8 @@ snapshots:
       regenerator-runtime: 0.14.1
 
   '@babel/runtime@7.27.6': {}
+
+  '@babel/runtime@7.28.4': {}
 
   '@babel/template@7.27.2':
     dependencies:
@@ -7732,6 +7749,31 @@ snapshots:
       - yaml
 
   void-elements@3.1.0: {}
+
+  vtk.js@34.11.1(@babel/preset-env@7.27.2(@babel/core@7.27.4))(autoprefixer@10.4.21(postcss@8.5.6))(webpack@5.99.9)(wslink@2.3.4):
+    dependencies:
+      '@babel/preset-env': 7.27.2(@babel/core@7.27.4)
+      '@babel/runtime': 7.28.4
+      '@types/webxr': 0.5.22
+      autoprefixer: 10.4.21(postcss@8.5.6)
+      commander: 9.2.0
+      d3-scale: 4.0.2
+      fast-deep-equal: 3.1.3
+      fflate: 0.7.3
+      gl-matrix: 3.4.3
+      globalthis: 1.0.3
+      seedrandom: 3.0.5
+      shader-loader: 1.3.1
+      shelljs: 0.8.5
+      spark-md5: 3.0.2
+      stream-browserify: 3.0.0
+      utif: 3.1.0
+      webworker-promise: 0.5.0
+      worker-loader: 3.0.8(webpack@5.99.9)
+      wslink: 2.3.4
+      xmlbuilder2: 3.0.2
+    transitivePeerDependencies:
+      - webpack
 
   vue@3.5.19(typescript@5.8.3):
     dependencies:

@@ -24,9 +24,23 @@ app.get('/', (c) => {
       'GET /api/models/category/:category - Get models by category',
       'GET /api/search?q=query - Search models',
       'GET /api/categories - Get all categories',
-      'GET /api/stats - Get statistics'
+      'GET /api/stats - Get statistics',
+      'GET /thumbnails/:filename - Get thumbnail image'
     ]
   })
+})
+
+// Serve thumbnail images (for development)
+app.get('/thumbnails/:filename', async (c) => {
+  const filename = c.req.param('filename')
+  
+  // In production, this would serve from R2 or redirect to CDN
+  // For now, return a placeholder response
+  return c.json({ 
+    error: 'Thumbnail serving not implemented in development',
+    filename: filename,
+    note: 'In production, this would serve the actual image file'
+  }, 404)
 })
 
 // Get all models
@@ -34,7 +48,7 @@ app.get('/api/models', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT id, name, description, file_url, file_size, file_type, 
-             price, category, tags, created_by, created_at, updated_at 
+             price, category, tags, created_by, thumbnail_url, created_at, updated_at 
       FROM models 
       ORDER BY created_at DESC
     `).all()
@@ -145,6 +159,7 @@ app.post('/api/models', async (c) => {
     const tags = formData.get('tags') as string || '[]'
     const created_by = formData.get('created_by') as string || 'Anonymous'
     const file = formData.get('file') as File
+    const thumbnail = formData.get('thumbnail') as string || null
     
     // Validate required fields
     if (!name || !category || !file) {
@@ -171,10 +186,25 @@ app.post('/api/models', async (c) => {
     // In production, you'd upload to cloud storage
     const file_url = `/uploads/${Date.now()}-${file.name}`
     
+    // Handle thumbnail - for now store base64 directly, in production save as file
+    let thumbnail_url = null
+    if (thumbnail && thumbnail.startsWith('data:image/')) {
+      // For development: store base64 directly in database
+      thumbnail_url = thumbnail
+      
+      // Log the intended filename for production use
+      const timestamp = Date.now()
+      const sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
+      const thumbnailFilename = `${sanitizedName}_${timestamp}.png`
+      console.log(`Thumbnail received for model: ${name}`)
+      console.log(`Would save as: ${thumbnailFilename} in production`)
+      console.log(`Base64 length: ${thumbnail.length} chars`)
+    }
+
     // Insert new model
     const { results } = await c.env.DB.prepare(`
-      INSERT INTO models (name, description, file_url, file_size, file_type, price, category, tags, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO models (name, description, file_url, file_size, file_type, price, category, tags, created_by, thumbnail_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
       RETURNING *
     `).bind(
       name, 
@@ -185,7 +215,8 @@ app.post('/api/models', async (c) => {
       price, 
       category.toLowerCase(), 
       tags, 
-      created_by
+      created_by,
+      thumbnail_url
     ).all()
     
     return c.json({ 
