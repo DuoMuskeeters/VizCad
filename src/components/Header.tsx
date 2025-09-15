@@ -69,8 +69,8 @@ export default function Header() {
   }
 
   const buttonClass = isContactPage
-    ? "text-muted-foreground font-medium cursor-default text-sm lg:text-base"
-    : "text-muted-foreground font-medium transition-colors cursor-pointer text-sm lg:text-base shadow-none"
+    ? "text-muted-foreground font-medium cursor-default text-sm lg:text-base px-2 py-1 rounded-md"
+    : "text-muted-foreground hover:text-foreground font-medium transition-all duration-200 cursor-pointer text-sm lg:text-base px-2 py-1 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102"
 
   const headerInlineStyle: React.CSSProperties | undefined =
     isAppPage && resolvedTheme === "dark"
@@ -97,7 +97,7 @@ export default function Header() {
           </Link>
 
           {/* Desktop Navigation Menu */}
-          <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-3">
             <button
               onClick={() => handleNavClick("features")}
               className={buttonClass}
@@ -134,10 +134,10 @@ export default function Header() {
             <Link
               to="/app"
               search={{}}
-              className="text-white font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base"
+              className="font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base transform hover:scale-102 hover:brightness-105"
               style={{
                 backgroundColor: "rgb(var(--primary))",
-                color: "white",
+                color: "rgb(15 23 42)", 
               }}
             >
               {t("nav_launch_app")}
@@ -151,7 +151,7 @@ export default function Header() {
             <LanguageSwitcher />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-accent transition-colors"
+              className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-accent transition-all duration-200 transform hover:scale-105"
             >
               {isMobileMenuOpen ? (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -208,10 +208,10 @@ export default function Header() {
                 to="/app"
                 search={{}}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md text-center mt-4"
+                className="block w-full font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md transform hover:scale-102 hover:brightness-105 text-center mt-4"
                 style={{
                   backgroundColor: "rgb(var(--primary))",
-                  color: "white",
+                  color: "rgb(15 23 42)", // Dark slate for better contrast
                 }}
               >
                 {t("nav_launch_app")}
