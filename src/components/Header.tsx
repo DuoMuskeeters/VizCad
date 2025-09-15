@@ -111,6 +111,12 @@ export default function Header() {
               Store
             </Link>
             <Link
+              to="/ModelSnap"
+              className={buttonClass}
+            >
+              ModelSnap
+            </Link>
+            <Link
               to="/faq"
               className={buttonClass}
             >
@@ -133,6 +139,7 @@ export default function Header() {
             <LanguageSwitcher />
             <Link
               to="/app"
+              search={{}}
               className="text-white font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base"
               style={{
                 backgroundColor: "rgb(var(--primary))",
@@ -182,6 +189,13 @@ export default function Header() {
               >
                 Store
               </Link>
+              <Link
+                to="/ModelSnap"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
+              >
+                ModelSnap
+              </Link>
               <button
                 onClick={() => handleNavClick("about")}
                 className="w-full text-left text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer py-2 px-2 rounded-lg hover:bg-accent"
@@ -205,6 +219,7 @@ export default function Header() {
               <LanguageSwitcher />
               <Link
                 to="/app"
+                search={{}}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-md text-center mt-4"
                 style={{

@@ -12,6 +12,12 @@ interface ThumbnailGeneratorProps {
   onError?: (error: string) => void;
   width?: number;
   height?: number;
+  background?: 'white' | 'black' | 'transparent';
+  view?: 'isometric' | 'front' | 'side' | 'top';
+  wireframe?: boolean;
+  smooth?: boolean;
+  backgroundHex?: string; // overrides background when provided, hex like #ffffff
+  modelColorHex?: string; // actor color hex
 }
 
 const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
@@ -19,7 +25,13 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
   onThumbnailGenerated,
   onError,
   width = 400,
-  height = 400
+  height = 400,
+  background = 'white',
+  view = 'isometric',
+  wireframe = false,
+  smooth = true,
+  backgroundHex,
+  modelColorHex
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -52,8 +64,27 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       const renderWindow = grw.getRenderWindow();
       setRenderWindow(grw);
 
-      // Set background
-      renderer.setBackground(0.95, 0.95, 0.95);
+      // Set background based on props
+      if (backgroundHex) {
+        const r = Number.parseInt(backgroundHex.slice(1, 3), 16) / 255;
+        const g = Number.parseInt(backgroundHex.slice(3, 5), 16) / 255;
+        const b = Number.parseInt(backgroundHex.slice(5, 7), 16) / 255;
+        renderer.setBackground(r, g, b);
+      } else {
+        switch (background) {
+          case 'white':
+            renderer.setBackground(1, 1, 1);
+            break;
+          case 'black':
+            renderer.setBackground(0, 0, 0);
+            break;
+          case 'transparent':
+            renderer.setBackground(0, 0, 0);
+            break;
+          default:
+            renderer.setBackground(0.95, 0.95, 0.95);
+        }
+      }
 
       // Set size
       renderWindow.getViews()[0].setSize(width, height);
@@ -98,16 +129,57 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       console.log('PolyData loaded with', polyData.getPoints().getNumberOfPoints(), 'points');
 
       // Create mapper and actor
-      const mapper = vtkMapper.newInstance();
-      mapper.setInputData(polyData);
+      let finalPolyData = polyData;
+      if (smooth) {
+        try {
+          const normalsMod: any = await import('@kitware/vtk.js/Filters/Core/PolyDataNormals');
+          const normals = normalsMod.default.newInstance({ 
+            splitting: false,
+            featureAngle: 30,
+            computePointNormals: true,
+            computeCellNormals: false
+          });
+          normals.setInputData(polyData);
+          normals.update();
+          finalPolyData = normals.getOutputData();
+        } catch {}
+      }
+      const mapper = vtkMapper.newInstance({ 
+        scalarVisibility: false,
+        interpolateScalarsBeforeMapping: smooth
+      });
+      mapper.setInputData(finalPolyData);
 
       const actor = vtkActor.newInstance();
       actor.setMapper(mapper);
 
-      // Set material properties for better thumbnail
-      actor.getProperty().setColor(0.8, 0.8, 0.9); // Light blue
-      actor.getProperty().setSpecular(0.3);
-      actor.getProperty().setSpecularPower(30);
+      // Set material properties for better thumbnail (silver/metallic look)
+      if (modelColorHex) {
+        const r = Number.parseInt(modelColorHex.slice(1, 3), 16) / 255;
+        const g = Number.parseInt(modelColorHex.slice(3, 5), 16) / 255;
+        const b = Number.parseInt(modelColorHex.slice(5, 7), 16) / 255;
+        actor.getProperty().setColor(r, g, b);
+      } else {
+        actor.getProperty().setColor(0.75, 0.75, 0.75); // Silver
+      }
+      actor.getProperty().setSpecular(0.5);
+      actor.getProperty().setSpecularPower(50);
+      actor.getProperty().setAmbient(0.3);
+      actor.getProperty().setDiffuse(0.7);
+      
+      // Apply wireframe and smooth shading settings
+      if (wireframe) {
+        actor.getProperty().setRepresentationToWireframe();
+        actor.getProperty().setLineWidth(1);
+      } else {
+        actor.getProperty().setRepresentationToSurface();
+      }
+      
+      if (smooth) {
+        actor.getProperty().setInterpolationToPhong();
+      } else {
+        actor.getProperty().setInterpolationToFlat();
+      }
 
       // Add to scene
       renderer.addActor(actor);
@@ -115,7 +187,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       // First reset camera to properly fit the object
       renderer.resetCamera();
       
-      // Set up isometric view camera
+      // Set up camera based on view prop
       const camera = renderer.getActiveCamera();
       
       // Get the bounds of the object for proper positioning
@@ -126,31 +198,58 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
         (bounds[4] + bounds[5]) / 2
       ];
       
-      // Calculate distance based on object size
+      // Calculate distance based on object size (closer zoom)
       const maxDimension = Math.max(
         bounds[1] - bounds[0],
         bounds[3] - bounds[2],
         bounds[5] - bounds[4]
       );
-      const distance = maxDimension * 2;
+      const distance = maxDimension * 1.5; // Reduced from 2 to 1.5 for closer view
       
-      // Set isometric camera position (45° angles)
-      const isoX = center[0] + distance * 0.7071; // cos(45°)
-      const isoY = center[1] + distance * 0.7071; // cos(45°)
-      const isoZ = center[2] + distance * 0.7071; // cos(45°)
+      // Set camera position based on view
+      switch (view) {
+        case 'isometric':
+          // Isometric view (45° angles)
+          const isoX = center[0] + distance * 0.7071; // cos(45°)
+          const isoY = center[1] + distance * 0.7071; // cos(45°)
+          const isoZ = center[2] + distance * 0.7071; // cos(45°)
+          camera.setPosition(isoX, isoY, isoZ);
+          camera.setFocalPoint(center[0], center[1], center[2]);
+          camera.setViewUp(0, 0, 1);
+          break;
+        case 'front':
+          camera.setPosition(center[0], center[1] + distance, center[2]);
+          camera.setFocalPoint(center[0], center[1], center[2]);
+          camera.setViewUp(0, 0, 1);
+          break;
+        case 'side':
+          camera.setPosition(center[0] + distance, center[1], center[2]);
+          camera.setFocalPoint(center[0], center[1], center[2]);
+          camera.setViewUp(0, 0, 1);
+          break;
+        case 'top':
+          camera.setPosition(center[0], center[1], center[2] + distance);
+          camera.setFocalPoint(center[0], center[1], center[2]);
+          camera.setViewUp(0, 1, 0);
+          break;
+        default:
+          // Default isometric
+          const defaultX = center[0] + distance * 0.7071;
+          const defaultY = center[1] + distance * 0.7071;
+          const defaultZ = center[2] + distance * 0.7071;
+          camera.setPosition(defaultX, defaultY, defaultZ);
+          camera.setFocalPoint(center[0], center[1], center[2]);
+          camera.setViewUp(0, 0, 1);
+      }
       
-      camera.setPosition(isoX, isoY, isoZ);
-      camera.setFocalPoint(center[0], center[1], center[2]);
-      camera.setViewUp(0, 0, 1); // Z-up orientation
-      
-      // Set parallel projection for true isometric view
+      // Set parallel projection for orthographic views
       camera.setParallelProjection(true);
       
       // Reset camera to fit the object properly
       renderer.resetCamera();
       
-      // Zoom out a bit for better framing
-      camera.zoom(0.8);
+      // Zoom in for better framing (closer view)
+      camera.zoom(1.1); // Changed from 0.8 to 1.1 for closer view
 
       // Render
       renderWindow.render();

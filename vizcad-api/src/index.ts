@@ -1,8 +1,9 @@
-import { Hono } from 'hono'
+﻿import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
 interface Env {
   DB: D1Database
+  R2_BUCKET: R2Bucket
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -13,34 +14,12 @@ app.use('*', cors())
 // Health check
 app.get('/', (c) => {
   return c.json({ 
-    message: 'VizCad API is running!',
-    version: '1.0.0',
-    endpoints: [
-      'GET /api/models - Get all models',
-      'GET /api/models/:id - Get model by ID',
-      'POST /api/models - Upload new model',
-      'PUT /api/models/:id - Update model',
-      'DELETE /api/models/:id - Delete model',
-      'GET /api/models/category/:category - Get models by category',
-      'GET /api/search?q=query - Search models',
-      'GET /api/categories - Get all categories',
-      'GET /api/stats - Get statistics',
-      'GET /thumbnails/:filename - Get thumbnail image'
-    ]
+    message: 'VizCad API v2.0 - Clean D1 + R2 Architecture',
+    version: '2.0.0',
+    storage: 'Cloudflare R2',
+    database: 'Cloudflare D1',
+    status: 'operational'
   })
-})
-
-// Serve thumbnail images (for development)
-app.get('/thumbnails/:filename', async (c) => {
-  const filename = c.req.param('filename')
-  
-  // In production, this would serve from R2 or redirect to CDN
-  // For now, return a placeholder response
-  return c.json({ 
-    error: 'Thumbnail serving not implemented in development',
-    filename: filename,
-    note: 'In production, this would serve the actual image file'
-  }, 404)
 })
 
 // Get all models
@@ -48,9 +27,11 @@ app.get('/api/models', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT id, name, description, file_url, file_size, file_type, 
-             price, category, tags, created_by, thumbnail_url, created_at, updated_at 
+             price, category, tags, created_by, thumbnail_url, 
+             created_at, updated_at, download_count, is_featured
       FROM models 
-      ORDER BY created_at DESC
+      WHERE status = 'active'
+      ORDER BY is_featured DESC, created_at DESC
     `).all()
     
     return c.json({ 
@@ -72,7 +53,7 @@ app.get('/api/models/:id', async (c) => {
   try {
     const id = c.req.param('id')
     const { results } = await c.env.DB.prepare(`
-      SELECT * FROM models WHERE id = ?
+      SELECT * FROM models WHERE id = ? AND status = 'active'
     `).bind(id).all()
     
     if (results.length === 0) {
@@ -95,60 +76,9 @@ app.get('/api/models/:id', async (c) => {
   }
 })
 
-// Get models by category
-app.get('/api/models/category/:category', async (c) => {
-  try {
-    const category = c.req.param('category')
-    const { results } = await c.env.DB.prepare(`
-      SELECT * FROM models 
-      WHERE category = ? 
-      ORDER BY created_at DESC
-    `).bind(category).all()
-    
-    return c.json({ 
-      success: true,
-      category: category,
-      count: results.length,
-      models: results 
-    })
-  } catch (error) {
-    console.error('Database error:', error)
-    return c.json({ 
-      success: false,
-      error: 'Failed to fetch models by category' 
-    }, 500)
-  }
-})
-
-// Search models
-app.get('/api/search', async (c) => {
-  try {
-    const query = c.req.query('q') || ''
-    const { results } = await c.env.DB.prepare(`
-      SELECT * FROM models 
-      WHERE name LIKE ? OR description LIKE ? OR tags LIKE ?
-      ORDER BY created_at DESC
-    `).bind(`%${query}%`, `%${query}%`, `%${query}%`).all()
-    
-    return c.json({ 
-      success: true,
-      query: query,
-      count: results.length,
-      models: results 
-    })
-  } catch (error) {
-    console.error('Database error:', error)
-    return c.json({ 
-      success: false,
-      error: 'Failed to search models' 
-    }, 500)
-  }
-})
-
-// Create new model (Upload)
+// Upload new model - Professional R2 Integration
 app.post('/api/models', async (c) => {
   try {
-    // Handle FormData for file upload
     const formData = await c.req.formData()
     
     // Extract fields from FormData
@@ -182,29 +112,82 @@ app.post('/api/models', async (c) => {
       }, 400)
     }
     
-    // For now, we'll use a placeholder file URL
-    // In production, you'd upload to cloud storage
-    const file_url = `/uploads/${Date.now()}-${file.name}`
+    // Validate file size (max 100MB for R2)
+    if (file_size > 100 * 1024 * 1024) {
+      return c.json({ 
+        success: false,
+        error: 'File size too large. Maximum 100MB allowed.' 
+      }, 400)
+    }
     
-    // Handle thumbnail - for now store base64 directly, in production save as file
+    // Generate unique file key for R2
+    const timestamp = Date.now()
+    const uuid = crypto.randomUUID()
+    const file_key = `models/${timestamp}-${uuid}.${file_type}`
+    
+    // Upload file to R2 with error handling
+    let r2_upload_success = false
+    let file_url = `https://files.vizcad.com/${file_key}` // Default URL
+    
+    try {
+      const fileBuffer = await file.arrayBuffer()
+      await c.env.R2_BUCKET.put(file_key, fileBuffer, {
+        httpMetadata: {
+          contentType: file_type === 'stl' ? 'application/vnd.ms-pki.stl' : 'application/octet-stream',
+          contentDisposition: `attachment; filename="${name.replace(/[^a-zA-Z0-9]/g, '_')}.${file_type}"`
+        },
+        customMetadata: {
+          originalName: file.name,
+          uploadedBy: created_by,
+          uploadedAt: new Date().toISOString(),
+          modelName: name
+        }
+      })
+      
+      r2_upload_success = true
+      console.log(`✅ File uploaded to R2: ${file_key}`)
+    } catch (r2Error) {
+      console.error('R2 upload failed, continuing with metadata-only upload:', r2Error)
+      // In development mode, create a placeholder URL
+      file_url = `http://127.0.0.1:8787/api/models/placeholder/${file_key}`
+      r2_upload_success = false
+    }
+    
+    // Handle thumbnail upload to R2 (optional)
     let thumbnail_url = null
     if (thumbnail && thumbnail.startsWith('data:image/')) {
-      // For development: store base64 directly in database
-      thumbnail_url = thumbnail
-      
-      // Log the intended filename for production use
-      const timestamp = Date.now()
-      const sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-      const thumbnailFilename = `${sanitizedName}_${timestamp}.png`
-      console.log(`Thumbnail received for model: ${name}`)
-      console.log(`Would save as: ${thumbnailFilename} in production`)
-      console.log(`Base64 length: ${thumbnail.length} chars`)
+      try {
+        if (r2_upload_success) {
+          // Convert base64 to binary
+          const base64Data = thumbnail.split(',')[1]
+          const thumbnailBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+          
+          const thumbnail_key = `thumbnails/${timestamp}-${uuid}.png`
+          await c.env.R2_BUCKET.put(thumbnail_key, thumbnailBuffer, {
+            httpMetadata: {
+              contentType: 'image/png',
+              cacheControl: 'public, max-age=31536000'
+            }
+          })
+          
+          thumbnail_url = `https://files.vizcad.com/${thumbnail_key}`
+          console.log(`✅ Thumbnail uploaded to R2: ${thumbnail_key}`)
+        } else {
+          // R2 not available, use base64 thumbnail
+          thumbnail_url = thumbnail
+          console.log(`⚠️ R2 not available, using base64 thumbnail`)
+        }
+      } catch (thumbError) {
+        console.error('Thumbnail upload failed:', thumbError)
+        // Always fallback to base64 thumbnail
+        thumbnail_url = thumbnail
+      }
     }
-
-    // Insert new model
+    
+    // Store metadata in D1
     const { results } = await c.env.DB.prepare(`
-      INSERT INTO models (name, description, file_url, file_size, file_type, price, category, tags, created_by, thumbnail_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO models (name, description, file_url, file_size, file_type, file_key, price, category, tags, created_by, thumbnail_url, created_at, updated_at, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 'active')
       RETURNING *
     `).bind(
       name, 
@@ -212,6 +195,7 @@ app.post('/api/models', async (c) => {
       file_url, 
       file_size, 
       file_type, 
+      file_key,
       price, 
       category.toLowerCase(), 
       tags, 
@@ -219,117 +203,224 @@ app.post('/api/models', async (c) => {
       thumbnail_url
     ).all()
     
+    console.log(`✅ Model metadata saved to D1: ${name}`)
+    
     return c.json({ 
       success: true,
-      message: 'Model uploaded successfully',
+      message: 'Model uploaded successfully to R2 storage',
       model: results[0]
     }, 201)
+    
   } catch (error) {
-    console.error('Database error:', error)
+    console.error('Upload error:', error)
+    const errorMsg = error instanceof Error ? error.message : String(error)
     return c.json({ 
       success: false,
-      error: 'Failed to upload model' 
+      error: 'Failed to upload model',
+      details: errorMsg
     }, 500)
   }
 })
 
-// Update model
-app.put('/api/models/:id', async (c) => {
+// Download model file from R2
+app.get('/api/models/:id/download', async (c) => {
   try {
     const id = c.req.param('id')
-    const body = await c.req.json()
     
-    // Check if model exists
-    const { results: existing } = await c.env.DB.prepare(`
-      SELECT id FROM models WHERE id = ?
+    // Get model metadata from D1
+    const { results } = await c.env.DB.prepare(`
+      SELECT id, name, file_key, file_type, file_size, download_count 
+      FROM models 
+      WHERE id = ? AND status = 'active'
     `).bind(id).all()
     
-    if (existing.length === 0) {
+    if (results.length === 0) {
       return c.json({ 
         success: false,
         error: 'Model not found' 
       }, 404)
     }
     
-    const { name, description, file_url, file_size, file_type, price, category, tags } = body
+    const model = results[0] as any
     
-    // Build dynamic update query
-    const updates = []
-    const values = []
+    // Get file from R2
+    const r2Object = await c.env.R2_BUCKET.get(model.file_key)
     
-    if (name !== undefined) { updates.push('name = ?'); values.push(name) }
-    if (description !== undefined) { updates.push('description = ?'); values.push(description) }
-    if (file_url !== undefined) { updates.push('file_url = ?'); values.push(file_url) }
-    if (file_size !== undefined) { updates.push('file_size = ?'); values.push(file_size) }
-    if (file_type !== undefined) { updates.push('file_type = ?'); values.push(file_type.toLowerCase()) }
-    if (price !== undefined) { updates.push('price = ?'); values.push(price) }
-    if (category !== undefined) { updates.push('category = ?'); values.push(category.toLowerCase()) }
-    if (tags !== undefined) { updates.push('tags = ?'); values.push(JSON.stringify(tags)) }
+    if (!r2Object) {
+      return c.json({ 
+        success: false,
+        error: 'File not found in storage' 
+      }, 404)
+    }
     
-    updates.push('updated_at = datetime(\'now\')')
-    values.push(id)
+    // Update download count asynchronously
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare(`
+        UPDATE models 
+        SET download_count = download_count + 1,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(id).run()
+    )
+    
+    console.log(`📥 Model downloaded: ${model.name}`)
+    
+    // Return file as download
+    const filename = `${model.name.replace(/[^a-zA-Z0-9]/g, '_')}.${model.file_type}`
+    
+    return new Response(r2Object.body, {
+      headers: {
+        'Content-Type': model.file_type === 'stl' ? 'application/vnd.ms-pki.stl' : 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': model.file_size?.toString() || r2Object.size.toString(),
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+        'Cache-Control': 'private, no-cache'
+      }
+    })
+    
+  } catch (error) {
+    console.error('Download error:', error)
+    return c.json({ 
+      success: false,
+      error: 'Failed to process download request' 
+    }, 500)
+  }
+})
+
+// Serve model file from R2 (for preview/viewing)
+app.get('/api/models/:id/file', async (c) => {
+  try {
+    const id = c.req.param('id')
     
     const { results } = await c.env.DB.prepare(`
-      UPDATE models SET ${updates.join(', ')} WHERE id = ? RETURNING *
-    `).bind(...values).all()
-    
-    return c.json({ 
-      success: true,
-      message: 'Model updated successfully',
-      model: results[0]
-    })
-  } catch (error) {
-    console.error('Database error:', error)
-    return c.json({ 
-      success: false,
-      error: 'Failed to update model' 
-    }, 500)
-  }
-})
-
-// Delete model
-app.delete('/api/models/:id', async (c) => {
-  try {
-    const id = c.req.param('id')
-    
-    // Check if model exists
-    const { results: existing } = await c.env.DB.prepare(`
-      SELECT id, name FROM models WHERE id = ?
+      SELECT file_key, file_type, name FROM models WHERE id = ? AND status = 'active'
     `).bind(id).all()
     
-    if (existing.length === 0) {
+    if (results.length === 0) {
       return c.json({ 
         success: false,
         error: 'Model not found' 
       }, 404)
     }
     
-    // Delete model
-    await c.env.DB.prepare(`
-      DELETE FROM models WHERE id = ?
-    `).bind(id).run()
+    const model = results[0] as any
     
-    return c.json({ 
-      success: true,
-      message: `Model "${existing[0].name}" deleted successfully`
+    // Get file from R2
+    const r2Object = await c.env.R2_BUCKET.get(model.file_key)
+    
+    if (!r2Object) {
+      return c.json({ 
+        success: false,
+        error: 'File not found in storage' 
+      }, 404)
+    }
+    
+    // Return file for viewing/preview
+    return new Response(r2Object.body, {
+      headers: {
+        'Content-Type': model.file_type === 'stl' ? 'application/vnd.ms-pki.stl' : 'application/octet-stream',
+        'Content-Disposition': `inline; filename="${model.name}.${model.file_type}"`,
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*'
+      }
     })
+    
   } catch (error) {
-    console.error('Database error:', error)
+    console.error('File serve error:', error)
     return c.json({ 
       success: false,
-      error: 'Failed to delete model' 
+      error: 'Failed to serve file' 
     }, 500)
   }
 })
 
-// Get categories list
+// Serve thumbnail from R2
+app.get('/api/models/:id/thumbnail', async (c) => {
+  try {
+    const id = c.req.param('id')
+    
+    // Get thumbnail path from database
+    const { results } = await c.env.DB.prepare(`
+      SELECT thumbnail_url, name FROM models WHERE id = ? AND status = 'active'
+    `).bind(id).all()
+    
+    if (results.length === 0) {
+      return c.json({ 
+        success: false,
+        error: 'Model not found' 
+      }, 404)
+    }
+    
+    const model = results[0] as any
+    
+    // If no thumbnail_url, return placeholder
+    if (!model.thumbnail_url) {
+      return c.json({ 
+        success: false,
+        error: 'No thumbnail available' 
+      }, 404)
+    }
+    
+    // If thumbnail_url is base64, return it directly
+    if (model.thumbnail_url.startsWith('data:image/')) {
+      const base64Data = model.thumbnail_url.split(',')[1]
+      const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+      
+      return new Response(imageBuffer, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400', // 24 hours
+          'Access-Control-Allow-Origin': '*'
+        }
+      })
+    }
+    
+    // If thumbnail_url is R2 URL, extract key and serve from R2
+    if (model.thumbnail_url.includes('files.vizcad.com/')) {
+      const thumbnailKey = model.thumbnail_url.split('files.vizcad.com/')[1]
+      
+      const r2Object = await c.env.R2_BUCKET.get(thumbnailKey)
+      
+      if (!r2Object) {
+        return c.json({ 
+          success: false,
+          error: 'Thumbnail not found in storage' 
+        }, 404)
+      }
+      
+      return new Response(r2Object.body, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400', // 24 hours
+          'Access-Control-Allow-Origin': '*'
+        }
+      })
+    }
+    
+    // Unknown thumbnail format
+    return c.json({ 
+      success: false,
+      error: 'Invalid thumbnail format' 
+    }, 400)
+    
+  } catch (error) {
+    console.error('Thumbnail serve error:', error)
+    return c.json({ 
+      success: false,
+      error: 'Failed to serve thumbnail' 
+    }, 500)
+  }
+})
+
+// Get categories
 app.get('/api/categories', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT DISTINCT category, COUNT(*) as count 
       FROM models 
+      WHERE status = 'active'
       GROUP BY category 
-      ORDER BY category
+      ORDER BY count DESC, category ASC
     `).all()
     
     return c.json({ 
@@ -349,19 +440,19 @@ app.get('/api/categories', async (c) => {
 app.get('/api/stats', async (c) => {
   try {
     const { results: totalModels } = await c.env.DB.prepare(`
-      SELECT COUNT(*) as total FROM models
+      SELECT COUNT(*) as total FROM models WHERE status = 'active'
     `).all()
     
     const { results: freeModels } = await c.env.DB.prepare(`
-      SELECT COUNT(*) as free FROM models WHERE price = 0
+      SELECT COUNT(*) as free FROM models WHERE price = 0 AND status = 'active'
     `).all()
     
     const { results: categories } = await c.env.DB.prepare(`
-      SELECT COUNT(DISTINCT category) as categories FROM models
+      SELECT COUNT(DISTINCT category) as categories FROM models WHERE status = 'active'
     `).all()
     
-    const { results: totalSize } = await c.env.DB.prepare(`
-      SELECT SUM(file_size) as size FROM models
+    const { results: totalDownloads } = await c.env.DB.prepare(`
+      SELECT SUM(download_count) as downloads FROM models WHERE status = 'active'
     `).all()
     
     const total = (totalModels[0] as any)?.total || 0
@@ -374,7 +465,7 @@ app.get('/api/stats', async (c) => {
         free_models: free,
         paid_models: total - free,
         categories: (categories[0] as any)?.categories || 0,
-        total_size_bytes: (totalSize[0] as any)?.size || 0
+        total_downloads: (totalDownloads[0] as any)?.downloads || 0
       }
     })
   } catch (error) {
@@ -384,6 +475,16 @@ app.get('/api/stats', async (c) => {
       error: 'Failed to fetch statistics' 
     }, 500)
   }
+})
+
+// Development placeholder endpoint for when R2 is not available
+app.get('/api/models/placeholder/*', async (c) => {
+  return c.json({ 
+    success: false,
+    error: 'R2 storage not enabled',
+    message: 'Please enable R2 in Cloudflare Dashboard to download files',
+    setup_url: 'https://dash.cloudflare.com/'
+  }, 503)
 })
 
 export default app

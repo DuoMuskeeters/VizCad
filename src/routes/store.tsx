@@ -62,7 +62,7 @@ interface ApiResponse {
 }
 
 // API functions
-const API_BASE_URL = 'http://localhost:8787/api'
+const API_BASE_URL = 'http://127.0.0.1:8787/api' // Updated to use running API server
 
 const fetchModels = async (): Promise<StlModel[]> => {
   try {
@@ -150,6 +150,11 @@ export function StorePage() {
   const [uploadKey, setUploadKey] = useState("")
   const [showUploadForm, setShowUploadForm] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [favorites, setFavorites] = useState<Set<number>>(new Set())
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [shareModelId, setShareModelId] = useState<number | null>(null)
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [uploadResponse, setUploadResponse] = useState<{model?: any, update_token?: string} | null>(null)
   const [uploadFormData, setUploadFormData] = useState({
     name: "",
     description: "",
@@ -158,9 +163,28 @@ export function StorePage() {
     tags: [] as string[],
     file: null as File | null,
     thumbnail: null as string | null,
-    thumbnailError: false
+    thumbnailError: false,
+    createdBy: ""
   })
   const [tagInput, setTagInput] = useState("")
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('vizcad-favorites')
+    if (savedFavorites) {
+      try {
+        const favoriteIds = JSON.parse(savedFavorites)
+        setFavorites(new Set(favoriteIds))
+      } catch (error) {
+        console.error('Error loading favorites:', error)
+      }
+    }
+  }, [])
+
+  // Save favorites to localStorage
+  const saveFavoritesToStorage = (newFavorites: Set<number>) => {
+    localStorage.setItem('vizcad-favorites', JSON.stringify(Array.from(newFavorites)))
+  }
 
   // Load data on component mount
   useEffect(() => {
@@ -238,6 +262,11 @@ export function StorePage() {
       filtered = filtered.filter(model => model.price > 0)
     }
 
+    // Favorites filter
+    if (showFavoritesOnly) {
+      filtered = filtered.filter(model => favorites.has(model.id))
+    }
+
     // Sort
     switch (sortBy) {
       case "popularity":
@@ -261,27 +290,111 @@ export function StorePage() {
     }
 
     return filtered
-  }, [models, selectedCategory, searchQuery, priceFilter, sortBy, categories])
+  }, [models, selectedCategory, searchQuery, priceFilter, sortBy, categories, showFavoritesOnly, favorites])
 
-  const handleDownload = (model: StlModel) => {
+  const handleDownload = async (model: StlModel) => {
     // Check if model is free
     if (model.price && model.price > 0) {
       alert(`This model costs $${model.price}. Purchase required to download.`)
       return
     }
     
-    // Download free model
-    const link = document.createElement('a')
-    link.href = model.file_url
-    link.download = `${model.name.replace(/\s+/g, '-').toLowerCase()}.${model.file_type}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    try {
+      // Use API download endpoint for proper download tracking
+      const response = await fetch(`${API_BASE_URL}/models/${model.id}/download`)
+      
+      if (!response.ok) {
+        throw new Error('Download failed')
+      }
+      
+      // Get the blob data
+      const blob = await response.blob()
+      
+      // Create download link
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${model.name.replace(/\s+/g, '-').toLowerCase()}.${model.file_type}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up the blob URL
+      URL.revokeObjectURL(url)
+      
+      console.log(`Downloaded: ${model.name}`)
+    } catch (error) {
+      console.error('Download error:', error)
+      alert('Download failed. Please try again.')
+    }
   }
 
   const handlePreview = (model: StlModel) => {
-    // Navigate to the app with this model
-    window.location.href = `/app?model=${encodeURIComponent(model.file_url)}`
+    // Check if model is paid/premium
+    if (model.price > 0) {
+      alert(`This is a premium model ($${model.price}). Preview is only available for free models. Please purchase to access the full model.`)
+      return
+    }
+    
+    // Navigate to the app with API file serve URL for proper file serving
+    const params = new URLSearchParams({
+      model: `${API_BASE_URL}/models/${model.id}/file`, // Use API file serve endpoint
+      name: model.name,
+      author: model.created_by || 'Unknown',
+      modelId: model.id.toString()
+    })
+    window.location.href = `/app?${params.toString()}`
+  }
+
+  const handleFavorite = (modelId: number) => {
+    const newFavorites = new Set(favorites)
+    if (newFavorites.has(modelId)) {
+      newFavorites.delete(modelId)
+    } else {
+      newFavorites.add(modelId)
+    }
+    setFavorites(newFavorites)
+    saveFavoritesToStorage(newFavorites)
+  }
+
+  const handleShare = (modelId: number) => {
+    setShareModelId(modelId)
+    setShareModalOpen(true)
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('Link copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy:', error)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert('Link copied to clipboard!')
+    }
+  }
+
+  const shareViaWebAPI = async (model: StlModel) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: model.name,
+          text: model.description,
+          url: `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`
+        })
+      } catch (error) {
+        console.error('Error sharing:', error)
+      }
+    } else {
+      // Fallback to clipboard
+      const shareUrl = `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`
+      await copyToClipboard(shareUrl)
+    }
   }
 
   const addTag = (tag: string) => {
@@ -315,7 +428,7 @@ export function StorePage() {
   }
 
   const handleUpload = async () => {
-    if (!uploadFormData.file || !uploadFormData.name || !uploadFormData.category) {
+    if (!uploadFormData.file || !uploadFormData.name || !uploadFormData.category || !uploadFormData.createdBy) {
       alert("Please fill all required fields!")
       return
     }
@@ -328,7 +441,7 @@ export function StorePage() {
       formData.append('category', uploadFormData.category)
       formData.append('price', uploadFormData.price.toString())
       formData.append('tags', JSON.stringify(uploadFormData.tags))
-      formData.append('created_by', 'GM')
+      formData.append('created_by', uploadFormData.createdBy)
       
       // Add thumbnail if available
       if (uploadFormData.thumbnail) {
@@ -344,7 +457,7 @@ export function StorePage() {
         const result = await response.json()
         setShowUploadForm(false)
         setShowSuccessModal(true)
-        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false})
+        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false, createdBy: ""})
         setTagInput("")
         
         // Auto close success modal after 0.75 seconds
@@ -462,6 +575,17 @@ export function StorePage() {
                 <List className="h-4 w-4" />
               </Button>
             </div>
+            
+            {/* Favorites Filter */}
+            <Button
+              variant={showFavoritesOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={showFavoritesOnly ? "text-red-500 hover:text-red-600" : ""}
+            >
+              <Heart className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-current" : ""}`} />
+              Favorites {favorites.size > 0 && `(${favorites.size})`}
+            </Button>
           </div>
         </div>
 
@@ -533,56 +657,14 @@ export function StorePage() {
               </p>
               
               {/* Upload Button */}
-              <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Package className="h-4 w-4 mr-2" />
-                    Upload Model
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Upload Access</DialogTitle>
-                    <DialogDescription>
-                      Enter your upload key to proceed
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      type="text"
-                      placeholder="Upload Key"
-                      value={uploadKey}
-                      onChange={(e) => setUploadKey(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          setShowUploadModal(false)
-                          setUploadKey("")
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        className="flex-1"
-                        onClick={() => {
-                          if (uploadKey === "vizcad2024") {
-                            setShowUploadModal(false)
-                            setShowUploadForm(true)
-                            setUploadKey("")
-                          } else {
-                            alert("Invalid upload key!")
-                          }
-                        }}
-                      >
-                        Continue
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowUploadForm(true)}
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Upload Model
+              </Button>
 
               {/* Upload Form Modal */}
               <Dialog open={showUploadForm} onOpenChange={setShowUploadForm}>
@@ -623,6 +705,15 @@ export function StorePage() {
                     </div>
                     
                     <div>
+                      <label className="text-sm font-medium">Created By</label>
+                      <Input
+                        placeholder="Enter creator name"
+                        value={uploadFormData.createdBy}
+                        onChange={(e) => setUploadFormData({...uploadFormData, createdBy: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div>
                       <label className="text-sm font-medium">Description</label>
                       <Input
                         placeholder="Describe your model"
@@ -636,9 +727,19 @@ export function StorePage() {
                         <label className="text-sm font-medium">Price ($)</label>
                         <Input
                           type="number"
+                          min="0"
+                          step="1"
                           placeholder="0 for free"
                           value={uploadFormData.price}
-                          onChange={(e) => setUploadFormData({...uploadFormData, price: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            if (val === '') {
+                              setUploadFormData({...uploadFormData, price: 0})
+                            } else {
+                              const numVal = parseFloat(val)
+                              setUploadFormData({...uploadFormData, price: Math.max(0, isNaN(numVal) ? 0 : numVal)})
+                            }
+                          }}
                         />
                       </div>
                       <div>
@@ -692,8 +793,8 @@ export function StorePage() {
                             console.error('Thumbnail error:', error)
                             setUploadFormData(prev => ({...prev, thumbnailError: true}))
                           }}
-                          width={200}
-                          height={200}
+                          width={1080}
+                          height={1080}
                         />
                       </div>
                     )}
@@ -717,7 +818,7 @@ export function StorePage() {
                         className="flex-1"
                         onClick={() => {
                           setShowUploadForm(false)
-                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false})
+                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false, createdBy: ""})
                           setTagInput("")
                         }}
                       >
@@ -755,19 +856,39 @@ export function StorePage() {
 
             {/* Models Grid/List */}
             {viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
                 {filteredModels.map((model) => (
-                  <Card key={model.id} className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col aspect-square">
-                    <div className="relative overflow-hidden rounded-t-lg">
+                  <Card key={model.id} className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden p-0 rounded-xl">
+                    <div className="relative overflow-hidden">
                       <div className="w-full aspect-square bg-muted flex items-center justify-center">
                         {model.thumbnail_url ? (
                           <img 
-                            src={model.thumbnail_url} 
+                            src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
                             alt={model.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover high-quality-image cursor-pointer hover:scale-105 transition-transform"
+                            style={{
+                              imageRendering: '-webkit-optimize-contrast'
+                            }}
+                            onError={(e) => {
+                              // Fallback to placeholder if thumbnail fails to load
+                              console.error('Thumbnail failed to load for model:', model.id);
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedModel(model);
+                            }}
                           />
                         ) : (
-                          <Package className="h-12 w-12 text-muted-foreground" />
+                          <Package className="h-16 w-16 text-muted-foreground" />
+                        )}
+                        {/* Show placeholder when image fails to load */}
+                        {model.thumbnail_url && (
+                          <Package 
+                            className="h-16 w-16 text-muted-foreground absolute" 
+                            style={{ display: 'none' }} 
+                            id={`fallback-${model.id}`}
+                          />
                         )}
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -779,9 +900,11 @@ export function StorePage() {
                               e.stopPropagation()
                               handlePreview(model)
                             }}
+                            disabled={model.price > 0}
+                            variant={model.price > 0 ? "outline" : "default"}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            Preview
+                            {model.price > 0 ? 'Premium' : 'Preview'}
                           </Button>
                           <Button
                             size="sm"
@@ -795,7 +918,13 @@ export function StorePage() {
                           </Button>
                         </div>
                       </div>
-                      {(!model.price || model.price === 0) && (
+                      
+                      {/* Price Badge */}
+                      {model.price > 0 ? (
+                        <Badge className="absolute top-2 right-2 bg-yellow-500">
+                          ${model.price}
+                        </Badge>
+                      ) : (
                         <Badge className="absolute top-2 right-2 bg-green-500">
                           Free
                         </Badge>
@@ -848,8 +977,48 @@ export function StorePage() {
                             </DialogHeader>
                             
                             <div className="space-y-4">
-                              <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center">
-                                <Package className="h-16 w-16 text-muted-foreground" />
+                              {/* 3D Preview Area - Square 1:1 Resolution */}
+                              <div className="w-full aspect-square max-w-md mx-auto bg-muted rounded-lg overflow-hidden relative group">
+                                {model.thumbnail_url ? (
+                                  <img 
+                                    src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
+                                    alt={`${model.name} preview`}
+                                    className="w-full h-full object-cover transition-transform group-hover:scale-105 high-quality-image"
+                                    style={{
+                                      imageRendering: 'crisp-edges'
+                                    }}
+                                    onError={(e) => {
+                                      // Fallback to placeholder if thumbnail fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      target.nextElementSibling?.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : null}
+                                
+                                {/* Fallback placeholder */}
+                                <div className={`w-full h-full flex items-center justify-center bg-gray-100 ${model.thumbnail_url ? 'hidden' : ''}`}>
+                                  <div className="text-center text-gray-500">
+                                    <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                    <p className="text-xs">3D Model Preview</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Price badge for paid models */}
+                                {model.price > 0 && (
+                                  <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-medium">
+                                    ${model.price}
+                                  </div>
+                                )}
+                                
+                                {/* Free badge for free models */}
+                                {model.price === 0 && (
+                                  <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
+                                    FREE
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="grid grid-cols-2 gap-4">
@@ -909,9 +1078,11 @@ export function StorePage() {
                                 <Button
                                   className="flex-1"
                                   onClick={() => handlePreview(model)}
+                                  disabled={model.price > 0}
+                                  variant={model.price > 0 ? "outline" : "default"}
                                 >
                                   <Eye className="h-4 w-4 mr-2" />
-                                  Preview in VizCad
+                                  {model.price > 0 ? `Premium Model - $${model.price}` : 'Preview in VizCad'}
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -920,10 +1091,19 @@ export function StorePage() {
                                   <Download className="h-4 w-4 mr-2" />
                                   Download
                                 </Button>
-                                <Button variant="outline" size="icon">
-                                  <Heart className="h-4 w-4" />
+                                <Button 
+                                  variant="outline" 
+                                  size="icon"
+                                  onClick={() => handleFavorite(model.id)}
+                                  className={favorites.has(model.id) ? "text-red-500 hover:text-red-600" : ""}
+                                >
+                                  <Heart className={`h-4 w-4 ${favorites.has(model.id) ? "fill-current" : ""}`} />
                                 </Button>
-                                <Button variant="outline" size="icon">
+                                <Button 
+                                  variant="outline" 
+                                  size="icon"
+                                  onClick={() => handleShare(model.id)}
+                                >
                                   <Share2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -953,18 +1133,41 @@ export function StorePage() {
             ) : (
               <div className="space-y-4">
                 {filteredModels.map((model) => (
-                  <Card key={model.id} className="hover:shadow-md transition-shadow">
+                  <Card key={model.id} className="hover:shadow-md transition-shadow p-0 rounded-xl overflow-hidden">
                     <CardContent className="p-4">
-                      <div className="flex gap-4">
-                        <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                      <div className="flex gap-6">
+                        <div className="w-40 h-40 bg-muted rounded-lg flex items-center justify-center overflow-hidden relative cursor-pointer group">
                           {model.thumbnail_url ? (
                             <img 
-                              src={model.thumbnail_url} 
+                              src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
                               alt={model.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover high-quality-image hover:scale-105 transition-transform"
+                              style={{
+                                imageRendering: '-webkit-optimize-contrast'
+                              }}
+                              onError={(e) => {
+                                // Fallback to placeholder if thumbnail fails to load
+                                console.error('List thumbnail failed to load for model:', model.id);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedModel(model);
+                              }}
                             />
                           ) : (
-                            <Package className="h-8 w-8 text-muted-foreground" />
+                            <Package className="h-12 w-12 text-muted-foreground" />
+                          )}
+                          
+                          {/* Price Badge for List View */}
+                          {model.price > 0 ? (
+                            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-xs px-2 py-1">
+                              ${model.price}
+                            </Badge>
+                          ) : (
+                            <Badge className="absolute -top-1 -right-1 bg-green-500 text-xs px-2 py-1">
+                              FREE
+                            </Badge>
                           )}
                         </div>
                         <div className="flex-1 space-y-2">
@@ -987,9 +1190,14 @@ export function StorePage() {
                             <span>by {model.created_by || 'Anonymous'}</span>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handlePreview(model)}>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handlePreview(model)}
+                              disabled={model.price > 0}
+                              variant={model.price > 0 ? "outline" : "default"}
+                            >
                               <Eye className="h-4 w-4 mr-1" />
-                              Preview
+                              {model.price > 0 ? 'Premium' : 'Preview'}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handleDownload(model)}>
                               <Download className="h-4 w-4 mr-1" />
@@ -1014,6 +1222,108 @@ export function StorePage() {
           </div>
         </div>
       </div>
+      
+      {/* Share Modal */}
+      <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Model</DialogTitle>
+            <DialogDescription>Share this 3D model with others</DialogDescription>
+          </DialogHeader>
+          
+          {shareModelId && (
+            <div className="space-y-4">
+              {(() => {
+                const model = models.find(m => m.id === shareModelId)
+                if (!model) return null
+                
+                const shareUrl = `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`
+                
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Share Link</h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={shareUrl}
+                          readOnly
+                          className="flex-1 px-3 py-2 text-xs border rounded-md bg-muted/50"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => copyToClipboard(shareUrl)}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Share Via</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => shareViaWebAPI(model)}
+                          className="justify-start"
+                        >
+                          <Share2 className="h-4 w-4 mr-2" />
+                          Native Share
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const twitterText = `Check out this 3D model: ${model.name}`
+                            const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`
+                            window.open(twitterUrl, '_blank')
+                          }}
+                          className="justify-start"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6.29 18.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0020 3.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.073 4.073 0 01.8 7.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 010 16.407a11.616 11.616 0 006.29 1.84" />
+                          </svg>
+                          Twitter
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+                            window.open(linkedinUrl, '_blank')
+                          }}
+                          className="justify-start"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M16.338 16.338H13.67V12.16c0-.995-.017-2.277-1.387-2.277-1.39 0-1.601 1.086-1.601 2.207v4.248H8.014v-8.59h2.559v1.174h.037c.356-.675 1.227-1.387 2.526-1.387 2.703 0 3.203 1.778 3.203 4.092v4.711zM5.005 6.575a1.548 1.548 0 11-.003-3.096 1.548 1.548 0 01.003 3.096zm-1.337 9.763H6.34v-8.59H3.667v8.59zM17.668 1H2.328C1.595 1 1 1.581 1 2.298v15.403C1 18.418 1.595 19 2.328 19h15.34c.734 0 1.332-.582 1.332-1.299V2.298C19 1.581 18.402 1 17.668 1z" />
+                          </svg>
+                          LinkedIn
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const whatsappText = `Check out this 3D model: ${model.name} - ${shareUrl}`
+                            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`
+                            window.open(whatsappUrl, '_blank')
+                          }}
+                          className="justify-start"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0010.05 0C4.495 0 .05 4.445.05 9.999c0 1.76.459 3.478 1.332 4.992L0 20l5.134-1.347a9.963 9.963 0 004.916 1.347h.004c5.555 0 10.001-4.445 10.001-9.999 0-2.67-1.04-5.183-2.922-7.096z"/>
+                          </svg>
+                          WhatsApp
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

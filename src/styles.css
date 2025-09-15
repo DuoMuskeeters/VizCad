@@ -114,3 +114,47 @@ code {
     border-color: rgb(var(--border));
   }
 }
+
+/* High Quality Image Rendering - Optimized for 1080x1080 */
+.high-quality-image {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: high-quality;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  /* Enhanced for high-res square thumbnails */
+  object-fit: cover;
+  object-position: center;
+  transition: transform 0.2s ease-in-out;
+}
+
+/* Square Thumbnail Container */
+.thumbnail-container {
+  contain: layout style paint;
+  will-change: transform;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+/* High DPI optimizations for 1080x1080 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .high-quality-image {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    /* Better scaling for retina displays */
+    filter: contrast(1.05) saturate(1.1);
+  }
+}
+
+/* Ultra high DPI optimizations for 1080x1080 */
+@media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 300dpi) {
+  .high-quality-image {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: auto;
+    /* Maintain quality at 3x scaling */
+    filter: contrast(1.02) saturate(1.05) brightness(1.02);
+  }
+}

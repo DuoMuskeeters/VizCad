@@ -462,12 +462,45 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       console.log("Dosya başarıyla okundu. VTK pipeline başlatılıyor...")
 
       const arrayBuffer = event.target.result as ArrayBuffer
-      reader.parseAsArrayBuffer(arrayBuffer)
-      const source = reader.getOutputData(0)
+      
+      // Check if arrayBuffer is valid and has content
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        setStatusMessage("Error: File is empty or could not be read.")
+        console.error("Empty or invalid arrayBuffer")
+        return
+      }
+      
+      console.log("ArrayBuffer size:", arrayBuffer.byteLength, "bytes")
+      
+      // Check if buffer looks like STL format
+      const textDecoder = new TextDecoder()
+      const firstBytes = textDecoder.decode(arrayBuffer.slice(0, 100))
+      console.log("First 100 bytes as text:", firstBytes)
+      
+      let source
+      try {
+        reader.parseAsArrayBuffer(arrayBuffer)
+        source = reader.getOutputData(0)
 
-      if (!source || source.getPoints().getNumberOfPoints() === 0) {
-        setStatusMessage("Error: STL file is invalid or empty.")
-        console.error("Invalid STL source.")
+        if (!source) {
+          setStatusMessage("Error: STL reader returned no data. File might be corrupted.")
+          console.error("STL reader returned null/undefined source")
+          return
+        }
+        
+        const pointCount = source.getPoints().getNumberOfPoints()
+        console.log("STL source created. Points:", pointCount, "Cells:", source.getNumberOfCells())
+        
+        if (pointCount === 0) {
+          setStatusMessage("Error: STL file contains no geometry points.")
+          console.error("STL file has 0 points")
+          return
+        }
+        
+        console.log("STL parsed successfully. Points:", pointCount)
+      } catch (parseError) {
+        setStatusMessage("Error: Failed to parse STL file format.")
+        console.error("STL parsing error:", parseError)
         return
       }
       console.log("STL dosyası başarıyla parse edildi.")

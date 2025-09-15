@@ -38,7 +38,16 @@ import { CameraTab } from "@/components/tabs/CameraTab"
 import { useVtkScene } from "@/components/scene"
 import { detectLanguage, seoContent } from "@/utils/language"
 
+// API Configuration
+const API_BASE_URL = 'http://localhost:8787/api'
+
 export const Route = createFileRoute("/app")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    model: typeof search.model === 'string' ? search.model : undefined,
+    name: typeof search.name === 'string' ? search.name : undefined,
+    author: typeof search.author === 'string' ? search.author : undefined,
+    modelId: typeof search.modelId === 'string' ? search.modelId : undefined,
+  }) as { model?: string; name?: string; author?: string; modelId?: string },
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].app
@@ -102,6 +111,7 @@ export const Route = createFileRoute("/app")({
 
 function AppPage() {
   const { t } = useTranslation()
+  const { model, name, author, modelId } = Route.useSearch()
   const {
     vtkContainerRef,
     rendererRef,
@@ -155,6 +165,202 @@ function AppPage() {
       setSelectedFile(event.target.files[0])
     }
   }
+
+  // Load model from URL parameter
+  useEffect(() => {
+    if (model) {
+      console.log('Loading model from URL parameter:', model)
+      console.log('Additional params - name:', name, 'author:', author, 'modelId:', modelId)
+      
+      // Fetch the model from the URL and create a File object
+      const loadModelFromUrl = async () => {
+        try {
+          // For development: map store URLs to demo files
+          let modelUrl = model
+          let tryAlternativeEndpoint = false
+          
+          if (model.startsWith('/uploads/')) {
+            // For store models, use demo files instead of API
+            console.log('Store model detected, using demo file fallback')
+            modelUrl = '/dragon.stl' // Use demo dragon file
+            console.log('Using demo file:', modelUrl)
+          } else if (model.startsWith('http://localhost:3000/uploads/')) {
+            // Convert frontend uploads path to demo file
+            console.log('Frontend uploads path detected, using demo file fallback')
+            modelUrl = '/dragon.stl'
+            console.log('Using demo file:', modelUrl)
+          } else {
+            // For direct URLs, try API endpoints
+            if (model.startsWith('/uploads/')) {
+              const fileName = model.replace('/uploads/', '')
+              modelUrl = `${API_BASE_URL}/files/${fileName}`
+              console.log('Converting uploads path to API file endpoint:', modelUrl)
+              tryAlternativeEndpoint = true
+            }
+          }
+          
+          let response = await fetch(modelUrl)
+          
+          // If API endpoints fail, try fallback to demo files  
+          if (!response.ok && tryAlternativeEndpoint) {
+            console.log('API endpoints failed, using demo file fallback')
+            modelUrl = '/dragon.stl'
+            response = await fetch(modelUrl)
+          }
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - Could not load model file`)
+          }
+          const blob = await response.blob()
+          
+          // Check if blob is valid and has content
+          if (!blob || blob.size === 0) {
+            throw new Error('Model file is empty or could not be downloaded')
+          }
+          
+          console.log('Model blob size:', blob.size, 'bytes')
+          console.log('Model blob type:', blob.type)
+          
+          // Check if we actually got an STL file or an HTML error page
+          if (blob.type.includes('html') || blob.type.includes('text/html')) {
+            throw new Error('Server returned HTML instead of STL file. File may not exist or path is incorrect.')
+          }
+          
+          // Try to read first few bytes to validate content
+          const arrayBuffer = await blob.arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+          console.log('First 20 bytes:', Array.from(uint8Array.slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' '))
+          
+          // Check for STL signatures
+          const textDecoder = new TextDecoder()
+          const firstBytes = textDecoder.decode(uint8Array.slice(0, 80))
+          console.log('First 80 bytes as text:', firstBytes)
+          
+          // Check if content looks like HTML (common error case)
+          if (firstBytes.toLowerCase().includes('<!doctype') || 
+              firstBytes.toLowerCase().includes('<html') ||
+              firstBytes.toLowerCase().includes('<head')) {
+            throw new Error('Server returned HTML error page instead of STL file. Check if the file URL is correct.')
+          }
+          
+          // Binary STL starts with 80-byte header, then 4-byte triangle count
+          let isValidBinarySTL = false
+          if (uint8Array.length >= 84) {
+            const triangleCount = new DataView(arrayBuffer, 80, 4).getUint32(0, true) // little endian
+            console.log('Binary STL triangle count (if binary):', triangleCount)
+            
+            // Expected file size for binary STL: 80 (header) + 4 (count) + 50*triangles
+            const expectedSize = 84 + (50 * triangleCount)
+            console.log('Expected binary STL size:', expectedSize, 'Actual size:', arrayBuffer.byteLength)
+            
+            // Validate if this could be a valid binary STL
+            if (triangleCount > 0 && triangleCount < 10000000 && // Reasonable triangle count
+                Math.abs(expectedSize - arrayBuffer.byteLength) < 100) { // Allow small variance
+              isValidBinarySTL = true
+            }
+          }
+          
+          // ASCII STL starts with "solid" keyword
+          const isValidASCIISTL = firstBytes.toLowerCase().startsWith('solid') && 
+                                  firstBytes.toLowerCase().includes('facet')
+          
+          if (isValidBinarySTL) {
+            console.log('Detected valid binary STL format')
+          } else if (isValidASCIISTL) {
+            console.log('Detected valid ASCII STL format')
+          } else {
+            console.log('WARNING: File may not be a valid STL format')
+            // Don't throw error here, let VTK try to parse it
+          }
+          
+          // Create blob again from arrayBuffer to ensure it's properly formed
+          const validatedBlob = new Blob([arrayBuffer], { type: 'application/octet-stream' })
+          
+          // Extract filename from URL or use provided name - clean up URL first
+          let fileName = name
+          if (!fileName) {
+            // Clean the URL by removing query parameters and fragments
+            const cleanUrl = model.split('?')[0].split('#')[0]
+            fileName = cleanUrl.split('/').pop() || 'model.stl'
+          }
+          
+          // If still no extension or weird filename, try to detect from content-type or default to STL
+          let fileExtension = fileName.split('.').pop()?.toLowerCase()
+          
+          // If no valid extension found, try to determine from blob type or default to stl
+          if (!fileExtension || fileExtension === fileName.toLowerCase() || fileExtension.length > 5) {
+            console.log('Invalid or no extension found, checking blob type:', blob.type)
+            if (blob.type.includes('stl') || blob.type.includes('model')) {
+              fileExtension = 'stl'
+              fileName = fileName.includes('.') ? fileName : `${fileName}.stl`
+            } else {
+              // For store models, default to STL (most common 3D format)
+              console.log('Defaulting to STL format for store model')
+              fileExtension = 'stl'
+              const baseName = fileName.split('.')[0] || 'model'
+              fileName = `${baseName}.stl`
+            }
+          }
+          
+          console.log('Final filename:', fileName)
+          console.log('Detected extension:', fileExtension)
+          
+          // Validate file extension with more lenient check for store models
+          const validExtensions = ['stl', 'ply', 'obj']
+          if (!fileExtension || !validExtensions.includes(fileExtension)) {
+            // Last resort: if this is a store model and we can't determine extension, assume STL
+            if (model.includes('/uploads/') || model.includes('store')) {
+              console.log('Store model detected, forcing STL format')
+              fileExtension = 'stl'
+              fileName = `${fileName.split('.')[0] || 'model'}.stl`
+            } else {
+              throw new Error(`Unsupported file format: ${fileExtension}. Only STL, PLY, and OBJ files are supported.`)
+            }
+          }
+          
+          // Create a File object from the validatedBlob
+          const file = new window.File([validatedBlob], fileName, {
+            type: 'application/octet-stream'
+          }) as File
+          
+          console.log('Model loaded successfully:', fileName)
+          if (author) {
+            console.log('Model author:', author)
+          }
+          setSelectedFile(file)
+          
+          // Show success message in console
+          const successMessage = name 
+            ? `✅ Store model "${name}" ${author ? `by ${author}` : ''} loaded successfully!`
+            : `✅ Model loaded successfully from store!`
+          
+          console.log(successMessage)
+          
+        } catch (error) {
+          console.error('Error loading model from URL:', error)
+          
+          let errorMessage = 'Failed to load model'
+          if (error instanceof Error) {
+            if (error.message.includes('CORS')) {
+              errorMessage = 'CORS error: Model file cannot be accessed from this domain'
+            } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+              errorMessage = 'Model file not found on server'
+            } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+              errorMessage = 'Access denied to model file'
+            } else if (error.message.includes('empty')) {
+              errorMessage = 'Model file is empty or corrupted'
+            } else {
+              errorMessage = `Failed to load model: ${error.message}`
+            }
+          }
+          
+          alert(errorMessage)
+        }
+      }
+      
+      loadModelFromUrl()
+    }
+  }, [model, name, author, modelId])
 
   // Open file dialog programmatically
   const openFileDialog = () => {
@@ -1075,6 +1281,16 @@ function AppPage() {
                     <Upload className="h-4 w-4 mr-2" style={{ color: "white" }} />
                     {t("app_welcome_upload")}
                   </Button>
+                  
+                  <div className="text-sm text-gray-500 text-center">
+                    or{" "}
+                    <a 
+                      href="/store" 
+                      className="text-blue-600 hover:text-blue-800 underline font-medium"
+                    >
+                      browse 3D models in Store
+                    </a>
+                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
