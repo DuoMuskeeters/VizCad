@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ViewEmbedRouteImport } from './routes/viewEmbed'
 import { Route as StoreRouteImport } from './routes/store'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -16,6 +17,11 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ViewEmbedRoute = ViewEmbedRouteImport.update({
+  id: '/viewEmbed',
+  path: '/viewEmbed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StoreRoute = StoreRouteImport.update({
   id: '/store',
   path: '/store',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/store': typeof StoreRoute
+  '/viewEmbed': typeof ViewEmbedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/store': typeof StoreRoute
+  '/viewEmbed': typeof ViewEmbedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,13 +79,36 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/store': typeof StoreRoute
+  '/viewEmbed': typeof ViewEmbedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ModelSnap' | '/app' | '/contact' | '/faq' | '/store'
+  fullPaths:
+    | '/'
+    | '/ModelSnap'
+    | '/app'
+    | '/contact'
+    | '/faq'
+    | '/store'
+    | '/viewEmbed'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ModelSnap' | '/app' | '/contact' | '/faq' | '/store'
-  id: '__root__' | '/' | '/ModelSnap' | '/app' | '/contact' | '/faq' | '/store'
+  to:
+    | '/'
+    | '/ModelSnap'
+    | '/app'
+    | '/contact'
+    | '/faq'
+    | '/store'
+    | '/viewEmbed'
+  id:
+    | '__root__'
+    | '/'
+    | '/ModelSnap'
+    | '/app'
+    | '/contact'
+    | '/faq'
+    | '/store'
+    | '/viewEmbed'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -87,10 +118,18 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   FaqRoute: typeof FaqRoute
   StoreRoute: typeof StoreRoute
+  ViewEmbedRoute: typeof ViewEmbedRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/viewEmbed': {
+      id: '/viewEmbed'
+      path: '/viewEmbed'
+      fullPath: '/viewEmbed'
+      preLoaderRoute: typeof ViewEmbedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/store': {
       id: '/store'
       path: '/store'
@@ -143,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   FaqRoute: FaqRoute,
   StoreRoute: StoreRoute,
+  ViewEmbedRoute: ViewEmbedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

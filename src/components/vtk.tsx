@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor"
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper"
 import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader"
+import vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader"
+import vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader"
 import { useVtkScene } from "./scene"
 import "@kitware/vtk.js/Rendering/Profiles/Geometry"
 
@@ -44,7 +46,33 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     showAxes,
   } = useVtkScene()
 
-  const [statusMessage, setStatusMessage] = useState<string>("Ready. Please select an STL file.")
+  const [statusMessage, setStatusMessage] = useState<string>("Ready. Please select a 3D file.")
+
+  // Dosya tipini tespit et
+  const getFileType = (filename: string): string => {
+    const extension = filename.toLowerCase().split('.').pop()
+    return extension || 'unknown'
+  }
+
+  // Uygun reader'ı seç
+  const createReaderForFile = (filename: string) => {
+    const fileType = getFileType(filename)
+    
+    switch (fileType) {
+      case 'stl':
+        return vtkSTLReader.newInstance()
+      case 'obj':
+        return vtkOBJReader.newInstance()
+      case 'ply':
+        return vtkPLYReader.newInstance()
+      case '3mf':
+        console.warn('3MF format is not supported by VTK.js. Please convert to STL, OBJ, or PLY format.')
+        return null
+      default:
+        console.warn(`Unsupported file type: ${fileType}. Supported formats: STL, OBJ, PLY`)
+        return null
+    }
+  }
 
   // Apply incoming displayState when it changes (idempotent)
   useEffect(() => {
@@ -442,15 +470,27 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     }
   }, [resize])
 
-  // STL Dosyası yükleme mantığı
+  // 3D Dosyası yükleme mantığı
   useEffect(() => {
     if (!file || !rendererRef.current || !renderWindowRef.current) {
       return
     }
 
-  setStatusMessage("Reading STL file...")
+    const fileType = getFileType(file.name)
+    setStatusMessage(`Reading ${fileType.toUpperCase()} file...`)
+    
     const fileReader = new FileReader()
-    const reader = vtkSTLReader.newInstance()
+    const reader = createReaderForFile(file.name)
+    
+    if (!reader) {
+      if (fileType === '3mf') {
+        setStatusMessage(`Error: 3MF format is not supported. Please convert to STL, OBJ, or PLY format.`)
+      } else {
+        setStatusMessage(`Error: Unsupported file format (.${fileType}). Supported formats: STL, OBJ, PLY`)
+      }
+      return
+    }
+    
     readerRef.current = reader
 
     fileReader.onload = async (event) => {
@@ -471,33 +511,40 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       }
       
       console.log("ArrayBuffer size:", arrayBuffer.byteLength, "bytes")
-      
-      // Check if buffer looks like STL format
-      const textDecoder = new TextDecoder()
-      const firstBytes = textDecoder.decode(arrayBuffer.slice(0, 100))
-      console.log("First 100 bytes as text:", firstBytes)
+      console.log("File type:", fileType)
       
       let source
       try {
-        reader.parseAsArrayBuffer(arrayBuffer)
+        // Farklı formatlar için farklı parsing yöntemleri
+        if (fileType === 'stl') {
+          (reader as any).parseAsArrayBuffer(arrayBuffer)
+        } else if (fileType === 'ply') {
+          (reader as any).parseAsArrayBuffer(arrayBuffer)
+        } else if (fileType === 'obj') {
+          // OBJ dosyaları text formatında olduğu için string'e çevir
+          const textDecoder = new TextDecoder()
+          const objText = textDecoder.decode(arrayBuffer)
+          ;(reader as any).parseAsText(objText)
+        }
+        
         source = reader.getOutputData(0)
 
         if (!source) {
-          setStatusMessage("Error: STL reader returned no data. File might be corrupted.")
-          console.error("STL reader returned null/undefined source")
+          setStatusMessage(`Error: ${fileType.toUpperCase()} reader returned no data. File might be corrupted.`)
+          console.error(`${fileType.toUpperCase()} reader returned null/undefined source`)
           return
         }
         
         const pointCount = source.getPoints().getNumberOfPoints()
-        console.log("STL source created. Points:", pointCount, "Cells:", source.getNumberOfCells())
+        console.log(`${fileType.toUpperCase()} source created. Points:`, pointCount, "Cells:", source.getNumberOfCells())
         
         if (pointCount === 0) {
-          setStatusMessage("Error: STL file contains no geometry points.")
-          console.error("STL file has 0 points")
+          setStatusMessage(`Error: ${fileType.toUpperCase()} file contains no geometry points.`)
+          console.error(`${fileType.toUpperCase()} file has 0 points`)
           return
         }
         
-        console.log("STL parsed successfully. Points:", pointCount)
+        console.log(`${fileType.toUpperCase()} parsed successfully. Points:`, pointCount)
       } catch (parseError) {
         setStatusMessage("Error: Failed to parse STL file format.")
         console.error("STL parsing error:", parseError)

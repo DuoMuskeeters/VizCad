@@ -10,6 +10,8 @@ import type vtkRenderWindow from "@kitware/vtk.js/Rendering/Core/RenderWindow"
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor"
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper"
 import type vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader"
+import type vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader"
+import type vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader"
 import vtkLight from "@kitware/vtk.js/Rendering/Core/Light"
 import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource"
 import vtkAxesActor from "@kitware/vtk.js/Rendering/Core/AxesActor"
@@ -47,7 +49,7 @@ export function useVtkScene() {
   const renderWindowRef = useRef<vtkRenderWindow | null>(null)
   const actorRef = useRef<vtkProp | null>(null)
   const mapperRef = useRef<vtkMapper | null>(null)
-  const readerRef = useRef<vtkSTLReader | null>(null)
+  const readerRef = useRef<vtkSTLReader | vtkOBJReader | vtkPLYReader | null>(null)
   const lightsRef = useRef<vtkLight[]>([])
   const floorActorRef = useRef<vtkProp | null>(null)
   const backgroundPlaneRef = useRef<vtkProp | null>(null)

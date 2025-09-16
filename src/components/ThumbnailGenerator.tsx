@@ -4,6 +4,7 @@ import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
 import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
 import vtkSTLReader from '@kitware/vtk.js/IO/Geometry/STLReader';
 import vtkPLYReader from '@kitware/vtk.js/IO/Geometry/PLYReader';
+import vtkOBJReader from '@kitware/vtk.js/IO/Misc/OBJReader';
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 
 interface ThumbnailGeneratorProps {
@@ -110,13 +111,19 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           break;
         
         case 'obj':
-          // For OBJ files, you might need a different reader
-          // This is a simplified approach
-          onError?.('OBJ files are not fully supported yet');
+          reader = vtkOBJReader.newInstance();
+          const textDecoder = new TextDecoder();
+          const objText = textDecoder.decode(fileData);
+          reader.parseAsText(objText);
+          polyData = reader.getOutputData(0);
+          break;
+        
+        case '3mf':
+          onError?.('3MF format is not supported. Please convert to STL, OBJ, or PLY format.');
           return;
         
         default:
-          onError?.('Unsupported file format');
+          onError?.('Unsupported file format. Supported: STL, PLY, OBJ');
           return;
       }
 

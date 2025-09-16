@@ -1304,7 +1304,6 @@ function AppPage() {
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_stl")}</span>
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_obj")}</span>
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_ply")}</span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{t("app_welcome_mf")}</span>
                     </div>
                   </div>  
                 </div>

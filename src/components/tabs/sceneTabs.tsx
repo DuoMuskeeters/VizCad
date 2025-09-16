@@ -42,6 +42,7 @@ export function ScenesTab({
     } = useVtkScene();
   
   const backgroundInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedStudio, setSelectedStudio] = useState("plain-white")
   const [customColor, setCustomColor] = useState("#ffffff")
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -164,10 +165,25 @@ export function ScenesTab({
           <p className="text-xs text-gray-600 mb-1">
             {isDragOver ? t("scene_dropModel") : t("scene_dragDropOrBrowse")}
           </p>
-            <Button size="sm" variant="outline" className="text-xs px-3 py-1 bg-transparent">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="text-xs px-3 py-1 bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
             {t("scene_browse")}
           </Button>
-          <input type="file" accept=".stl,.obj,.ply,.3mf" className="hidden" tabIndex={-1} onChange={onFileChange} />
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            accept=".stl,.obj,.ply" 
+            className="hidden" 
+            tabIndex={-1} 
+            onChange={onFileChange} 
+          />
           {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
         </div>
       </div>
