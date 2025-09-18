@@ -1,12 +1,28 @@
 "use client"
 
-import { Link, useLocation } from "@tanstack/react-router"
+import { Link, useLocation, useNavigate } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
+import { PaletteSelector } from "./palette-selector"
+import { ModeToggle } from "./mode-toggle"
+import LanguageSwitcher from "./LanguageSwitcher"
+import React from "react"
 
 export default function Header() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
+
+  // State for mobile menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
+
+  // Determine if current page is contact
+  const isContactPage = location.pathname === "/contact"
+
+  // Get resolved theme (requires next-themes)
+  // If you use another theme provider, adjust accordingly
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { resolvedTheme } = require("next-themes").useTheme()
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
