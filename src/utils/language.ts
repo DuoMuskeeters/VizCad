@@ -1,4 +1,9 @@
 export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
+  // Server-side check
+  if (typeof window === 'undefined') {
+    return 'en' // Default to English for SSR
+  }
+  
   // 1. Cookie'den kontrol et (server/client arası tutarlılık için)
   try {
     const cookieMatch = document.cookie.match(/(?:^|; )vizcad-language=([^;]+)/)
@@ -61,7 +66,7 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
     // ignore navigator errors
   }
 
-  // 4. Default olarak İngilizce
+  // 4. Default olarak İngilizce (site international)
   return 'en'
 }
 

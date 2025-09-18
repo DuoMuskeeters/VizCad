@@ -1,5 +1,6 @@
 ﻿import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { handleSSR } from './ssr-middleware'
 
 interface Env {
   DB: D1Database
@@ -485,6 +486,31 @@ app.get('/api/models/placeholder/*', async (c) => {
     message: 'Please enable R2 in Cloudflare Dashboard to download files',
     setup_url: 'https://dash.cloudflare.com/'
   }, 503)
+})
+
+// SSR Routes - these should be handled by the SSR middleware
+app.get('/', handleSSR)
+app.get('/contact', handleSSR)
+app.get('/faq', handleSSR)
+app.get('/store', handleSSR)
+
+// SPA Routes - serve the basic shell and let client handle routing  
+app.get('/app/*', async (c) => {
+  // These routes are handled client-side, just serve the shell
+  return handleSSR(c) // The middleware will detect it's a SPA route
+})
+
+app.get('/ModelSnap/*', async (c) => {
+  return handleSSR(c)
+})
+
+app.get('/viewEmbed/*', async (c) => {
+  return handleSSR(c)
+})
+
+// Catch all other routes and serve SPA shell
+app.get('*', async (c) => {
+  return handleSSR(c)
 })
 
 export default app
