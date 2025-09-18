@@ -366,9 +366,9 @@ function AppPage() {
   const openFileDialog = () => {
     // Reset the file input value to allow re-selection of the same file
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = "";
+      setTimeout(() => fileInputRef.current?.click(), 0);
     }
-    fileInputRef.current?.click()
   }
 
   // Drag & drop handlers
@@ -415,7 +415,7 @@ function AppPage() {
   const tabs = [
     { id: "scenes", label: t("app_tabs_scenes"), icon: Layers, available: true },
     { id: "lights", label: t("app_tabs_lights"), icon: Lightbulb, available: isDeveloper },
-    { id: "camera", label: t("app_tabs_camera"), icon: Camera, available: isDeveloper },
+    // Camera tab hidden
     {
       id: "materials",
       label: t("app_tabs_materials"),

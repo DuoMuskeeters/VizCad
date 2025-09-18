@@ -134,8 +134,8 @@ function ContactPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header Section */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground dark:text-white mb-4">
-            {t("contact.header.title")} <span className="text-primary">{t("contact.header.titleAccent")}</span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+            {t("contact.header.title")} <span className="text-primary-foreground bg-primary/20 px-2 rounded">{t("contact.header.titleAccent")}</span>
           </h1>
           <p className="text-lg text-muted-foreground dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
             {t("contact.header.subtitle")}
@@ -211,15 +211,15 @@ function ContactPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <Mail className="w-6 h-6 text-primary-foreground" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">{t("contact.info.email")}</h3>
                     <p className="text-muted-foreground">{t("contact.info.emailDesc")}</p>
                     <a
                       href="mailto:info@viz-cad.com"
-                      className="text-primary hover:text-primary/80 transition-colors font-medium"
+                      className="text-primary-foreground hover:text-primary/80 transition-colors font-medium"
                     >
                       info@viz-cad.com
                     </a>
@@ -231,15 +231,15 @@ function ContactPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <Phone className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <Phone className="w-6 h-6 text-primary-foreground" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">{t("contact.info.phone")}</h3>
                     <p className="text-muted-foreground">{t("contact.info.phoneDesc")}</p>
                     <a
                       href="tel:+90-536-247-1019"
-                      className="text-primary hover:text-primary/80 transition-colors font-medium"
+                      className="text-primary-foreground hover:text-primary/80 transition-colors font-medium"
                     >
                       +90 (536) 247-1019
                     </a>
@@ -251,8 +251,8 @@ function ContactPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <MapPin className="w-6 h-6 text-primary-foreground" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">{t("contact.info.location")}</h3>

@@ -69,8 +69,6 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
   // 4. Default olarak İngilizce (site international)
   return 'en'
 }
-
-// SEO content by language
 export const seoContent = {
   en: {
     root: {
@@ -113,6 +111,15 @@ export const seoContent = {
       ogDescription: "Find answers to common questions about VizCad 3D viewer. Learn about supported formats, features, and how to get the most from our CAD visualization tool.",
       twitterTitle: "VizCad FAQ - 3D Viewer Questions & Answers",
       twitterDescription: "Frequently asked questions about VizCad 3D viewer. Find answers about file formats, features, and usage.",
+    },
+    modelSnap: {
+      title: "ModelSnap | VizCad: Convert STL to PNG, JPG, CSV Online",
+      description: "ModelSnap by VizCad lets you convert STL files to high-quality PNG, JPG images or CSV data online. Instantly upload your 3D models and generate visual or data outputs for engineering, design, or 3D printing projects.",
+      keywords: "STL to PNG converter, STL to JPG converter, STL to CSV converter, 3D model to image, convert STL online, STL visualization tool, STL file to image free, 3D printing STL to image, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad: Convert STL to PNG, JPG, CSV Online",
+      ogDescription: "Convert STL files to PNG, JPG images or CSV data instantly with ModelSnap by VizCad. Perfect for engineers, designers, students, and 3D printing hobbyists.",
+      twitterTitle: "ModelSnap | VizCad: Convert STL to PNG, JPG, CSV Online",
+      twitterDescription: "Online STL to image converter. Generate high-quality PNG, JPG or CSV from STL files instantly with ModelSnap by VizCad.",
     },
   },
   tr: {
@@ -157,177 +164,221 @@ export const seoContent = {
       twitterTitle: "VizCad SSS - 3D Görüntüleyici Sorular ve Cevaplar",
       twitterDescription: "VizCad 3D görüntüleyici hakkında sık sorulan sorular. Dosya formatları, özellikler ve kullanım hakkında cevaplar bulun.",
     },
-  },
-  de: {
+    modelSnap: {
+      title: "ModelSnap | VizCad: STL'yi PNG, JPG, CSV'ye Çevir Online",
+      description: "VizCad'in ModelSnap aracı ile STL dosyalarını yüksek kaliteli PNG, JPG görsellerine veya CSV verilerine çevirebilirsiniz. 3D modellerinizi anında yükleyin ve mühendislik, tasarım veya 3D baskı projeleri için görsel veya veri çıktıları oluşturun.",
+      keywords: "STL'den PNG'ye dönüştürme, STL'den JPG'ye dönüştürme, STL'den CSV, 3D modelden görsele, STL'yi çevrimiçi dönüştürme, STL görselleştirme aracı, STL dosyasını görsele ücretsiz dönüştürme, 3D baskı STL'yi görsele dönüştürme, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad: STL'yi PNG, JPG, CSV'ye Çevir Online",
+      ogDescription: "STL dosyalarını ModelSnap ile PNG, JPG görsellerine veya CSV verilerine anında dönüştürün. Mühendisler, tasarımcılar, öğrenciler ve 3D baskı meraklıları için mükemmel.",
+      twitterTitle: "ModelSnap | VizCad: STL'yi PNG, JPG, CSV'ye Çevir Online",
+      twitterDescription: "Online STL'den görsele dönüştürücü. STL dosyalarından ModelSnap ile yüksek kaliteli PNG, JPG veya CSV çıktıları anında oluşturun.",
+    },
+  },de: {
     root: {
-      description: "VizCad - Professioneller 3D-CAD-Dateibetrachter und -Renderer. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien sofort hoch. Kostenloses browserbasiertes 3D-Visualisierungstool mit erweiterten Rendering-Funktionen.",
-      keywords: "3D-Viewer, CAD-Viewer, STL-Viewer, OBJ-Viewer, PLY-Viewer, 3MF-Viewer, 3D-Dateibetrachter, CAD-Dateibetrachter, Browser-3D-Viewer, Online-3D-Viewer, WebGL-Viewer, VTK.js-Viewer",
-      locale: "de_DE"
+      description: "VizCad - Professioneller 3D-CAD-Dateibetrachter und Renderer. Laden Sie STL, OBJ, PLY, 3MF-Dateien sofort hoch. Kostenloses browserbasiertes 3D-Visualisierungstool mit erweiterten Rendering-Funktionen.",
+      keywords: "3D-Betrachter, CAD-Betrachter, STL-Betrachter, OBJ-Betrachter, PLY-Betrachter, 3MF-Betrachter, 3D-Dateibetrachter, CAD-Dateibetrachter, Browser 3D-Betrachter, Online 3D-Betrachter, WebGL-Betrachter, VTK.js-Betrachter",
+      locale: "de_DE",
     },
     home: {
-      title: "VizCad - Professioneller 3D-CAD-Dateibetrachter & Renderer",
-      description: "VizCad ist ein professioneller browserbasierter 3D-CAD-Dateibetrachter. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien sofort hoch und visualisieren Sie sie mit erweiterten Rendering-Funktionen. Kostenloser Online-3D-Viewer mit Rendering in Studioqualität.",
-      keywords: "3D-CAD-Viewer, STL-Viewer online, OBJ-Dateibetrachter, PLY-Viewer, 3MF-Viewer, Browser-3D-Viewer, CAD-Dateivisualisierung, WebGL-3D-Viewer, Online-3D-Modell-Viewer, VTK.js-Viewer, professioneller 3D-Viewer",
-      ogTitle: "VizCad - Professioneller 3D-CAD-Dateibetrachter & Renderer",
-      ogDescription: "Professioneller browserbasierter 3D-CAD-Dateibetrachter. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien sofort hoch und visualisieren Sie sie mit Rendering in Studioqualität. Kostenloses Online-3D-Visualisierungstool.",
-      twitterTitle: "VizCad - Professioneller 3D-CAD-Dateibetrachter",
-      twitterDescription: "Professioneller browserbasierter 3D-CAD-Dateibetrachter. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien sofort hoch und visualisieren Sie sie mit Rendering in Studioqualität."
+      title: "VizCad - Professioneller 3D CAD-Dateibetrachter & Renderer",
+      description: "VizCad ist ein professioneller browserbasierter 3D-CAD-Dateibetrachter. STL, OBJ, PLY, 3MF-Dateien sofort hochladen und mit erweiterten Rendering-Funktionen visualisieren. Kostenloser Online-3D-Betrachter mit Studioqualität.",
+      keywords: "3D CAD-Betrachter, STL-Betrachter online, OBJ-Dateibetrachter, PLY-Betrachter, 3MF-Betrachter, Browser 3D-Betrachter, CAD-Datei-Visualisierung, WebGL 3D-Betrachter, Online 3D-Modell-Betrachter, VTK.js-Betrachter, professioneller 3D-Betrachter",
+      ogTitle: "VizCad - Professioneller 3D CAD-Dateibetrachter & Renderer",
+      ogDescription: "Professioneller browserbasierter 3D-CAD-Dateibetrachter. STL, OBJ, PLY, 3MF-Dateien sofort hochladen und in Studioqualität rendern. Kostenloses Online-3D-Visualisierungstool.",
+      twitterTitle: "VizCad - Professioneller 3D CAD-Dateibetrachter",
+      twitterDescription: "Professioneller browserbasierter 3D-CAD-Dateibetrachter. STL, OBJ, PLY, 3MF-Dateien sofort hochladen und in Studioqualität rendern.",
     },
     app: {
-      title: "3D-Viewer - VizCad App | 3D-Modelle hochladen & visualisieren",
-      description: "VizCad 3D-Viewer-App - Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien hoch und visualisieren Sie sie mit professionellen Rendering-Tools. Erweiterte Kamerasteuerung, Drahtgitteransicht, Studiobeleuchtung und hochwertige 3D-Visualisierung.",
-      keywords: "3D-Viewer-App, STL-Viewer, OBJ-Viewer, PLY-Viewer, 3MF-Viewer, CAD-Dateibetrachter, 3D-Modell-Viewer, WebGL-Viewer, VTK.js-Viewer, Drahtgitteransicht, 3D-Rendering, CAD-Visualisierungstool",
-      ogTitle: "VizCad 3D-Viewer-App - Professionelle 3D-Modell-Visualisierung",
-      ogDescription: "Professionelle 3D-Viewer-Anwendung. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien hoch und visualisieren Sie sie mit erweiterten Rendering-Tools, Kamerasteuerung und Studiobeleuchtung.",
-      twitterTitle: "VizCad 3D-Viewer-App - 3D-Modelle hochladen & visualisieren",
-      twitterDescription: "Professioneller 3D-Viewer mit erweiterten Rendering-Tools. Laden Sie STL-, OBJ-, PLY-, 3MF-Dateien hoch und visualisieren Sie sie mit Studiobeleuchtung."
+      title: "3D-Betrachter - VizCad App | 3D-Modelle hochladen & visualisieren",
+      description: "VizCad 3D-Betrachter App - STL, OBJ, PLY, 3MF-Dateien mit professionellen Rendering-Tools hochladen und visualisieren. Erweiterte Kamerasteuerung, Drahtgitteransicht, Studio-Beleuchtung und hochwertige 3D-Visualisierung.",
+      keywords: "3D-Betrachter App, STL-Betrachter, OBJ-Betrachter, PLY-Betrachter, 3MF-Betrachter, CAD-Datei-Betrachter, 3D-Modell-Betrachter, WebGL-Betrachter, VTK.js-Betrachter, Drahtgitteransicht, 3D-Rendering, CAD-Visualisierungstool",
+      ogTitle: "VizCad 3D-Betrachter App - Professionelle 3D-Modell-Visualisierung",
+      ogDescription: "Professionelle 3D-Betrachter-Anwendung. STL, OBJ, PLY, 3MF-Dateien hochladen und mit erweiterten Rendering-Tools, Kamerasteuerung und Studio-Beleuchtung visualisieren.",
+      twitterTitle: "VizCad 3D-Betrachter App - 3D-Modelle hochladen & visualisieren",
+      twitterDescription: "Professioneller 3D-Betrachter mit erweiterten Rendering-Tools. STL, OBJ, PLY, 3MF-Dateien hochladen und mit Studio-Beleuchtung visualisieren.",
     },
     contact: {
       title: "Kontakt VizCad - Support erhalten & Feedback senden",
-      description: "Kontaktieren Sie das VizCad-Team für Support, Feedback oder Anfragen. Erhalten Sie Hilfe bei der 3D-Dateiansicht, technischen Problemen oder Funktionsanfragen. Professioneller Support für die CAD-Dateivisualisierung.",
-      keywords: "VizCad Kontakt, 3D-Viewer-Support, CAD-Viewer-Hilfe, technischer Support, Kundendienst, Feedback, 3D-Visualisierungssupport, STL-Viewer-Hilfe",
-      ogTitle: "Kontakt VizCad - Professioneller 3D-Viewer-Support",
-      ogDescription: "Erhalten Sie professionellen Support für den VizCad 3D-Viewer. Kontaktieren Sie uns für technische Hilfe, Funktionsanfragen oder Fragen zur CAD-Dateivisualisierung.",
+      description: "Kontaktieren Sie das VizCad-Team für Support, Feedback oder Anfragen. Hilfe bei 3D-Dateiansicht, technischen Problemen oder Feature-Anfragen. Professioneller Support für CAD-Datei-Visualisierung.",
+      keywords: "VizCad Kontakt, 3D-Betrachter Support, CAD-Betrachter Hilfe, technischer Support, Kundenservice, Feedback, 3D-Visualisierung Support, STL-Betrachter Hilfe",
+      ogTitle: "Kontakt VizCad - Professioneller 3D-Betrachter Support",
+      ogDescription: "Professioneller Support für VizCad 3D-Betrachter. Kontaktieren Sie uns für technische Hilfe, Feature-Anfragen oder Fragen zur CAD-Visualisierung.",
       twitterTitle: "Kontakt VizCad - Support erhalten & Feedback senden",
-      twitterDescription: "Professioneller Support für den VizCad 3D-Viewer. Erhalten Sie Hilfe bei der CAD-Dateivisualisierung und bei technischen Problemen."
+      twitterDescription: "Professioneller Support für VizCad 3D-Betrachter. Hilfe bei CAD-Visualisierung und technischen Problemen.",
     },
     faq: {
-      title: "FAQ - Fragen & Antworten zum VizCad 3D-Viewer",
-      description: "Häufig gestellte Fragen zum VizCad 3D-Viewer. Finden Sie Antworten zu unterstützten Dateiformaten, Browserkompatibilität, Leistung, Funktionen und zur Verwendung des CAD-Dateibetrachters.",
-      keywords: "VizCad FAQ, 3D-Viewer-Fragen, CAD-Viewer-Hilfe, STL-Viewer FAQ, unterstützte Dateiformate, Browserkompatibilität, 3D-Visualisierungs-Hilfe, WebGL-Viewer-Fragen",
-      ogTitle: "VizCad FAQ - Fragen & Antworten zum 3D-Viewer",
-      ogDescription: "Finden Sie Antworten auf häufig gestellte Fragen zum VizCad 3D-Viewer. Erfahren Sie mehr über unterstützte Formate, Funktionen und wie Sie unser CAD-Visualisierungstool optimal nutzen können.",
-      twitterTitle: "VizCad FAQ - Fragen & Antworten zum 3D-Viewer",
-      twitterDescription: "Häufig gestellte Fragen zum VizCad 3D-Viewer. Finden Sie Antworten zu Dateiformaten, Funktionen und zur Verwendung."
-    }
+      title: "FAQ - VizCad 3D-Betrachter Fragen & Antworten",
+      description: "Häufig gestellte Fragen zum VizCad 3D-Betrachter. Antworten zu unterstützten Dateiformaten, Browserkompatibilität, Leistung, Funktionen und Bedienung des CAD-Dateibetrachter.",
+      keywords: "VizCad FAQ, 3D-Betrachter Fragen, CAD-Betrachter Hilfe, STL-Betrachter FAQ, unterstützte Dateiformate, Browserkompatibilität, 3D-Visualisierung Hilfe, WebGL-Betrachter Fragen",
+      ogTitle: "VizCad FAQ - 3D-Betrachter Fragen & Antworten",
+      ogDescription: "Antworten auf häufige Fragen zum VizCad 3D-Betrachter. Informationen zu unterstützten Formaten, Funktionen und optimaler Nutzung des CAD-Visualisierungstools.",
+      twitterTitle: "VizCad FAQ - 3D-Betrachter Fragen & Antworten",
+      twitterDescription: "Häufig gestellte Fragen zum VizCad 3D-Betrachter. Antworten zu Dateiformaten, Funktionen und Nutzung.",
+    },
+    modelSnap: {
+      title: "ModelSnap | VizCad: STL zu PNG, JPG, CSV online konvertieren",
+      description: "Mit ModelSnap von VizCad STL-Dateien sofort in hochwertige PNG, JPG-Bilder oder CSV-Daten konvertieren. 3D-Modelle hochladen und visuelle oder datenbasierte Ausgaben für Technik, Design oder 3D-Druckprojekte erzeugen.",
+      keywords: "STL zu PNG Konverter, STL zu JPG Konverter, STL zu CSV Konverter, 3D-Modell zu Bild, STL online konvertieren, STL Visualisierungstool, STL-Datei kostenlos zu Bild, 3D-Druck STL zu Bild, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad: STL zu PNG, JPG, CSV online konvertieren",
+      ogDescription: "STL-Dateien sofort mit ModelSnap von VizCad in PNG, JPG-Bilder oder CSV-Daten konvertieren. Ideal für Ingenieure, Designer, Studenten und 3D-Druck-Enthusiasten.",
+      twitterTitle: "ModelSnap | VizCad: STL zu PNG, JPG, CSV online konvertieren",
+      twitterDescription: "Online STL zu Bild-Konverter. Hochwertige PNG, JPG oder CSV aus STL-Dateien sofort mit ModelSnap von VizCad erstellen.",
+    },
   },
   es: {
     root: {
-      description: "VizCad - Visor y renderizador de archivos CAD 3D profesional. Suba archivos STL, OBJ, PLY, 3MF al instante. Herramienta de visualización 3D gratuita basada en navegador con capacidades de renderizado avanzadas.",
+      description: "VizCad - Visor y renderizador profesional de archivos CAD 3D. Carga archivos STL, OBJ, PLY, 3MF al instante. Herramienta gratuita de visualización 3D en el navegador con capacidades avanzadas de renderizado.",
       keywords: "visor 3D, visor CAD, visor STL, visor OBJ, visor PLY, visor 3MF, visor de archivos 3D, visor de archivos CAD, visor 3D en navegador, visor 3D online, visor WebGL, visor VTK.js",
-      locale: "es_ES"
+      locale: "es_ES",
     },
     home: {
-      title: "VizCad - Visor y renderizador profesional de archivos CAD 3D",
-      description: "VizCad es un visor profesional de archivos CAD 3D basado en navegador. Suba y visualice archivos STL, OBJ, PLY, 3MF al instante con capacidades de renderizado avanzadas. Visor 3D online gratuito con renderizado de calidad de estudio.",
-      keywords: "visor CAD 3D, visor STL online, visor de archivos OBJ, visor PLY, visor 3MF, visor 3D en navegador, visualización de archivos CAD, visor 3D WebGL, visor de modelos 3D online, visor VTK.js, visor 3D profesional",
-      ogTitle: "VizCad - Visor y renderizador profesional de archivos CAD 3D",
-      ogDescription: "Visor profesional de archivos CAD 3D basado en navegador. Suba archivos STL, OBJ, PLY, 3MF al instante con renderizado de calidad de estudio. Herramienta de visualización 3D online gratuita.",
-      twitterTitle: "VizCad - Visor profesional de archivos CAD 3D",
-      twitterDescription: "Visor profesional de archivos CAD 3D basado en navegador. Suba archivos STL, OBJ, PLY, 3MF al instante con renderizado de calidad de estudio."
+      title: "VizCad - Visor y Renderizador Profesional de Archivos CAD 3D",
+      description: "VizCad es un visor profesional de archivos CAD 3D basado en navegador. Carga y visualiza archivos STL, OBJ, PLY, 3MF al instante con funciones avanzadas de renderizado. Visor 3D online gratuito con calidad de estudio.",
+      keywords: "visor CAD 3D, visor STL online, visor de archivos OBJ, visor PLY, visor 3MF, visor 3D en navegador, visualización de archivos CAD, visor 3D WebGL, visor de modelos 3D online, visor profesional 3D",
+      ogTitle: "VizCad - Visor y Renderizador Profesional de Archivos CAD 3D",
+      ogDescription: "Visor profesional de archivos CAD 3D basado en navegador. Carga archivos STL, OBJ, PLY, 3MF al instante con renderizado de calidad de estudio. Herramienta gratuita de visualización 3D online.",
+      twitterTitle: "VizCad - Visor Profesional de Archivos CAD 3D",
+      twitterDescription: "Visor profesional de archivos CAD 3D basado en navegador. Carga archivos STL, OBJ, PLY, 3MF al instante con renderizado de calidad de estudio.",
     },
     app: {
-      title: "Visor 3D - App de VizCad | Subir y visualizar modelos 3D",
-      description: "App Visor 3D de VizCad - Suba y visualice archivos STL, OBJ, PLY, 3MF con herramientas de renderizado profesionales. Controles de cámara avanzados, vista de wireframe, iluminación de estudio y visualización 3D de alta calidad.",
-      keywords: "app visor 3D, visor STL, visor OBJ, visor PLY, visor 3MF, visor de archivos CAD, visor de modelos 3D, visor WebGL, visor VTK.js, vista wireframe, renderizado 3D, herramienta de visualización CAD",
-      ogTitle: "App Visor 3D de VizCad - Visualización profesional de modelos 3D",
-      ogDescription: "Aplicación de visor 3D profesional. Suba archivos STL, OBJ, PLY, 3MF y visualícelos con herramientas de renderizado avanzadas, controles de cámara e iluminación de estudio.",
-      twitterTitle: "App Visor 3D de VizCad - Subir y visualizar modelos 3D",
-      twitterDescription: "Visor 3D profesional con herramientas de renderizado avanzadas. Suba archivos STL, OBJ, PLY, 3MF y visualícelos con iluminación de estudio."
+      title: "Visor 3D - Aplicación VizCad | Carga y visualiza modelos 3D",
+      description: "Aplicación VizCad 3D Viewer - Carga y visualiza archivos STL, OBJ, PLY, 3MF con herramientas de renderizado profesional. Controles avanzados de cámara, vista en alambre, iluminación de estudio y visualización 3D de alta calidad.",
+      keywords: "aplicación visor 3D, visor STL, visor OBJ, visor PLY, visor 3MF, visor de archivos CAD, visor de modelos 3D, visor WebGL, visor VTK.js, vista en alambre, renderizado 3D, herramienta de visualización CAD",
+      ogTitle: "Aplicación VizCad 3D Viewer - Visualización profesional de modelos 3D",
+      ogDescription: "Aplicación profesional de visor 3D. Carga archivos STL, OBJ, PLY, 3MF y visualiza con herramientas avanzadas de renderizado, controles de cámara e iluminación de estudio.",
+      twitterTitle: "Aplicación VizCad 3D Viewer - Carga y visualiza modelos 3D",
+      twitterDescription: "Visor 3D profesional con herramientas avanzadas de renderizado. Carga archivos STL, OBJ, PLY, 3MF y visualiza con iluminación de estudio.",
     },
     contact: {
-      title: "Contactar con VizCad - Obtener soporte y enviar comentarios",
-      description: "Contacte con el equipo de VizCad para soporte, comentarios o consultas. Obtenga ayuda con la visualización de archivos 3D, problemas técnicos o solicitudes de funciones. Soporte profesional para la visualización de archivos CAD.",
-      keywords: "contacto VizCad, soporte visor 3D, ayuda visor CAD, soporte técnico, servicio al cliente, comentarios, soporte de visualización 3D, ayuda visor STL",
-      ogTitle: "Contactar con VizCad - Soporte profesional para visor 3D",
-      ogDescription: "Obtenga soporte profesional para el visor 3D de VizCad. Contáctenos para ayuda técnica, solicitudes de funciones o cualquier pregunta sobre la visualización de archivos CAD.",
-      twitterTitle: "Contactar con VizCad - Obtener soporte y enviar comentarios",
-      twitterDescription: "Soporte profesional para el visor 3D de VizCad. Obtenga ayuda con la visualización de archivos CAD y problemas técnicos."
+      title: "Contacto VizCad - Obtén soporte y envía feedback",
+      description: "Contacta al equipo de VizCad para soporte, feedback o consultas. Obtén ayuda con la visualización de archivos 3D, problemas técnicos o solicitudes de funciones. Soporte profesional para visualización de archivos CAD.",
+      keywords: "contacto VizCad, soporte visor 3D, ayuda visor CAD, soporte técnico, atención al cliente, feedback, soporte visualización 3D, ayuda visor STL",
+      ogTitle: "Contacto VizCad - Soporte profesional del visor 3D",
+      ogDescription: "Obtén soporte profesional para VizCad 3D Viewer. Contáctanos para ayuda técnica, solicitudes de funciones o preguntas sobre visualización CAD.",
+      twitterTitle: "Contacto VizCad - Obtén soporte y envía feedback",
+      twitterDescription: "Soporte profesional para VizCad 3D Viewer. Ayuda con visualización CAD y problemas técnicos.",
     },
     faq: {
-      title: "Preguntas frecuentes - Preguntas y respuestas del visor 3D de VizCad",
-      description: "Preguntas frecuentes sobre el visor 3D de VizCad. Encuentre respuestas sobre formatos de archivo compatibles, compatibilidad del navegador, rendimiento, funciones y cómo usar el visor de archivos CAD.",
-      keywords: "FAQ VizCad, preguntas visor 3D, ayuda visor CAD, FAQ visor STL, formatos de archivo compatibles, compatibilidad del navegador, ayuda de visualización 3D, preguntas del visor WebGL",
+      title: "FAQ - Preguntas y respuestas del visor 3D VizCad",
+      description: "Preguntas frecuentes sobre VizCad 3D Viewer. Encuentra respuestas sobre formatos de archivo soportados, compatibilidad del navegador, rendimiento, funciones y cómo usar el visor CAD.",
+      keywords: "FAQ VizCad, preguntas visor 3D, ayuda visor CAD, FAQ visor STL, formatos soportados, compatibilidad navegador, ayuda visualización 3D, preguntas visor WebGL",
       ogTitle: "FAQ VizCad - Preguntas y respuestas del visor 3D",
-      ogDescription: "Encuentre respuestas a preguntas comunes sobre el visor 3D de VizCad. Aprenda sobre los formatos compatibles, las funciones y cómo aprovechar al máximo nuestra herramienta de visualización CAD.",
+      ogDescription: "Encuentra respuestas a preguntas comunes sobre VizCad 3D Viewer. Aprende sobre formatos soportados, funciones y cómo sacar el máximo provecho de la herramienta CAD.",
       twitterTitle: "FAQ VizCad - Preguntas y respuestas del visor 3D",
-      twitterDescription: "Preguntas frecuentes sobre el visor 3D de VizCad. Encuentre respuestas sobre formatos de archivo, funciones y uso."
-    }
-  },
-  fr: {
+      twitterDescription: "Preguntas frecuentes sobre VizCad 3D Viewer. Respuestas sobre formatos de archivo, funciones y uso.",
+    },
+    modelSnap: {
+      title: "ModelSnap | VizCad: Convierte STL a PNG, JPG, CSV online",
+      description: "ModelSnap de VizCad permite convertir archivos STL a imágenes PNG, JPG de alta calidad o datos CSV online. Carga tus modelos 3D al instante y genera resultados visuales o de datos para ingeniería, diseño o impresión 3D.",
+      keywords: "STL a PNG, STL a JPG, STL a CSV, modelo 3D a imagen, convertir STL online, herramienta visualización STL, STL a imagen gratis, impresión 3D STL a imagen, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad: Convierte STL a PNG, JPG, CSV online",
+      ogDescription: "Convierte archivos STL a PNG, JPG o CSV al instante con ModelSnap de VizCad. Perfecto para ingenieros, diseñadores, estudiantes y aficionados a la impresión 3D.",
+      twitterTitle: "ModelSnap | VizCad: Convierte STL a PNG, JPG, CSV online",
+      twitterDescription: "Convertidor STL a imagen online. Genera PNG, JPG o CSV de alta calidad desde STL con ModelSnap de VizCad.",
+    },
+  },fr: {
     root: {
-      description: "VizCad - Visualiseur et moteur de rendu de fichiers CAO 3D professionnel. Téléchargez instantanément des fichiers STL, OBJ, PLY, 3MF. Outil de visualisation 3D gratuit basé sur un navigateur avec des capacités de rendu avancées.",
-      keywords: "visualiseur 3D, visualiseur CAO, visualiseur STL, visualiseur OBJ, visualiseur PLY, visualiseur 3MF, visualiseur de fichiers 3D, visualiseur de fichiers CAO, visualiseur 3D sur navigateur, visualiseur 3D en ligne, visualiseur WebGL, visualiseur VTK.js",
-      locale: "fr_FR"
+      description: "VizCad - Visionneuse et rendu professionnel de fichiers CAD 3D. Téléchargez instantanément des fichiers STL, OBJ, PLY, 3MF. Outil gratuit de visualisation 3D dans le navigateur avec rendu avancé.",
+      keywords: "visionneuse 3D, visionneuse CAD, visionneuse STL, visionneuse OBJ, visionneuse PLY, visionneuse 3MF, visionneuse fichiers 3D, visionneuse fichiers CAD, visionneuse 3D navigateur, visionneuse 3D en ligne, visionneuse WebGL, visionneuse VTK.js",
+      locale: "fr_FR",
     },
     home: {
-      title: "VizCad - Visualiseur et moteur de rendu professionnel de fichiers CAO 3D",
-      description: "VizCad est un visualiseur de fichiers CAO 3D professionnel basé sur un navigateur. Téléchargez et visualisez instantanément des fichiers STL, OBJ, PLY, 3MF avec des capacités de rendu avancées. Visualiseur 3D en ligne gratuit avec rendu de qualité studio.",
-      keywords: "visualiseur CAO 3D, visualiseur STL en ligne, visualiseur de fichiers OBJ, visualiseur PLY, visualiseur 3MF, visualiseur 3D sur navigateur, visualisation de fichiers CAO, visualiseur 3D WebGL, visualiseur de modèles 3D en ligne, visualiseur VTK.js, visualiseur 3D professionnel",
-      ogTitle: "VizCad - Visualiseur et moteur de rendu professionnel de fichiers CAO 3D",
-      ogDescription: "Visualiseur de fichiers CAO 3D professionnel basé sur un navigateur. Téléchargez instantanément des fichiers STL, OBJ, PLY, 3MF avec un rendu de qualité studio. Outil de visualisation 3D en ligne gratuit.",
-      twitterTitle: "VizCad - Visualiseur professionnel de fichiers CAO 3D",
-      twitterDescription: "Visualiseur de fichiers CAO 3D professionnel basé sur un navigateur. Téléchargez instantanément des fichiers STL, OBJ, PLY, 3MF avec un rendu de qualité studio."
+      title: "VizCad - Visionneuse et Rendu Professionnel de Fichiers CAD 3D",
+      description: "VizCad est une visionneuse professionnelle de fichiers CAD 3D basée sur le navigateur. Téléchargez et visualisez des fichiers STL, OBJ, PLY, 3MF instantanément avec rendu avancé. Visionneuse 3D en ligne gratuite avec rendu de qualité studio.",
+      keywords: "visionneuse CAD 3D, visionneuse STL en ligne, visionneuse fichiers OBJ, visionneuse PLY, visionneuse 3MF, visionneuse 3D navigateur, visualisation fichiers CAD, visionneuse 3D WebGL, visionneuse modèles 3D en ligne, visionneuse professionnelle 3D",
+      ogTitle: "VizCad - Visionneuse et Rendu Professionnel de Fichiers CAD 3D",
+      ogDescription: "Visionneuse professionnelle de fichiers CAD 3D basée sur le navigateur. Téléchargez instantanément des fichiers STL, OBJ, PLY, 3MF avec rendu de qualité studio. Outil gratuit de visualisation 3D en ligne.",
+      twitterTitle: "VizCad - Visionneuse Professionnelle de Fichiers CAD 3D",
+      twitterDescription: "Visionneuse professionnelle de fichiers CAD 3D basée sur le navigateur. Téléchargez des fichiers STL, OBJ, PLY, 3MF instantanément avec rendu de qualité studio.",
     },
     app: {
-      title: "Visualiseur 3D - App VizCad | Téléchargez et visualisez des modèles 3D",
-      description: "App Visualiseur 3D de VizCad - Téléchargez et visualisez des fichiers STL, OBJ, PLY, 3MF avec des outils de rendu professionnels. Commandes de caméra avancées, vue filaire, éclairage de studio et visualisation 3D de haute qualité.",
-      keywords: "app visualiseur 3D, visualiseur STL, visualiseur OBJ, visualiseur PLY, visualiseur 3MF, visualiseur de fichiers CAO, visualiseur de modèles 3D, visualiseur WebGL, visualiseur VTK.js, vue filaire, rendu 3D, outil de visualisation CAO",
-      ogTitle: "App Visualiseur 3D de VizCad - Visualisation professionnelle de modèles 3D",
-      ogDescription: "Application de visualiseur 3D professionnelle. Téléchargez des fichiers STL, OBJ, PLY, 3MF et visualisez-les avec des outils de rendu avancés, des commandes de caméra et un éclairage de studio.",
-      twitterTitle: "App Visualiseur 3D de VizCad - Téléchargez et visualisez des modèles 3D",
-      twitterDescription: "Visualiseur 3D professionnel avec des outils de rendu avancés. Téléchargez des fichiers STL, OBJ, PLY, 3MF et visualisez-les avec un éclairage de studio."
+      title: "Visionneuse 3D - Application VizCad | Télécharger et Visualiser des Modèles 3D",
+      description: "Application VizCad 3D Viewer - Téléchargez et visualisez des fichiers STL, OBJ, PLY, 3MF avec outils de rendu professionnels. Contrôles avancés de la caméra, vue fil de fer, éclairage studio et visualisation 3D de haute qualité.",
+      keywords: "application visionneuse 3D, visionneuse STL, visionneuse OBJ, visionneuse PLY, visionneuse 3MF, visionneuse fichiers CAD, visionneuse modèles 3D, visionneuse WebGL, visionneuse VTK.js, vue fil de fer, rendu 3D, outil visualisation CAD",
+      ogTitle: "Application VizCad 3D Viewer - Visualisation Professionnelle de Modèles 3D",
+      ogDescription: "Application professionnelle de visionneuse 3D. Téléchargez des fichiers STL, OBJ, PLY, 3MF et visualisez-les avec outils de rendu avancés, contrôle caméra et éclairage studio.",
+      twitterTitle: "Application VizCad 3D Viewer - Télécharger et Visualiser des Modèles 3D",
+      twitterDescription: "Visionneuse 3D professionnelle avec outils de rendu avancés. Téléchargez des fichiers STL, OBJ, PLY, 3MF et visualisez-les avec éclairage studio.",
     },
     contact: {
-      title: "Contactez VizCad - Obtenez de l'aide et envoyez des commentaires",
-      description: "Contactez l'équipe VizCad pour de l'aide, des commentaires ou des demandes. Obtenez de l'aide pour la visualisation de fichiers 3D, les problèmes techniques ou les demandes de fonctionnalités. Assistance professionnelle pour la visualisation de fichiers CAO.",
-      keywords: "contact VizCad, assistance visualiseur 3D, aide visualiseur CAO, support technique, service client, commentaires, assistance visualisation 3D, aide visualiseur STL",
-      ogTitle: "Contactez VizCad - Assistance professionnelle pour visualiseur 3D",
-      ogDescription: "Obtenez une assistance professionnelle pour le visualiseur 3D de VizCad. Contactez-nous pour une aide technique, des demandes de fonctionnalités ou toute question sur la visualisation de fichiers CAO.",
-      twitterTitle: "Contactez VizCad - Obtenez de l'aide et envoyez des commentaires",
-      twitterDescription: "Assistance professionnelle pour le visualiseur 3D de VizCad. Obtenez de l'aide pour la visualisation de fichiers CAO et les problèmes techniques."
+      title: "Contact VizCad - Obtenez Support et Envoyez des Commentaires",
+      description: "Contactez l'équipe VizCad pour support, feedback ou questions. Obtenez de l'aide pour la visualisation de fichiers 3D, problèmes techniques ou demandes de fonctionnalités. Support professionnel pour la visualisation de fichiers CAD.",
+      keywords: "contact VizCad, support visionneuse 3D, aide visionneuse CAD, support technique, service client, feedback, support visualisation 3D, aide visionneuse STL",
+      ogTitle: "Contact VizCad - Support Professionnel Visionneuse 3D",
+      ogDescription: "Obtenez un support professionnel pour VizCad 3D Viewer. Contactez-nous pour assistance technique, demandes de fonctionnalités ou questions sur la visualisation CAD.",
+      twitterTitle: "Contact VizCad - Obtenez Support et Envoyez des Commentaires",
+      twitterDescription: "Support professionnel pour VizCad 3D Viewer. Assistance pour la visualisation CAD et problèmes techniques.",
     },
     faq: {
-      title: "FAQ - Questions et réponses sur le visualiseur 3D de VizCad",
-      description: "Foire aux questions sur le visualiseur 3D de VizCad. Trouvez des réponses sur les formats de fichiers pris en charge, la compatibilité des navigateurs, les performances, les fonctionnalités et comment utiliser le visualiseur de fichiers CAO.",
-      keywords: "FAQ VizCad, questions visualiseur 3D, aide visualiseur CAO, FAQ visualiseur STL, formats de fichiers pris en charge, compatibilité des navigateurs, aide à la visualisation 3D, questions sur le visualiseur WebGL",
-      ogTitle: "FAQ VizCad - Questions et réponses sur le visualiseur 3D",
-      ogDescription: "Trouvez des réponses aux questions courantes sur le visualiseur 3D de VizCad. Apprenez-en davantage sur les formats pris en charge, les fonctionnalités et comment tirer le meilleur parti de notre outil de visualisation CAO.",
-      twitterTitle: "FAQ VizCad - Questions et réponses sur le visualiseur 3D",
-      twitterDescription: "Foire aux questions sur le visualiseur 3D de VizCad. Trouvez des réponses sur les formats de fichiers, les fonctionnalités et l'utilisation."
-    }
+      title: "FAQ - Questions & Réponses sur VizCad 3D Viewer",
+      description: "Questions fréquentes sur VizCad 3D Viewer. Trouvez des réponses sur les formats pris en charge, compatibilité navigateur, performances, fonctionnalités et utilisation du visionneur CAD.",
+      keywords: "FAQ VizCad, questions visionneuse 3D, aide visionneuse CAD, FAQ visionneuse STL, formats pris en charge, compatibilité navigateur, aide visualisation 3D, questions visionneuse WebGL",
+      ogTitle: "FAQ VizCad - Questions & Réponses sur VizCad 3D Viewer",
+      ogDescription: "Trouvez des réponses aux questions courantes sur VizCad 3D Viewer. Informations sur les formats pris en charge, fonctionnalités et utilisation optimale de l'outil de visualisation CAD.",
+      twitterTitle: "FAQ VizCad - Questions & Réponses sur VizCad 3D Viewer",
+      twitterDescription: "Questions fréquentes sur VizCad 3D Viewer. Réponses sur les formats de fichiers, fonctionnalités et utilisation.",
+    },
+    modelSnap: {
+      title: "ModelSnap | VizCad : Convertir STL en PNG, JPG, CSV en ligne",
+      description: "Avec ModelSnap de VizCad, convertissez instantanément les fichiers STL en images PNG, JPG de haute qualité ou en données CSV. Téléchargez vos modèles 3D et générez des sorties visuelles ou de données pour l'ingénierie, le design ou l'impression 3D.",
+      keywords: "STL vers PNG, STL vers JPG, STL vers CSV, modèle 3D en image, convertir STL en ligne, outil visualisation STL, STL en image gratuit, impression 3D STL en image, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad : Convertir STL en PNG, JPG, CSV en ligne",
+      ogDescription: "Convertissez instantanément les fichiers STL en PNG, JPG ou CSV avec ModelSnap de VizCad. Parfait pour ingénieurs, designers, étudiants et passionnés d'impression 3D.",
+      twitterTitle: "ModelSnap | VizCad : Convertir STL en PNG, JPG, CSV en ligne",
+      twitterDescription: "Convertisseur STL en image en ligne. Générez instantanément des PNG, JPG ou CSV de haute qualité depuis STL avec ModelSnap de VizCad.",
+    },
   },
   hi: {
     root: {
-      description: "VizCad - पेशेवर 3D CAD फ़ाइल व्यूअर और रेंडरर। STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें। उन्नत रेंडरिंग क्षमताओं के साथ मुफ़्त ब्राउज़र-आधारित 3D विज़ुअलाइज़ेशन टूल।",
+      description: "VizCad - पेशेवर 3D CAD फ़ाइल व्यूअर और रेंडरर। STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें। उन्नत रेंडरिंग क्षमताओं के साथ मुफ्त ब्राउज़र-आधारित 3D विज़ुअलाइज़ेशन टूल।",
       keywords: "3D व्यूअर, CAD व्यूअर, STL व्यूअर, OBJ व्यूअर, PLY व्यूअर, 3MF व्यूअर, 3D फ़ाइल व्यूअर, CAD फ़ाइल व्यूअर, ब्राउज़र 3D व्यूअर, ऑनलाइन 3D व्यूअर, WebGL व्यूअर, VTK.js व्यूअर",
-      locale: "hi_IN"
+      locale: "hi_IN",
     },
     home: {
       title: "VizCad - पेशेवर 3D CAD फ़ाइल व्यूअर और रेंडरर",
-      description: "VizCad एक पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर है। उन्नत रेंडरिंग क्षमताओं के साथ STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड और विज़ुअलाइज़ करें। स्टूडियो-गुणवत्ता वाले रेंडरिंग के साथ मुफ़्त ऑनलाइन 3D व्यूअर।",
+      description: "VizCad एक पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर है। STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें और उन्नत रेंडरिंग क्षमताओं के साथ विज़ुअलाइज़ करें। मुफ्त ऑनलाइन 3D व्यूअर स्टूडियो गुणवत्ता रेंडरिंग के साथ।",
       keywords: "3D CAD व्यूअर, STL व्यूअर ऑनलाइन, OBJ फ़ाइल व्यूअर, PLY व्यूअर, 3MF व्यूअर, ब्राउज़र 3D व्यूअर, CAD फ़ाइल विज़ुअलाइज़ेशन, WebGL 3D व्यूअर, ऑनलाइन 3D मॉडल व्यूअर, VTK.js व्यूअर, पेशेवर 3D व्यूअर",
       ogTitle: "VizCad - पेशेवर 3D CAD फ़ाइल व्यूअर और रेंडरर",
-      ogDescription: "पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर। स्टूडियो-गुणवत्ता वाले रेंडरिंग के साथ STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें। मुफ़्त ऑनलाइन 3D विज़ुअलाइज़ेशन टूल।",
+      ogDescription: "पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर। STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें और स्टूडियो गुणवत्ता रेंडरिंग प्राप्त करें। मुफ्त ऑनलाइन 3D विज़ुअलाइज़ेशन टूल।",
       twitterTitle: "VizCad - पेशेवर 3D CAD फ़ाइल व्यूअर",
-      twitterDescription: "पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर। स्टूडियो-गुणवत्ता वाले रेंडरिंग के साथ STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें।"
+      twitterDescription: "पेशेवर ब्राउज़र-आधारित 3D CAD फ़ाइल व्यूअर। STL, OBJ, PLY, 3MF फ़ाइलें तुरंत अपलोड करें और स्टूडियो गुणवत्ता रेंडरिंग प्राप्त करें।",
     },
     app: {
       title: "3D व्यूअर - VizCad ऐप | 3D मॉडल अपलोड और विज़ुअलाइज़ करें",
-      description: "VizCad 3D व्यूअर ऐप - पेशेवर रेंडरिंग टूल के साथ STL, OBJ, PLY, 3MF फ़ाइलें अपलोड और विज़ुअलाइज़ करें। उन्नत कैमरा नियंत्रण, वायरफ़्रेम दृश्य, स्टूडियो लाइटिंग और उच्च-गुणवत्ता वाला 3D विज़ुअलाइज़ेशन।",
+      description: "VizCad 3D व्यूअर ऐप - STL, OBJ, PLY, 3MF फ़ाइलें पेशेवर रेंडरिंग टूल के साथ अपलोड और विज़ुअलाइज़ करें। उन्नत कैमरा नियंत्रण, वायरफ़्रेम दृश्य, स्टूडियो लाइटिंग और उच्च गुणवत्ता 3D विज़ुअलाइज़ेशन।",
       keywords: "3D व्यूअर ऐप, STL व्यूअर, OBJ व्यूअर, PLY व्यूअर, 3MF व्यूअर, CAD फ़ाइल व्यूअर, 3D मॉडल व्यूअर, WebGL व्यूअर, VTK.js व्यूअर, वायरफ़्रेम दृश्य, 3D रेंडरिंग, CAD विज़ुअलाइज़ेशन टूल",
       ogTitle: "VizCad 3D व्यूअर ऐप - पेशेवर 3D मॉडल विज़ुअलाइज़ेशन",
-      ogDescription: "पेशेवर 3D व्यूअर एप्लिकेशन। उन्नत रेंडरिंग टूल, कैमरा नियंत्रण और स्टूडियो लाइटिंग के साथ STL, OBJ, PLY, 3MF फ़ाइलें अपलोड और विज़ुअलाइज़ करें।",
+      ogDescription: "पेशेवर 3D व्यूअर ऐप। STL, OBJ, PLY, 3MF फ़ाइलें अपलोड करें और उन्नत रेंडरिंग टूल, कैमरा नियंत्रण और स्टूडियो लाइटिंग के साथ विज़ुअलाइज़ करें।",
       twitterTitle: "VizCad 3D व्यूअर ऐप - 3D मॉडल अपलोड और विज़ुअलाइज़ करें",
-      twitterDescription: "उन्नत रेंडरिंग टूल के साथ पेशेवर 3D व्यूअर। स्टूडियो लाइटिंग के साथ STL, OBJ, PLY, 3MF फ़ाइलें अपलोड और विज़ुअलाइज़ करें।"
+      twitterDescription: "उन्नत रेंडरिंग टूल के साथ पेशेवर 3D व्यूअर। STL, OBJ, PLY, 3MF फ़ाइलें अपलोड करें और स्टूडियो लाइटिंग के साथ विज़ुअलाइज़ करें।",
     },
     contact: {
-      title: "VizCad से संपर्क करें - सहायता प्राप्त करें और प्रतिक्रिया भेजें",
-      description: "सहायता, प्रतिक्रिया या पूछताछ के लिए VizCad टीम से संपर्क करें। 3D फ़ाइल देखने, तकनीकी समस्याओं या फ़ीचर अनुरोधों में सहायता प्राप्त करें। CAD फ़ाइल विज़ुअलाइज़ेशन के लिए पेशेवर सहायता।",
-      keywords: "VizCad संपर्क, 3D व्यूअर सहायता, CAD व्यूअर मदद, तकनीकी सहायता, ग्राहक सेवा, प्रतिक्रिया, 3D विज़ुअलाइज़ेशन सहायता, STL व्यूअर मदद",
-      ogTitle: "VizCad से संपर्क करें - पेशेवर 3D व्यूअर सहायता",
-      ogDescription: "VizCad 3D व्यूअर के लिए पेशेवर सहायता प्राप्त करें। तकनीकी मदद, फ़ीचर अनुरोध, या CAD फ़ाइल विज़ुअलाइज़ेशन के बारे में किसी भी प्रश्न के लिए हमसे संपर्क करें।",
-      twitterTitle: "VizCad से संपर्क करें - सहायता प्राप्त करें और प्रतिक्रिया भेजें",
-      twitterDescription: "VizCad 3D व्यूअर के लिए पेशेवर सहायता। CAD फ़ाइल विज़ुअलाइज़ेशन और तकनीकी समस्याओं में सहायता प्राप्त करें।"
+      title: "VizCad संपर्क करें - समर्थन प्राप्त करें और फ़ीडबैक भेजें",
+      description: "सपोर्ट, फ़ीडबैक या पूछताछ के लिए VizCad टीम से संपर्क करें। 3D फ़ाइल व्यूइंग, तकनीकी मुद्दों या फ़ीचर अनुरोधों में मदद प्राप्त करें। CAD फ़ाइल विज़ुअलाइज़ेशन के लिए पेशेवर समर्थन।",
+      keywords: "VizCad संपर्क, 3D व्यूअर समर्थन, CAD व्यूअर मदद, तकनीकी समर्थन, ग्राहक सेवा, फ़ीडबैक, 3D विज़ुअलाइज़ेशन समर्थन, STL व्यूअर मदद",
+      ogTitle: "VizCad संपर्क - पेशेवर 3D व्यूअर समर्थन",
+      ogDescription: "VizCad 3D व्यूअर के लिए पेशेवर समर्थन प्राप्त करें। तकनीकी मदद, फ़ीचर अनुरोध या CAD विज़ुअलाइज़ेशन के बारे में प्रश्नों के लिए संपर्क करें।",
+      twitterTitle: "VizCad संपर्क करें - समर्थन प्राप्त करें और फ़ीडबैक भेजें",
+      twitterDescription: "VizCad 3D व्यूअर के लिए पेशेवर समर्थन। CAD विज़ुअलाइज़ेशन और तकनीकी मुद्दों में मदद प्राप्त करें।",
     },
     faq: {
       title: "FAQ - VizCad 3D व्यूअर प्रश्न और उत्तर",
-      description: "VizCad 3D व्यूअर के बारे में अक्सर पूछे जाने वाले प्रश्न। समर्थित फ़ाइल स्वरूपों, ब्राउज़र संगतता, प्रदर्शन, सुविधाओं और CAD फ़ाइल व्यूअर का उपयोग कैसे करें, के बारे में उत्तर खोजें।",
+      description: "VizCad 3D व्यूअर के बारे में अक्सर पूछे जाने वाले प्रश्न। समर्थित फ़ाइल स्वरूप, ब्राउज़र संगतता, प्रदर्शन, फ़ीचर और CAD फ़ाइल व्यूअर का उपयोग कैसे करें, इसके उत्तर प्राप्त करें।",
       keywords: "VizCad FAQ, 3D व्यूअर प्रश्न, CAD व्यूअर मदद, STL व्यूअर FAQ, समर्थित फ़ाइल स्वरूप, ब्राउज़र संगतता, 3D विज़ुअलाइज़ेशन मदद, WebGL व्यूअर प्रश्न",
       ogTitle: "VizCad FAQ - 3D व्यूअर प्रश्न और उत्तर",
-      ogDescription: "VizCad 3D व्यूअर के बारे में सामान्य प्रश्नों के उत्तर खोजें। समर्थित स्वरूपों, सुविधाओं और हमारे CAD विज़ुअलाइज़ेशन टूल का अधिकतम लाभ कैसे उठाएं, के बारे में जानें।",
+      ogDescription: "VizCad 3D व्यूअर से संबंधित सामान्य प्रश्नों के उत्तर प्राप्त करें। समर्थित फ़ाइल स्वरूप, फ़ीचर और CAD विज़ुअलाइज़ेशन टूल का सर्वोत्तम उपयोग कैसे करें, जानें।",
       twitterTitle: "VizCad FAQ - 3D व्यूअर प्रश्न और उत्तर",
-      twitterDescription: "VizCad 3D व्यूअर के बारे में अक्सर पूछे जाने वाले प्रश्न। फ़ाइल स्वरूपों, सुविधाओं और उपयोग के बारे में उत्तर खोजें।"
-    }
-  }
-}
+      twitterDescription: "VizCad 3D व्यूअर के बारे में अक्सर पूछे जाने वाले प्रश्न। फ़ाइल स्वरूप, फ़ीचर और उपयोग के उत्तर प्राप्त करें।",
+    },
+    modelSnap: {
+      title: "ModelSnap | VizCad: STL को PNG, JPG, CSV में ऑनलाइन बदलें",
+      description: "VizCad का ModelSnap टूल STL फ़ाइलों को उच्च गुणवत्ता PNG, JPG छवियों या CSV डेटा में ऑनलाइन बदलने देता है। अपने 3D मॉडल तुरंत अपलोड करें और इंजीनियरिंग, डिज़ाइन या 3D प्रिंटिंग परियोजनाओं के लिए विज़ुअल या डेटा आउटपुट उत्पन्न करें।",
+      keywords: "STL से PNG कन्वर्टर, STL से JPG कन्वर्टर, STL से CSV कन्वर्टर, 3D मॉडल से इमेज, STL ऑनलाइन बदलें, STL विज़ुअलाइज़ेशन टूल, STL फ़ाइल से इमेज मुफ्त, 3D प्रिंटिंग STL से इमेज, VizCad ModelSnap",
+      ogTitle: "ModelSnap | VizCad: STL को PNG, JPG, CSV में ऑनलाइन बदलें",
+      ogDescription: "STL फ़ाइलों को ModelSnap के साथ तुरंत PNG, JPG छवियों या CSV डेटा में बदलें। इंजीनियरों, डिजाइनरों, छात्रों और 3D प्रिंटिंग उत्साही लोगों के लिए उपयुक्त।",
+      twitterTitle: "ModelSnap | VizCad: STL को PNG, JPG, CSV में ऑनलाइन बदलें",
+      twitterDescription: "ऑनलाइन STL से इमेज कन्वर्टर। STL फ़ाइलों से ModelSnap द्वारा उच्च गुणवत्ता PNG, JPG या CSV आउटपुट तुरंत उत्पन्न करें।",
+    },
+  },
+};
+

@@ -19,23 +19,13 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { detectLanguage } from "@/utils/language"
+import { detectLanguage, seoContent } from "@/utils/language"
 
 export const Route = createFileRoute("/ModelSnap")({
   head: () => {
     const lang = detectLanguage()
-    const content = {
-      title: "ModelSnap - VizCad",
-      description: "Convert STL files to high-quality PNG images instantly. Professional 3D model visualization tool.",
-      keywords: "ModelSnap, STL to PNG, 3D converter, STL viewer, PNG generator, 3D visualization",
-      ogTitle: "ModelSnap - VizCad",
-      ogDescription:
-        "Convert STL files to high-quality PNG images instantly. Professional 3D model visualization tool.",
-      twitterTitle: "ModelSnap - VizCad",
-      twitterDescription:
-        "Convert STL files to high-quality PNG images instantly. Professional 3D model visualization tool.",
-    }
-
+    const content = seoContent[lang].modelSnap
+    
     return {
       title: content.title,
       meta: [
@@ -218,15 +208,15 @@ function StlToPngPage() {
             </p>
             <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-primary" />
+                <CheckCircle className="w-4 h-4 text-primary-foreground" />
                 <span>Instant Preview</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-primary" />
+                <CheckCircle className="w-4 h-4 text-primary-foreground" />
                 <span>High Quality</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-primary" />
+                <CheckCircle className="w-4 h-4 text-primary-foreground" />
                 <span>No Upload Required</span>
               </div>
             </div>
@@ -241,7 +231,7 @@ function StlToPngPage() {
             <Card className="border-2">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Upload className="w-4 h-4 text-primary" />
+                  <Upload className="w-4 h-4 text-primary-foreground" />
                   Upload STL File
                 </CardTitle>
                 <CardDescription className="text-sm">Drag and drop your STL file or click to browse</CardDescription>
@@ -260,7 +250,7 @@ function StlToPngPage() {
                 >
                   {selectedFile ? (
                     <div className="space-y-2">
-                      <File className="w-10 h-10 text-primary mx-auto" />
+                      <File className="w-10 h-10 text-primary-foreground mx-auto" />
                       <div>
                         <p className="font-medium text-foreground truncate text-sm">{selectedFile.name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -311,7 +301,7 @@ function StlToPngPage() {
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3">
-                  <Settings className="w-5 h-5 text-primary" />
+                  <Settings className="w-5 h-5 text-primary-foreground" />
                   Render Settings
                 </CardTitle>
                 <CardDescription>Customize your image output</CardDescription>
@@ -329,7 +319,7 @@ function StlToPngPage() {
                         key={size.label}
                         className={`p-4 rounded-lg border-2 text-left transition-all duration-200 ${
                           settings.width === size.w && settings.height === size.h
-                            ? "border-primary bg-primary/10 text-primary"
+                            ? "border-primary bg-primary/20 text-primary-foreground"
                             : "border-border hover:border-primary/50 hover:bg-muted/50"
                         }`}
                         onClick={() => setSettings((prev) => ({ ...prev, width: size.w, height: size.h }))}
@@ -448,7 +438,7 @@ function StlToPngPage() {
             <Card className="h-fit">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Eye className="w-4 h-4 text-primary" />
+                  <Eye className="w-4 h-4 text-primary-foreground" />
                   Preview
                 </CardTitle>
                 <CardDescription className="flex items-center gap-3 text-sm">
@@ -479,7 +469,7 @@ function StlToPngPage() {
                       {isGenerating && (
                         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
                           <div className="text-center space-y-2">
-                            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
+                            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary-foreground" />
                             <p className="text-sm text-muted-foreground">Generating preview...</p>
                           </div>
                         </div>
@@ -516,7 +506,7 @@ function StlToPngPage() {
                   <Card className="bg-muted/20">
                     <CardHeader className="pb-2">
                       <CardTitle className="flex items-center gap-2 text-base">
-                        <Download className="w-4 h-4 text-primary" />
+                        <Download className="w-4 h-4 text-primary-foreground" />
                         Export Options
                       </CardTitle>
                     </CardHeader>
