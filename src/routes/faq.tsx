@@ -124,7 +124,7 @@ function FAQ() {
         {/* Header Section */}
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            {t("faq.header.title")} <span className="text-primary">{t("faq.header.titleAccent")}</span>
+            {t("faq.header.title")} <span className="text-primary-foreground bg-primary/20 px-2 rounded">{t("faq.header.titleAccent")}</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             {t("faq.header.subtitle")}
@@ -141,7 +141,7 @@ function FAQ() {
             <Accordion type="single" collapsible className="w-full">
               {faqs.map((faq) => (
                 <AccordionItem key={faq.id} value={faq.id}>
-                  <AccordionTrigger className="text-left hover:text-primary transition-colors data-[state=open]:text-primary">
+                  <AccordionTrigger className="text-left hover:text-primary-foreground transition-colors data-[state=open]:text-primary-foreground">
                     {faq.question}
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground leading-relaxed">{faq.answer}</AccordionContent>

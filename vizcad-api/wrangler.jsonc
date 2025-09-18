@@ -1,7 +1,7 @@
 ﻿{
         "$schema": "node_modules/wrangler/config-schema.json",
-        "name": "vizcad-api",
-        "main": "src/index.ts",
+        "name": "ssrdev",
+        "main": "../dist/server/entry.server.js",
         "compatibility_date": "2025-09-09",
         "d1_databases": [
                 {

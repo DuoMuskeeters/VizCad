@@ -134,7 +134,7 @@ export function HomePage() {
             {/* Sol taraf - Metin içeriği */}
             <div className="space-y-12 sm:space-y-14 xl:space-y-10 text-center xl:text-left">
               <div className="space-y-8 sm:space-y-10 xl:space-y-8">
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-sm">
+                <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium border border-primary/30 shadow-sm">
                   <Zap className="w-4 h-4" />
                   {t("hero_badge")}
                 </div>
@@ -207,7 +207,7 @@ export function HomePage() {
                   <div className="flex gap-6 xl:gap-6 mb-6 xl:mb-6">
                     <div className="flex-1 space-y-4 xl:space-y-4">
                       <div className="flex gap-2 xl:gap-2">
-                        <div className="px-4 py-2 xl:px-4 xl:py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                        <div className="px-4 py-2 xl:px-4 xl:py-2 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium">
                           Scenes
                         </div>
                         <div className="px-4 py-2 xl:px-4 xl:py-2 bg-muted text-muted-foreground rounded-full text-sm">
@@ -261,7 +261,10 @@ export function HomePage() {
                 <video
                   id="demo-video"
                   className="w-full h-full object-cover"
-                  preload="metadata"
+                  preload="none"
+                  poster="/video-poster.jpg"
+                  playsInline
+                  controls
                   onPlay={() => {
                     const playButton = document.getElementById("video-play-button")
                     if (playButton) playButton.style.display = "none"
@@ -334,7 +337,7 @@ export function HomePage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-20">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20 mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium border border-primary/30 mb-6">
               <Zap className="w-4 h-4 text-primary" />
               {t("features_badge")}
             </div>
@@ -348,7 +351,7 @@ export function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-24 justify-items-center">
             {/* Card 1 - Instant Upload */}
             <div className="group bg-gradient-to-br from-card to-muted p-6 lg:p-8 rounded-3xl shadow-lg border border-border hover:shadow-2xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 w-full max-w-sm flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Upload className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-4">{t("features_card_1_title")}</h3>
@@ -424,7 +427,7 @@ export function HomePage() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Lightbulb className="w-6 h-6 text-primary" />
                 </div>
                 <h4 className="font-semibold text-foreground mb-2">{t("features_coming_card_1_title")}</h4>
@@ -457,7 +460,7 @@ export function HomePage() {
             </div>
 
             <div className="text-center mt-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium">
                 <Zap className="w-4 h-4 text-primary" />
                 {t("features_coming_badge")}
               </div>

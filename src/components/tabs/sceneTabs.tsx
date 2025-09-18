@@ -171,7 +171,10 @@ export function ScenesTab({
               className="text-xs px-3 py-1 bg-transparent"
               onClick={(e) => {
                 e.stopPropagation();
-                fileInputRef.current?.click();
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                  setTimeout(() => fileInputRef.current?.click(), 0);
+                }
               }}
             >
             {t("scene_browse")}
