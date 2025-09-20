@@ -6,6 +6,7 @@ import { PaletteSelector } from "./palette-selector"
 import { ModeToggle } from "./mode-toggle"
 import LanguageSwitcher from "./LanguageSwitcher"
 import React from "react"
+import { useTheme } from "./theme-provider"
 
 export default function Header() {
   const { t } = useTranslation()
@@ -22,7 +23,13 @@ export default function Header() {
   // Get resolved theme (requires next-themes)
   // If you use another theme provider, adjust accordingly
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { resolvedTheme } = require("next-themes").useTheme()
+  const { theme } = useTheme()
+  const resolvedTheme =
+    theme === "system"
+      ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : theme
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
