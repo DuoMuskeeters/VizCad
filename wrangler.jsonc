@@ -7,12 +7,6 @@
     "directory": "./dist/client",
     "not_found_handling": "single-page-application"
   },
-  "rules": [
-    {
-      "type": "ESModule",
-      "globs": ["**/*.js", "**/*.mjs", "**/*.ts"]
-    }
-  ],
   "routes": [
     "https://viz-cad.com/*"
   ]
