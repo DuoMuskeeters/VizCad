@@ -18,7 +18,7 @@ export default defineConfig(({ command, mode }) => {
       }),
       viteReact(),
       tailwindcss(),
-      cloudflare(),
+      ...(isSSRBuild ? [cloudflare()] : []),
     ],
     resolve: {
       alias: {

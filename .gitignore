@@ -1,10 +1,6 @@
 node_modules
 .DS_Store
 dist/
-!dist/server/entry.server.js
-!dist/server/entry.server.map
-!dist/server/entry.server.css
-dist-ssr
 *.local
 count.txt
 .env
