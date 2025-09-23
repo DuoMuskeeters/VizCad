@@ -7,7 +7,7 @@
     "start": "vite --port 3000",
     "build": "pnpm run build:client && pnpm run build:server && tsc",
     "build:client": "vite build",
-    "build:server": "node ./scripts/ensure-entry.js && cross-env VITE_SSR_BUILD=true vite build",
+    "build:server": "cross-env VITE_SSR_BUILD=true vite build",
     "deploy": "pnpm run build && wrangler deploy",
     "serve": "vite preview",
     "test": "vitest run"
