@@ -3,6 +3,7 @@
         "name": "vizcad",
         "main": "../dist/server/entry.server.js",
         "compatibility_date": "2025-09-09",
+        "placement": { "mode": "smart" },
         "d1_databases": [
                 {
                         "binding": "DB",

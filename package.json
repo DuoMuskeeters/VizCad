@@ -8,7 +8,7 @@
     "build": "pnpm run build:client && pnpm run build:server && tsc",
     "build:client": "vite build",
     "build:server": "cross-env VITE_SSR_BUILD=true vite build",
-    "deploy": "pnpm run build && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy dist/server/entry.server.js",
     "serve": "vite preview",
     "test": "vitest run"
   },
