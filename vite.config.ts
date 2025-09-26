@@ -2,8 +2,8 @@ import { defineConfig, loadEnv } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tanstackRouter from "@tanstack/router-plugin/vite";
-import { resolve } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -18,7 +18,7 @@ export default defineConfig(({ command, mode }) => {
       }),
       viteReact(),
       tailwindcss(),
-      ...(isSSRBuild ? [cloudflare()] : []),
+      cloudflare(),
     ],
     resolve: {
       alias: {
@@ -34,7 +34,7 @@ export default defineConfig(({ command, mode }) => {
         formats: ['es']
       },
       rollupOptions: {
-        external: ['react', 'react-dom', 'react-dom/server'],
+        external: ['react', 'react-dom', 'react-dom/server', '@kitware/vtk.js', 'vtk.js'],
         output: {
           globals: {
             'react': 'React',
@@ -75,7 +75,9 @@ export default defineConfig(({ command, mode }) => {
       external: isSSRBuild ? [
         'react', 
         'react-dom', 
-        'react-dom/server'
+        'react-dom/server',
+        '@kitware/vtk.js',
+        'vtk.js'
       ] : undefined,
       noExternal: isSSRBuild ? [
         '@tanstack/react-router'

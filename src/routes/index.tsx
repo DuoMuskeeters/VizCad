@@ -23,7 +23,7 @@ import {
   Twitter,
   Linkedin,
 } from "lucide-react"
-
+    
 // index.tsx (Homepage)
 export const Route = createFileRoute("/")({
   head: () => {
