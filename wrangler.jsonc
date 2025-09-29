@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "placement": { "mode": "smart" },
-  "name": "vizcad-ssr",
+  "name": "vizcad",
   "compatibility_date": "2025-09-15",
   "assets": {
     "directory": "./dist/client",
