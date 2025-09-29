@@ -291,17 +291,22 @@ function StlToPngPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium">{t("modelsnap.view")}</label>
                     <div className="grid grid-cols-4 gap-1.5">
-                      {["ISO", "front", "side", "top"].map((view) => (
+                      {[
+                        { label: t("modelsnap.viewFront"), value: "front" },
+                        { label: t("modelsnap.viewSide"), value: "side" },
+                        { label: t("modelsnap.viewTop"), value: "top" },
+                        { label: "ISO", value: "isometric" }
+                      ].map((view) => (
                         <button
-                          key={view}
+                          key={view.value}
                           className={`px-1.5 py-1.5 rounded text-xs font-medium capitalize border transition-colors ${
-                            settings.view.toLowerCase() === view.toLowerCase()
+                            settings.view === view.value
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border hover:border-primary/50"
                           }`}
-                          onClick={() => setSettings((prev) => ({ ...prev, view: view.toLowerCase() }))}
+                          onClick={() => setSettings((prev) => ({ ...prev, view: view.value }))}
                         >
-                          {view}
+                          {view.label}
                         </button>
                       ))}
                     </div>

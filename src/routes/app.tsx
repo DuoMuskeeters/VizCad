@@ -1281,16 +1281,6 @@ function AppPage() {
                     <Upload className="h-4 w-4 mr-2" style={{ color: "white" }} />
                     {t("app_welcome_upload")}
                   </Button>
-                  
-                  <div className="text-sm text-gray-500 text-center">
-                    or{" "}
-                    <a 
-                      href="/store" 
-                      className="text-blue-600 hover:text-blue-800 underline font-medium"
-                    >
-                      browse 3D models in Store
-                    </a>
-                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
