@@ -1,11 +1,11 @@
 import { Button } from "../ui/button";
 
-export function MaterialsTab() {
+export function AppearanceTab() {
   return (
     <div className="p-4 space-y-6">
-      {/* Material Library */}
+      {/* Appearance Library */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Material Library</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Appearance Library</h3>
         <div className="grid grid-cols-3 gap-2">
           {[
             { name: "Metal", color: "bg-gray-400" },
@@ -14,35 +14,33 @@ export function MaterialsTab() {
             { name: "Wood", color: "bg-amber-600" },
             { name: "Fabric", color: "bg-red-400" },
             { name: "Ceramic", color: "bg-white border" },
-          ].map((material) => (
+          ].map((appearance) => (
             <div
-              key={material.name}
+              key={appearance.name}
               className="aspect-square rounded-lg cursor-pointer hover:scale-105 transition-transform flex items-center justify-center text-xs font-medium"
             >
-              <div className={`w-full h-full rounded-lg flex items-center justify-center`} style={material.name === "Glass" ? { backgroundColor: "rgb(var(--secondary) / 1)" } : undefined}>
-                <span className={material.name === "Ceramic" ? "text-gray-700" : "text-white"}>{material.name}</span>
-              </div>
+              {appearance.name}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Current Materials */}
+      {/* Current Appearances */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Model Materials</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Model Appearances</h3>
         <div className="space-y-2">
           {[
             "Main Body",
             "Details",
             "Accents",
-          ].map((material, index) => (
+          ].map((appearance, index) => (
             <div
-              key={material}
+              key={appearance}
               className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors border-gray-200`}
               style={index === 0 ? { borderColor: "rgb(var(--primary))", backgroundColor: "rgb(var(--primary) / 0.06)" } : undefined}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">{material}</span>
+                <span className="text-sm font-medium text-gray-900">{appearance}</span>
                 <div className="w-4 h-4 bg-gray-400 rounded border border-gray-300"></div>
               </div>
             </div>
@@ -50,9 +48,9 @@ export function MaterialsTab() {
         </div>
       </div>
 
-      {/* Material Properties */}
+      {/* Appearance Properties */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Material Properties</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Appearance Properties</h3>
         <div className="space-y-3">
           <div>
             <label className="text-xs text-gray-600 mb-1 block">Base Color</label>

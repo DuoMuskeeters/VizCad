@@ -1,22 +1,22 @@
+"use client"
+
+import type React from "react"
+
 import { createFileRoute } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  Star, 
-  Grid3X3, 
+import {
+  Search,
+  Download,
+  Eye,
+  Grid3X3,
   List,
   Package,
   Cpu,
-  Car,
   Home,
   Gamepad2,
   Wrench,
@@ -24,15 +24,9 @@ import {
   Zap,
   Heart,
   Share2,
-  Info,
-  FileText,
-  Calendar,
-  User,
-  Tag
 } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-import { detectLanguage, seoContent } from "@/utils/language"
 import ThumbnailGenerator from "@/components/ThumbnailGenerator"
 
 export const Route = createFileRoute("/store")({
@@ -62,7 +56,7 @@ interface ApiResponse {
 }
 
 // API functions
-const API_BASE_URL = 'http://127.0.0.1:8787/api' // Updated to use running API server
+const API_BASE_URL = "http://127.0.0.1:8787/api" // Updated to use running API server
 
 const fetchModels = async (): Promise<StlModel[]> => {
   try {
@@ -71,9 +65,9 @@ const fetchModels = async (): Promise<StlModel[]> => {
     if (data.success) {
       return data.models
     }
-    throw new Error('Failed to fetch models')
+    throw new Error("Failed to fetch models")
   } catch (error) {
-    console.error('Error fetching models:', error)
+    console.error("Error fetching models:", error)
     return []
   }
 }
@@ -87,39 +81,45 @@ const fetchCategories = async () => {
     }
     return []
   } catch (error) {
-    console.error('Error fetching categories:', error)
+    console.error("Error fetching categories:", error)
     return []
   }
 }
 
 // Utility functions
 const formatFileSize = (sizeInBytes: number): string => {
-  if (sizeInBytes === 0) return '0 Bytes'
-  
+  if (sizeInBytes === 0) return "0 Bytes"
+
   if (sizeInBytes < 1024) {
     return `${sizeInBytes} Bytes`
   } else if (sizeInBytes < 1024 * 1024) {
     const kb = (sizeInBytes / 1024).toFixed(1)
-    return `${parseFloat(kb)} KB`
+    return `${Number.parseFloat(kb)} KB`
   } else {
     const mb = (sizeInBytes / (1024 * 1024)).toFixed(1)
-    return `${parseFloat(mb)} MB`
+    return `${Number.parseFloat(mb)} MB`
   }
 }
 
 const parseTags = (tags: string): string[] => {
-  if (!tags || tags.trim() === '') return []
-  
+  if (!tags || tags.trim() === "") return []
+
   try {
     // Eğer JSON formatında ise parse et
-    if (tags.startsWith('[') && tags.endsWith(']')) {
+    if (tags.startsWith("[") && tags.endsWith("]")) {
       return JSON.parse(tags)
     }
     // Eğer comma separated ise split et
-    return tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
   } catch {
     // Hata durumunda comma separated olarak dene
-    return tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
   }
 }
 
@@ -131,7 +131,7 @@ const defaultCategories = [
   { id: "games", name: "GAMES", icon: Gamepad2, count: 0 },
   { id: "home", name: "HOME", icon: Home, count: 0 },
   { id: "toys", name: "TOYS", icon: Zap, count: 0 },
-  { id: "tools", name: "TOOLS", icon: Wrench, count: 0 }
+  { id: "tools", name: "TOOLS", icon: Wrench, count: 0 },
 ]
 
 export function StorePage() {
@@ -154,7 +154,7 @@ export function StorePage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [shareModelId, setShareModelId] = useState<number | null>(null)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
-  const [uploadResponse, setUploadResponse] = useState<{model?: any, update_token?: string} | null>(null)
+  const [uploadResponse, setUploadResponse] = useState<{ model?: any; update_token?: string } | null>(null)
   const [uploadFormData, setUploadFormData] = useState({
     name: "",
     description: "",
@@ -164,26 +164,26 @@ export function StorePage() {
     file: null as File | null,
     thumbnail: null as string | null,
     thumbnailError: false,
-    createdBy: ""
+    createdBy: "",
   })
   const [tagInput, setTagInput] = useState("")
 
   // Load favorites from localStorage
   useEffect(() => {
-    const savedFavorites = localStorage.getItem('vizcad-favorites')
+    const savedFavorites = localStorage.getItem("vizcad-favorites")
     if (savedFavorites) {
       try {
         const favoriteIds = JSON.parse(savedFavorites)
         setFavorites(new Set(favoriteIds))
       } catch (error) {
-        console.error('Error loading favorites:', error)
+        console.error("Error loading favorites:", error)
       }
     }
   }, [])
 
   // Save favorites to localStorage
   const saveFavoritesToStorage = (newFavorites: Set<number>) => {
-    localStorage.setItem('vizcad-favorites', JSON.stringify(Array.from(newFavorites)))
+    localStorage.setItem("vizcad-favorites", JSON.stringify(Array.from(newFavorites)))
   }
 
   // Load data on component mount
@@ -191,27 +191,24 @@ export function StorePage() {
     const loadData = async () => {
       setLoading(true)
       try {
-        const [modelsData, categoriesData] = await Promise.all([
-          fetchModels(),
-          fetchCategories()
-        ])
-        
+        const [modelsData, categoriesData] = await Promise.all([fetchModels(), fetchCategories()])
+
         setModels(modelsData)
-        
+
         // Update categories with counts
-        const updatedCategories = defaultCategories.map(cat => {
+        const updatedCategories = defaultCategories.map((cat) => {
           if (cat.id === "all") {
             return { ...cat, count: modelsData.length }
           }
-          const categoryCount = modelsData.filter(model => 
-            model.category.toLowerCase() === cat.name.toLowerCase()
+          const categoryCount = modelsData.filter(
+            (model) => model.category.toLowerCase() === cat.name.toLowerCase(),
           ).length
           return { ...cat, count: categoryCount }
         })
         setCategories(updatedCategories)
       } catch (err) {
-        setError('Failed to load store data')
-        console.error('Error loading store data:', err)
+        setError("Failed to load store data")
+        console.error("Error loading store data:", err)
       } finally {
         setLoading(false)
       }
@@ -226,45 +223,41 @@ export function StorePage() {
 
     // Category filter
     if (selectedCategory !== "all") {
-      const categoryName = categories.find(c => c.id === selectedCategory)?.name
+      const categoryName = categories.find((c) => c.id === selectedCategory)?.name
       if (categoryName && categoryName !== "All Categories") {
-        filtered = filtered.filter(model => 
-          model.category.toLowerCase() === categoryName.toLowerCase()
-        )
+        filtered = filtered.filter((model) => model.category.toLowerCase() === categoryName.toLowerCase())
       }
     }
 
     // Search filter - word beginning match
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(model => {
+      filtered = filtered.filter((model) => {
         // Check if any word in name starts with query
         const nameWords = model.name.toLowerCase().split(/\s+/)
-        const nameMatch = nameWords.some(word => word.startsWith(query))
-        
+        const nameMatch = nameWords.some((word) => word.startsWith(query))
+
         // Check if any word in description starts with query
         const descWords = model.description.toLowerCase().split(/\s+/)
-        const descMatch = descWords.some(word => word.startsWith(query))
-        
+        const descMatch = descWords.some((word) => word.startsWith(query))
+
         // Check if any tag starts with query
-        const tagMatch = parseTags(model.tags).some(tag => 
-          tag.toLowerCase().startsWith(query)
-        )
-        
+        const tagMatch = parseTags(model.tags).some((tag) => tag.toLowerCase().startsWith(query))
+
         return nameMatch || descMatch || tagMatch
       })
     }
 
     // Price filter
     if (priceFilter === "free") {
-      filtered = filtered.filter(model => model.price === 0)
+      filtered = filtered.filter((model) => model.price === 0)
     } else if (priceFilter === "paid") {
-      filtered = filtered.filter(model => model.price > 0)
+      filtered = filtered.filter((model) => model.price > 0)
     }
 
     // Favorites filter
     if (showFavoritesOnly) {
-      filtered = filtered.filter(model => favorites.has(model.id))
+      filtered = filtered.filter((model) => favorites.has(model.id))
     }
 
     // Sort
@@ -298,50 +291,52 @@ export function StorePage() {
       alert(`This model costs $${model.price}. Purchase required to download.`)
       return
     }
-    
+
     try {
       // Use API download endpoint for proper download tracking
       const response = await fetch(`${API_BASE_URL}/models/${model.id}/download`)
-      
+
       if (!response.ok) {
-        throw new Error('Download failed')
+        throw new Error("Download failed")
       }
-      
+
       // Get the blob data
       const blob = await response.blob()
-      
+
       // Create download link
       const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
+      const link = document.createElement("a")
       link.href = url
-      link.download = `${model.name.replace(/\s+/g, '-').toLowerCase()}.${model.file_type}`
+      link.download = `${model.name.replace(/\s+/g, "-").toLowerCase()}.${model.file_type}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
+
       // Clean up the blob URL
       URL.revokeObjectURL(url)
-      
+
       console.log(`Downloaded: ${model.name}`)
     } catch (error) {
-      console.error('Download error:', error)
-      alert('Download failed. Please try again.')
+      console.error("Download error:", error)
+      alert("Download failed. Please try again.")
     }
   }
 
   const handlePreview = (model: StlModel) => {
     // Check if model is paid/premium
     if (model.price > 0) {
-      alert(`This is a premium model ($${model.price}). Preview is only available for free models. Please purchase to access the full model.`)
+      alert(
+        `This is a premium model ($${model.price}). Preview is only available for free models. Please purchase to access the full model.`,
+      )
       return
     }
-    
+
     // Navigate to the app with API file serve URL for proper file serving
     const params = new URLSearchParams({
       model: `${API_BASE_URL}/models/${model.id}/file`, // Use API file serve endpoint
       name: model.name,
-      author: model.created_by || 'Unknown',
-      modelId: model.id.toString()
+      author: model.created_by || "Unknown",
+      modelId: model.id.toString(),
     })
     window.location.href = `/app?${params.toString()}`
   }
@@ -365,17 +360,17 @@ export function StorePage() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert('Link copied to clipboard!')
+      alert("Link copied to clipboard!")
     } catch (error) {
-      console.error('Failed to copy:', error)
+      console.error("Failed to copy:", error)
       // Fallback for older browsers
-      const textArea = document.createElement('textarea')
+      const textArea = document.createElement("textarea")
       textArea.value = text
       document.body.appendChild(textArea)
       textArea.select()
-      document.execCommand('copy')
+      document.execCommand("copy")
       document.body.removeChild(textArea)
-      alert('Link copied to clipboard!')
+      alert("Link copied to clipboard!")
     }
   }
 
@@ -385,10 +380,10 @@ export function StorePage() {
         await navigator.share({
           title: model.name,
           text: model.description,
-          url: `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`
+          url: `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`,
         })
       } catch (error) {
-        console.error('Error sharing:', error)
+        console.error("Error sharing:", error)
       }
     } else {
       // Fallback to clipboard
@@ -402,7 +397,7 @@ export function StorePage() {
     if (trimmedTag && !uploadFormData.tags.includes(trimmedTag) && uploadFormData.tags.length < 3) {
       setUploadFormData({
         ...uploadFormData,
-        tags: [...uploadFormData.tags, trimmedTag]
+        tags: [...uploadFormData.tags, trimmedTag],
       })
     }
     setTagInput("")
@@ -411,16 +406,16 @@ export function StorePage() {
   const removeTag = (tagToRemove: string) => {
     setUploadFormData({
       ...uploadFormData,
-      tags: uploadFormData.tags.filter(tag => tag !== tagToRemove)
+      tags: uploadFormData.tags.filter((tag) => tag !== tagToRemove),
     })
   }
 
   const handleTagKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    console.log('Key pressed:', e.key) // Debug
-    if (e.key === 'Enter') {
+    console.log("Key pressed:", e.key) // Debug
+    if (e.key === "Enter") {
       e.preventDefault()
       e.stopPropagation()
-      console.log('Enter pressed, tagInput:', tagInput) // Debug
+      console.log("Enter pressed, tagInput:", tagInput) // Debug
       if (tagInput.trim()) {
         addTag(tagInput)
       }
@@ -435,31 +430,41 @@ export function StorePage() {
 
     try {
       const formData = new FormData()
-      formData.append('file', uploadFormData.file)
-      formData.append('name', uploadFormData.name)
-      formData.append('description', uploadFormData.description)
-      formData.append('category', uploadFormData.category)
-      formData.append('price', uploadFormData.price.toString())
-      formData.append('tags', JSON.stringify(uploadFormData.tags))
-      formData.append('created_by', uploadFormData.createdBy)
-      
+      formData.append("file", uploadFormData.file)
+      formData.append("name", uploadFormData.name)
+      formData.append("description", uploadFormData.description)
+      formData.append("category", uploadFormData.category)
+      formData.append("price", uploadFormData.price.toString())
+      formData.append("tags", JSON.stringify(uploadFormData.tags))
+      formData.append("created_by", uploadFormData.createdBy)
+
       // Add thumbnail if available
       if (uploadFormData.thumbnail) {
-        formData.append('thumbnail', uploadFormData.thumbnail)
+        formData.append("thumbnail", uploadFormData.thumbnail)
       }
 
       const response = await fetch(`${API_BASE_URL}/models`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       })
 
       if (response.ok) {
         const result = await response.json()
         setShowUploadForm(false)
         setShowSuccessModal(true)
-        setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false, createdBy: ""})
+        setUploadFormData({
+          name: "",
+          description: "",
+          category: "",
+          price: 0,
+          tags: [],
+          file: null,
+          thumbnail: null,
+          thumbnailError: false,
+          createdBy: "",
+        })
         setTagInput("")
-        
+
         // Auto close success modal after 0.75 seconds
         setTimeout(() => {
           setShowSuccessModal(false)
@@ -468,10 +473,10 @@ export function StorePage() {
         }, 750)
       } else {
         const error = await response.json()
-        alert(`Upload failed: ${error.error || 'Unknown error'}`)
+        alert(`Upload failed: ${error.error || "Unknown error"}`)
       }
     } catch (error) {
-      console.error('Upload error:', error)
+      console.error("Upload error:", error)
       alert("Upload failed!")
     }
   }
@@ -493,111 +498,127 @@ export function StorePage() {
         <div className="text-center">
           <h2 className="text-xl font-bold text-destructive mb-2">Error Loading Store</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Retry
-          </Button>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background pt-16 sm:pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            STL Store
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl">
-            Discover high-quality 3D models and STL files for your projects. From mechanical parts to artistic sculptures.
-          </p>
-        </div>
+    <div className="min-h-screen bg-background">
+      <div className="marketplace-hero pt-16 sm:pt-20 pb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-primary/10 p-3 rounded-xl">
+                <Package className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 text-balance">
+              3D Model Catalog
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto text-balance leading-relaxed">
+              Explore a professional catalog of 3D models and STL files for engineering, design, and creative projects. Search, filter, and download high-quality models shared by the community.
+            </p>
+          </div>
 
-        {/* Search and Filters */}
-        <div className="bg-card rounded-lg border p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <Input
                 type="text"
-                placeholder="Search models..."
+                placeholder="Search thousands of 3D models..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="search-input pl-12 pr-4 py-4 text-lg rounded-xl border-0 shadow-sm"
               />
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full lg:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border">
-                <SelectItem value="popularity">Most Popular</SelectItem>
-                <SelectItem value="rating">Highest Rated</SelectItem>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="name">Name A-Z</SelectItem>
-              </SelectContent>
-            </Select>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="bg-card rounded-xl border shadow-sm p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="flex flex-wrap gap-3 flex-1">
+              {/* Sort */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border">
+                  <SelectItem value="popularity">Most Popular</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="name">Name A-Z</SelectItem>
+                </SelectContent>
+              </Select>
 
-            {/* Price Filter */}
-            <Select value={priceFilter} onValueChange={setPriceFilter}>
-              <SelectTrigger className="w-full lg:w-32">
-                <SelectValue placeholder="Price" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border">
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Price Filter */}
+              <Select value={priceFilter} onValueChange={setPriceFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Price" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border">
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
 
-            {/* View Mode */}
-            <div className="flex rounded-md border">
+              {/* Favorites Filter */}
               <Button
-                variant={viewMode === "grid" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("grid")}
-                className="rounded-r-none"
+                variant={showFavoritesOnly ? "default" : "outline"}
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={showFavoritesOnly ? "bg-primary text-primary-foreground" : ""}
               >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-                className="rounded-l-none"
-              >
-                <List className="h-4 w-4" />
+                <Heart className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-current" : ""}`} />
+                Favorites {favorites.size > 0 && `(${favorites.size})`}
               </Button>
             </div>
-            
-            {/* Favorites Filter */}
-            <Button
-              variant={showFavoritesOnly ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={showFavoritesOnly ? "text-red-500 hover:text-red-600" : ""}
-            >
-              <Heart className={`h-4 w-4 mr-2 ${showFavoritesOnly ? "fill-current" : ""}`} />
-              Favorites {favorites.size > 0 && `(${favorites.size})`}
-            </Button>
+
+            <div className="flex items-center gap-3">
+              {/* View Mode */}
+              <div className="flex rounded-lg border bg-muted p-1">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className={`rounded-md ${viewMode === "grid" ? "bg-background shadow-sm" : ""}`}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className={`rounded-md ${viewMode === "list" ? "bg-background shadow-sm" : ""}`}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Upload Button */}
+              <Button
+                onClick={() => setShowUploadForm(true)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Upload Model
+              </Button>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Categories */}
-          <div className="w-full lg:w-64">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Categories</CardTitle>
+          <div className="w-full lg:w-72">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold">Categories</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="space-y-1">
+                <div className="space-y-1 p-2">
                   {categories.map((category) => {
                     const Icon = category.icon
                     const isActive = selectedCategory === category.id
@@ -605,15 +626,15 @@ export function StorePage() {
                       <button
                         key={category.id}
                         onClick={() => setSelectedCategory(category.id)}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-accent transition-colors ${
-                          isActive ? 'bg-primary/10 text-primary border-r-2 border-primary' : ''
+                        className={`category-item w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-all ${
+                          isActive ? "active" : ""
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <Icon className="h-4 w-4" />
-                          <span className="text-sm font-medium">{category.name}</span>
+                          <span className="font-medium">{category.name}</span>
                         </div>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant={isActive ? "secondary" : "outline"} className="text-xs">
                           {category.count}
                         </Badge>
                       </button>
@@ -623,24 +644,21 @@ export function StorePage() {
               </CardContent>
             </Card>
 
-            {/* Stats */}
-            <Card className="mt-4">
+            <Card className="mt-6 shadow-sm">
               <CardContent className="pt-6">
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-6">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">{models.length}</div>
+                    <div className="text-3xl font-bold text-primary mb-1">{models.length}</div>
                     <div className="text-sm text-muted-foreground">Total Models</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
+                    <div className="text-3xl font-bold text-primary mb-1">
                       {models.filter((m: StlModel) => !m.price || m.price === 0).length}
                     </div>
                     <div className="text-sm text-muted-foreground">Free Models</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
-                      {categories.length}
-                    </div>
+                    <div className="text-3xl font-bold text-primary mb-1">{categories.length - 1}</div>
                     <div className="text-sm text-muted-foreground">Categories</div>
                   </div>
                 </div>
@@ -652,478 +670,105 @@ export function StorePage() {
           <div className="flex-1">
             {/* Results Header */}
             <div className="flex items-center justify-between mb-6">
-              <p className="text-muted-foreground">
-                {filteredModels.length} model{filteredModels.length !== 1 ? 's' : ''} found
-              </p>
-              
-              {/* Upload Button */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowUploadForm(true)}
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Upload Model
-              </Button>
-
-              {/* Upload Form Modal */}
-              <Dialog open={showUploadForm} onOpenChange={setShowUploadForm}>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Upload 3D Model</DialogTitle>
-                    <DialogDescription>
-                      Share your 3D model with the community
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">Model Name</label>
-                        <Input
-                          placeholder="Enter model name"
-                          value={uploadFormData.name}
-                          onChange={(e) => setUploadFormData({...uploadFormData, name: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Category</label>
-                        <Select value={uploadFormData.category} onValueChange={(value) => setUploadFormData({...uploadFormData, category: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border">
-                            <SelectItem value="art">ART</SelectItem>
-                            <SelectItem value="mechanical">MECHANICAL</SelectItem>
-                            <SelectItem value="functional">FUNCTIONAL</SelectItem>
-                            <SelectItem value="games">GAMES</SelectItem>
-                            <SelectItem value="home">HOME</SelectItem>
-                            <SelectItem value="toys">TOYS</SelectItem>
-                            <SelectItem value="tools">TOOLS</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="text-sm font-medium">Created By</label>
-                      <Input
-                        placeholder="Enter creator name"
-                        value={uploadFormData.createdBy}
-                        onChange={(e) => setUploadFormData({...uploadFormData, createdBy: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="text-sm font-medium">Description</label>
-                      <Input
-                        placeholder="Describe your model"
-                        value={uploadFormData.description}
-                        onChange={(e) => setUploadFormData({...uploadFormData, description: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">Price ($)</label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder="0 for free"
-                          value={uploadFormData.price}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (val === '') {
-                              setUploadFormData({...uploadFormData, price: 0})
-                            } else {
-                              const numVal = parseFloat(val)
-                              setUploadFormData({...uploadFormData, price: Math.max(0, isNaN(numVal) ? 0 : numVal)})
-                            }
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Tags (Max 3)</label>
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="Type tag and press Enter"
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            onKeyDown={handleTagKeyPress}
-                            disabled={uploadFormData.tags.length >= 3}
-                          />
-                          <div className="flex flex-wrap gap-1">
-                            {uploadFormData.tags.map((tag, index) => (
-                              <Badge 
-                                key={index} 
-                                variant="secondary" 
-                                className="text-xs cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                                onClick={() => removeTag(tag)}
-                              >
-                                {tag} ×
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="text-sm font-medium">3D Model File</label>
-                      <Input
-                        type="file"
-                        accept=".stl,.obj,.ply"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null
-                          setUploadFormData({...uploadFormData, file, thumbnail: null, thumbnailError: false})
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Hidden Thumbnail Generator - runs in background */}
-                    {uploadFormData.file && (
-                      <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
-                        <ThumbnailGenerator
-                          file={uploadFormData.file}
-                          onThumbnailGenerated={(thumbnail) => {
-                            console.log('Thumbnail generated successfully')
-                            setUploadFormData(prev => ({...prev, thumbnail, thumbnailError: false}))
-                          }}
-                          onError={(error) => {
-                            console.error('Thumbnail error:', error)
-                            setUploadFormData(prev => ({...prev, thumbnailError: true}))
-                          }}
-                          width={1080}
-                          height={1080}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Show thumbnail generation status */}
-                    {uploadFormData.file && (
-                      <div className="text-sm text-muted-foreground">
-                        {uploadFormData.thumbnailError ? (
-                          <span className="text-red-600">❌ Thumbnail generation failed</span>
-                        ) : uploadFormData.thumbnail ? (
-                          <span className="text-green-600">✓ Thumbnail generated</span>
-                        ) : (
-                          <span>🔄 Generating thumbnail...</span>
-                        )}
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          setShowUploadForm(false)
-                          setUploadFormData({name: "", description: "", category: "", price: 0, tags: [], file: null, thumbnail: null, thumbnailError: false, createdBy: ""})
-                          setTagInput("")
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        className="flex-1"
-                        onClick={handleUpload}
-                      >
-                        Upload Model
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              {/* Success Modal */}
-              <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-center">Upload Successful!</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-6 text-center">
-                    <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-medium text-green-800 mb-2">Model uploaded successfully!</p>
-                    <p className="text-sm text-muted-foreground">Redirecting in a moment...</p>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground mb-1">
+                  {selectedCategory === "all" ? "All Models" : categories.find((c) => c.id === selectedCategory)?.name}
+                </h2>
+                <p className="text-muted-foreground">
+                  {filteredModels.length} model{filteredModels.length !== 1 ? "s" : ""} found
+                </p>
+              </div>
             </div>
 
-            {/* Models Grid/List */}
             {viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredModels.map((model) => (
-                  <Card key={model.id} className="group hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden p-0 rounded-xl">
+                  <Card
+                    key={model.id}
+                    className="product-card group overflow-hidden border-0 shadow-sm hover:shadow-lg"
+                  >
                     <div className="relative overflow-hidden">
-                      <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                      <div className="w-full aspect-square bg-muted/30 flex items-center justify-center">
                         {model.thumbnail_url ? (
-                          <img 
+                          <img
                             src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
                             alt={model.name}
-                            className="w-full h-full object-cover high-quality-image cursor-pointer hover:scale-105 transition-transform"
-                            style={{
-                              imageRendering: '-webkit-optimize-contrast'
-                            }}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
                             onError={(e) => {
-                              // Fallback to placeholder if thumbnail fails to load
-                              console.error('Thumbnail failed to load for model:', model.id);
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedModel(model);
+                              console.error("Thumbnail failed to load for model:", model.id)
+                              ;(e.target as HTMLImageElement).style.display = "none"
                             }}
                           />
                         ) : (
-                          <Package className="h-16 w-16 text-muted-foreground" />
-                        )}
-                        {/* Show placeholder when image fails to load */}
-                        {model.thumbnail_url && (
-                          <Package 
-                            className="h-16 w-16 text-muted-foreground absolute" 
-                            style={{ display: 'none' }} 
-                            id={`fallback-${model.id}`}
-                          />
+                          <Package className="h-16 w-16 text-muted-foreground/50" />
                         )}
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="absolute bottom-4 left-4 right-4 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="flex-1"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handlePreview(model)
-                            }}
-                            disabled={model.price > 0}
-                            variant={model.price > 0 ? "outline" : "default"}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            {model.price > 0 ? 'Premium' : 'Preview'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDownload(model)
-                            }}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      
+
                       {/* Price Badge */}
-                      {model.price > 0 ? (
-                        <Badge className="absolute top-2 right-2 bg-yellow-500">
-                          ${model.price}
-                        </Badge>
-                      ) : (
-                        <Badge className="absolute top-2 right-2 bg-green-500">
-                          Free
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <CardContent className="p-3 flex flex-col flex-1 justify-between">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors line-clamp-1 flex-1 mr-2">
-                          {model.name}
-                        </h3>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                          <Tag className="h-3 w-3" />
-                          {model.category}
-                        </div>
+                      <div className="absolute top-3 right-3">
+                        {model.price > 0 ? (
+                          <Badge className="bg-primary text-primary-foreground font-semibold">${model.price}</Badge>
+                        ) : (
+                          <Badge className="bg-green-500 text-white font-semibold">Free</Badge>
+                        )}
                       </div>
-                      
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-1 overflow-hidden">
-                        {model.description}
-                      </p>
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span>{formatFileSize(model.file_size)}</span>
-                        <span>{model.file_type?.toUpperCase()}</span>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2 mt-auto">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-bold">
-                            {!model.price || model.price === 0 ? 'Free' : `$${model.price}`}
-                          </div>
-                          
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedModel(model)
-                                }}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>{model.name}</DialogTitle>
-                              <DialogDescription>{model.description}</DialogDescription>
-                            </DialogHeader>
-                            
-                            <div className="space-y-4">
-                              {/* 3D Preview Area - Square 1:1 Resolution */}
-                              <div className="w-full aspect-square max-w-md mx-auto bg-muted rounded-lg overflow-hidden relative group">
-                                {model.thumbnail_url ? (
-                                  <img 
-                                    src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
-                                    alt={`${model.name} preview`}
-                                    className="w-full h-full object-cover transition-transform group-hover:scale-105 high-quality-image"
-                                    style={{
-                                      imageRendering: 'crisp-edges'
-                                    }}
-                                    onError={(e) => {
-                                      // Fallback to placeholder if thumbnail fails to load
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                      target.nextElementSibling?.classList.remove('hidden');
-                                    }}
-                                  />
-                                ) : null}
-                                
-                                {/* Fallback placeholder */}
-                                <div className={`w-full h-full flex items-center justify-center bg-gray-100 ${model.thumbnail_url ? 'hidden' : ''}`}>
-                                  <div className="text-center text-gray-500">
-                                    <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                    </svg>
-                                    <p className="text-xs">3D Model Preview</p>
-                                  </div>
-                                </div>
-                                
-                                {/* Price badge for paid models */}
-                                {model.price > 0 && (
-                                  <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-medium">
-                                    ${model.price}
-                                  </div>
-                                )}
-                                
-                                {/* Free badge for free models */}
-                                {model.price === 0 && (
-                                  <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
-                                    FREE
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                  <div>
-                                    <h4 className="font-medium text-sm">Details</h4>
-                                    <div className="text-xs text-muted-foreground space-y-1 mt-1">
-                                      <div>File Size: {formatFileSize(model.file_size)}</div>
-                                      <div>File Type: {model.file_type?.toUpperCase()}</div>
-                                      <div>Category: {model.category}</div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-medium text-sm">Author</h4>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      <div className="flex items-center gap-1">
-                                        <User className="h-3 w-3" />
-                                        {model.created_by || 'Anonymous'}
-                                      </div>
-                                      <div className="flex items-center gap-1 mt-1">
-                                        <Calendar className="h-3 w-3" />
-                                        {new Date(model.created_at).toLocaleDateString()}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                  <div>
-                                    <h4 className="font-medium text-sm">Price</h4>
-                                    <div className="text-xs text-muted-foreground space-y-1 mt-1">
-                                      <div className="flex items-center gap-1">
-                                        <Tag className="h-3 w-3" />
-                                        {!model.price || model.price === 0 ? 'Free' : `$${model.price}`}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-medium text-sm">Tags</h4>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {model.tags ? 
-                                        parseTags(model.tags).map((tag: string) => (
-                                          <Badge key={tag} variant="secondary" className="text-xs">
-                                            {tag}
-                                          </Badge>
-                                        )) : 
-                                        <span className="text-xs text-muted-foreground">No tags</span>
-                                      }
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2 pt-4">
-                                <Button
-                                  className="flex-1"
-                                  onClick={() => handlePreview(model)}
-                                  disabled={model.price > 0}
-                                  variant={model.price > 0 ? "outline" : "default"}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  {model.price > 0 ? `Premium Model - $${model.price}` : 'Preview in VizCad'}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handleDownload(model)}
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  onClick={() => handleFavorite(model.id)}
-                                  className={favorites.has(model.id) ? "text-red-500 hover:text-red-600" : ""}
-                                >
-                                  <Heart className={`h-4 w-4 ${favorites.has(model.id) ? "fill-current" : ""}`} />
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  onClick={() => handleShare(model.id)}
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                        </div>
-                        
-                        {/* Download/Buy Button */}
+
+                      {/* Hover Actions */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
                         <Button
-                          className="w-full"
-                          variant={!model.price || model.price === 0 ? "default" : "default"}
                           size="sm"
+                          className="bg-white text-black hover:bg-white/90"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePreview(model)
+                          }}
+                          disabled={model.price > 0}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          {model.price > 0 ? "Premium" : "Preview"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDownload(model)
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                            {model.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{model.description}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{formatFileSize(model.file_size)}</span>
+                          <span>{model.file_type?.toUpperCase()}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            {model.category}
+                          </Badge>
+                        </div>
+
+                        <Button
+                          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleDownload(model)
                           }}
                         >
                           <Download className="h-4 w-4 mr-2" />
-                          {!model.price || model.price === 0 ? 'Download' : `Buy $${model.price}`}
+                          {!model.price || model.price === 0 ? "Download Free" : `Buy $${model.price}`}
                         </Button>
                       </div>
                     </CardContent>
@@ -1133,75 +778,54 @@ export function StorePage() {
             ) : (
               <div className="space-y-4">
                 {filteredModels.map((model) => (
-                  <Card key={model.id} className="hover:shadow-md transition-shadow p-0 rounded-xl overflow-hidden">
-                    <CardContent className="p-4">
+                  <Card key={model.id} className="hover:shadow-md transition-shadow border-0 shadow-sm">
+                    <CardContent className="p-6">
                       <div className="flex gap-6">
-                        <div className="w-40 h-40 bg-muted rounded-lg flex items-center justify-center overflow-hidden relative cursor-pointer group">
+                        <div className="w-32 h-32 bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
                           {model.thumbnail_url ? (
-                            <img 
+                            <img
                               src={`${API_BASE_URL}/models/${model.id}/thumbnail`}
                               alt={model.name}
-                              className="w-full h-full object-cover high-quality-image hover:scale-105 transition-transform"
-                              style={{
-                                imageRendering: '-webkit-optimize-contrast'
-                              }}
+                              className="w-full h-full object-cover"
                               onError={(e) => {
-                                // Fallback to placeholder if thumbnail fails to load
-                                console.error('List thumbnail failed to load for model:', model.id);
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedModel(model);
+                                console.error("List thumbnail failed to load for model:", model.id)
+                                ;(e.target as HTMLImageElement).style.display = "none"
                               }}
                             />
                           ) : (
-                            <Package className="h-12 w-12 text-muted-foreground" />
-                          )}
-                          
-                          {/* Price Badge for List View */}
-                          {model.price > 0 ? (
-                            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-xs px-2 py-1">
-                              ${model.price}
-                            </Badge>
-                          ) : (
-                            <Badge className="absolute -top-1 -right-1 bg-green-500 text-xs px-2 py-1">
-                              FREE
-                            </Badge>
+                            <Package className="h-8 w-8 text-muted-foreground/50" />
                           )}
                         </div>
-                        <div className="flex-1 space-y-2">
+                        <div className="flex-1 space-y-3">
                           <div className="flex items-start justify-between">
-                            <h3 className="font-semibold">{model.name}</h3>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Tag className="h-4 w-4" />
-                                {model.category}
-                              </div>
-                              <Badge variant={!model.price || model.price === 0 ? "secondary" : "default"}>
-                                {!model.price || model.price === 0 ? 'Free' : `$${model.price}`}
-                              </Badge>
+                            <div>
+                              <h3 className="font-semibold text-lg text-foreground">{model.name}</h3>
+                              <p className="text-muted-foreground mt-1">{model.description}</p>
                             </div>
+                            <Badge className={model.price > 0 ? "bg-primary" : "bg-green-500"}>
+                              {!model.price || model.price === 0 ? "Free" : `$${model.price}`}
+                            </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground">{model.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span>{formatFileSize(model.file_size)}</span>
                             <span>{model.file_type?.toUpperCase()}</span>
-                            <span>by {model.created_by || 'Anonymous'}</span>
+                            <span>by {model.created_by || "Anonymous"}</span>
                           </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
+                          <div className="flex gap-3">
+                            <Button
                               onClick={() => handlePreview(model)}
                               disabled={model.price > 0}
                               variant={model.price > 0 ? "outline" : "default"}
+                              className={
+                                model.price === 0 ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""
+                              }
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              {model.price > 0 ? 'Premium' : 'Preview'}
+                              <Eye className="h-4 w-4 mr-2" />
+                              {model.price > 0 ? "Premium" : "Preview"}
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDownload(model)}>
-                              <Download className="h-4 w-4 mr-1" />
-                              {!model.price || model.price === 0 ? 'Download' : `Buy $${model.price}`}
+                            <Button variant="outline" onClick={() => handleDownload(model)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              {!model.price || model.price === 0 ? "Download" : `Buy $${model.price}`}
                             </Button>
                           </div>
                         </div>
@@ -1213,16 +837,215 @@ export function StorePage() {
             )}
 
             {filteredModels.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No models found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filters</p>
+              <div className="text-center py-16">
+                <div className="bg-muted/30 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                  <Package className="h-10 w-10 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">No models found</h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filters to find what you're looking for
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
-      
+
+      {/* Upload Form Modal */}
+      <Dialog open={showUploadForm} onOpenChange={setShowUploadForm}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload 3D Model</DialogTitle>
+            <DialogDescription>Share your 3D model with the community</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Model Name</label>
+                <Input
+                  placeholder="Enter model name"
+                  value={uploadFormData.name}
+                  onChange={(e) => setUploadFormData({ ...uploadFormData, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <Select
+                  value={uploadFormData.category}
+                  onValueChange={(value) => setUploadFormData({ ...uploadFormData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border">
+                    <SelectItem value="art">ART</SelectItem>
+                    <SelectItem value="mechanical">MECHANICAL</SelectItem>
+                    <SelectItem value="functional">FUNCTIONAL</SelectItem>
+                    <SelectItem value="games">GAMES</SelectItem>
+                    <SelectItem value="home">HOME</SelectItem>
+                    <SelectItem value="toys">TOYS</SelectItem>
+                    <SelectItem value="tools">TOOLS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Created By</label>
+              <Input
+                placeholder="Enter creator name"
+                value={uploadFormData.createdBy}
+                onChange={(e) => setUploadFormData({ ...uploadFormData, createdBy: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                placeholder="Describe your model"
+                value={uploadFormData.description}
+                onChange={(e) => setUploadFormData({ ...uploadFormData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Price ($)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0 for free"
+                  value={uploadFormData.price}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === "") {
+                      setUploadFormData({ ...uploadFormData, price: 0 })
+                    } else {
+                      const numVal = Number.parseFloat(val)
+                      setUploadFormData({ ...uploadFormData, price: Math.max(0, isNaN(numVal) ? 0 : numVal) })
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tags (Max 3)</label>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Type tag and press Enter"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyPress}
+                    disabled={uploadFormData.tags.length >= 3}
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {uploadFormData.tags.map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="text-xs cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => removeTag(tag)}
+                      >
+                        {tag} ×
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">3D Model File</label>
+              <Input
+                type="file"
+                accept=".stl,.obj,.ply"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  setUploadFormData({ ...uploadFormData, file, thumbnail: null, thumbnailError: false })
+                }}
+              />
+            </div>
+
+            {/* Hidden Thumbnail Generator - runs in background */}
+            {uploadFormData.file && (
+              <div style={{ position: "absolute", left: "-9999px", visibility: "hidden" }}>
+                <ThumbnailGenerator
+                  file={uploadFormData.file}
+                  onThumbnailGenerated={(thumbnail) => {
+                    console.log("Thumbnail generated successfully")
+                    setUploadFormData((prev) => ({ ...prev, thumbnail, thumbnailError: false }))
+                  }}
+                  onError={(error) => {
+                    console.error("Thumbnail error:", error)
+                    setUploadFormData((prev) => ({ ...prev, thumbnailError: true }))
+                  }}
+                  width={1080}
+                  height={1080}
+                />
+              </div>
+            )}
+
+            {/* Show thumbnail generation status */}
+            {uploadFormData.file && (
+              <div className="text-sm text-muted-foreground">
+                {uploadFormData.thumbnailError ? (
+                  <span className="text-red-600">❌ Thumbnail generation failed</span>
+                ) : uploadFormData.thumbnail ? (
+                  <span className="text-green-600">✓ Thumbnail generated</span>
+                ) : (
+                  <span>🔄 Generating thumbnail...</span>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                className="flex-1 bg-transparent"
+                onClick={() => {
+                  setShowUploadForm(false)
+                  setUploadFormData({
+                    name: "",
+                    description: "",
+                    category: "",
+                    price: 0,
+                    tags: [],
+                    file: null,
+                    thumbnail: null,
+                    thumbnailError: false,
+                    createdBy: "",
+                  })
+                  setTagInput("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleUpload}>
+                Upload Model
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Upload Successful!</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-lg font-medium text-green-800 mb-2">Model uploaded successfully!</p>
+            <p className="text-sm text-muted-foreground">Redirecting in a moment...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Share Modal */}
       <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
         <DialogContent className="max-w-md">
@@ -1230,15 +1053,15 @@ export function StorePage() {
             <DialogTitle>Share Model</DialogTitle>
             <DialogDescription>Share this 3D model with others</DialogDescription>
           </DialogHeader>
-          
+
           {shareModelId && (
             <div className="space-y-4">
               {(() => {
-                const model = models.find(m => m.id === shareModelId)
+                const model = models.find((m) => m.id === shareModelId)
                 if (!model) return null
-                
+
                 const shareUrl = `${window.location.origin}/app?model=${encodeURIComponent(model.file_url)}`
-                
+
                 return (
                   <>
                     <div className="space-y-2">
@@ -1250,15 +1073,12 @@ export function StorePage() {
                           readOnly
                           className="flex-1 px-3 py-2 text-xs border rounded-md bg-muted/50"
                         />
-                        <Button
-                          size="sm"
-                          onClick={() => copyToClipboard(shareUrl)}
-                        >
+                        <Button size="sm" onClick={() => copyToClipboard(shareUrl)}>
                           Copy
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Share Via</h4>
                       <div className="grid grid-cols-2 gap-2">
@@ -1277,7 +1097,7 @@ export function StorePage() {
                           onClick={() => {
                             const twitterText = `Check out this 3D model: ${model.name}`
                             const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`
-                            window.open(twitterUrl, '_blank')
+                            window.open(twitterUrl, "_blank")
                           }}
                           className="justify-start"
                         >
@@ -1291,7 +1111,7 @@ export function StorePage() {
                           size="sm"
                           onClick={() => {
                             const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
-                            window.open(linkedinUrl, '_blank')
+                            window.open(linkedinUrl, "_blank")
                           }}
                           className="justify-start"
                         >
@@ -1306,12 +1126,12 @@ export function StorePage() {
                           onClick={() => {
                             const whatsappText = `Check out this 3D model: ${model.name} - ${shareUrl}`
                             const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`
-                            window.open(whatsappUrl, '_blank')
+                            window.open(whatsappUrl, "_blank")
                           }}
                           className="justify-start"
                         >
                           <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0010.05 0C4.495 0 .05 4.445.05 9.999c0 1.76.459 3.478 1.332 4.992L0 20l5.134-1.347a9.963 9.963 0 004.916 1.347h.004c5.555 0 10.001-4.445 10.001-9.999 0-2.67-1.04-5.183-2.922-7.096z"/>
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0010.05 0C4.495 0 .05 4.445.05 9.999c0 1.76.459 3.478 1.332 4.992L0 20l5.134-1.347a9.963 9.963 0 004.916 1.347h.004c5.555 0 10.001-4.445 10.001-9.999 0-2.67-1.04-5.183-2.922-7.096z" />
                           </svg>
                           WhatsApp
                         </Button>
