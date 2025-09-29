@@ -61,22 +61,30 @@ export default function Header() {
     : "text-muted-foreground hover:text-foreground font-medium transition-all duration-200 cursor-pointer text-sm lg:text-base px-2 py-1 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102"
 
   const headerInlineStyle: React.CSSProperties | undefined =
-    isAppPage && resolvedTheme === "dark"
+    resolvedTheme === "dark"
       ? {
           backgroundColor: "rgba(2,6,23,0.9)",
           borderBottomColor: "rgba(51,65,85,0.6)",
           color: "rgb(248 250 252)",
           backdropFilter: "blur(8px)",
         }
-      : undefined
+      : {
+          backgroundColor: "rgba(255,255,255,0.95)",
+          borderBottomColor: "rgba(229,231,235,1)",
+          color: "rgb(15 23 42)",
+          backdropFilter: "blur(8px)",
+        }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <header
+      className="fixed top-0 left-0 right-0 z-50 border-b shadow-sm"
+      style={headerInlineStyle}
+    >
       <nav className="w-full px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo - Sol taraf */}
           <Link to="/" className="flex-shrink-0 flex items-center">
-            <span className="text-2xl  font-bold text-gray-900">
+            <span className="text-2xl font-bold" style={{ color: resolvedTheme === "dark" ? "white" : "rgb(15 23 42)" }}>
               <span className="text-cyan-500">Viz</span>Cad
             </span>
           </Link>
@@ -116,17 +124,19 @@ export default function Header() {
             <PaletteSelector />
             <ModeToggle />
             <LanguageSwitcher />
-            <Link
-              to="/app"
-              search={{}}
-              className="font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base transform hover:scale-102 hover:brightness-105"
-              style={{
-                backgroundColor: "rgb(var(--primary))",
-                color: "rgb(15 23 42)", 
-              }}
-            >
-              {t("nav_launch_app")}
-            </Link>
+            {!isAppPage && (
+              <Link
+                to="/app"
+                search={{}}
+                className="font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base transform hover:scale-102 hover:brightness-105"
+                style={{
+                  backgroundColor: "rgb(var(--primary))",
+                  color: "rgb(15 23 42)",
+                }}
+              >
+                {t("nav_launch_app")}
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
