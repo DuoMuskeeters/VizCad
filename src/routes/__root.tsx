@@ -1,10 +1,24 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import Header from "../components/Header"
+import AppHeader from "../components/AppHeader"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { detectLanguage, seoContent } from "@/utils/language"
 import SeoUpdater from "@/components/SeoUpdater"
+import { useLocation } from "@tanstack/react-router"
+
+// App sayfasında AppHeader, diğer sayfalarda normal Header kullan
+function AppAwareHeader() {
+  const location = useLocation()
+  const isAppPage = location.pathname === "/app"
+  
+  if (isAppPage) {
+    return <AppHeader />
+  }
+  
+  return <Header />
+}
 
 export const Route = createRootRoute({
   head: () => {
@@ -138,7 +152,7 @@ export const Route = createRootRoute({
       <PaletteProvider>
         <div className="min-h-screen bg-background text-foreground">
           <HeadContent />
-          <Header />
+          <AppAwareHeader />
           <main className="bg-background">
             <Outlet />
           </main>

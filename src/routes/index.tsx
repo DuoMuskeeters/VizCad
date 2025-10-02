@@ -121,7 +121,7 @@ export function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* HERO SECTION */}
-      <section className="relative bg-gradient-to-br from-background to-muted pt-24 pb-16 sm:pt-32 sm:pb-20 xl:pt-32 xl:pb-16 overflow-hidden min-h-screen flex items-center">
+      <section className="relative bg-gradient-to-br from-background to-muted pt-32 pb-16 sm:pt-40 sm:pb-20 lg:pt-32 lg:pb-16 overflow-hidden min-h-screen flex items-center">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.1),transparent_50%)]"></div>
 
         {/* Background decorative elements */}
@@ -130,25 +130,25 @@ export function HomePage() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-primary/3 to-primary/3 rounded-full blur-3xl"></div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="flex flex-col xl:grid xl:grid-cols-2 gap-16 sm:gap-20 xl:gap-16 xl:items-center">
-            {/* Sol taraf - Metin içeriği */}
-            <div className="space-y-12 sm:space-y-14 xl:space-y-10 text-center xl:text-left">
+          <div className="flex flex-col items-center justify-center">
+            {/* Hero İçeriği - Ortalanmış */}
+            <div className="space-y-12 sm:space-y-14 xl:space-y-10 text-center max-w-4xl">
               <div className="space-y-8 sm:space-y-10 xl:space-y-8">
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium border border-primary/30 shadow-sm">
                   <Zap className="w-4 h-4" />
                   {t("hero_badge")}
                 </div>
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-7xl font-bold text-foreground leading-tight text-center xl:text-left">
+                <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-7xl font-bold text-foreground leading-tight text-center">
                   {t("hero_title_1")}
                   <span className="block text-primary">{t("hero_title_2")}</span>
                   <span className="block">{t("hero_title_3")}</span>
                 </h1>
-                <p className="text-xl sm:text-2xl lg:text-2xl xl:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto xl:max-w-2xl xl:mx-0">
+                <p className="text-xl sm:text-2xl lg:text-2xl xl:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto text-center">
                   {t("hero_desc")}
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 justify-center xl:justify-start">
+              <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 justify-center">
                 <Button
                   asChild
                   size="lg"
@@ -171,7 +171,7 @@ export function HomePage() {
                 </Button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-8 xl:gap-8 text-base text-muted-foreground justify-center xl:justify-start">
+              <div className="flex flex-wrap items-center gap-8 xl:gap-8 text-base text-muted-foreground justify-center">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-green-500" />
@@ -193,51 +193,7 @@ export function HomePage() {
               </div>
             </div>
 
-            {/* Sağ taraf - Uygulama önizlemesi */}
-            <div className="relative group flex justify-center xl:justify-start">
-              {/* Application Preview */}
-              <div className="relative bg-card rounded-2xl xl:rounded-3xl shadow-xl xl:shadow-2xl border border-border overflow-hidden group-hover:scale-105 transition-transform duration-700 ease-out w-full max-w-xl xl:max-w-none hidden xl:block">
-                <div className="flex items-center gap-2 px-5 py-4 xl:px-6 xl:py-4 bg-muted border-b border-border">
-                  <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                  <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                  <div className="ml-4 text-sm text-muted-foreground font-mono">vizcad.com/app</div>
-                </div>
-                <div className="p-8 xl:p-8">
-                  <div className="flex gap-6 xl:gap-6 mb-6 xl:mb-6">
-                    <div className="flex-1 space-y-4 xl:space-y-4">
-                      <div className="flex gap-2 xl:gap-2">
-                        <div className="px-4 py-2 xl:px-4 xl:py-2 bg-primary/20 text-primary-foreground rounded-full text-sm font-medium">
-                          Scenes
-                        </div>
-                        <div className="px-4 py-2 xl:px-4 xl:py-2 bg-muted text-muted-foreground rounded-full text-sm">
-                          Lights
-                        </div>
-                        <div className="px-4 py-2 xl:px-4 xl:py-2 bg-muted text-muted-foreground rounded-full text-sm">
-                          Camera
-                        </div>
-                      </div>
-                      <div className="space-y-3 xl:space-y-3">
-                        <div className="h-20 xl:h-20 bg-gradient-to-br from-primary/10 to-primary/10 rounded-xl border border-primary/20 flex items-center justify-center">
-                          <Upload className="w-8 h-8 xl:w-8 xl:h-8 text-primary" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 xl:gap-3">
-                          <div className="h-16 xl:h-16 bg-gradient-to-br from-muted to-card rounded-lg border border-primary"></div>
-                          <div className="h-16 xl:h-16 bg-gradient-to-br from-muted to-muted rounded-lg border border-border"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-[2] bg-muted rounded-xl flex items-center justify-center min-h-[200px] xl:min-h-[200px]">
-                      <div className="text-center space-y-3 xl:space-y-3">
-                        <Box className="w-16 h-16 xl:w-16 xl:h-16 text-muted-foreground mx-auto" />
-                        <div className="text-lg xl:text-lg text-foreground font-medium">3D Viewer</div>
-                        <div className="text-sm xl:text-sm text-muted-foreground">Upload your model to get started</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
 
@@ -295,8 +251,6 @@ export function HomePage() {
 
                 {/* Video Info Overlay */}
                 <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="text-xl font-semibold mb-1">{t("video_overlay_title")}</h3>
-                  <p className="text-gray-300">{t("video_overlay_desc")}</p>
                 </div>
               </div>
             </div>
