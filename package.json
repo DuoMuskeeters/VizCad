@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "vite --port 3000",
     "start": "vite --port 3000",
-    "build": "pnpm run build:client && pnpm run build:server && tsc",
+    "build": "pnpm run build:client && tsc",
     "build:client": "vite build",
     "build:server": "cross-env VITE_SSR_BUILD=true vite build",
-  "deploy": "pnpm run build && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy",
     "serve": "vite preview",
     "test": "vitest run"
   },
