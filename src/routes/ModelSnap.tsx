@@ -176,7 +176,7 @@ function StlToPngPage() {
   ])
 
   return (
-    <div className="min-h-screen bg-background pt-16 sm:pt-20">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 lg:pt-28">
       {/* Kompakt Header */}
       <div className="container mx-auto px-4 py-3">
         <h1 className="text-3xl font-bold text-foreground text-center">{t("modelsnap.title")}</h1>

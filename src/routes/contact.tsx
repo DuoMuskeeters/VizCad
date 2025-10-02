@@ -129,7 +129,7 @@ function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-900 pt-16 sm:pt-20">
+    <div className="min-h-screen bg-background dark:bg-gray-900 pt-20 sm:pt-24 lg:pt-28">
       <Header />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header Section */}

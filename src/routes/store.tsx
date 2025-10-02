@@ -483,7 +483,7 @@ export function StorePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pt-16 sm:pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-background pt-20 sm:pt-24 lg:pt-28 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading models...</p>
@@ -494,7 +494,7 @@ export function StorePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background pt-16 sm:pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-background pt-20 sm:pt-24 lg:pt-28 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-bold text-destructive mb-2">Error Loading Store</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
@@ -506,7 +506,7 @@ export function StorePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="marketplace-hero pt-16 sm:pt-20 pb-12">
+      <div className="marketplace-hero pt-20 sm:pt-24 lg:pt-28 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">

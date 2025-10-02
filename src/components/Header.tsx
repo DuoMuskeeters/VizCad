@@ -5,31 +5,21 @@ import { useTranslation } from "react-i18next"
 import { PaletteSelector } from "./palette-selector"
 import { ModeToggle } from "./mode-toggle"
 import LanguageSwitcher from "./LanguageSwitcher"
-import React from "react"
-import { useTheme } from "./theme-provider"
+import { Button } from "./ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu"
+import { Menu } from "lucide-react"
 
 export default function Header() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
-
-  // State for mobile menu
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
-
-  // Determine if current page is contact
-  const isContactPage = location.pathname === "/contact"
-
-  // Get resolved theme (requires next-themes)
-  // If you use another theme provider, adjust accordingly
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { theme } = useTheme()
-  const resolvedTheme =
-    theme === "system"
-      ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : theme
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
@@ -47,108 +37,134 @@ export default function Header() {
         element.scrollIntoView({ behavior: "smooth" })
       }
     }
-    setIsMobileMenuOpen(false)
   }
-
-  const handleContactClick = () => {
-    if (location.pathname !== "/contact") {
-      navigate({ to: "/contact" })
-    }
-  }
-
-  const buttonClass = isContactPage
-    ? "text-muted-foreground font-medium cursor-default text-sm lg:text-base px-2 py-1 rounded-md"
-    : "text-muted-foreground hover:text-foreground font-medium transition-all duration-200 cursor-pointer text-sm lg:text-base px-2 py-1 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102"
-
-  const headerInlineStyle: React.CSSProperties | undefined =
-    resolvedTheme === "dark"
-      ? {
-          backgroundColor: "rgba(2,6,23,0.9)",
-          borderBottomColor: "rgba(51,65,85,0.6)",
-          color: "rgb(248 250 252)",
-          backdropFilter: "blur(8px)",
-        }
-      : {
-          backgroundColor: "rgba(255,255,255,0.95)",
-          borderBottomColor: "rgba(229,231,235,1)",
-          color: "rgb(15 23 42)",
-          backdropFilter: "blur(8px)",
-        }
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 border-b shadow-sm"
-      style={headerInlineStyle}
-    >
-      <nav className="w-full px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo - Sol taraf */}
-          <Link to="/" className="flex-shrink-0 flex items-center">
-            <span className="text-2xl font-bold" style={{ color: resolvedTheme === "dark" ? "white" : "rgb(15 23 42)" }}>
-              <span className="text-cyan-500">Viz</span>Cad
-            </span>
-          </Link>
+    <header className="fixed top-6 lg:top-6 top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl mb-4 lg:mb-0">
+      <div className="bg-background border border-border rounded-full shadow-xl px-2 sm:px-4 lg:px-6 py-2 lg:py-3 min-w-0 overflow-hidden">
+        <nav className="w-full space-y-2 min-[730px]:space-y-0">
+          {/* Masaüstü ve tablet görünümü */}
+          <div className="hidden min-[730px]:flex items-center justify-between w-full">
+            <Link to="/" className="flex items-center pl-2 flex-shrink-0">
+              <span className="text-xl lg:text-2xl font-bold text-foreground">
+                <span className="text-cyan-500">Viz</span>Cad
+              </span>
+            </Link>
 
-          {/* Navigation Menu - Sağ taraf */}
-          <div className="hidden md:flex items-center space-x-6">
-            <button
-              onClick={() => handleNavClick("features")}
-              className={buttonClass}
-            >
-              {t("nav_features")}
-            </button>
-            <Link
-              to="/ModelSnap"
-              className={buttonClass}
-            >
-              ModelSnap
-            </Link>
-            <Link
-              to="/faq"
-              className={buttonClass}
-            >
-              {t("nav_faq")}
-            </Link>
-            <Link
-              to="/contact"
-              className={buttonClass}
-            >
-              {t("nav_contact")}
-            </Link>
-            <button
-              onClick={() => handleNavClick("about")}
-              className={buttonClass}
-            >
-              {t("nav_about")}
-            </button>
-            <PaletteSelector />
-            <ModeToggle />
-            <LanguageSwitcher />
-            {!isAppPage && (
+            <div className="flex flex-wrap items-center justify-center gap-2 lg:gap-4 flex-1 min-w-0">
               <Link
-                to="/app"
-                search={{}}
-                className="font-medium px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-all duration-200 hover:shadow-md text-sm lg:text-base transform hover:scale-102 hover:brightness-105"
-                style={{
-                  backgroundColor: "rgb(var(--primary))",
-                  color: "rgb(15 23 42)",
-                }}
+                to="/ModelSnap"
+                className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
               >
-                {t("nav_launch_app")}
+                ModelSnap
               </Link>
-            )}
+              <Link
+                to="/faq"
+                className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
+              >
+                {t("nav_faq")}
+              </Link>
+              <Link
+                to="/contact"
+                className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
+              >
+                {t("nav_contact")}
+              </Link>
+              <button
+                onClick={() => handleNavClick("about")}
+                className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
+              >
+                {t("nav_about")}
+              </button>
+            </div>
+
+            <div className="hidden min-[730px]:flex items-center gap-2 lg:gap-3 flex-shrink-0">
+              <div className="hidden min-[730px]:flex lg:hidden items-center gap-1 bg-accent/30 rounded-full px-1.5 py-1">
+                <PaletteSelector />
+                <ModeToggle />
+                <LanguageSwitcher />
+              </div>
+
+              <div className="hidden lg:flex items-center gap-1 bg-accent/30 rounded-full p-1.5">
+                <PaletteSelector />
+                <ModeToggle />
+                <LanguageSwitcher />
+              </div>
+
+              {!isAppPage && (
+                <Link
+                  to="/app"
+                  search={{}}
+                  className="hidden min-[686px]:flex bg-primary hover:bg-primary/90 text-white rounded-full px-4 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap items-center justify-center min-w-[120px]"
+                >
+                  {t("nav_launch_app")} →
+                </Link>
+              )}
+            </div>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button className="text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+          {/* Mobil görünüm */}
+          <div className="flex min-[730px]:hidden items-center justify-between gap-2 w-full">
+            <Link to="/" className="flex items-center flex-shrink-0 pl-3">
+              <span className="text-lg font-semibold text-foreground">
+                <span className="text-cyan-500">Viz</span>Cad
+              </span>
+            </Link>
+
+            <div className="flex-1 flex justify-center">
+              {!isAppPage && (
+                <Link
+                  to="/app"
+                  search={{}}
+                  className="bg-primary hover:bg-primary/90 text-white rounded-full px-5 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap min-w-[100px] flex items-center justify-center"
+                >
+                  {t("nav_launch_app")} →
+                </Link>
+              )}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full border border-border/60 hover:bg-accent"
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-4 space-y-3">
+                <div className="flex flex-col gap-1">
+                  <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <Link to="/ModelSnap">ModelSnap</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <Link to="/faq">{t("nav_faq")}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <Link to="/contact">{t("nav_contact")}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => handleNavClick("about")}
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    {t("nav_about")}
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator />
+
+                <div className="flex items-center justify-between gap-2">
+                  <PaletteSelector />
+                  <ModeToggle />
+                  <LanguageSwitcher />
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
     </header>
   )
 }
