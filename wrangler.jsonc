@@ -9,5 +9,6 @@
   },
   "routes": [
     "https://viz-cad.com/*"
-  ]
+  ],
+  "pages_build_output_dir": "./dist/client"
 }
