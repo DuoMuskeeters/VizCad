@@ -276,7 +276,7 @@ function StlToPngPage() {
                           key={size.label}
                           className={`px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
                             settings.width === size.w && settings.height === size.h
-                              ? "border-primary bg-primary text-primary-foreground"
+                              ? "border-primary bg-primary text-white"
                               : "border-border hover:border-primary/50"
                           }`}
                           onClick={() => setSettings((prev) => ({ ...prev, width: size.w, height: size.h }))}
@@ -301,7 +301,7 @@ function StlToPngPage() {
                           key={view.value}
                           className={`px-1.5 py-1.5 rounded text-xs font-medium capitalize border transition-colors ${
                             settings.view === view.value
-                              ? "border-primary bg-primary text-primary-foreground"
+                              ? "border-primary bg-primary text-white"
                               : "border-border hover:border-primary/50"
                           }`}
                           onClick={() => setSettings((prev) => ({ ...prev, view: view.value }))}
@@ -362,7 +362,7 @@ function StlToPngPage() {
                       <button
                         className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
                           settings.wireframe
-                            ? "border-primary bg-primary text-primary-foreground"
+                            ? "border-primary bg-primary text-white"
                             : "border-border hover:border-primary/50"
                         }`}
                         onClick={() => setSettings((prev) => ({ ...prev, wireframe: !prev.wireframe }))}
@@ -375,7 +375,7 @@ function StlToPngPage() {
                       <button
                         className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
                           settings.smooth
-                            ? "border-primary bg-primary text-primary-foreground"
+                            ? "border-primary bg-primary text-white"
                             : "border-border hover:border-primary/50"
                         }`}
                         onClick={() => setSettings((prev) => ({ ...prev, smooth: !prev.smooth }))}
