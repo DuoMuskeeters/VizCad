@@ -145,6 +145,29 @@ export const Route = createRootRoute({
           href: "https://vizcad.com",
         },
       ],
+      scripts: [
+        {
+          src: "https://www.googletagmanager.com/gtag/js?id=G-7DM9K53WE0",
+          async: true,
+        },
+        {
+          children: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-7DM9K53WE0');
+          `,
+        },
+        {
+          children: `
+            gtag('event', 'conversion', {
+              'send_to': 'AW-17525885648/boHPCKiosqYbENCV_6RB',
+              'value': 1.0,
+              'currency': 'TRY'
+            });
+          `,
+        },
+      ],
     }
   },
   component: () => (
