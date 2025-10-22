@@ -1,7 +1,3 @@
-"use client"
-
-// scene.tsx
-
 import { useRef, useEffect } from "react"
 import vtkGenericRenderWindow from "@kitware/vtk.js/Rendering/Misc/GenericRenderWindow"
 import type vtkRenderer from "@kitware/vtk.js/Rendering/Core/Renderer"
@@ -12,7 +8,6 @@ import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper"
 import type vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader"
 import type vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader"
 import type vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader"
-import vtkLight from "@kitware/vtk.js/Rendering/Core/Light"
 import vtkPlaneSource from "@kitware/vtk.js/Filters/Sources/PlaneSource"
 import vtkAxesActor from "@kitware/vtk.js/Rendering/Core/AxesActor"
 import vtkOrientationMarkerWidget from "@kitware/vtk.js/Interaction/Widgets/OrientationMarkerWidget"
@@ -25,23 +20,7 @@ type GREEN = number
 type BLUE = number
 type RGB = [RED, GREEN, BLUE]
 
-// Işık tipleri
-export enum LightType {
-  HEADLIGHT = "headlight",
-  SCENE_LIGHT = "sceneLight",
-  CAMERA_LIGHT = "cameraLight",
-}
-
-export interface LightOptions {
-  position?: [number, number, number]
-  focalPoint?: [number, number, number]
-  color?: RGB
-  intensity?: number
-  positional?: boolean
-  coneAngle?: number
-}
-
-export function useVtkScene() {
+export function useVtkScene(viewLocked: boolean = false) {
   // Ref'leri daha spesifik tiplerle ve null başlangıç değeriyle tanımlıyoruz
   const vtkContainerRef = useRef<HTMLDivElement>(null!)
   const genericRenderWindowRef = useRef<vtkGenericRenderWindow | null>(null)
@@ -50,7 +29,6 @@ export function useVtkScene() {
   const actorRef = useRef<vtkProp | null>(null)
   const mapperRef = useRef<vtkMapper | null>(null)
   const readerRef = useRef<vtkSTLReader | vtkOBJReader | vtkPLYReader | null>(null)
-  const lightsRef = useRef<vtkLight[]>([])
   const floorActorRef = useRef<vtkProp | null>(null)
   const backgroundPlaneRef = useRef<vtkProp | null>(null)
   const gridActorRef = useRef<vtkProp | null>(null)
@@ -69,16 +47,13 @@ export function useVtkScene() {
       rendererRef.current = grw.getRenderer()
       renderWindowRef.current = grw.getRenderWindow()
 
-      // View lock event (disable interactor to freeze camera)
-      const handleViewLock = (e: CustomEvent) => {
-        viewLockedRef.current = !!e.detail.enabled
-        try {
-          const interactor = grw.getRenderWindow().getInteractor()
-          if (viewLockedRef.current) interactor?.disable?.()
-          else interactor?.enable?.()
-        } catch {}
-      }
-      window.addEventListener("toggleViewLock", handleViewLock as EventListener)
+      // View lock based on prop
+      viewLockedRef.current = viewLocked
+      try {
+        const interactor = grw.getRenderWindow().getInteractor()
+        if (viewLockedRef.current) interactor?.disable?.()
+        else interactor?.enable?.()
+      } catch {}
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
       rendererRef.current.getRenderWindow()?.render()
@@ -87,7 +62,6 @@ export function useVtkScene() {
       // Cleanup function
       return () => {
         console.log("Cleaning up VTK scene...")
-        window.removeEventListener("toggleViewLock", handleViewLock as EventListener)
         if (genericRenderWindowRef.current) {
           genericRenderWindowRef.current.delete()
           genericRenderWindowRef.current = null
@@ -99,21 +73,23 @@ export function useVtkScene() {
     }
   }, [vtkContainerRef])
 
+  // Update view lock when prop changes
+  useEffect(() => {
+    if (!genericRenderWindowRef.current) return
+    viewLockedRef.current = viewLocked
+    try {
+      const interactor = genericRenderWindowRef.current.getRenderWindow().getInteractor()
+      if (viewLocked) interactor?.disable?.()
+      else interactor?.enable?.()
+    } catch {}
+  }, [viewLocked])
+
   const setBackground = (color: RGB) => {
     if (rendererRef.current && renderWindowRef.current) {
       rendererRef.current.setBackground(color)
       renderWindowRef.current.render()
       console.log("Background color set to:", color)
     }
-  }
-
-  const clearAllLights = () => {
-    if (!rendererRef.current) return
-
-    lightsRef.current.forEach((light) => {
-      rendererRef.current?.removeLight(light)
-    })
-    lightsRef.current = []
   }
 
   const clearFloor = () => {
@@ -132,46 +108,6 @@ export function useVtkScene() {
     backgroundPlaneRef.current = null
   }
 
-  const addLight = (type: LightType, options: LightOptions = {}) => {
-    if (!rendererRef.current || !renderWindowRef.current) {
-      console.warn("Cannot add light: renderer or renderWindow not initialized")
-      return null
-    }
-    const {
-      position = [1, 1, 1],
-      focalPoint = [0, 0, 0],
-      color = [1, 1, 1],
-      intensity = 1.0,
-      positional = false,
-      coneAngle = 30,
-    } = options
-    const light = vtkLight.newInstance()
-    switch (type) {
-      case LightType.HEADLIGHT:
-        light.setLightTypeToHeadLight()
-        break
-      case LightType.CAMERA_LIGHT:
-        light.setLightTypeToCameraLight()
-        break
-      case LightType.SCENE_LIGHT:
-      default:
-        light.setLightTypeToSceneLight()
-        break
-    }
-    light.setPosition(...position)
-    light.setFocalPoint(...focalPoint)
-    light.setColor(...color)
-    light.setIntensity(intensity)
-    if (positional) {
-      light.setPositional(true)
-      light.setConeAngle(coneAngle)
-    }
-    rendererRef.current.addLight(light)
-    renderWindowRef.current.render()
-    console.log(`Light of type ${type} added.`)
-    return light
-  }
-
   const resize = () => {
     if (genericRenderWindowRef.current) {
       genericRenderWindowRef.current.resize()
@@ -180,70 +116,19 @@ export function useVtkScene() {
   }
 
   const applyStudioScene = (sceneId: string) => {
-    // Clear existing lights, floor, and background plane
-    clearAllLights()
+    // Clear existing floor and background plane
     clearFloor()
     clearBackgroundPlane()
     const renderer = rendererRef.current
     if (!renderer) return
 
-    // Helper for adding a light & tracking
-    const addSceneLight = (config: {
-      position?: [number, number, number]
-      focalPoint?: [number, number, number]
-      color?: [number, number, number]
-      intensity?: number
-      type?: "scene" | "head" | "camera"
-    }) => {
-      const l = vtkLight.newInstance()
-      switch (config.type) {
-        case "head":
-          l.setLightTypeToHeadLight()
-          break
-        case "camera":
-          l.setLightTypeToCameraLight()
-          break
-        default:
-          l.setLightTypeToSceneLight()
-      }
-      if (config.position) l.setPosition(...config.position)
-      if (config.focalPoint) l.setFocalPoint(...config.focalPoint)
-      if (config.color) l.setColor(...config.color)
-      if (config.intensity !== undefined) l.setIntensity(config.intensity)
-      renderer.addLight(l)
-      lightsRef.current.push(l)
-      return l
-    }
-
-    // Not: Gradient destek metodu tip tanımında yok; sadece düz background kullanılıyor.
-
     switch (sceneId) {
       case "plain-white": {
         renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.1 });
-        addSceneLight({
-          position: [10, 10, 10],
-          focalPoint: [0, 0, 0],
-          color: [1, 1, 1],
-          intensity: 0.9,
-        });
         break;
       }
       case "3point-faded": {
-        renderer.setBackground(0.96, 0.96, 0.975); // Tek ton yerine hafif açık gri
-        addSceneLight({ color: [0.3, 0.3, 0.3], intensity: 0.3 });
-        addSceneLight({
-          position: [10, 10, 10],
-          focalPoint: [0, 0, 0],
-          color: [1, 1, 1],
-          intensity: 0.8,
-        });
-        addSceneLight({
-          position: [-10, -10, 5],
-          focalPoint: [0, 0, 0],
-          color: [1, 1, 1],
-          intensity: 0.2,
-        });
+        renderer.setBackground(0.96, 0.96, 0.975);
         break;
       }
       case "simple-office": {
@@ -262,29 +147,14 @@ export function useVtkScene() {
         floorActor.getProperty().setColor(0.8, 0.8, 0.8);
         renderer.addActor(floorActor);
         floorActorRef.current = floorActor;
-        addSceneLight({ color: [0.2, 0.2, 0.2], intensity: 0.2 });
-        addSceneLight({
-          position: [-10, 5, 10],
-          focalPoint: [0, 0, 0],
-          color: [0.95, 0.95, 1],
-          intensity: 0.8,
-        });
         break;
       }
       case "warm-studio": {
         renderer.setBackground(0.98, 0.96, 0.9);
-        addSceneLight({ color: [0.8, 0.7, 0.6], intensity: 0.7 });
-        addSceneLight({
-          position: [8, 8, 8],
-          focalPoint: [0, 0, 0],
-          color: [1, 0.95, 0.9],
-          intensity: 0.5,
-        });
         break;
       }
       default: {
         renderer.setBackground(1, 1, 1);
-        addSceneLight({ color: [0.1, 0.1, 0.1], intensity: 0.15 });
         break;
       }
     }
@@ -390,55 +260,101 @@ export function useVtkScene() {
     renderWindowRef.current.render()
   }
 
-  // Capture current render as image (PNG/JPEG) using VTK captureImages if available
-  const captureImage = async (options?: {
-    scale?: number
-    format?: "png" | "jpeg"
-    quality?: number // 0-1 for jpeg
-    filename?: string
-  }): Promise<boolean> => {
-    const scale = options?.scale ?? 1
-    const format = options?.format ?? "png"
-    const quality = options?.quality ?? 0.95
-    const filename = options?.filename ?? `vizcad-render-${new Date().toISOString().replace(/[:.]/g, "-")}`
-    if (!renderWindowRef.current || !vtkContainerRef.current) return false
-    try {
-      const rw: any = renderWindowRef.current
-      // Preferred path
-      if (rw.captureImages) {
-        rw.render?.()
-        const mime = format === "jpeg" ? "image/jpeg" : "image/png"
-        const imgs: string[] = await rw.captureImages({
-          scale,
-          format: mime,
-          mimeType: mime,
-          quality,
-        })
-        const uri = imgs?.[0]
-        if (uri) {
-          const a = document.createElement("a")
-          a.href = uri
-          a.download = `${filename}-scale${scale}.${format}`
-          document.body.appendChild(a)
-          a.click()
-          a.remove()
-          return true
-        }
-      }
-      // Fallback canvas
-      const canvas: HTMLCanvasElement | null = vtkContainerRef.current.querySelector("canvas")
-      if (!canvas) return false
-      const dataURL = canvas.toDataURL(format === "jpeg" ? "image/jpeg" : "image/png", quality)
-      const a = document.createElement("a")
-      a.href = dataURL
-      a.download = `${filename}.${format}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      return true
-    } catch {
-      return false
+  const setProjection = (perspective: boolean) => {
+    if (!rendererRef.current || !renderWindowRef.current) return
+    const camera = rendererRef.current.getActiveCamera()
+    if (perspective) {
+      camera.setParallelProjection(false)
+    } else {
+      camera.setParallelProjection(true)
     }
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
+  }
+
+  const resetCamera = () => {
+    if (!rendererRef.current || !renderWindowRef.current) return
+    rendererRef.current.resetCamera()
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
+  }
+
+  const zoomIn = () => {
+    if (!rendererRef.current || !renderWindowRef.current) return
+    const camera = rendererRef.current.getActiveCamera()
+    camera.zoom(1.2)
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
+  }
+
+  const zoomOut = () => {
+    if (!rendererRef.current || !renderWindowRef.current) return
+    const camera = rendererRef.current.getActiveCamera()
+    camera.zoom(0.8)
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
+  }
+
+  const setView = (view: string) => {
+    if (!rendererRef.current || !renderWindowRef.current) return
+    const camera = rendererRef.current.getActiveCamera()
+    const bounds = rendererRef.current.computeVisiblePropBounds()
+    
+    if (!bounds || bounds[0] > bounds[1]) return
+
+    const center = [
+      (bounds[0] + bounds[1]) / 2,
+      (bounds[2] + bounds[3]) / 2,
+      (bounds[4] + bounds[5]) / 2,
+    ]
+    
+    const diagonal = Math.sqrt(
+      Math.pow(bounds[1] - bounds[0], 2) +
+      Math.pow(bounds[3] - bounds[2], 2) +
+      Math.pow(bounds[5] - bounds[4], 2)
+    )
+    
+    const distance = diagonal * 1.5
+
+    camera.setFocalPoint(center[0], center[1], center[2])
+
+    switch (view.toLowerCase()) {
+      case "front":
+        camera.setPosition(center[0], center[1], center[2] + distance)
+        camera.setViewUp(0, 1, 0)
+        break
+      case "back":
+        camera.setPosition(center[0], center[1], center[2] - distance)
+        camera.setViewUp(0, 1, 0)
+        break
+      case "top":
+        camera.setPosition(center[0], center[1] + distance, center[2])
+        camera.setViewUp(0, 0, -1)
+        break
+      case "bottom":
+        camera.setPosition(center[0], center[1] - distance, center[2])
+        camera.setViewUp(0, 0, 1)
+        break
+      case "left":
+        camera.setPosition(center[0] - distance, center[1], center[2])
+        camera.setViewUp(0, 1, 0)
+        break
+      case "right":
+        camera.setPosition(center[0] + distance, center[1], center[2])
+        camera.setViewUp(0, 1, 0)
+        break
+      case "iso":
+        camera.setPosition(
+          center[0] + distance * 0.7,
+          center[1] + distance * 0.7,
+          center[2] + distance * 0.7
+        )
+        camera.setViewUp(0, 1, 0)
+        break
+    }
+
+    rendererRef.current.resetCameraClippingRange()
+    renderWindowRef.current.render()
   }
 
   // This file contains pure VTK functionality and should never be affected by theme/palette changes
@@ -449,7 +365,6 @@ export function useVtkScene() {
     renderWindowRef: renderWindowRef,
     mapperRef,
     readerRef,
-    lightsRef,
     floorActorRef,
     backgroundPlaneRef,
     gridActorRef,
@@ -458,9 +373,7 @@ export function useVtkScene() {
     vtkContainerRef,
     actorRef,
     setBackground,
-    addLight,
     resize,
-    clearAllLights,
     clearFloor,
     clearBackgroundPlane,
     applyStudioScene,
@@ -468,6 +381,10 @@ export function useVtkScene() {
     setSmoothShading,
     showGrid,
     showAxes,
-    captureImage,
+    setProjection,
+    resetCamera,
+    zoomIn,
+    zoomOut,
+    setView,
   }
 }

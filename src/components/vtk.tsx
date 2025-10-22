@@ -16,9 +16,19 @@ interface VtkAppProps {
   file: File | null
   viewMode?: string
   displayState?: DisplayState
+  viewLocked?: boolean
+  perspective?: boolean
+  onCameraReady?: (cameraControls: {
+    resetCamera: () => void
+    zoomIn: () => void
+    zoomOut: () => void
+    setView: (view: string) => void
+    applyStudioScene: (sceneId: string) => void
+    setBackground: (color: [number, number, number]) => void
+  }) => void
 }
 
-export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) {
+export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = false, perspective = false, onCameraReady }: VtkAppProps) {
   const {
     vtkContainerRef,
     rendererRef,
@@ -26,335 +36,51 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
     actorRef,
     mapperRef,
     readerRef,
-    lightsRef,
-    floorActorRef,
-    backgroundPlaneRef,
-    setBackground,
-    addLight,
     resize,
-    clearAllLights,
-    clearFloor,
-    clearBackgroundPlane,
-    applyStudioScene,
     setWireframe,
     setSmoothShading,
     showGrid,
     showAxes,
-  } = useVtkScene()
+    setProjection,
+    resetCamera,
+    zoomIn,
+    zoomOut,
+    setView,
+    applyStudioScene,
+    setBackground,
+  } = useVtkScene(viewLocked)
 
   const [statusMessage, setStatusMessage] = useState<string>(
-    "Hazır. Lütfen bir STL dosyası seçin."
+    "Ready. Please select a file."
   );
+
+  // Expose camera controls to parent component
+  useEffect(() => {
+    if (onCameraReady) {
+      onCameraReady({
+        resetCamera,
+        zoomIn,
+        zoomOut,
+        setView,
+        applyStudioScene,
+        setBackground,
+      })
+    }
+  }, [onCameraReady, resetCamera, zoomIn, zoomOut, setView, applyStudioScene, setBackground])
 
   // Apply incoming displayState when it changes (idempotent)
   useEffect(() => {
     if (!displayState) return
-    // Dispatch events so central listeners apply to current actor even if created after toggle.
-    window.dispatchEvent(
-      new CustomEvent("toggleWireframe", {
-        detail: { enabled: displayState.wireframe },
-      }),
-    )
-    window.dispatchEvent(new CustomEvent("toggleGrid", { detail: { enabled: displayState.grid } }))
-    window.dispatchEvent(new CustomEvent("toggleAxes", { detail: { enabled: displayState.axes } }))
-    window.dispatchEvent(
-      new CustomEvent("toggleSmoothShading", {
-        detail: { enabled: displayState.smooth },
-      }),
-    )
-  }, [displayState])
+    setWireframe(displayState.wireframe)
+    showGrid(displayState.grid)
+    showAxes(displayState.axes)
+    setSmoothShading(displayState.smooth)
+  }, [displayState, setWireframe, showGrid, showAxes, setSmoothShading])
 
-  // Listen for studio scene changes
-  // Display feature events
+  // Apply perspective when it changes
   useEffect(() => {
-    const handleWireframe = (e: CustomEvent) => setWireframe(!!e.detail.enabled)
-    const handleSmooth = (e: CustomEvent) => setSmoothShading(!!e.detail.enabled)
-    const handleGrid = (e: CustomEvent) => showGrid(!!e.detail.enabled)
-    const handleAxes = (e: CustomEvent) => showAxes(!!e.detail.enabled)
-    window.addEventListener("toggleWireframe", handleWireframe as EventListener)
-    window.addEventListener("toggleSmoothShading", handleSmooth as EventListener)
-    window.addEventListener("toggleGrid", handleGrid as EventListener)
-    window.addEventListener("toggleAxes", handleAxes as EventListener)
-    return () => {
-      window.removeEventListener("toggleWireframe", handleWireframe as EventListener)
-      window.removeEventListener("toggleSmoothShading", handleSmooth as EventListener)
-      window.removeEventListener("toggleGrid", handleGrid as EventListener)
-      window.removeEventListener("toggleAxes", handleAxes as EventListener)
-    }
-  }, [setWireframe, setSmoothShading, showGrid, showAxes])
-
-  useEffect(() => {
-    const handleStudioSceneChange = (event: CustomEvent) => {
-      applyStudioScene(event.detail.sceneId)
-    }
-
-    window.addEventListener("applyStudioScene", handleStudioSceneChange as EventListener)
-
-    return () => {
-      window.removeEventListener("applyStudioScene", handleStudioSceneChange as EventListener)
-    }
-  }, [rendererRef, renderWindowRef])
-
-  // Listen for custom background changes
-  useEffect(() => {
-    const handleCustomBackgroundChange = (event: CustomEvent) => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-
-      // Clear background plane when applying custom color
-      clearBackgroundPlane()
-
-      const color = event.detail.color
-      // Hex color'u RGB'ye çevir
-      const hexToRgb = (hex: string) => {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-        return result
-          ? {
-              r: Number.parseInt(result[1], 16) / 255,
-              g: Number.parseInt(result[2], 16) / 255,
-              b: Number.parseInt(result[3], 16) / 255,
-            }
-          : { r: 1, g: 1, b: 1 }
-      }
-
-      const rgb = hexToRgb(color)
-
-      // Sadece background rengini değiştir, ışıkları koruma
-      rendererRef.current.setBackground(rgb.r, rgb.g, rgb.b)
-
-      // Render the scene
-      renderWindowRef.current.render()
-      console.log(`Applied custom background color: ${color}`)
-    }
-
-    window.addEventListener("applyCustomBackground", handleCustomBackgroundChange as EventListener)
-
-    return () => {
-      window.removeEventListener("applyCustomBackground", handleCustomBackgroundChange as EventListener)
-    }
-  }, [rendererRef, renderWindowRef])
-
-  // Listen for camera view change events
-  useEffect(() => {
-    const handleSetView = (event: CustomEvent) => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-      const cam = rendererRef.current.getActiveCamera()
-      const view: string = event.detail.view
-
-      // Önce mevcut sahneye göre zoom-to-fit yap (VTK'nin kendi algoritması)
-      rendererRef.current.resetCamera()
-      rendererRef.current.resetCameraClippingRange()
-
-      const center = cam.getFocalPoint() as [number, number, number]
-      const currentPos = cam.getPosition() as [number, number, number]
-      // Reset sonrası mesafeyi koru
-      const dx = currentPos[0] - center[0]
-      const dy = currentPos[1] - center[1]
-      const dz = currentPos[2] - center[2]
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
-
-      // Yön vektörleri (CAD benzeri eksenler: +Z = Top, -Y = Front varsayımı)
-      let dir: [number, number, number] = [0, -1, 0] // Front default
-      let up: [number, number, number] = [0, 0, 1]
-
-      switch (view.toLowerCase()) {
-        case "front":
-          // Front: view direction -Y (camera at +Y looking toward origin)
-          dir = [0, -1, 0]
-          up = [0, 0, 1]
-          break
-        case "back":
-          // Back: view direction +Y (camera at -Y)
-          dir = [0, 1, 0]
-          up = [0, 0, 1]
-          break
-        case "left":
-          // Left: view direction +X (camera at -X)
-          dir = [1, 0, 0]
-          up = [0, 0, 1]
-          break
-        case "right":
-          // Right: view direction -X (camera at +X)
-          dir = [-1, 0, 0]
-          up = [0, 0, 1]
-          break
-        case "top":
-          // Top: view direction -Z (camera at +Z)
-          dir = [0, 0, -1]
-          up = [0, 1, 0]
-          break
-        case "bottom":
-          // Bottom: view direction +Z (camera at -Z)
-          dir = [0, 0, 1]
-          up = [0, -1, 0]
-          break
-        case "iso":
-        case "isometric": {
-          // Isometric NE: yaw +45°, pitch 35.264° (equal foreshortening)
-          // Front direction is -Y. After yaw+pitch, view direction components: X+, Y-, Z-.
-          // Use normalized [1, -1, -1].
-          const inv = 1 / Math.sqrt(3)
-          dir = [1 * inv, -1 * inv, -1 * inv]
-          up = [0, 0, 1]
-          break
-        }
-        default:
-          break
-      }
-
-      // Yeni pozisyon = center - dir * dist
-      const newPos: [number, number, number] = [
-        center[0] - dir[0] * dist,
-        center[1] - dir[1] * dist,
-        center[2] - dir[2] * dist,
-      ]
-
-      cam.setPosition(...newPos)
-      cam.setFocalPoint(...center)
-      cam.setViewUp(...up)
-      // Parallel projection for orthographic & isometric
-      const v = view.toLowerCase()
-      if (["front", "back", "left", "right", "top", "bottom", "iso", "isometric"].includes(v)) {
-        cam.setParallelProjection(true)
-      } else {
-        cam.setParallelProjection(false)
-      }
-      rendererRef.current.resetCameraClippingRange()
-      renderWindowRef.current.render()
-    }
-
-    window.addEventListener("setView", handleSetView as EventListener)
-    return () => window.removeEventListener("setView", handleSetView as EventListener)
-  }, [rendererRef, renderWindowRef])
-
-  // Projection toggle listener (external UI)
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-      const cam = rendererRef.current.getActiveCamera()
-      const perspective = !!e.detail.perspective
-      // Korunacak: ekrandaki modelin görünen ölçeği.
-      // Dönüşüm formülleri:
-      // Parallel -> Perspective: distance = parallelScale / tan(fov/2)
-      // Perspective -> Parallel: parallelScale = distance * tan(fov/2)
-      const focal = cam.getFocalPoint()
-      const pos = cam.getPosition()
-      const dx = pos[0] - focal[0]
-      const dy = pos[1] - focal[1]
-      const dz = pos[2] - focal[2]
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
-      const fovDeg = cam.getViewAngle?.() ?? 30 // default VTK 30
-      const fovRad2 = (fovDeg * Math.PI) / 180 / 2
-      if (perspective) {
-        // geçiş: parallel -> perspective
-        if (cam.getParallelProjection()) {
-          const pScale = cam.getParallelScale?.() ?? dist * Math.tan(fovRad2)
-          const newDist = pScale / Math.tan(fovRad2)
-          // yön vektörü
-          const invDist = 1 / dist
-          const dir = [dx * invDist, dy * invDist, dz * invDist]
-          const newPos: [number, number, number] = [
-            focal[0] + dir[0] * newDist,
-            focal[1] + dir[1] * newDist,
-            focal[2] + dir[2] * newDist,
-          ]
-          cam.setPosition(newPos[0], newPos[1], newPos[2])
-        }
-        cam.setParallelProjection(false)
-      } else {
-        // geçiş: perspective -> parallel
-        if (!cam.getParallelProjection()) {
-          const newScale = dist * Math.tan(fovRad2)
-          cam.setParallelScale?.(newScale)
-        }
-        cam.setParallelProjection(true)
-      }
-      rendererRef.current.resetCameraClippingRange()
-      renderWindowRef.current.render()
-    }
-    window.addEventListener("toggleProjection", handler as EventListener)
-    return () => window.removeEventListener("toggleProjection", handler as EventListener)
-  }, [rendererRef, renderWindowRef])
-
-  // Listen for zoom events
-  useEffect(() => {
-    const handleZoomIn = () => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-      const camera = rendererRef.current.getActiveCamera()
-      camera.zoom(1.2)
-      renderWindowRef.current.render()
-    }
-
-    const handleZoomOut = () => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-      const camera = rendererRef.current.getActiveCamera()
-      camera.zoom(0.8)
-      renderWindowRef.current.render()
-    }
-
-    const handleZoomToFit = () => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-      rendererRef.current.resetCamera()
-      rendererRef.current.resetCameraClippingRange()
-      renderWindowRef.current.render()
-    }
-
-    window.addEventListener("zoomIn", handleZoomIn)
-    window.addEventListener("zoomOut", handleZoomOut)
-    window.addEventListener("zoomToFit", handleZoomToFit)
-
-    return () => {
-      window.removeEventListener("zoomIn", handleZoomIn)
-      window.removeEventListener("zoomOut", handleZoomOut)
-      window.removeEventListener("zoomToFit", handleZoomToFit)
-    }
-  }, [rendererRef, renderWindowRef])
-
-  // Listen for camera reset events
-  useEffect(() => {
-    const handleResetCamera = () => {
-      if (!rendererRef.current || !renderWindowRef.current) return
-
-      // Reset camera to fit the scene
-      rendererRef.current.resetCamera()
-      rendererRef.current.resetCameraClippingRange()
-
-      // Set a nice isometric view as default
-      const camera = rendererRef.current.getActiveCamera()
-      const center = camera.getFocalPoint()
-      const currentPos = camera.getPosition()
-
-      // Calculate distance to maintain
-      const dx = currentPos[0] - center[0]
-      const dy = currentPos[1] - center[1]
-      const dz = currentPos[2] - center[2]
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
-
-      // Default reset -> isometric NE (X+, Y-, Z-) with parallel projection
-      const inv = 1 / Math.sqrt(3)
-      const dir = [1 * inv, -1 * inv, -1 * inv]
-      const up = [0, 0, 1]
-
-      const newPos = [center[0] - dir[0] * dist, center[1] - dir[1] * dist, center[2] - dir[2] * dist]
-
-      camera.setPosition(newPos[0], newPos[1], newPos[2])
-      camera.setFocalPoint(center[0], center[1], center[2])
-      camera.setViewUp(up[0], up[1], up[2])
-      camera.setParallelProjection(true)
-      rendererRef.current.resetCameraClippingRange()
-      renderWindowRef.current.render()
-    }
-
-    window.addEventListener("resetCamera", handleResetCamera)
-    return () => window.removeEventListener("resetCamera", handleResetCamera)
-  }, [rendererRef, renderWindowRef])
-
-  // Sahne başlangıç ayarları (Default Plain White)
-  useEffect(() => {
-    if (!rendererRef.current || !renderWindowRef.current) return
-
-    // Apply default plain white scene
-    applyStudioScene("plain-white")
-  }, [rendererRef, renderWindowRef])
+    setProjection(perspective)
+  }, [perspective, setProjection])
 
   // Pencere boyutlandırma yöneticisi
   useEffect(() => {
@@ -529,30 +255,6 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       rendererRef.current.resetCameraClippingRange()
       console.log("Kamera sıfırlandı. Kamera pozisyonu:", rendererRef.current.getActiveCamera().getPosition())
 
-      // Reapply display state (wireframe / grid / axes) after actor creation
-      if (displayState) {
-        window.dispatchEvent(
-          new CustomEvent("toggleWireframe", {
-            detail: { enabled: displayState.wireframe },
-          }),
-        )
-        window.dispatchEvent(
-          new CustomEvent("toggleGrid", {
-            detail: { enabled: displayState.grid },
-          }),
-        )
-        window.dispatchEvent(
-          new CustomEvent("toggleAxes", {
-            detail: { enabled: displayState.axes },
-          }),
-        )
-        window.dispatchEvent(
-          new CustomEvent("toggleSmoothShading", {
-            detail: { enabled: displayState.smooth },
-          }),
-        )
-      }
-
       // Son olarak, sahneyi render et
       renderWindowRef.current.render()
       console.log("Final render çağrıldı. Modelin görünmesi gerekiyor.")
@@ -574,15 +276,6 @@ export function VtkApp({ file, viewMode = "orbit", displayState }: VtkAppProps) 
       }
     }
   }, [file, rendererRef, renderWindowRef])
-
-  // Cleanup function
-  useEffect(() => {
-    return () => {
-      clearAllLights()
-      clearFloor()
-      clearBackgroundPlane()
-    }
-  }, [])
 
   return (
     <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">

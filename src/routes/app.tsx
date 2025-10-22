@@ -35,7 +35,6 @@ import { LightsTab } from "@/components/tabs/LightsTab";
 import { AppearanceTab } from "@/components/tabs/AppearanceTab";
 import { OutputTab } from "@/components/tabs/OutputTab";
 import { CameraTab } from "@/components/tabs/CameraTab";
-import { useVtkScene } from "@/components/scene";
 import { detectLanguage, seoContent } from "@/utils/language";
 
 // API Configuration
@@ -111,25 +110,6 @@ export const Route = createFileRoute("/app")({
 function AppPage() {
   const { t } = useTranslation();
   const { model, name, author, modelId } = Route.useSearch();
-  const {
-    vtkContainerRef,
-    rendererRef,
-    renderWindowRef,
-    actorRef,
-    mapperRef,
-    readerRef,
-    lightsRef,
-    floorActorRef,
-    backgroundPlaneRef,
-    setBackground,
-    addLight,
-    resize,
-    clearAllLights,
-    clearFloor,
-    clearBackgroundPlane,
-    applyStudioScene,
-    captureImage,
-  } = useVtkScene();
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 100, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -147,6 +127,16 @@ function AppPage() {
   const [smooth, setSmooth] = useState(false);
   const [perspective, setPerspective] = useState(false); // default parallel
   const [viewLocked, setViewLocked] = useState(false);
+
+  // Camera controls ref
+  const cameraControlsRef = useRef<{
+    resetCamera: () => void
+    zoomIn: () => void
+    zoomOut: () => void
+    setView: (view: string) => void
+    applyStudioScene: (sceneId: string) => void
+    setBackground: (color: [number, number, number]) => void
+  } | null>(null)
 
   const isDeveloper = false;
   // const [isDeveloper, setIsDeveloper] = useState(false);
@@ -455,22 +445,17 @@ function AppPage() {
     const capitalizedView =
       view.charAt(0).toUpperCase() + view.slice(1).toLowerCase();
     setActiveView(capitalizedView);
-    const event = new CustomEvent("setView", {
-      detail: { view: capitalizedView },
-    });
-    window.dispatchEvent(event);
+    cameraControlsRef.current?.setView(view);
   };
 
   // AYRIM: Reset View (aktif açıya dön) vs Zoom to Fit (modeli sığdır)
   const handleResetView = () => {
-    const event = new CustomEvent("setView", { detail: { view: activeView } });
-    window.dispatchEvent(event);
+    cameraControlsRef.current?.setView(activeView.toLowerCase());
   };
 
   // VTK renderer.resetCamera() mantığını tetikleyecek (yönü koruyarak fit eden) özel event
   const handleCameraFitAll = () => {
-    // Current camera orientation preserved; VtkApp listener uses resetCamera which fits bounds.
-    window.dispatchEvent(new CustomEvent("zoomToFit"));
+    cameraControlsRef.current?.resetCamera();
   };
 
   // Tab definitions (Scenes always available; others depend on dev mode)
@@ -524,6 +509,12 @@ function AppPage() {
           isDragOver={isDragOver}
           selectedFile={selectedFile}
           perspective={perspective}
+          onApplyStudioScene={(sceneId) => {
+            cameraControlsRef.current?.applyStudioScene?.(sceneId);
+          }}
+          onSetBackground={(color) => {
+            cameraControlsRef.current?.setBackground?.(color);
+          }}
         />
       );
     }
@@ -540,6 +531,12 @@ function AppPage() {
             isDragOver={isDragOver}
             selectedFile={selectedFile}
             perspective={perspective}
+            onApplyStudioScene={(sceneId) => {
+              cameraControlsRef.current?.applyStudioScene?.(sceneId);
+            }}
+            onSetBackground={(color) => {
+              cameraControlsRef.current?.setBackground?.(color);
+            }}
           />
         );
       case "lights":
@@ -626,7 +623,7 @@ function AppPage() {
 
     if (selectedFile) {
       // Center the VTK scene camera for mobile with menus closed
-      window.dispatchEvent(new CustomEvent("resetCamera"));
+      cameraControlsRef.current?.resetCamera();
     } else {
       // No file -> welcome text. Scroll the welcome container so text is centered in viewport.
       try {
@@ -1173,33 +1170,12 @@ function AppPage() {
                                       const enabled = e.target.checked;
                                       if (label === "Wireframe") {
                                         setWireframe(enabled);
-                                        window.dispatchEvent(
-                                          new CustomEvent("toggleWireframe", {
-                                            detail: { enabled },
-                                          })
-                                        );
                                       } else if (label === "Axes") {
                                         setAxes(enabled);
-                                        window.dispatchEvent(
-                                          new CustomEvent("toggleAxes", {
-                                            detail: { enabled },
-                                          })
-                                        );
                                       } else if (label === "Smooth Shading") {
                                         setSmooth(enabled);
-                                        window.dispatchEvent(
-                                          new CustomEvent(
-                                            "toggleSmoothShading",
-                                            { detail: { enabled } }
-                                          )
-                                        );
                                       } else if (label === "Perspective") {
                                         setPerspective(enabled);
-                                        window.dispatchEvent(
-                                          new CustomEvent("toggleProjection", {
-                                            detail: { perspective: enabled },
-                                          })
-                                        );
                                       }
                                     }}
                                   />
@@ -1322,11 +1298,6 @@ function AppPage() {
                         onClick={() => {
                           const next = !viewLocked;
                           setViewLocked(next);
-                          window.dispatchEvent(
-                            new CustomEvent("toggleViewLock", {
-                              detail: { enabled: next },
-                            })
-                          );
                         }}
                       >
                         <Lock className="h-4 w-4" />
@@ -1352,11 +1323,6 @@ function AppPage() {
                         onClick={() => {
                           const next = !wireframe;
                           setWireframe(next);
-                          window.dispatchEvent(
-                            new CustomEvent("toggleWireframe", {
-                              detail: { enabled: next },
-                            })
-                          );
                         }}
                       >
                         <Eye className="h-4 w-4" />
@@ -1376,11 +1342,6 @@ function AppPage() {
                         onClick={() => {
                           const next = !axes;
                           setAxes(next);
-                          window.dispatchEvent(
-                            new CustomEvent("toggleAxes", {
-                              detail: { enabled: next },
-                            })
-                          );
                         }}
                       >
                         <Move3d className="h-4 w-4" />
@@ -1400,11 +1361,6 @@ function AppPage() {
                         onClick={() => {
                           const next = !smooth;
                           setSmooth(next);
-                          window.dispatchEvent(
-                            new CustomEvent("toggleSmoothShading", {
-                              detail: { enabled: next },
-                            })
-                          );
                         }}
                       >
                         <Sun className="h-4 w-4" />
@@ -1428,11 +1384,6 @@ function AppPage() {
                         onClick={() => {
                           const next = !perspective;
                           setPerspective(next);
-                          window.dispatchEvent(
-                            new CustomEvent("toggleProjection", {
-                              detail: { perspective: next },
-                            })
-                          );
                         }}
                       >
                         <Box className="h-4 w-4" />
@@ -1447,8 +1398,7 @@ function AppPage() {
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title={t("app_navigation_zoomIn")}
                         onClick={() => {
-                          const event = new CustomEvent("zoomIn");
-                          window.dispatchEvent(event);
+                          cameraControlsRef.current?.zoomIn();
                         }}
                       >
                         <ZoomIn className="h-4 w-4" />
@@ -1457,8 +1407,7 @@ function AppPage() {
                         className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
                         title={t("app_navigation_zoomOut")}
                         onClick={() => {
-                          const event = new CustomEvent("zoomOut");
-                          window.dispatchEvent(event);
+                          cameraControlsRef.current?.zoomOut();
                         }}
                       >
                         <ZoomOut className="h-4 w-4" />
@@ -1484,10 +1433,14 @@ function AppPage() {
                 <VtkApp
                   file={selectedFile}
                   displayState={{ wireframe, grid: false, axes, smooth }}
+                  viewLocked={viewLocked}
+                  perspective={perspective}
+                  onCameraReady={(controls) => {
+                    cameraControlsRef.current = controls;
+                  }}
                 />
                 {selectedFile && (
                   <button
-                    onClick={() => captureImage?.({ scale: 2, format: "png" })}
                     title={t("app_navigation_captureScreenshot")}
                     className="absolute top-6 right-6 z-10 p-3 rounded-full bg-white shadow-lg border border-gray-200 text-black/70 hover:text-black hover:shadow-xl hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >

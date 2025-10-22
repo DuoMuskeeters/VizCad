@@ -2,7 +2,6 @@ import { Edit3, ImageIcon, Trash2, Upload } from "lucide-react"
 import { Button } from "../ui/button"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useVtkScene } from "../scene"
 
 export function ScenesTab({
   onFileChange,
@@ -13,6 +12,8 @@ export function ScenesTab({
   isDragOver,
   selectedFile,
   perspective,
+  onApplyStudioScene,
+  onSetBackground,
 }: {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onBrowseClick: () => void
@@ -22,25 +23,9 @@ export function ScenesTab({
   isDragOver: boolean
   selectedFile: File | null
   perspective: boolean
+  onApplyStudioScene?: (sceneId: string) => void
+  onSetBackground?: (color: [number, number, number]) => void
 }) {
-  const {
-      vtkContainerRef,
-      rendererRef,
-      renderWindowRef,
-      actorRef,
-      mapperRef,
-      readerRef,
-      lightsRef,
-      floorActorRef,
-      backgroundPlaneRef,
-      setBackground,
-      addLight,
-      resize,
-      clearAllLights,
-      clearFloor,
-      clearBackgroundPlane,
-    } = useVtkScene();
-  
   const backgroundInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedStudio, setSelectedStudio] = useState("plain-white")
@@ -93,16 +78,13 @@ export function ScenesTab({
     : undefined
 
   // Studio scene uygulama fonksiyonu
-  const applyStudioScene = (sceneId: string) => {
+  const applyStudioSceneLocal = (sceneId: string) => {
     setSelectedStudio(sceneId)
     setCurrentBackgroundMode("studio")
   // background image özelliği kaldırıldı
 
-    // Studio scene event'i gönder
-    const event = new CustomEvent("applyStudioScene", {
-      detail: { sceneId },
-    })
-    window.dispatchEvent(event)
+    // Studio scene'i direkt uygula
+    onApplyStudioScene?.(sceneId)
   }
 
   // Custom background uygulama fonksiyonu - Her zaman uygula
@@ -111,11 +93,13 @@ export function ScenesTab({
     setCurrentBackgroundMode("custom-color")
   // background image özelliği kaldırıldı
 
-    // Custom background event'i gönder
-    const event = new CustomEvent("applyCustomBackground", {
-      detail: { color, timestamp: Date.now() },
-    })
-    window.dispatchEvent(event)
+    // Custom background'u direkt uygula
+    const rgb: [number, number, number] = [
+      parseInt(color.slice(1, 3), 16) / 255,
+      parseInt(color.slice(3, 5), 16) / 255,
+      parseInt(color.slice(5, 7), 16) / 255
+    ]
+    onSetBackground?.(rgb)
   }
 
 
@@ -199,7 +183,7 @@ export function ScenesTab({
             <div
               key={scene.id}
               className={`relative cursor-pointer rounded-lg border-2 transition-all hover:scale-105`}
-              onClick={() => applyStudioScene(scene.id)}
+              onClick={() => applyStudioSceneLocal(scene.id)}
               style={
                 selectedStudio === scene.id && currentMode === "studio"
                   ? { borderColor: "rgb(var(--primary))", boxShadow: "0 0 0 4px rgb(var(--primary) / 0.08)" }
