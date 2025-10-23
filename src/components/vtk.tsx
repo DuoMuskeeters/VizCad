@@ -2,6 +2,8 @@ import { useRef, useEffect, useState } from "react";
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
 import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
+import vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader";
+import vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader";
 import { useVtkScene } from "./scene";
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 
@@ -35,7 +37,6 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     renderWindowRef,
     actorRef,
     mapperRef,
-    readerRef,
     resize,
     setWireframe,
     setSmoothShading,
@@ -174,10 +175,40 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       return
     }
 
-    setStatusMessage("STL dosyası okunuyor...");
+    // Dosya uzantısını al
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    
+    // Reader seçimi - daha güçlü tipler
+    interface VtkGenericReader {
+      parseAsArrayBuffer?(buffer: ArrayBuffer): void
+      parseAsText?(text: string): void
+      getOutputData(index?: number): any
+    }
+
+    let reader: VtkGenericReader | null = null
+    let fileType: 'STL' | 'OBJ' | 'PLY' | null = null
+    
+    switch (extension) {
+      case 'stl':
+        reader = vtkSTLReader.newInstance()
+        fileType = 'STL'
+        break
+      case 'obj':
+        reader = vtkOBJReader.newInstance()
+        fileType = 'OBJ'
+        break
+      case 'ply':
+        reader = vtkPLYReader.newInstance()
+        fileType = 'PLY'
+        break
+      default:
+        setStatusMessage(`Unsupported file format: .${extension}`);
+        console.error(`Unsupported file extension: ${extension}`)
+        return
+    }
+
+    setStatusMessage(`${fileType} dosyası okunuyor...`);
     const fileReader = new FileReader();
-    const reader = vtkSTLReader.newInstance();
-    readerRef.current = reader;
 
     fileReader.onload = async (event) => {
       if (
@@ -189,18 +220,28 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
         return;
       }
 
-      console.log("Dosya başarıyla okundu. VTK pipeline başlatılıyor...")
+      console.log(`${fileType} dosyası başarıyla okundu. VTK pipeline başlatılıyor...`)
 
       const arrayBuffer = event.target.result as ArrayBuffer;
-      reader.parseAsArrayBuffer(arrayBuffer);
+      
+      // Reader tipine göre parse
+      if (extension === 'obj') {
+        // OBJ için text olarak oku
+        const text = new TextDecoder().decode(arrayBuffer)
+        reader.parseAsText(text)
+      } else {
+        // STL ve PLY için binary
+        reader.parseAsArrayBuffer(arrayBuffer)
+      }
+      
       const source = reader.getOutputData(0);
 
       if (!source || source.getPoints().getNumberOfPoints() === 0) {
-        setStatusMessage("Hata: STL dosyası geçersiz veya boş.");
-        console.error("Geçersiz STL kaynağı.");
+        setStatusMessage(`Hata: ${fileType} dosyası geçersiz veya boş.`);
+        console.error(`Geçersiz ${fileType} kaynağı.`);
         return;
       }
-      console.log("STL dosyası başarıyla parse edildi.")
+      console.log(`${fileType} dosyası başarıyla parse edildi.`)
 
       // Önceki aktörü ve mapper'ı temizle
       if (actorRef.current) {
@@ -268,14 +309,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     };
 
     fileReader.readAsArrayBuffer(file)
-
-    return () => {
-      if (readerRef.current) {
-        readerRef.current.delete()
-        readerRef.current = null
-      }
-    }
-  }, [file, rendererRef, renderWindowRef])
+  }, [file]) 
 
   return (
     <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
