@@ -5,30 +5,35 @@ import AppHeader from "../components/AppHeader"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { detectLanguage, seoContent } from "@/utils/language"
-import SeoUpdater from "@/components/SeoUpdater"
 import { useLocation } from "@tanstack/react-router"
+
+// @ts-ignore
+import appCss from '../styles.css?url'
+import "@/i18n"
+
 
 // App sayfasında AppHeader, diğer sayfalarda normal Header kullan
 function AppAwareHeader() {
   const location = useLocation()
   const isAppPage = location.pathname === "/app"
-  
+
   if (isAppPage) {
     return <AppHeader />
   }
-  
+
   return <Header />
 }
 
 export const Route = createRootRoute({
+  ssr: true,
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].root
-    
+
     return {
       meta: [
         {
-          charset: "utf-8",
+          charSet: "utf-8",
         },
         {
           name: "viewport",
@@ -85,6 +90,10 @@ export const Route = createRootRoute({
       ],
       links: [
         {
+          rel: 'stylesheet',
+          href: appCss,
+        },
+        {
           rel: "icon",
           href: "/vizcad-logo.ico",
         },
@@ -116,32 +125,32 @@ export const Route = createRootRoute({
         // Alternate language links for better SEO
         {
           rel: "alternate",
-          hreflang: "en",
+          hrefLang: "en",
           href: "https://vizcad.com",
         },
         {
           rel: "alternate",
-          hreflang: "tr",
+          hrefLang: "tr",
           href: "https://vizcad.com",
         },
         {
           rel: "alternate",
-          hreflang: "de",
+          hrefLang: "de",
           href: "https://vizcad.com",
         },
         {
           rel: "alternate",
-          hreflang: "es",
+          hrefLang: "es",
           href: "https://vizcad.com",
         },
         {
           rel: "alternate",
-          hreflang: "fr",
+          hrefLang: "fr",
           href: "https://vizcad.com",
         },
         {
           rel: "alternate",
-          hreflang: "hi",
+          hrefLang: "hi",
           href: "https://vizcad.com",
         },
       ],
@@ -150,41 +159,33 @@ export const Route = createRootRoute({
           src: "https://www.googletagmanager.com/gtag/js?id=G-7DM9K53WE0",
           async: true,
         },
-        {
-          children: `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-7DM9K53WE0');
-          `,
-        },
-        {
-          children: `
-            gtag('event', 'conversion', {
-              'send_to': 'AW-17525885648/boHPCKiosqYbENCV_6RB',
-              'value': 1.0,
-              'currency': 'TRY'
-            });
-          `,
-        },
       ],
     }
   },
-  component: () => (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <PaletteProvider>
-        <div className="min-h-screen bg-background text-foreground">
-          <HeadContent />
-          <AppAwareHeader />
-          <main className="bg-background">
-            <Outlet />
-          </main>
-          <SeoUpdater />
-          <TanStackRouterDevtools />
-          <Scripts />
-        </div>
-      </PaletteProvider>
-    </ThemeProvider>
-  ),
+  shellComponent: RootComponent,
 })
 
+function RootComponent({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+          <PaletteProvider>
+            <div className="min-h-screen bg-background text-foreground">
+              <HeadContent />
+              <AppAwareHeader />
+              <main className="bg-background">
+                {children}
+              </main>
+              <TanStackRouterDevtools />
+              <Scripts />
+            </div>
+          </PaletteProvider>
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}

@@ -27,7 +27,7 @@ import {
 } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-import ThumbnailGenerator from "@/components/ThumbnailGenerator"
+import ThumbnailGenerator from "@/components/ThumbnailGenerator.client"
 
 export const Route = createFileRoute("/store")({
   component: StorePage,

@@ -1,11 +1,11 @@
 import { useRef, useEffect, useState } from "react";
-import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
-import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
+import { useVtkScene } from "./scene";
 import vtkSTLReader from "@kitware/vtk.js/IO/Geometry/STLReader";
 import vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader";
 import vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader";
-import { useVtkScene } from "./scene";
-import "@kitware/vtk.js/Rendering/Profiles/Geometry";
+import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
+import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
+
 
 interface DisplayState {
   wireframe: boolean
@@ -228,10 +228,14 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       if (extension === 'obj') {
         // OBJ için text olarak oku
         const text = new TextDecoder().decode(arrayBuffer)
-        reader.parseAsText(text)
+        if (reader.parseAsText) {
+          reader.parseAsText(text)
+        }
       } else {
         // STL ve PLY için binary
-        reader.parseAsArrayBuffer(arrayBuffer)
+        if (reader.parseAsArrayBuffer) {
+          reader.parseAsArrayBuffer(arrayBuffer)
+        }
       }
       
       const source = reader.getOutputData(0);
