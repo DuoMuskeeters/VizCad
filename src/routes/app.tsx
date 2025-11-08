@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import emailjs from "@emailjs/browser";
 
-import { VtkApp } from "@/components/vtk";
+import { VtkApp } from "@/components/VtkApp.client";
 import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
 import {
