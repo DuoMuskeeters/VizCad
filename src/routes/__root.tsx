@@ -56,8 +56,28 @@ export const Route = createRootRoute({
           content: "index, follow",
         },
         {
+          name: "google-site-verification",
+          content: "bzi8-Oqun8ymOf361vRE0sWI55uSWzTJrXHFgFJn3ug",
+        },
+        {
+          property: "og:title",
+          content: "VizCad: Free Online 3D CAD File Viewer & Converter (STL, OBJ, 3MF)",
+        },
+        {
+          property: "og:description",
+          content: "Upload and view STL, OBJ, PLY, 3MF files instantly with VizCad. Advanced in-browser 3D rendering for engineers, designers, and 3D printing hobbyists.",
+        },
+        {
           property: "og:type",
           content: "website",
+        },
+        {
+          property: "og:url",
+          content: "https://viz-cad.com",
+        },
+        {
+          property: "og:image",
+          content: "https://viz-cad.com/heros.png",
         },
         {
           property: "og:site_name",
@@ -72,20 +92,24 @@ export const Route = createRootRoute({
           content: "summary_large_image",
         },
         {
+          name: "twitter:title",
+          content: "VizCad: Free Online 3D CAD File Viewer & Converter",
+        },
+        {
+          name: "twitter:description",
+          content: "Upload and view STL, OBJ, PLY, 3MF files instantly with VizCad. Advanced in-browser 3D rendering for engineers, designers, and 3D printing hobbyists.",
+        },
+        {
+          name: "twitter:image",
+          content: "https://viz-cad.com/heros.png",
+        },
+        {
           name: "twitter:site",
           content: "@VizCad0",
         },
         {
           name: "twitter:creator",
           content: "@VizCad0",
-        },
-        {
-          name: "theme-color",
-          content: "#2563eb",
-        },
-        {
-          name: "msapplication-TileColor",
-          content: "#2563eb",
         },
       ],
       links: [
@@ -96,6 +120,18 @@ export const Route = createRootRoute({
         {
           rel: "icon",
           href: "/vizcad-logo.ico",
+        },
+        {
+          rel: "icon",
+          type: "image/png",
+          sizes: "32x32",
+          href: "/vizcad-logo-64.png",
+        },
+        {
+          rel: "icon",
+          type: "image/png",
+          sizes: "16x16",
+          href: "/vizcad-logo.png",
         },
         {
           rel: "icon",
@@ -115,8 +151,9 @@ export const Route = createRootRoute({
           href: "/vizcad-logo-192.png",
         },
         {
-          rel: "manifest",
-          href: "/manifest.json",
+          rel: "sitemap",
+          type: "application/xml",
+          href: "/sitemap.xml",
         },
         {
           rel: "canonical",
@@ -158,6 +195,34 @@ export const Route = createRootRoute({
         {
           src: "https://www.googletagmanager.com/gtag/js?id=G-7DM9K53WE0",
           async: true,
+        },
+        {
+          type: "text/javascript",
+          children: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-7DM9K53WE0');
+          `,
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": ["SoftwareApplication", "WebApplication"],
+            "name": "VizCad",
+            "description": "VizCad: Free online 3D CAD viewer and converter. Upload STL, OBJ, PLY, 3MF files, explore models in-browser with advanced rendering for engineers, designers, and 3D printing hobbyists.",
+            "url": "https://viz-cad.com",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript. WebGL support recommended.",
+            "softwareVersion": "1.0",
+            "releaseNotes": "Initial release with STL, OBJ, PLY, and 3MF support",
+            "datePublished": "2024-01-01",
+            "dateModified": "2024-12-01",
+            "inLanguage": "en",
+            "isAccessibleForFree": true
+          }),
         },
       ],
     }
