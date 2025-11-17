@@ -11,9 +11,13 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
     tsconfigPaths(),
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
   ] as any,
-  ssr: {
-    noExternal: [],
-    external: ['@kitware/vtk.js'],
+  environments: {
+    client: {
+      resolve: {
+        noExternal: ['@kitware/vtk.js'],
+      },
+    },
   },
 });

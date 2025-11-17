@@ -13,13 +13,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
-import { Menu } from "lucide-react"
+import { Menu, User, LogOut } from "lucide-react"
+import { useSession, signOut } from "@/lib/auth-client"
+import { useState, useEffect } from "react"
 
 export default function Header() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const isAppPage = location.pathname === "/app"
+  const [isClient, setIsClient] = useState(false)
+
+  // Always call useSession, but only use it after client mount
+  const sessionQuery = useSession()
+  const session = isClient ? sessionQuery.data : null
 
   const handleNavClick = (sectionId: string) => {
     if (location.pathname !== "/") {
@@ -37,6 +44,15 @@ export default function Header() {
         element.scrollIntoView({ behavior: "smooth" })
       }
     }
+  }
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate({ to: "/" })
   }
 
   return (
@@ -90,6 +106,40 @@ export default function Header() {
                 <ModeToggle />
                 <LanguageSwitcher />
               </div>
+
+              {session ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="rounded-full px-4 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap flex items-center gap-2"
+                    >
+                      <User className="h-4 w-4" />
+                      <span className="hidden lg:inline">{session.user.name}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  to="/login"
+                  className="hidden min-[686px]:flex bg-primary hover:bg-primary/90 text-white rounded-full px-4 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap items-center justify-center min-w-[120px]"
+                >
+                  Sign In
+                </Link>
+              )}
 
               {!isAppPage && (
                 <Link
@@ -154,6 +204,31 @@ export default function Header() {
                 </div>
 
                 <DropdownMenuSeparator />
+
+                {session ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <DropdownMenuItem asChild className="text-sm font-medium">
+                        <Link to="/dashboard">
+                          <User className="mr-2 h-4 w-4" />
+                          Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSignOut} className="text-sm font-medium cursor-pointer">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem asChild className="text-sm font-medium">
+                      <Link to="/login">Sign In</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
 
                 <div className="flex items-center justify-between gap-2">
                   <PaletteSelector />

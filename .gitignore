@@ -6,3 +6,4 @@ count.txt
 .env
 .wrangler
 .dev.vars*
+.claude/

@@ -1493,7 +1493,7 @@ function AppPage() {
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
-                    accept=".stl,.obj,.ply,.3mf"
+                    accept=".stl,.obj,.ply,.3mf,.step,.stp,.iges,.igs,.brep"
                     onChange={handleFileChange}
                   />
                   <div className="flex items-center gap-4 text-sm text-gray-500">

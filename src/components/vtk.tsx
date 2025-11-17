@@ -5,6 +5,8 @@ import vtkOBJReader from "@kitware/vtk.js/IO/Misc/OBJReader";
 import vtkPLYReader from "@kitware/vtk.js/IO/Geometry/PLYReader";
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
+import { BrepToStlConverter } from "./BrepToStlConverter";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 
 interface DisplayState {
@@ -54,6 +56,8 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
   const [statusMessage, setStatusMessage] = useState<string>(
     "Ready. Please select a file."
   );
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
 
   // Expose camera controls to parent component
   useEffect(() => {
@@ -178,6 +182,61 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     // Dosya uzantısını al
     const extension = file.name.split('.').pop()?.toLowerCase()
     
+    // BREP format kontrolü (STEP, IGES, BREP)
+    const isBrepFormat = ['step', 'stp', 'iges', 'igs', 'brep'].includes(extension || '')
+
+    if (isBrepFormat) {
+      // Show loading screen
+      setIsConverting(true)
+      setConversionProgress(0)
+
+      BrepToStlConverter.convertToPolyData(file, (progress) => {
+        setConversionProgress(progress)
+      })
+        .then((polyData) => {
+          if (!rendererRef.current || !renderWindowRef.current) {
+            setIsConverting(false)
+            return
+          }
+
+          if (!polyData || polyData.getPoints().getNumberOfPoints() === 0) {
+            console.error(`Invalid BREP source.`)
+            setIsConverting(false)
+            return
+          }
+
+          // Mapper oluştur
+          const mapper = vtkMapper.newInstance()
+          mapper.setInputData(polyData)
+
+          // Actor oluştur
+          const actor = vtkActor.newInstance()
+          actor.setMapper(mapper)
+
+          // Mevcut aktörü kaldır
+          if (actorRef.current) {
+            rendererRef.current.removeActor(actorRef.current)
+          }
+
+          // Yeni aktörü ekle
+          rendererRef.current.addActor(actor)
+          actorRef.current = actor
+          mapperRef.current = mapper
+
+          // Kamerayı sıfırla ve render et
+          rendererRef.current.resetCamera()
+          renderWindowRef.current.render()
+
+          setIsConverting(false)
+        })
+        .catch((error) => {
+          console.error(`BREP conversion error:`, error)
+          setIsConverting(false)
+        })
+
+      return // BREP işlemi tamamlandı, normal flow'a gerek yok
+    }
+
     // Reader seçimi - daha güçlü tipler
     interface VtkGenericReader {
       parseAsArrayBuffer?(buffer: ArrayBuffer): void
@@ -187,7 +246,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
 
     let reader: VtkGenericReader | null = null
     let fileType: 'STL' | 'OBJ' | 'PLY' | null = null
-    
+
     switch (extension) {
       case 'stl':
         reader = vtkSTLReader.newInstance()
@@ -335,6 +394,10 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
               : "default",
         }}
       />
+
+      {/* Loading Overlay for BREP Conversion */}
+      {isConverting && <LoadingSpinner />}
+
       <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
         <div className="flex items-center justify-between">
           <span>{statusMessage}</span>
