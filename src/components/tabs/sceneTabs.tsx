@@ -163,13 +163,13 @@ export function ScenesTab({
             >
             {t("scene_browse")}
           </Button>
-          <input 
+          <input
             ref={fileInputRef}
-            type="file" 
-            accept=".stl,.obj,.ply" 
-            className="hidden" 
-            tabIndex={-1} 
-            onChange={onFileChange} 
+            type="file"
+            accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
+            className="hidden"
+            tabIndex={-1}
+            onChange={onFileChange}
           />
           {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
         </div>

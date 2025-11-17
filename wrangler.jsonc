@@ -1,6 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "vizcad",
-  "compatibility_date": "2025-09-15",
-  "pages_build_output_dir": "./dist/client"
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "@tanstack/react-start/server-entry",
+  "d1_databases": [
+    {
+      "binding": "vizcad_auth",
+      "database_name": "vizcad_auth",
+      "database_id": "9f3e6552-67bb-4dfa-a657-36907390a595"
+    }
+  ]
 }
