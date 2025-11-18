@@ -56,7 +56,7 @@ interface ApiResponse {
 }
 
 // API functions
-const API_BASE_URL = "http://127.0.0.1:8787/api" // Updated to use running API server
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787/api"
 
 const fetchModels = async (): Promise<StlModel[]> => {
   try {
