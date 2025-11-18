@@ -10,15 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ViewEmbedRouteImport } from './routes/viewEmbed'
-import { Route as ThreejsViewerRouteImport } from './routes/threejs-viewer'
 import { Route as StoreRouteImport } from './routes/store'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ConverterRouteImport } from './routes/converter'
 import { Route as ContactRouteImport } from './routes/contact'
-import { Route as BabylonViewerRouteImport } from './routes/babylon-viewer'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
@@ -27,11 +24,6 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const ViewEmbedRoute = ViewEmbedRouteImport.update({
   id: '/viewEmbed',
   path: '/viewEmbed',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ThreejsViewerRoute = ThreejsViewerRouteImport.update({
-  id: '/threejs-viewer',
-  path: '/threejs-viewer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoreRoute = StoreRouteImport.update({
@@ -59,19 +51,9 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConverterRoute = ConverterRouteImport.update({
-  id: '/converter',
-  path: '/converter',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BabylonViewerRoute = BabylonViewerRouteImport.update({
-  id: '/babylon-viewer',
-  path: '/babylon-viewer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -99,15 +81,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
   '/app': typeof AppRoute
-  '/babylon-viewer': typeof BabylonViewerRoute
   '/contact': typeof ContactRoute
-  '/converter': typeof ConverterRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/store': typeof StoreRoute
-  '/threejs-viewer': typeof ThreejsViewerRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -115,15 +94,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
   '/app': typeof AppRoute
-  '/babylon-viewer': typeof BabylonViewerRoute
   '/contact': typeof ContactRoute
-  '/converter': typeof ConverterRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/store': typeof StoreRoute
-  '/threejs-viewer': typeof ThreejsViewerRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -132,15 +108,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
   '/app': typeof AppRoute
-  '/babylon-viewer': typeof BabylonViewerRoute
   '/contact': typeof ContactRoute
-  '/converter': typeof ConverterRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/store': typeof StoreRoute
-  '/threejs-viewer': typeof ThreejsViewerRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -150,15 +123,12 @@ export interface FileRouteTypes {
     | '/'
     | '/ModelSnap'
     | '/app'
-    | '/babylon-viewer'
     | '/contact'
-    | '/converter'
     | '/dashboard'
     | '/faq'
     | '/login'
     | '/signup'
     | '/store'
-    | '/threejs-viewer'
     | '/viewEmbed'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -166,15 +136,12 @@ export interface FileRouteTypes {
     | '/'
     | '/ModelSnap'
     | '/app'
-    | '/babylon-viewer'
     | '/contact'
-    | '/converter'
     | '/dashboard'
     | '/faq'
     | '/login'
     | '/signup'
     | '/store'
-    | '/threejs-viewer'
     | '/viewEmbed'
     | '/api/auth/$'
   id:
@@ -182,15 +149,12 @@ export interface FileRouteTypes {
     | '/'
     | '/ModelSnap'
     | '/app'
-    | '/babylon-viewer'
     | '/contact'
-    | '/converter'
     | '/dashboard'
     | '/faq'
     | '/login'
     | '/signup'
     | '/store'
-    | '/threejs-viewer'
     | '/viewEmbed'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -199,15 +163,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ModelSnapRoute: typeof ModelSnapRoute
   AppRoute: typeof AppRoute
-  BabylonViewerRoute: typeof BabylonViewerRoute
   ContactRoute: typeof ContactRoute
-  ConverterRoute: typeof ConverterRoute
   DashboardRoute: typeof DashboardRoute
   FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   StoreRoute: typeof StoreRoute
-  ThreejsViewerRoute: typeof ThreejsViewerRoute
   ViewEmbedRoute: typeof ViewEmbedRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -219,13 +180,6 @@ declare module '@tanstack/react-router' {
       path: '/viewEmbed'
       fullPath: '/viewEmbed'
       preLoaderRoute: typeof ViewEmbedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/threejs-viewer': {
-      id: '/threejs-viewer'
-      path: '/threejs-viewer'
-      fullPath: '/threejs-viewer'
-      preLoaderRoute: typeof ThreejsViewerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/store': {
@@ -263,25 +217,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/converter': {
-      id: '/converter'
-      path: '/converter'
-      fullPath: '/converter'
-      preLoaderRoute: typeof ConverterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/contact': {
       id: '/contact'
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/babylon-viewer': {
-      id: '/babylon-viewer'
-      path: '/babylon-viewer'
-      fullPath: '/babylon-viewer'
-      preLoaderRoute: typeof BabylonViewerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -319,15 +259,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ModelSnapRoute: ModelSnapRoute,
   AppRoute: AppRoute,
-  BabylonViewerRoute: BabylonViewerRoute,
   ContactRoute: ContactRoute,
-  ConverterRoute: ConverterRoute,
   DashboardRoute: DashboardRoute,
   FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   StoreRoute: StoreRoute,
-  ThreejsViewerRoute: ThreejsViewerRoute,
   ViewEmbedRoute: ViewEmbedRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
