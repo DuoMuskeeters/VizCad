@@ -12,7 +12,7 @@ export function getAuth(d1: D1Database, env: any) {
       provider: "sqlite",
     }),
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL || "http://localhost:5173",
+    baseURL: env.BETTER_AUTH_URL || "/",
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false, // Set to true if you want email verification
