@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
-import { Menu, User, LogOut } from "lucide-react"
+import { Menu, User, LogOut, Shield } from "lucide-react"
 import { useSession, signOut } from "@/lib/auth-client"
 import { useState, useEffect } from "react"
 
@@ -125,6 +125,14 @@ export default function Header() {
                         Dashboard
                       </Link>
                     </DropdownMenuItem>
+                    {session.user.role === "admin" && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="cursor-pointer">
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin Panel
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
@@ -141,15 +149,6 @@ export default function Header() {
                 </Link>
               )}
 
-              {!isAppPage && (
-                <Link
-                  to="/app"
-                  search={{}}
-                  className="hidden min-[686px]:flex bg-primary hover:bg-primary/90 text-white rounded-full px-4 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap items-center justify-center min-w-[120px]"
-                >
-                  {t("nav_launch_app")} →
-                </Link>
-              )}
             </div>
           </div>
 
@@ -162,13 +161,12 @@ export default function Header() {
             </Link>
 
             <div className="flex-1 flex justify-center">
-              {!isAppPage && (
+              {!session && (
                 <Link
-                  to="/app"
-                  search={{}}
+                  to="/login"
                   className="bg-primary hover:bg-primary/90 text-white rounded-full px-5 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap min-w-[100px] flex items-center justify-center"
                 >
-                  {t("nav_launch_app")} →
+                  {t("nav_sign_in")}
                 </Link>
               )}
             </div>
