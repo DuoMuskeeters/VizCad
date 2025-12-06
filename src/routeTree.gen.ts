@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ViewEmbedRouteImport } from './routes/viewEmbed'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
-import { Route as StoreRouteImport } from './routes/store'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FaqRouteImport } from './routes/faq'
@@ -31,11 +30,6 @@ const ViewEmbedRoute = ViewEmbedRouteImport.update({
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StoreRoute = StoreRouteImport.update({
-  id: '/store',
-  path: '/store',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -99,7 +93,6 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/store': typeof StoreRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -114,7 +107,6 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/store': typeof StoreRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -130,7 +122,6 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/store': typeof StoreRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -147,7 +138,6 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
-    | '/store'
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
@@ -162,7 +152,6 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
-    | '/store'
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
@@ -177,7 +166,6 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
-    | '/store'
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
@@ -193,7 +181,6 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
-  StoreRoute: typeof StoreRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ViewEmbedRoute: typeof ViewEmbedRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -213,13 +200,6 @@ declare module '@tanstack/react-router' {
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/store': {
-      id: '/store'
-      path: '/store'
-      fullPath: '/store'
-      preLoaderRoute: typeof StoreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -305,7 +285,6 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
-  StoreRoute: StoreRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ViewEmbedRoute: ViewEmbedRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
