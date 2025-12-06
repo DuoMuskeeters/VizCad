@@ -17,6 +17,7 @@ import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -61,6 +62,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ModelSnapRoute = ModelSnapRouteImport.update({
   id: '/ModelSnap',
   path: '/ModelSnap',
@@ -80,6 +86,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
+  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
+  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
+  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/ModelSnap'
+    | '/admin'
     | '/app'
     | '/contact'
     | '/dashboard'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/ModelSnap'
+    | '/admin'
     | '/app'
     | '/contact'
     | '/dashboard'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/ModelSnap'
+    | '/admin'
     | '/app'
     | '/contact'
     | '/dashboard'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ModelSnapRoute: typeof ModelSnapRoute
+  AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ModelSnap': {
       id: '/ModelSnap'
       path: '/ModelSnap'
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ModelSnapRoute: ModelSnapRoute,
+  AdminRoute: AdminRoute,
   AppRoute: AppRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,

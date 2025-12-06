@@ -10,6 +10,11 @@ export const user = sqliteTable("user", {
   image: text("image"),
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  // Admin plugin fields
+  role: text("role").default("user"), // user, admin
+  banned: integer("banned", { mode: "boolean" }).default(false),
+  banReason: text("banReason"),
+  banExpires: integer("banExpires", { mode: "timestamp" }),
 });
 
 export const session = sqliteTable("session", {

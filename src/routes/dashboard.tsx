@@ -52,7 +52,7 @@ function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-8 pt-30">
       <div className="max-w-4xl mx-auto space-y-6">
         <Card>
           <CardHeader>

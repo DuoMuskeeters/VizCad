@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/react";
+import { adminClient } from "better-auth/client/plugins";
 
 // Client-side: use current origin as baseURL
 const getBaseURL = () => {
@@ -10,6 +11,9 @@ const getBaseURL = () => {
 
 export const authClient = createAuthClient({
   baseURL: getBaseURL(),
+  plugins: [
+    adminClient(), // Admin plugin for user management
+  ],
 });
 
 // Export commonly used methods for convenience
