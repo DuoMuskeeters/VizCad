@@ -31,11 +31,10 @@
         "./src/*"
       ]
     },
-    "types": [
-      "@cloudflare/workers-types"
-    ],
+    "types": [],
     "typeRoots": [
       "./node_modules/@types",
+      "./node_modules/@cloudflare",
       "./src/@types"
     ],
     "allowSyntheticDefaultImports": true,
