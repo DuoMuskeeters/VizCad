@@ -42,6 +42,7 @@
     "react-dom": "^19.2.0",
     "react-helmet-async": "^2.0.5",
     "react-i18next": "^15.7.4",
+    "resend": "^6.5.2",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "tailwindcss-animate": "^1.0.7",
