@@ -2,17 +2,24 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { reactStartCookies } from "better-auth/react-start";
 import { getDb } from "@/db/client";
-import { D1Database } from "@cloudflare/workers-types/experimental";
 
-export function getAuth(d1: D1Database, env: any) {
+export function getAuth(d1: D1Database, env: Cloudflare.Env, requestUrl?: string) {
   const db = getDb(d1);
+
+  // Derive baseURL from request or env
+  let baseURL = env.BETTER_AUTH_URL;
+  if (!baseURL && requestUrl) {
+    const url = new URL(requestUrl);
+    baseURL = `${url.protocol}//${url.host}`;
+  }
+  baseURL = baseURL || "http://localhost:5173";
 
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: "sqlite",
     }),
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL || "/",
+    baseURL,
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false, // Set to true if you want email verification

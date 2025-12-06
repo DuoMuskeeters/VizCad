@@ -11,7 +11,11 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
     tsconfigPaths(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({
+      configPath: "./wrangler.jsonc",
+      viteEnvironment: { name: 'ssr' },
+      persistState: true,
+    }),
   ] as any,
   environments: {
     client: {

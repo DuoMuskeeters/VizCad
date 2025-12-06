@@ -1,7 +1,15 @@
 import { createAuthClient } from "better-auth/react";
 
+// Client-side: use current origin as baseURL
+const getBaseURL = () => {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:5173";
+};
+
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_BETTER_AUTH_URL || "/",
+  baseURL: getBaseURL(),
 });
 
 // Export commonly used methods for convenience

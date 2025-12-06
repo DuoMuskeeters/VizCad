@@ -1,34 +1,27 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {                                                                                                                                                                                                                                                                                                                                                                        createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
-
-// Access Cloudflare bindings globally in TanStack Start
-declare global {
-  var cloudflare: {
-    env: {
-      vizcad_auth: any;
-      BETTER_AUTH_SECRET: string;
-      BETTER_AUTH_URL: string;
-    };
-  };
-}
+import { env } from "cloudflare:workers";
 
 export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: async ({ request, context }) => {
+      GET: async ({ request, params }) => {
+        console.log("=== AUTH GET HANDLER CALLED ===");
+        console.log("Request URL:", request.url);
+        console.log("Splat params:", params);
+
         try {
-          // In TanStack Start with Cloudflare, bindings are in context.cloudflare.env
-          const d1 = (context as any)?.cloudflare?.env?.vizcad_auth;
-          const env = (context as any)?.cloudflare?.env;
+          console.log("ENV object exists:", !!env);
+          console.log("ENV keys:", Object.keys(env || {}));
+
+          const d1 = env?.vizcad_auth;
 
           if (!d1) {
             console.error("D1 database binding not found!");
-            console.error("context:", context);
             return new Response(JSON.stringify({
               error: "Database not configured",
-              hasCloudflare: !!(context as any)?.cloudflare,
-              hasEnv: !!(context as any)?.cloudflare?.env,
-              envKeys: (context as any)?.cloudflare?.env ? Object.keys((context as any).cloudflare.env) : []
+              envKeys: Object.keys(env || {}),
+              envType: typeof env,
             }), {
               status: 500,
               headers: { "Content-Type": "application/json" },
@@ -43,8 +36,12 @@ export const Route = createFileRoute("/api/auth/$")({
             });
           }
 
-          const auth = getAuth(d1, env);
-          return await auth.handler(request);
+          const auth = getAuth(d1, env, request.url);
+          console.log("Auth object created, calling handler...");
+          const response = await auth.handler(request);
+          console.log("Auth handler response status:", response.status);
+          console.log("Auth handler response headers:", Object.fromEntries(response.headers.entries()));
+          return response;
         } catch (error) {
           console.error("Auth GET error:", error);
           const message = error instanceof Error ? error.message : "Unknown error";
@@ -55,18 +52,17 @@ export const Route = createFileRoute("/api/auth/$")({
           });
         }
       },
-      POST: async ({ request, context }) => {
+      POST: async ({ request, params }) => {
+        console.log("=== AUTH POST HANDLER CALLED ===");
+        console.log("Request URL:", request.url);
+
         try {
-          // In TanStack Start with Cloudflare, bindings are in context.cloudflare.env
-          const d1 = (context as any)?.cloudflare?.env?.vizcad_auth;
-          const env = (context as any)?.cloudflare?.env;
+          const d1 = env?.vizcad_auth;
 
           if (!d1) {
             console.error("D1 database binding not found!");
             return new Response(JSON.stringify({
               error: "Database not configured",
-              hasCloudflare: !!(context as any)?.cloudflare,
-              hasEnv: !!(context as any)?.cloudflare?.env,
             }), {
               status: 500,
               headers: { "Content-Type": "application/json" },
@@ -81,8 +77,11 @@ export const Route = createFileRoute("/api/auth/$")({
             });
           }
 
-          const auth = getAuth(d1, env);
-          return await auth.handler(request);
+          const auth = getAuth(d1, env, request.url);
+          console.log("Auth object created, calling handler...");
+          const response = await auth.handler(request);
+          console.log("Auth handler response status:", response.status);
+          return response;
         } catch (error) {
           console.error("Auth POST error:", error);
           const message = error instanceof Error ? error.message : "Unknown error";
