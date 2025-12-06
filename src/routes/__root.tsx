@@ -4,6 +4,7 @@ import Header from "../components/Header"
 import AppHeader from "../components/AppHeader"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
+import { SessionGuard } from "../components/SessionGuard"
 import { detectLanguage, seoContent } from "@/utils/language"
 import { useLocation } from "@tanstack/react-router"
 
@@ -239,15 +240,17 @@ function RootComponent({ children }: { children: React.ReactNode }) {
       <body>
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <PaletteProvider>
-            <div className="min-h-screen bg-background text-foreground">
-              <HeadContent />
-              <AppAwareHeader />
-              <main className="bg-background">
-                {children}
-              </main>
-              <TanStackRouterDevtools />
-              <Scripts />
-            </div>
+            <SessionGuard>
+              <div className="min-h-screen bg-background text-foreground">
+                <HeadContent />
+                <AppAwareHeader />
+                <main className="bg-background">
+                  {children}
+                </main>
+                <TanStackRouterDevtools />
+                <Scripts />
+              </div>
+            </SessionGuard>
           </PaletteProvider>
         </ThemeProvider>
       </body>

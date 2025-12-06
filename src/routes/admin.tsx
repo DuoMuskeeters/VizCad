@@ -18,6 +18,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   role: string;
   banned: boolean;
   banReason?: string;
@@ -169,6 +170,7 @@ function AdminPage() {
                   <tr className="border-b">
                     <th className="text-left p-3 font-medium">Name</th>
                     <th className="text-left p-3 font-medium">Email</th>
+                    <th className="text-left p-3 font-medium">Verified</th>
                     <th className="text-left p-3 font-medium">Role</th>
                     <th className="text-left p-3 font-medium">Status</th>
                     <th className="text-left p-3 font-medium">Created</th>
@@ -180,6 +182,17 @@ function AdminPage() {
                     <tr key={user.id} className="border-b hover:bg-muted/50">
                       <td className="p-3">{user.name}</td>
                       <td className="p-3 font-mono text-sm">{user.email}</td>
+                      <td className="p-3">
+                        {user.emailVerified ? (
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                            ✓ Verified
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                            ✗ Pending
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-1 rounded text-xs font-medium ${user.role === "admin"
@@ -253,6 +266,7 @@ function AdminPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
+                                className="bg-red-600 hover:bg-red-700 text-white"
                                 onClick={() => handleRemoveUser(user.id)}
                                 disabled={actionLoading === user.id}
                               >
@@ -282,7 +296,9 @@ function AdminPage() {
 
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
-                Total: {users.length} users
+                Total: {users.length} users |
+                Verified: {users.filter(u => u.emailVerified).length} |
+                Admins: {users.filter(u => u.role === "admin").length}
               </div>
               <Button variant="outline" onClick={loadUsers}>
                 Refresh
