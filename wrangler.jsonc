@@ -10,7 +10,8 @@
     {
       "binding": "vizcad_auth",
       "database_name": "vizcad_auth",
-      "database_id": "9f3e6552-67bb-4dfa-a657-36907390a595"
+      "database_id": "9f3e6552-67bb-4dfa-a657-36907390a595",
+      "migrations_dir": "drizzle"
     }
   ]
 }
