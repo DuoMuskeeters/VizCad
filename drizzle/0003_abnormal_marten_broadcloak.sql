@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `storageQuotaGb` integer DEFAULT 5 NOT NULL;

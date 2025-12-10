@@ -1,5 +1,3 @@
-'use client'
-
 import React, { Suspense, lazy } from 'react';
 
 // Lazy load the actual ThumbnailGenerator component to avoid SSR issues with vtk.js

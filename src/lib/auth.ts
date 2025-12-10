@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { reactStartCookies } from "better-auth/react-start";
 import { admin } from "better-auth/plugins";
 import { getDb } from "@/db/client";
 import { Resend } from "resend";
@@ -85,7 +84,6 @@ export function getAuth(d1: D1Database, env: Cloudflare.Env, requestUrl?: string
       },
     },
     plugins: [
-      reactStartCookies(), // Critical for TanStack Start cookie handling
       admin(), // Admin plugin for user management
     ],
   });
