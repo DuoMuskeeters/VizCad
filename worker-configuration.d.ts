@@ -9,6 +9,7 @@ declare namespace Cloudflare {
         GOOGLE_CLIENT_ID: string;
         GOOGLE_CLIENT_SECRET: string;
         vizcad_auth: D1Database;
+        R2_FILES_BUCKET: R2Bucket;
     }
 }
 interface Env extends Cloudflare.Env { }

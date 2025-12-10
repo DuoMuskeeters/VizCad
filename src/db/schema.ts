@@ -15,6 +15,8 @@ export const user = sqliteTable("user", {
   banned: integer("banned", { mode: "boolean" }).default(false),
   banReason: text("banReason"),
   banExpires: integer("banExpires", { mode: "timestamp" }),
+  // New field for user storage quota in GB
+  storageQuotaGb: integer("storageQuotaGb").default(5).notNull(), // Default 5GB
 });
 
 export const session = sqliteTable("session", {
@@ -57,4 +59,20 @@ export const verification = sqliteTable("verification", {
   expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
   createdAt: integer("createdAt", { mode: "timestamp" }),
   updatedAt: integer("updatedAt", { mode: "timestamp" }),
+});
+
+// Files table for CAD file metadata
+export const files = sqliteTable("files", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  r2Key: text("r2Key").notNull().unique(), // Unique key in R2 bucket
+  size: integer("size").notNull(), // File size in bytes
+  mimeType: text("mimeType").notNull(), // MIME type of the file
+  extension: text("extension").notNull(), // File extension
+  status: text("status", { enum: ['pending', 'uploaded', 'failed'] }).default('pending').notNull(), // Upload status
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }), // Foreign key to user table
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });

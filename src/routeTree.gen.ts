@@ -20,6 +20,8 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
+import { Route as ApiFilesListRouteImport } from './routes/api/files/list'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const ViewEmbedRoute = ViewEmbedRouteImport.update({
@@ -77,6 +79,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
+  id: '/api/files/upload',
+  path: '/api/files/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesListRoute = ApiFilesListRouteImport.update({
+  id: '/api/files/list',
+  path: '/api/files/list',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -96,6 +108,8 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +124,8 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +141,8 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +159,8 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
+    | '/api/files/list'
+    | '/api/files/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +175,8 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
+    | '/api/files/list'
+    | '/api/files/upload'
   id:
     | '__root__'
     | '/'
@@ -169,6 +191,8 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/viewEmbed'
     | '/api/auth/$'
+    | '/api/files/list'
+    | '/api/files/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +208,8 @@ export interface RootRouteChildren {
   VerifyEmailRoute: typeof VerifyEmailRoute
   ViewEmbedRoute: typeof ViewEmbedRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesListRoute: typeof ApiFilesListRoute
+  ApiFilesUploadRoute: typeof ApiFilesUploadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -265,6 +291,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/upload': {
+      id: '/api/files/upload'
+      path: '/api/files/upload'
+      fullPath: '/api/files/upload'
+      preLoaderRoute: typeof ApiFilesUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/list': {
+      id: '/api/files/list'
+      path: '/api/files/list'
+      fullPath: '/api/files/list'
+      preLoaderRoute: typeof ApiFilesListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -288,6 +328,8 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyEmailRoute: VerifyEmailRoute,
   ViewEmbedRoute: ViewEmbedRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesListRoute: ApiFilesListRoute,
+  ApiFilesUploadRoute: ApiFilesUploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

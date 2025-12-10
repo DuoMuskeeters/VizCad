@@ -13,16 +13,21 @@ import appCss from '../styles.css?url'
 import "@/i18n"
 
 
-// App sayfasında AppHeader, diğer sayfalarda normal Header kullan
+// Landing page dışında her sayfada AppHeader kullan, dashboard için hiçbir header gösterme
 function AppAwareHeader() {
   const location = useLocation()
-  const isAppPage = location.pathname === "/app"
+  const isLandingPage = location.pathname === "/"
+  const isDashboard = location.pathname.startsWith("/dashboard")
 
-  if (isAppPage) {
-    return <AppHeader />
+  if (isDashboard) {
+    return null
   }
 
-  return <Header />
+  if (isLandingPage) {
+    return <Header />
+  }
+
+  return <AppHeader />
 }
 
 export const Route = createRootRoute({
@@ -205,25 +210,6 @@ export const Route = createRootRoute({
             gtag('js', new Date());
             gtag('config', 'G-7DM9K53WE0');
           `,
-        },
-        {
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": ["SoftwareApplication", "WebApplication"],
-            "name": "VizCad",
-            "description": "VizCad: Free online 3D CAD viewer and converter. Upload STL, OBJ, PLY, 3MF files, explore models in-browser with advanced rendering for engineers, designers, and 3D printing hobbyists.",
-            "url": "https://viz-cad.com",
-            "applicationCategory": "MultimediaApplication",
-            "operatingSystem": "Any",
-            "browserRequirements": "Requires JavaScript. WebGL support recommended.",
-            "softwareVersion": "1.0",
-            "releaseNotes": "Initial release with STL, OBJ, PLY, and 3MF support",
-            "datePublished": "2024-01-01",
-            "dateModified": "2024-12-01",
-            "inLanguage": "en",
-            "isAccessibleForFree": true
-          }),
         },
       ],
     }
