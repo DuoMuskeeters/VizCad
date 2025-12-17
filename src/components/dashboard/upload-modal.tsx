@@ -1,24 +1,29 @@
-import React, { useState, useCallback, useRef } from "react";
-import { Upload, X, FileBox, CheckCircle, AlertCircle } from "lucide-react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { Upload, X, FileBox, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useSession } from "@/lib/auth-client";
+import ThumbnailGenerator from "../ThumbnailGenerator.client";
 
 interface FileUploadState {
-  id: string; // Used as a unique key for the list item
+  id: string;
   file: File;
   name: string;
   size: string;
   progress: number;
-  status: "pending" | "uploading" | "uploaded" | "failed";
+  status: "pending-thumbnail" | "pending-upload" | "uploading" | "uploaded" | "failed";
   message?: string;
+  thumbnail?: string;
+  isSupported3D: boolean;
 }
 
 interface UploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const SUPPORTED_3D_EXTENSIONS = ['stl', 'obj', 'ply'];
 
 export function UploadModal({ open, onOpenChange }: UploadModalProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -57,6 +62,10 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
         const token = session.session.token;
         const formData = new FormData();
         formData.append("file", fileState.file);
+
+        if (fileState.thumbnail) {
+          formData.append("thumbnail", fileState.thumbnail);
+        }
 
         // Use XMLHttpRequest to get progress updates
         const xhr = new XMLHttpRequest();
@@ -105,25 +114,68 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
     [session]
   );
 
+  // Watch for files ready to upload
+  useEffect(() => {
+    filesToUpload.forEach(file => {
+      if (file.status === "pending-upload") {
+        uploadFile(file);
+      }
+    });
+  }, [filesToUpload, uploadFile]);
+
   const handleFileChange = useCallback(
     (selectedFiles: FileList | null) => {
       if (!selectedFiles) return;
 
-      const newFiles: FileUploadState[] = Array.from(selectedFiles).map((file) => ({
-        id: `${file.name}-${file.lastModified}`, // Create a simple unique ID
-        file: file,
-        name: file.name,
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        progress: 0,
-        status: "pending",
-      }));
+      const newFiles: FileUploadState[] = Array.from(selectedFiles).map((file) => {
+        const extension = file.name.split('.').pop()?.toLowerCase() || '';
+        const isSupported3D = SUPPORTED_3D_EXTENSIONS.includes(extension);
+
+        return {
+          id: `${file.name}-${file.lastModified}-${Math.random()}`,
+          file: file,
+          name: file.name,
+          size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+          progress: 0,
+          status: isSupported3D ? "pending-thumbnail" : "pending-upload",
+          isSupported3D
+        };
+      });
 
       setFilesToUpload((prevFiles) => [...prevFiles, ...newFiles]);
-      newFiles.forEach((fileState) => uploadFile(fileState));
     },
-    [uploadFile]
+    []
   );
-  
+
+  const handleThumbnailGenerated = useCallback((id: string, thumbnail: string) => {
+    setFilesToUpload(prev => prev.map(f => {
+      if (f.id === id) {
+        return {
+          ...f,
+          thumbnail,
+          status: "pending-upload",
+          message: "Thumbnail hazır, yükleniyor..."
+        };
+      }
+      return f;
+    }));
+  }, []);
+
+  const handleThumbnailError = useCallback((id: string, error: string) => {
+    console.warn(`Thumbnail generation failed for ${id}:`, error);
+    // Proceed without thumbnail
+    setFilesToUpload(prev => prev.map(f => {
+      if (f.id === id) {
+        return {
+          ...f,
+          status: "pending-upload",
+          message: "Thumbnail oluşturulamadı, yine de yükleniyor..."
+        };
+      }
+      return f;
+    }));
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -156,7 +208,7 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
           multiple
           className="hidden"
           onChange={(e) => handleFileChange(e.target.files)}
-          accept=".step,.iges,.stl,.obj" // Supported CAD formats
+          accept=".step,.iges,.stl,.obj,.ply"
         />
 
         {/* Drop Zone */}
@@ -175,7 +227,23 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
           <Button variant="outline" size="sm">
             Dosya Seç
           </Button>
-          <p className="text-xs text-muted-foreground mt-3">STEP, IGES, STL, OBJ formatları desteklenir</p>
+          <p className="text-xs text-muted-foreground mt-3">Desteklenen: STL, OBJ, PLY (Thumbnail), STEP, IGES</p>
+        </div>
+
+        {/* Hidden Thumbnail Generators */}
+        <div className="hidden">
+          {filesToUpload.map(file => (
+            file.status === "pending-thumbnail" && file.isSupported3D && (
+              <ThumbnailGenerator
+                key={file.id}
+                file={file.file as File}
+                width={200}
+                height={200}
+                onThumbnailGenerated={(thumb) => handleThumbnailGenerated(file.id, thumb)}
+                onError={(err) => handleThumbnailError(file.id, err)}
+              />
+            )
+          ))}
         </div>
 
         {/* File List */}
@@ -183,10 +251,16 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
           <div className="space-y-3 mt-4 max-h-60 overflow-y-auto">
             {filesToUpload.map((file) => (
               <div key={file.id} className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                <FileBox className="w-5 h-5 text-muted-foreground shrink-0" />
+                {file.thumbnail ? (
+                  <img src={file.thumbnail} alt="Thumbnail" className="w-10 h-10 object-cover rounded bg-white" />
+                ) : (
+                  <FileBox className="w-10 h-10 p-2 text-muted-foreground shrink-0 bg-background rounded" />
+                )}
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{file.size}</p>
+
                   {file.status === "failed" ? (
                     <div className="flex items-center text-red-500 text-xs mt-1">
                       <AlertCircle className="w-3 h-3 mr-1" />
@@ -199,11 +273,17 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
                     </div>
                   ) : (
                     <>
-                      <Progress value={file.progress} className="h-1 mt-2" />
-                      <p className="text-xs text-muted-foreground mt-1">{file.message || "Yükleniyor..."}</p>
+                      <div className="flex items-center justify-between mt-2 mb-1">
+                        <span className="text-xs text-muted-foreground">
+                          {file.status === "pending-thumbnail" ? "Thumbnail oluşturuluyor..." : "Yükleniyor..."}
+                        </span>
+                        <span className="text-xs font-medium">{file.progress}%</span>
+                      </div>
+                      <Progress value={file.progress} className="h-1" />
                     </>
                   )}
                 </div>
+
                 <Button variant="ghost" size="icon" className="shrink-0" onClick={() => {
                   setFilesToUpload(prev => prev.filter(f => f.id !== file.id));
                 }}>

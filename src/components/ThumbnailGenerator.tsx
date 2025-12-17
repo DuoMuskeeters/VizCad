@@ -60,7 +60,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       // Create render window using GenericRenderWindow (same as scene.tsx)
       const grw = vtkGenericRenderWindow.newInstance();
       grw.setContainer(containerRef.current);
-      
+
       const renderer = grw.getRenderer();
       const renderWindow = grw.getRenderWindow();
       setRenderWindow(grw);
@@ -103,13 +103,13 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           reader.parseAsArrayBuffer(fileData);
           polyData = reader.getOutputData(0);
           break;
-        
+
         case 'ply':
           reader = vtkPLYReader.newInstance();
           reader.parseAsArrayBuffer(fileData);
           polyData = reader.getOutputData(0);
           break;
-        
+
         case 'obj':
           reader = vtkOBJReader.newInstance();
           const textDecoder = new TextDecoder();
@@ -117,11 +117,11 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           reader.parseAsText(objText);
           polyData = reader.getOutputData(0);
           break;
-        
+
         case '3mf':
           onError?.('3MF format is not supported. Please convert to STL, OBJ, or PLY format.');
           return;
-        
+
         default:
           onError?.('Unsupported file format. Supported: STL, PLY, OBJ');
           return;
@@ -140,7 +140,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       if (smooth) {
         try {
           const normalsMod: any = await import('@kitware/vtk.js/Filters/Core/PolyDataNormals');
-          const normals = normalsMod.default.newInstance({ 
+          const normals = normalsMod.default.newInstance({
             splitting: false,
             featureAngle: 30,
             computePointNormals: true,
@@ -149,9 +149,9 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           normals.setInputData(polyData);
           normals.update();
           finalPolyData = normals.getOutputData();
-        } catch {}
+        } catch { }
       }
-      const mapper = vtkMapper.newInstance({ 
+      const mapper = vtkMapper.newInstance({
         scalarVisibility: false,
         interpolateScalarsBeforeMapping: smooth
       });
@@ -167,13 +167,13 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
         const b = Number.parseInt(modelColorHex.slice(5, 7), 16) / 255;
         actor.getProperty().setColor(r, g, b);
       } else {
-        actor.getProperty().setColor(0.75, 0.75, 0.75); // Silver
+        actor.getProperty().setColor(0.9, 0.9, 0.95); // Polished Silver / Chrome
       }
-      actor.getProperty().setSpecular(0.5);
-      actor.getProperty().setSpecularPower(50);
-      actor.getProperty().setAmbient(0.3);
-      actor.getProperty().setDiffuse(0.7);
-      
+      actor.getProperty().setSpecular(1.0); // Max reflection
+      actor.getProperty().setSpecularPower(128); // Very sharp, polished highlights
+      actor.getProperty().setAmbient(0.25);
+      actor.getProperty().setDiffuse(0.6);
+
       // Apply wireframe and smooth shading settings
       if (wireframe) {
         actor.getProperty().setRepresentationToWireframe();
@@ -181,7 +181,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       } else {
         actor.getProperty().setRepresentationToSurface();
       }
-      
+
       if (smooth) {
         actor.getProperty().setInterpolationToPhong();
       } else {
@@ -190,13 +190,13 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
 
       // Add to scene
       renderer.addActor(actor);
-      
+
       // First reset camera to properly fit the object
       renderer.resetCamera();
-      
+
       // Set up camera based on view prop
       const camera = renderer.getActiveCamera();
-      
+
       // Get the bounds of the object for proper positioning
       const bounds = polyData.getBounds();
       const center = [
@@ -204,7 +204,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
         (bounds[2] + bounds[3]) / 2,
         (bounds[4] + bounds[5]) / 2
       ];
-      
+
       // Calculate distance based on object size (closer zoom)
       const maxDimension = Math.max(
         bounds[1] - bounds[0],
@@ -212,7 +212,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
         bounds[5] - bounds[4]
       );
       const distance = maxDimension * 1.5; // Reduced from 2 to 1.5 for closer view
-      
+
       // Set camera position based on view
       switch (view) {
         case 'isometric':
@@ -240,21 +240,21 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           camera.setViewUp(0, 1, 0);
           break;
         default:
-          // Default isometric
-          const defaultX = center[0] + distance * 0.7071;
-          const defaultY = center[1] + distance * 0.7071;
-          const defaultZ = center[2] + distance * 0.7071;
-          camera.setPosition(defaultX, defaultY, defaultZ);
+          // Default isometric (45° angles)
+          const defIsoX = center[0] + distance * 0.7071;
+          const defIsoY = center[1] + distance * 0.7071;
+          const defIsoZ = center[2] + distance * 0.7071;
+          camera.setPosition(defIsoX, defIsoY, defIsoZ);
           camera.setFocalPoint(center[0], center[1], center[2]);
           camera.setViewUp(0, 0, 1);
       }
-      
+
       // Set parallel projection for orthographic views
       camera.setParallelProjection(true);
-      
+
       // Reset camera to fit the object properly
       renderer.resetCamera();
-      
+
       // Zoom in for better framing (closer view)
       camera.zoom(1.1); // Changed from 0.8 to 1.1 for closer view
 
@@ -309,11 +309,11 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
           </div>
         </div>
       )}
-      
-      <div 
+
+      <div
         ref={containerRef}
-        style={{ 
-          width: `${width}px`, 
+        style={{
+          width: `${width}px`,
           height: `${height}px`,
           border: '1px solid #e5e5e5',
           borderRadius: '8px',
