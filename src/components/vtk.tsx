@@ -57,6 +57,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     "Ready. Please select a file."
   );
   const [isConverting, setIsConverting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Add general loading state
   const [conversionProgress, setConversionProgress] = useState(0);
 
   // Expose camera controls to parent component
@@ -80,7 +81,16 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     showGrid(displayState.grid)
     showAxes(displayState.axes)
     setSmoothShading(displayState.smooth)
-  }, [displayState, setWireframe, showGrid, showAxes, setSmoothShading])
+  }, [
+    displayState?.wireframe,
+    displayState?.grid,
+    displayState?.axes,
+    displayState?.smooth,
+    setWireframe,
+    showGrid,
+    showAxes,
+    setSmoothShading
+  ])
 
   // Apply perspective when it changes
   useEffect(() => {
@@ -179,9 +189,11 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       return
     }
 
+    setIsLoading(true); // Start loading
+
     // Dosya uzantısını al
     const extension = file.name.split('.').pop()?.toLowerCase()
-    
+
     // BREP format kontrolü (STEP, IGES, BREP)
     const isBrepFormat = ['step', 'stp', 'iges', 'igs', 'brep'].includes(extension || '')
 
@@ -196,12 +208,14 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
         .then((polyData) => {
           if (!rendererRef.current || !renderWindowRef.current) {
             setIsConverting(false)
+            setIsLoading(false)
             return
           }
 
           if (!polyData || polyData.getPoints().getNumberOfPoints() === 0) {
             console.error(`Invalid BREP source.`)
             setIsConverting(false)
+            setIsLoading(false)
             return
           }
 
@@ -225,13 +239,16 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
 
           // Kamerayı sıfırla ve render et
           rendererRef.current.resetCamera()
+          setView("iso") // Set default view to Isometric
           renderWindowRef.current.render()
 
           setIsConverting(false)
+          setIsLoading(false) // Finish loading
         })
         .catch((error) => {
           console.error(`BREP conversion error:`, error)
           setIsConverting(false)
+          setIsLoading(false)
         })
 
       return // BREP işlemi tamamlandı, normal flow'a gerek yok
@@ -263,6 +280,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       default:
         setStatusMessage(`Unsupported file format: .${extension}`);
         console.error(`Unsupported file extension: ${extension}`)
+        setIsLoading(false);
         return
     }
 
@@ -276,13 +294,14 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
         !event.target?.result
       ) {
         setStatusMessage("Dosya okunurken bir hata oluştu.");
+        setIsLoading(false);
         return;
       }
 
       console.log(`${fileType} dosyası başarıyla okundu. VTK pipeline başlatılıyor...`)
 
       const arrayBuffer = event.target.result as ArrayBuffer;
-      
+
       // Reader tipine göre parse
       if (extension === 'obj') {
         // OBJ için text olarak oku
@@ -296,12 +315,13 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
           reader.parseAsArrayBuffer(arrayBuffer)
         }
       }
-      
+
       const source = reader.getOutputData(0);
 
       if (!source || source.getPoints().getNumberOfPoints() === 0) {
         setStatusMessage(`Hata: ${fileType} dosyası geçersiz veya boş.`);
         console.error(`Geçersiz ${fileType} kaynağı.`);
+        setIsLoading(false);
         return;
       }
       console.log(`${fileType} dosyası başarıyla parse edildi.`)
@@ -356,6 +376,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
 
       // Kamerayı sıfırla
       rendererRef.current.resetCamera()
+      setView("iso") // Set default view to Isometric
       rendererRef.current.resetCameraClippingRange()
       console.log("Kamera sıfırlandı. Kamera pozisyonu:", rendererRef.current.getActiveCamera().getPosition())
 
@@ -364,15 +385,17 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       console.log("Final render çağrıldı. Modelin görünmesi gerekiyor.")
 
       setStatusMessage("STL dosyası başarıyla yüklendi.");
+      setIsLoading(false); // Stop loading
     };
 
     fileReader.onerror = () => {
       setStatusMessage("Dosya okunamadı.");
       console.error("FileReader error.");
+      setIsLoading(false);
     };
 
     fileReader.readAsArrayBuffer(file)
-  }, [file]) 
+  }, [file])
 
   return (
     <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
@@ -388,15 +411,15 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
             viewMode === "pan"
               ? "grab"
               : viewMode === "zoom"
-              ? "zoom-in"
-              : viewMode === "select"
-              ? "pointer"
-              : "default",
+                ? "zoom-in"
+                : viewMode === "select"
+                  ? "pointer"
+                  : "default",
         }}
       />
 
-      {/* Loading Overlay for BREP Conversion */}
-      {isConverting && <LoadingSpinner />}
+      {/* Loading Overlay */}
+      {(isConverting || isLoading) && <LoadingSpinner />}
 
       <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
         <div className="flex items-center justify-between">

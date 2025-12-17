@@ -23,7 +23,27 @@ interface FileItem {
   createdAt: number;
   updatedAt: number;
   userName?: string;
+  isStarred?: boolean;
+  deletedAt?: number;
 }
+
+// Map section to API endpoint
+const sectionToEndpoint: Record<string, string> = {
+  'my-files': '/api/files/list',
+  'starred': '/api/files/starred',
+  'recent': '/api/files/recent',
+  'trash': '/api/files/trash',
+  'shared': '/api/files/shared-with-me', // Will be implemented in Faz 3
+};
+
+// Map section to title
+const sectionToTitle: Record<string, string> = {
+  'my-files': 'Dosyalarım',
+  'starred': 'Yıldızlı',
+  'recent': 'Son Kullanılanlar',
+  'trash': 'Çöp Kutusu',
+  'shared': 'Benimle Paylaşılan',
+};
 
 export function DashboardLayout() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -40,19 +60,31 @@ export function DashboardLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Fetch data on mount and when refresh trigger changes
+  // Fetch data based on active section
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/files/list');
+        const endpoint = sectionToEndpoint[activeSection] || '/api/files/list';
+        const response = await fetch(endpoint);
+
         if (!response.ok) {
+          // Handle 404 gracefully for endpoints not yet implemented
+          if (response.status === 404) {
+            setFiles([]);
+            return;
+          }
           throw new Error('Veri çekme başarısız oldu');
         }
-        const data = await response.json();
+
+        const data = await response.json() as { files?: FileItem[]; storageSummary?: StorageSummary };
         setFiles(data.files || []);
-        setStorageSummary(data.storageSummary || { usedBytes: 0, quotaGb: 0, quotaBytes: 0 });
+
+        // Only update storage summary from my-files endpoint
+        if (activeSection === 'my-files' && data.storageSummary) {
+          setStorageSummary(data.storageSummary);
+        }
       } catch (e) {
         setError(e instanceof Error ? e : new Error('Bilinmeyen bir hata oluştu'));
       } finally {
@@ -61,8 +93,12 @@ export function DashboardLayout() {
     };
 
     fetchData();
-  }, [refreshFileListTrigger]);
+  }, [activeSection, refreshFileListTrigger]);
 
+  // Update path when section changes
+  useEffect(() => {
+    setCurrentPath([sectionToTitle[activeSection] || 'Dosyalarım']);
+  }, [activeSection]);
 
   const handleFolderClick = (folderName: string) => {
     setCurrentPath([...currentPath, folderName]);
@@ -80,13 +116,17 @@ export function DashboardLayout() {
     }
   }, []);
 
+  const handleRefresh = useCallback(() => {
+    setRefreshFileListTrigger(prev => prev + 1);
+  }, []);
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onUploadClick={() => setUploadModalOpen(true)}
-        storageSummary={storageSummary} // Pass storage summary to Sidebar
+        storageSummary={storageSummary}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -106,9 +146,11 @@ export function DashboardLayout() {
             searchQuery={searchQuery}
             sortBy={sortBy}
             onFolderClick={handleFolderClick}
-            files={files} // Pass files from state
+            files={files}
             isLoading={isLoading}
             error={error}
+            activeSection={activeSection}
+            onRefresh={handleRefresh}
           />
         </div>
       </main>
@@ -117,3 +159,4 @@ export function DashboardLayout() {
     </div>
   );
 }
+

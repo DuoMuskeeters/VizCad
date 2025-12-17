@@ -20,8 +20,21 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FileFileIdRouteImport } from './routes/file.$fileId'
+import { Route as ApiFilesVersionsRouteImport } from './routes/api/files/versions'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
+import { Route as ApiFilesTrashRouteImport } from './routes/api/files/trash'
+import { Route as ApiFilesThumbnailRouteImport } from './routes/api/files/thumbnail'
+import { Route as ApiFilesStarredRouteImport } from './routes/api/files/starred'
+import { Route as ApiFilesStarRouteImport } from './routes/api/files/star'
+import { Route as ApiFilesSharedWithMeRouteImport } from './routes/api/files/shared-with-me'
+import { Route as ApiFilesShareRouteImport } from './routes/api/files/share'
+import { Route as ApiFilesRenameRouteImport } from './routes/api/files/rename'
+import { Route as ApiFilesRecentRouteImport } from './routes/api/files/recent'
 import { Route as ApiFilesListRouteImport } from './routes/api/files/list'
+import { Route as ApiFilesDownloadRouteImport } from './routes/api/files/download'
+import { Route as ApiFilesDetailRouteImport } from './routes/api/files/detail'
+import { Route as ApiFilesCommentsRouteImport } from './routes/api/files/comments'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const ViewEmbedRoute = ViewEmbedRouteImport.update({
@@ -79,14 +92,79 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FileFileIdRoute = FileFileIdRouteImport.update({
+  id: '/file/$fileId',
+  path: '/file/$fileId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesVersionsRoute = ApiFilesVersionsRouteImport.update({
+  id: '/api/files/versions',
+  path: '/api/files/versions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
   id: '/api/files/upload',
   path: '/api/files/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesTrashRoute = ApiFilesTrashRouteImport.update({
+  id: '/api/files/trash',
+  path: '/api/files/trash',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesThumbnailRoute = ApiFilesThumbnailRouteImport.update({
+  id: '/api/files/thumbnail',
+  path: '/api/files/thumbnail',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesStarredRoute = ApiFilesStarredRouteImport.update({
+  id: '/api/files/starred',
+  path: '/api/files/starred',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesStarRoute = ApiFilesStarRouteImport.update({
+  id: '/api/files/star',
+  path: '/api/files/star',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesSharedWithMeRoute = ApiFilesSharedWithMeRouteImport.update({
+  id: '/api/files/shared-with-me',
+  path: '/api/files/shared-with-me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesShareRoute = ApiFilesShareRouteImport.update({
+  id: '/api/files/share',
+  path: '/api/files/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesRenameRoute = ApiFilesRenameRouteImport.update({
+  id: '/api/files/rename',
+  path: '/api/files/rename',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesRecentRoute = ApiFilesRecentRouteImport.update({
+  id: '/api/files/recent',
+  path: '/api/files/recent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesListRoute = ApiFilesListRouteImport.update({
   id: '/api/files/list',
   path: '/api/files/list',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesDownloadRoute = ApiFilesDownloadRouteImport.update({
+  id: '/api/files/download',
+  path: '/api/files/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesDetailRoute = ApiFilesDetailRouteImport.update({
+  id: '/api/files/detail',
+  path: '/api/files/detail',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesCommentsRoute = ApiFilesCommentsRouteImport.update({
+  id: '/api/files/comments',
+  path: '/api/files/comments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -107,9 +185,22 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
+  '/file/$fileId': typeof FileFileIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/comments': typeof ApiFilesCommentsRoute
+  '/api/files/detail': typeof ApiFilesDetailRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/recent': typeof ApiFilesRecentRoute
+  '/api/files/rename': typeof ApiFilesRenameRoute
+  '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
+  '/api/files/star': typeof ApiFilesStarRoute
+  '/api/files/starred': typeof ApiFilesStarredRoute
+  '/api/files/thumbnail': typeof ApiFilesThumbnailRoute
+  '/api/files/trash': typeof ApiFilesTrashRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/files/versions': typeof ApiFilesVersionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -123,9 +214,22 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
+  '/file/$fileId': typeof FileFileIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/comments': typeof ApiFilesCommentsRoute
+  '/api/files/detail': typeof ApiFilesDetailRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/recent': typeof ApiFilesRecentRoute
+  '/api/files/rename': typeof ApiFilesRenameRoute
+  '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
+  '/api/files/star': typeof ApiFilesStarRoute
+  '/api/files/starred': typeof ApiFilesStarredRoute
+  '/api/files/thumbnail': typeof ApiFilesThumbnailRoute
+  '/api/files/trash': typeof ApiFilesTrashRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/files/versions': typeof ApiFilesVersionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,9 +244,22 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/viewEmbed': typeof ViewEmbedRoute
+  '/file/$fileId': typeof FileFileIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/comments': typeof ApiFilesCommentsRoute
+  '/api/files/detail': typeof ApiFilesDetailRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/list': typeof ApiFilesListRoute
+  '/api/files/recent': typeof ApiFilesRecentRoute
+  '/api/files/rename': typeof ApiFilesRenameRoute
+  '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
+  '/api/files/star': typeof ApiFilesStarRoute
+  '/api/files/starred': typeof ApiFilesStarredRoute
+  '/api/files/thumbnail': typeof ApiFilesThumbnailRoute
+  '/api/files/trash': typeof ApiFilesTrashRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/files/versions': typeof ApiFilesVersionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,9 +275,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/viewEmbed'
+    | '/file/$fileId'
     | '/api/auth/$'
+    | '/api/files/comments'
+    | '/api/files/detail'
+    | '/api/files/download'
     | '/api/files/list'
+    | '/api/files/recent'
+    | '/api/files/rename'
+    | '/api/files/share'
+    | '/api/files/shared-with-me'
+    | '/api/files/star'
+    | '/api/files/starred'
+    | '/api/files/thumbnail'
+    | '/api/files/trash'
     | '/api/files/upload'
+    | '/api/files/versions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -174,9 +304,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/viewEmbed'
+    | '/file/$fileId'
     | '/api/auth/$'
+    | '/api/files/comments'
+    | '/api/files/detail'
+    | '/api/files/download'
     | '/api/files/list'
+    | '/api/files/recent'
+    | '/api/files/rename'
+    | '/api/files/share'
+    | '/api/files/shared-with-me'
+    | '/api/files/star'
+    | '/api/files/starred'
+    | '/api/files/thumbnail'
+    | '/api/files/trash'
     | '/api/files/upload'
+    | '/api/files/versions'
   id:
     | '__root__'
     | '/'
@@ -190,9 +333,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/viewEmbed'
+    | '/file/$fileId'
     | '/api/auth/$'
+    | '/api/files/comments'
+    | '/api/files/detail'
+    | '/api/files/download'
     | '/api/files/list'
+    | '/api/files/recent'
+    | '/api/files/rename'
+    | '/api/files/share'
+    | '/api/files/shared-with-me'
+    | '/api/files/star'
+    | '/api/files/starred'
+    | '/api/files/thumbnail'
+    | '/api/files/trash'
     | '/api/files/upload'
+    | '/api/files/versions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -207,9 +363,22 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ViewEmbedRoute: typeof ViewEmbedRoute
+  FileFileIdRoute: typeof FileFileIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesCommentsRoute: typeof ApiFilesCommentsRoute
+  ApiFilesDetailRoute: typeof ApiFilesDetailRoute
+  ApiFilesDownloadRoute: typeof ApiFilesDownloadRoute
   ApiFilesListRoute: typeof ApiFilesListRoute
+  ApiFilesRecentRoute: typeof ApiFilesRecentRoute
+  ApiFilesRenameRoute: typeof ApiFilesRenameRoute
+  ApiFilesShareRoute: typeof ApiFilesShareRoute
+  ApiFilesSharedWithMeRoute: typeof ApiFilesSharedWithMeRoute
+  ApiFilesStarRoute: typeof ApiFilesStarRoute
+  ApiFilesStarredRoute: typeof ApiFilesStarredRoute
+  ApiFilesThumbnailRoute: typeof ApiFilesThumbnailRoute
+  ApiFilesTrashRoute: typeof ApiFilesTrashRoute
   ApiFilesUploadRoute: typeof ApiFilesUploadRoute
+  ApiFilesVersionsRoute: typeof ApiFilesVersionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -291,6 +460,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/file/$fileId': {
+      id: '/file/$fileId'
+      path: '/file/$fileId'
+      fullPath: '/file/$fileId'
+      preLoaderRoute: typeof FileFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/versions': {
+      id: '/api/files/versions'
+      path: '/api/files/versions'
+      fullPath: '/api/files/versions'
+      preLoaderRoute: typeof ApiFilesVersionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/upload': {
       id: '/api/files/upload'
       path: '/api/files/upload'
@@ -298,11 +481,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/trash': {
+      id: '/api/files/trash'
+      path: '/api/files/trash'
+      fullPath: '/api/files/trash'
+      preLoaderRoute: typeof ApiFilesTrashRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/thumbnail': {
+      id: '/api/files/thumbnail'
+      path: '/api/files/thumbnail'
+      fullPath: '/api/files/thumbnail'
+      preLoaderRoute: typeof ApiFilesThumbnailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/starred': {
+      id: '/api/files/starred'
+      path: '/api/files/starred'
+      fullPath: '/api/files/starred'
+      preLoaderRoute: typeof ApiFilesStarredRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/star': {
+      id: '/api/files/star'
+      path: '/api/files/star'
+      fullPath: '/api/files/star'
+      preLoaderRoute: typeof ApiFilesStarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/shared-with-me': {
+      id: '/api/files/shared-with-me'
+      path: '/api/files/shared-with-me'
+      fullPath: '/api/files/shared-with-me'
+      preLoaderRoute: typeof ApiFilesSharedWithMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/share': {
+      id: '/api/files/share'
+      path: '/api/files/share'
+      fullPath: '/api/files/share'
+      preLoaderRoute: typeof ApiFilesShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/rename': {
+      id: '/api/files/rename'
+      path: '/api/files/rename'
+      fullPath: '/api/files/rename'
+      preLoaderRoute: typeof ApiFilesRenameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/recent': {
+      id: '/api/files/recent'
+      path: '/api/files/recent'
+      fullPath: '/api/files/recent'
+      preLoaderRoute: typeof ApiFilesRecentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/list': {
       id: '/api/files/list'
       path: '/api/files/list'
       fullPath: '/api/files/list'
       preLoaderRoute: typeof ApiFilesListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/download': {
+      id: '/api/files/download'
+      path: '/api/files/download'
+      fullPath: '/api/files/download'
+      preLoaderRoute: typeof ApiFilesDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/detail': {
+      id: '/api/files/detail'
+      path: '/api/files/detail'
+      fullPath: '/api/files/detail'
+      preLoaderRoute: typeof ApiFilesDetailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/comments': {
+      id: '/api/files/comments'
+      path: '/api/files/comments'
+      fullPath: '/api/files/comments'
+      preLoaderRoute: typeof ApiFilesCommentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -327,9 +587,22 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ViewEmbedRoute: ViewEmbedRoute,
+  FileFileIdRoute: FileFileIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesCommentsRoute: ApiFilesCommentsRoute,
+  ApiFilesDetailRoute: ApiFilesDetailRoute,
+  ApiFilesDownloadRoute: ApiFilesDownloadRoute,
   ApiFilesListRoute: ApiFilesListRoute,
+  ApiFilesRecentRoute: ApiFilesRecentRoute,
+  ApiFilesRenameRoute: ApiFilesRenameRoute,
+  ApiFilesShareRoute: ApiFilesShareRoute,
+  ApiFilesSharedWithMeRoute: ApiFilesSharedWithMeRoute,
+  ApiFilesStarRoute: ApiFilesStarRoute,
+  ApiFilesStarredRoute: ApiFilesStarredRoute,
+  ApiFilesThumbnailRoute: ApiFilesThumbnailRoute,
+  ApiFilesTrashRoute: ApiFilesTrashRoute,
   ApiFilesUploadRoute: ApiFilesUploadRoute,
+  ApiFilesVersionsRoute: ApiFilesVersionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

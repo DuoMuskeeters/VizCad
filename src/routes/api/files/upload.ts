@@ -47,6 +47,29 @@ export const Route = createFileRoute("/api/files/upload")({
           const fileId = ulid();
           const r2Key = `${session.user.id}/${fileId}/${file.name}`;
 
+          const thumbnail = formData.get("thumbnail");
+          let thumbnailKey = null;
+
+          if (typeof thumbnail === "string" && thumbnail.startsWith("data:image")) {
+            try {
+              const base64Data = thumbnail.split(",")[1];
+              // Cloudflare Workers environment supports atob
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+
+              thumbnailKey = `${session.user.id}/${fileId}/thumbnail.png`;
+              await R2Bucket.put(thumbnailKey, bytes.buffer, {
+                httpMetadata: { contentType: "image/png" }
+              });
+            } catch (error) {
+              console.error("Thumbnail upload failed:", error);
+              // Continue upload even if thumbnail fails
+            }
+          }
+
           // Upload the file to R2
           await R2Bucket.put(r2Key, await file.arrayBuffer(), {
             httpMetadata: { contentType: file.type },
@@ -64,6 +87,7 @@ export const Route = createFileRoute("/api/files/upload")({
               extension: file.name.split(".").pop() || "",
               status: "uploaded", // Directly mark as uploaded
               userId: session.user.id,
+              thumbnailR2Key: thumbnailKey,
               createdAt: sql`CURRENT_TIMESTAMP`,
               updatedAt: sql`CURRENT_TIMESTAMP`,
             })

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/files/list")({
             });
           }
 
-          // Fetch user's files
+          // Fetch user's files (excluding soft-deleted)
           const userFiles = await db
             .select({
               id: files.id,
@@ -43,19 +43,28 @@ export const Route = createFileRoute("/api/files/list")({
               userId: files.userId,
               createdAt: files.createdAt,
               updatedAt: files.updatedAt,
+              thumbnailR2Key: files.thumbnailR2Key,
               userName: user.name,
             })
             .from(files)
             .leftJoin(user, eq(files.userId, user.id))
-            .where(and(eq(files.userId, session.user.id), eq(files.status, 'uploaded')));
+            .where(and(
+              eq(files.userId, session.user.id),
+              eq(files.status, 'uploaded'),
+              eq(files.isDeleted, false)
+            ));
 
-          // Calculate total used storage for the user
+          // Calculate total used storage for the user (excluding soft-deleted)
           const totalSizeResult = await db
             .select({
               totalBytes: sql<number>`sum(${files.size})`.as('totalBytes'),
             })
             .from(files)
-            .where(and(eq(files.userId, session.user.id), eq(files.status, 'uploaded')));
+            .where(and(
+              eq(files.userId, session.user.id),
+              eq(files.status, 'uploaded'),
+              eq(files.isDeleted, false)
+            ));
 
           const usedBytes = totalSizeResult[0]?.totalBytes || 0;
 

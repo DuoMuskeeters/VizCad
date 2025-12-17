@@ -41,6 +41,7 @@ export function useVtkScene(viewLocked: boolean = false) {
 
       genericRenderWindowRef.current = grw
       rendererRef.current = grw.getRenderer()
+      rendererRef.current.setBackground(1, 1, 1) // Default to white
       renderWindowRef.current = grw.getRenderWindow()
 
       // View lock based on prop
@@ -49,7 +50,7 @@ export function useVtkScene(viewLocked: boolean = false) {
         const interactor = grw.getRenderWindow().getInteractor()
         if (viewLockedRef.current) interactor?.disable?.()
         else interactor?.enable?.()
-      } catch {}
+      } catch { }
 
       // VTK sahnesinin başlatıldığını belirtmek için bir ilk render yapalım
       rendererRef.current.getRenderWindow()?.render()
@@ -77,7 +78,7 @@ export function useVtkScene(viewLocked: boolean = false) {
       const interactor = genericRenderWindowRef.current.getRenderWindow().getInteractor()
       if (viewLocked) interactor?.disable?.()
       else interactor?.enable?.()
-    } catch {}
+    } catch { }
   }, [viewLocked])
 
   const setBackground = (color: RGB) => {
@@ -208,13 +209,13 @@ export function useVtkScene(viewLocked: boolean = false) {
     if (!rendererRef.current || !renderWindowRef.current) return
     if (gridActorRef.current) {
       if ((gridActorRef.current as any).actors) {
-        ;(gridActorRef.current as any).actors.forEach((a: any) => {
+        ; (gridActorRef.current as any).actors.forEach((a: any) => {
           rendererRef.current!.removeActor(a)
           a.delete?.()
         })
       } else {
         rendererRef.current.removeActor(gridActorRef.current as any)
-        ;(gridActorRef.current as any).delete?.()
+          ; (gridActorRef.current as any).delete?.()
       }
       gridActorRef.current = null
     }
@@ -232,7 +233,7 @@ export function useVtkScene(viewLocked: boolean = false) {
     if (enabled) {
       if (axesWidgetRef.current) return // already active
       const axes = vtkAxesActor.newInstance()
-      ;(axes as any).setTotalLength?.(1.5, 1.5, 1.5)
+        ; (axes as any).setTotalLength?.(1.5, 1.5, 1.5)
       axesActorRef.current = axes
       const widget = vtkOrientationMarkerWidget.newInstance({
         actor: axes,
@@ -249,7 +250,7 @@ export function useVtkScene(viewLocked: boolean = false) {
       axesWidgetRef.current.delete()
       axesWidgetRef.current = null
       if (axesActorRef.current) {
-        ;(axesActorRef.current as any).delete?.()
+        ; (axesActorRef.current as any).delete?.()
         axesActorRef.current = null
       }
     }
@@ -295,7 +296,7 @@ export function useVtkScene(viewLocked: boolean = false) {
     if (!rendererRef.current || !renderWindowRef.current) return
     const camera = rendererRef.current.getActiveCamera()
     const bounds = rendererRef.current.computeVisiblePropBounds()
-    
+
     if (!bounds || bounds[0] > bounds[1]) return
 
     const center = [
@@ -303,13 +304,13 @@ export function useVtkScene(viewLocked: boolean = false) {
       (bounds[2] + bounds[3]) / 2,
       (bounds[4] + bounds[5]) / 2,
     ]
-    
+
     const diagonal = Math.sqrt(
       Math.pow(bounds[1] - bounds[0], 2) +
       Math.pow(bounds[3] - bounds[2], 2) +
       Math.pow(bounds[5] - bounds[4], 2)
     )
-    
+
     const distance = diagonal * 1.5
 
     camera.setFocalPoint(center[0], center[1], center[2])
