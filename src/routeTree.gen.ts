@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as B2bRouteImport } from './routes/b2b'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
@@ -57,6 +58,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const B2bRoute = B2bRouteImport.update({
+  id: '/b2b',
+  path: '/b2b',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/ModelSnap': typeof ModelSnapRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/b2b': typeof B2bRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/ModelSnap': typeof ModelSnapRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/b2b': typeof B2bRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/ModelSnap': typeof ModelSnapRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/b2b': typeof B2bRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/ModelSnap'
     | '/admin'
     | '/app'
+    | '/b2b'
     | '/contact'
     | '/dashboard'
     | '/faq'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/ModelSnap'
     | '/admin'
     | '/app'
+    | '/b2b'
     | '/contact'
     | '/dashboard'
     | '/faq'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/ModelSnap'
     | '/admin'
     | '/app'
+    | '/b2b'
     | '/contact'
     | '/dashboard'
     | '/faq'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   ModelSnapRoute: typeof ModelSnapRoute
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
+  B2bRoute: typeof B2bRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   FaqRoute: typeof FaqRoute
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/b2b': {
+      id: '/b2b'
+      path: '/b2b'
+      fullPath: '/b2b'
+      preLoaderRoute: typeof B2bRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelSnapRoute: ModelSnapRoute,
   AdminRoute: AdminRoute,
   AppRoute: AppRoute,
+  B2bRoute: B2bRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   FaqRoute: FaqRoute,

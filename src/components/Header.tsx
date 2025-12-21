@@ -75,6 +75,12 @@ export default function Header() {
                 ModelSnap
               </Link>
               <Link
+                to="/b2b"
+                className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
+              >
+                B2B
+              </Link>
+              <Link
                 to="/faq"
                 className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200 text-base px-2 lg:px-4 py-2 rounded-md hover:bg-accent hover:shadow-sm transform hover:scale-102 whitespace-nowrap"
               >
@@ -186,6 +192,9 @@ export default function Header() {
                 <div className="flex flex-col gap-1">
                   <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
                     <Link to="/ModelSnap">ModelSnap</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                    <Link to="/b2b">B2B</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="text-sm font-medium text-muted-foreground hover:text-foreground">
                     <Link to="/faq">{t("nav_faq")}</Link>
