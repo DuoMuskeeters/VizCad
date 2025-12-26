@@ -29,6 +29,7 @@ interface VtkAppProps {
     setView: (view: string) => void
     applyStudioScene: (sceneId: string) => void
     setBackground: (color: [number, number, number]) => void
+    captureScreenshot: () => void
   }) => void
 }
 
@@ -60,6 +61,32 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
   const [isLoading, setIsLoading] = useState(false); // Add general loading state
   const [conversionProgress, setConversionProgress] = useState(0);
 
+  // Screenshot capture function
+  const captureScreenshot = () => {
+    if (!vtkContainerRef.current || !renderWindowRef.current) return;
+
+    // Get the canvas element from VTK container
+    const canvas = vtkContainerRef.current.querySelector('canvas');
+    if (!canvas) return;
+
+    // Force a render before capturing
+    renderWindowRef.current.render();
+
+    // Use toBlob for better quality
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vizcad-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 'image/png', 1.0);
+  };
+
   // Expose camera controls to parent component
   useEffect(() => {
     if (onCameraReady) {
@@ -70,6 +97,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
         setView,
         applyStudioScene,
         setBackground,
+        captureScreenshot,
       })
     }
   }, [onCameraReady, resetCamera, zoomIn, zoomOut, setView, applyStudioScene, setBackground])

@@ -25,6 +25,7 @@ interface VtkAppProps {
     setView: (view: string) => void
     applyStudioScene: (sceneId: string) => void
     setBackground: (color: [number, number, number]) => void
+    captureScreenshot: () => void
   }) => void
 }
 

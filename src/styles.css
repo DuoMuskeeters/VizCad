@@ -113,6 +113,14 @@ code {
   .border-border {
     border-color: rgb(var(--border));
   }
+  /* Hide scrollbar for horizontal scroll elements */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* High Quality Image Rendering - Optimized for 1080x1080 */

@@ -42,12 +42,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787
 
 export const Route = createFileRoute("/app")({
   validateSearch: (search: Record<string, unknown>) =>
-    ({
-      model: typeof search.model === "string" ? search.model : undefined,
-      name: typeof search.name === "string" ? search.name : undefined,
-      author: typeof search.author === "string" ? search.author : undefined,
-      modelId: typeof search.modelId === "string" ? search.modelId : undefined,
-    } as { model?: string; name?: string; author?: string; modelId?: string }),
+  ({
+    model: typeof search.model === "string" ? search.model : undefined,
+    name: typeof search.name === "string" ? search.name : undefined,
+    author: typeof search.author === "string" ? search.author : undefined,
+    modelId: typeof search.modelId === "string" ? search.modelId : undefined,
+  } as { model?: string; name?: string; author?: string; modelId?: string }),
   head: () => {
     const lang = detectLanguage();
     const content = seoContent[lang].app;
@@ -127,6 +127,10 @@ function AppPage() {
   const [smooth, setSmooth] = useState(false);
   const [perspective, setPerspective] = useState(false); // default parallel
   const [viewLocked, setViewLocked] = useState(false);
+  const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Camera controls ref
   const cameraControlsRef = useRef<{
@@ -136,6 +140,7 @@ function AppPage() {
     setView: (view: string) => void
     applyStudioScene: (sceneId: string) => void
     setBackground: (color: [number, number, number]) => void
+    captureScreenshot: () => void
   } | null>(null)
 
   const isDeveloper = false;
@@ -372,9 +377,8 @@ function AppPage() {
 
           // Show success message in console
           const successMessage = name
-            ? `✅ Store model "${name}" ${
-                author ? `by ${author}` : ""
-              } loaded successfully!`
+            ? `✅ Store model "${name}" ${author ? `by ${author}` : ""
+            } loaded successfully!`
             : `✅ Model loaded successfully from store!`;
 
           console.log(successMessage);
@@ -595,22 +599,27 @@ function AppPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const checkIsPhone = () => {
+    const checkDevice = () => {
       // Use the smaller viewport dimension so rotation (portrait/landscape) is handled
-      const minDim = Math.min(window.innerWidth, window.innerHeight);
-      const isPhone = minDim <= 640;
-      setSidebarOpen(!isPhone);
+      const width = window.innerWidth;
+      const isMobileDevice = width < 768;
+      const isTabletDevice = width >= 768 && width < 1024;
+      setIsMobile(isMobileDevice);
+      setIsTablet(isTabletDevice);
+      // On mobile, sidebar is hidden (use bottom sheet)
+      // On tablet/desktop, sidebar starts open
+      setSidebarOpen(!isMobileDevice);
     };
 
     // Run once on mount to set initial state
-    checkIsPhone();
+    checkDevice();
 
-    window.addEventListener("resize", checkIsPhone);
-    window.addEventListener("orientationchange", checkIsPhone);
+    window.addEventListener("resize", checkDevice);
+    window.addEventListener("orientationchange", checkDevice);
 
     return () => {
-      window.removeEventListener("resize", checkIsPhone);
-      window.removeEventListener("orientationchange", checkIsPhone);
+      window.removeEventListener("resize", checkDevice);
+      window.removeEventListener("orientationchange", checkDevice);
     };
   }, []);
 
@@ -683,7 +692,7 @@ function AppPage() {
   return (
     <div
       ref={pageRef}
-      className="relative min-h-[1000px] h-fit bg-gray-100 flex flex-col pt-14 sm:pt-16"
+      className="relative min-h-screen h-screen bg-gray-100 flex flex-col pt-14 sm:pt-16 overflow-hidden"
       style={
         {
           // force light palette for this subtree regardless of global .dark
@@ -869,11 +878,10 @@ function AppPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Render Studio */}
+        {/* Left Sidebar - Render Studio (hidden on mobile, use bottom sheet) */}
         <div
-          className={`${
-            sidebarOpen ? "w-80" : "w-0"
-          } transition-all duration-300 relative`}
+          className={`hidden sm:block ${sidebarOpen ? "w-64 lg:w-80" : "w-0"
+            } transition-all duration-300 relative`}
         >
           {/* Sidebar kapalıyken sol kenarda ince toggle */}
           {!sidebarOpen && (
@@ -899,7 +907,7 @@ function AppPage() {
           )}
 
           {sidebarOpen && (
-            <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+            <div className="w-64 lg:w-80 h-full bg-white border-r border-gray-200 flex flex-col shadow-sm">
               {/* Tab Navigation */}
               <div className="border-b border-gray-200">
                 <div className="flex">
@@ -909,27 +917,25 @@ function AppPage() {
                       <button
                         key={tab.id}
                         onClick={() => handleTabClick(tab)}
-                        className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${
-                          !tab.available
-                            ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
+                        className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-all duration-200 relative group ${!tab.available
+                          ? "text-gray-400 cursor-pointer opacity-60 hover:opacity-80"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                          }`}
                         style={
                           activeTab === tab.id && tab.available
                             ? {
-                                color: "rgb(var(--primary))",
-                                backgroundColor: "rgb(var(--primary) / 0.08)",
-                                borderBottom: "2px solid",
-                                borderBottomColor: "rgb(var(--primary) / 0.3)",
-                              }
+                              color: "rgb(var(--primary))",
+                              backgroundColor: "rgb(var(--primary) / 0.08)",
+                              borderBottom: "2px solid",
+                              borderBottomColor: "rgb(var(--primary) / 0.3)",
+                            }
                             : undefined
                         }
                       >
                         <div className="relative">
                           <Icon
-                            className={`h-4 w-4 ${
-                              !tab.available ? "opacity-50" : ""
-                            }`}
+                            className={`h-4 w-4 ${!tab.available ? "opacity-50" : ""
+                              }`}
                           />
                           {!tab.available && (
                             <div
@@ -1001,16 +1007,16 @@ function AppPage() {
 
         <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
           {selectedFile ? (
-            <div className="flex-1 p-4 min-h-0">
+            <div className="flex-1 p-2 sm:p-4 min-h-0">
               <div
                 ref={viewerRef}
-                className="w-full h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden relative min-h-[500px]"
+                className="w-full h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden relative min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]"
               >
                 {/* Floating Navigation Panel inside viewer */}
                 {showNavigationModal && (
                   <div
                     ref={panelRef}
-                    className="absolute z-20 w-[360px] max-w-[90%] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden select-none"
+                    className="absolute z-20 w-[360px] max-w-[calc(100%-1rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden select-none"
                     style={{ left: modalPosition.x, top: modalPosition.y }}
                   >
                     {/* Header (draggable) */}
@@ -1080,13 +1086,13 @@ function AppPage() {
                                         style={
                                           activeView === "Iso"
                                             ? {
-                                                backgroundColor:
-                                                  "rgb(var(--primary))",
-                                                color:
-                                                  "rgb(var(--primary-foreground))",
-                                                boxShadow:
-                                                  "0 1px 2px rgba(0,0,0,0.05)",
-                                              }
+                                              backgroundColor:
+                                                "rgb(var(--primary))",
+                                              color:
+                                                "rgb(var(--primary-foreground))",
+                                              boxShadow:
+                                                "0 1px 2px rgba(0,0,0,0.05)",
+                                            }
                                             : undefined
                                         }
                                         onClick={() => handleViewChange("iso")}
@@ -1104,13 +1110,13 @@ function AppPage() {
                                   style={
                                     activeView === view
                                       ? {
-                                          backgroundColor:
-                                            "rgb(var(--primary))",
-                                          color:
-                                            "rgb(var(--primary-foreground))",
-                                          boxShadow:
-                                            "0 1px 2px rgba(0,0,0,0.05)",
-                                        }
+                                        backgroundColor:
+                                          "rgb(var(--primary))",
+                                        color:
+                                          "rgb(var(--primary-foreground))",
+                                        boxShadow:
+                                          "0 1px 2px rgba(0,0,0,0.05)",
+                                      }
                                       : undefined
                                   }
                                   onClick={() => handleViewChange(view)}
@@ -1145,10 +1151,10 @@ function AppPage() {
                               label === "Wireframe"
                                 ? wireframe
                                 : label === "Axes"
-                                ? axes
-                                : label === "Smooth Shading"
-                                ? smooth
-                                : perspective;
+                                  ? axes
+                                  : label === "Smooth Shading"
+                                    ? smooth
+                                    : perspective;
                             return (
                               <div
                                 key={label}
@@ -1234,199 +1240,162 @@ function AppPage() {
                     </div>
                   </div>
                 )}
-                {/* Controls bar (navigation button still opens/closes) */}
-                <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10">
-                  <div className="flex items-center gap-1 bg-white/95 backdrop-blur-md rounded-full px-4 py-2 shadow-xl border border-gray-200 text-black">
-                    {/* Navigation Button */}
+                {/* Controls bar */}
+                <div className="absolute top-2 sm:top-6 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-white/95 backdrop-blur-md rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-xl border border-gray-200 text-black">
+
+                    {/* Navigation Button - HIDDEN on mobile */}
+                    {!isMobile && (
+                      <>
+                        <button
+                          onClick={() => setShowNavigationModal(!showNavigationModal)}
+                          className={`p-2 rounded-full transition-all duration-200 ${showNavigationModal ? 'text-white' : 'text-black/70 hover:text-black hover:bg-gray-100'}`}
+                          style={showNavigationModal ? { backgroundColor: 'rgb(var(--primary))' } : undefined}
+                          title="Navigation Panel"
+                        >
+                          <Navigation className="h-4 w-4" />
+                        </button>
+                        <div className="w-px h-6 bg-gray-300/50 mx-1"></div>
+                      </>
+                    )}
+
+                    {/* Mobile: Wireframe + Perspective on LEFT */}
+                    {isMobile && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                          style={wireframe ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                          title={t("app_navigation_toggleWireframe")}
+                          onClick={() => setWireframe(!wireframe)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          className={`p-2 rounded-full transition-all duration-200 ${perspective ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                          style={perspective ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                          title={perspective ? t("app_navigation_switchToParallel") : t("app_navigation_switchToPerspective")}
+                          onClick={() => setPerspective(!perspective)}
+                        >
+                          <Box className="h-4 w-4" />
+                        </button>
+                        <div className="w-px h-5 bg-gray-300/50 mx-1"></div>
+                      </div>
+                    )}
+
+                    {/* View Lock - CENTER (always visible) */}
                     <button
-                      onClick={() => setShowNavigationModal(true)}
-                      className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                      title="Navigation Panel"
+                      className={`p-2 rounded-full transition-all duration-200 ${viewLocked ? "bg-red-500 text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                      title={viewLocked ? t("app_navigation_unlockView") : t("app_navigation_lockView")}
+                      onClick={() => setViewLocked(!viewLocked)}
                     >
-                      <Navigation className="h-4 w-4" />
+                      <Lock className="h-4 w-4" />
                     </button>
 
-                    <div className="w-px h-6 bg-white/20 mx-1"></div>
-
-                    {/* View Presets */}
-                    <div className="flex items-center gap-1">
-                      {[
-                        "front",
-                        "back",
-                        "left",
-                        "right",
-                        "top",
-                        "bottom",
-                        "iso",
-                      ].map((view) => (
+                    {/* Mobile: Zoom In + Out on RIGHT */}
+                    {isMobile && (
+                      <div className="flex items-center gap-0.5">
+                        <div className="w-px h-5 bg-gray-300/50 mx-1"></div>
                         <button
-                          key={view}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
-                            activeView ===
-                            view.charAt(0).toUpperCase() +
-                              view.slice(1).toLowerCase()
-                              ? "text-white shadow-lg"
-                              : "text-black/60 hover:text-black hover:bg-gray-100"
-                          }`}
-                          style={
-                            activeView ===
-                            view.charAt(0).toUpperCase() +
-                              view.slice(1).toLowerCase()
-                              ? { backgroundColor: "rgb(var(--primary))" }
-                              : undefined
-                          }
-                          onClick={() => handleViewChange(view)}
+                          className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                          title={t("app_navigation_zoomIn")}
+                          onClick={() => cameraControlsRef.current?.zoomIn()}
                         >
-                          {t(`app_navigation_${view}`)}
+                          <ZoomIn className="h-4 w-4" />
                         </button>
-                      ))}
-                    </div>
+                        <button
+                          className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                          title={t("app_navigation_zoomOut")}
+                          onClick={() => cameraControlsRef.current?.zoomOut()}
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </button>
+                        <div className="w-px h-5 bg-gray-300/50 mx-0.5"></div>
+                        <button
+                          className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                          title={t("app_navigation_captureScreenshot")}
+                          onClick={() => cameraControlsRef.current?.captureScreenshot?.()}
+                        >
+                          <Camera className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
 
-                    {/* View Lock */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        className={`p-2 rounded-full transition-all duration-200 ${
-                          viewLocked
-                            ? "bg-red-500 text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
-                        }`}
-                        title={
-                          viewLocked
-                            ? t("app_navigation_unlockView")
-                            : t("app_navigation_lockView")
-                        }
-                        onClick={() => {
-                          const next = !viewLocked;
-                          setViewLocked(next);
-                        }}
-                      >
-                        <Lock className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {/* Desktop: Full View Tools + Zoom Controls */}
+                    {!isMobile && (
+                      <>
+                        <div className={`w-px h-6 bg-gray-300/50 mx-1 ${isTablet && sidebarOpen ? 'hidden' : ''}`}></div>
 
-                    <div className="w-px h-6 bg-white/20 mx-1"></div>
+                        {/* View Tools - hide on tablet when sidebar is open */}
+                        <div className={`flex items-center gap-1 ${isTablet && sidebarOpen ? 'hidden' : ''}`}>
+                          <button
+                            className={`p-2 rounded-full transition-all duration-200 ${wireframe ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                            style={wireframe ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                            title={t("app_navigation_toggleWireframe")}
+                            onClick={() => setWireframe(!wireframe)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            className={`p-2 rounded-full transition-all duration-200 ${axes ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                            style={axes ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                            title={t("app_navigation_toggleAxes")}
+                            onClick={() => setAxes(!axes)}
+                          >
+                            <Move3d className="h-4 w-4" />
+                          </button>
+                          <button
+                            className={`p-2 rounded-full transition-all duration-200 ${smooth ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                            style={smooth ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                            title={t("app_navigation_smoothFlat")}
+                            onClick={() => setSmooth(!smooth)}
+                          >
+                            <Sun className="h-4 w-4" />
+                          </button>
+                          <button
+                            className={`p-2 rounded-full transition-all duration-200 ${perspective ? "text-white" : "text-black/70 hover:text-black hover:bg-gray-100"}`}
+                            style={perspective ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                            title={perspective ? t("app_navigation_switchToParallel") : t("app_navigation_switchToPerspective")}
+                            onClick={() => setPerspective(!perspective)}
+                          >
+                            <Box className="h-4 w-4" />
+                          </button>
+                        </div>
 
-                    {/* View Tools */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        className={`p-2 rounded-full transition-all duration-200 ${
-                          wireframe
-                            ? "text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
-                        }`}
-                        style={
-                          wireframe
-                            ? { backgroundColor: "rgb(var(--primary))" }
-                            : undefined
-                        }
-                        title={t("app_navigation_toggleWireframe")}
-                        onClick={() => {
-                          const next = !wireframe;
-                          setWireframe(next);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        className={`p-2 rounded-full transition-all duration-200 ${
-                          axes
-                            ? "text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
-                        }`}
-                        style={
-                          axes
-                            ? { backgroundColor: "rgb(var(--primary))" }
-                            : undefined
-                        }
-                        title={t("app_navigation_toggleAxes")}
-                        onClick={() => {
-                          const next = !axes;
-                          setAxes(next);
-                        }}
-                      >
-                        <Move3d className="h-4 w-4" />
-                      </button>
-                      <button
-                        className={`p-2 rounded-full transition-all duration-200 ${
-                          smooth
-                            ? "text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
-                        }`}
-                        style={
-                          smooth
-                            ? { backgroundColor: "rgb(var(--primary))" }
-                            : undefined
-                        }
-                        title={t("app_navigation_smoothFlat")}
-                        onClick={() => {
-                          const next = !smooth;
-                          setSmooth(next);
-                        }}
-                      >
-                        <Sun className="h-4 w-4" />
-                      </button>
-                      <button
-                        className={`p-2 rounded-full transition-all duration-200 ${
-                          perspective
-                            ? "text-white"
-                            : "text-black/70 hover:text-black hover:bg-gray-100"
-                        }`}
-                        style={
-                          perspective
-                            ? { backgroundColor: "rgb(var(--primary))" }
-                            : undefined
-                        }
-                        title={
-                          perspective
-                            ? t("app_navigation_switchToParallel")
-                            : t("app_navigation_switchToPerspective")
-                        }
-                        onClick={() => {
-                          const next = !perspective;
-                          setPerspective(next);
-                        }}
-                      >
-                        <Box className="h-4 w-4" />
-                      </button>
-                    </div>
+                        <div className="w-px h-6 bg-gray-300/50 mx-1"></div>
 
-                    <div className="w-px h-6 bg-white/20 mx-1"></div>
-
-                    {/* Zoom Controls */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title={t("app_navigation_zoomIn")}
-                        onClick={() => {
-                          cameraControlsRef.current?.zoomIn();
-                        }}
-                      >
-                        <ZoomIn className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title={t("app_navigation_zoomOut")}
-                        onClick={() => {
-                          cameraControlsRef.current?.zoomOut();
-                        }}
-                      >
-                        <ZoomOut className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title={t("app_navigation_zoomToFit")}
-                        onClick={handleCameraFitAll}
-                      >
-                        <Maximize className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
-                        title={t("app_navigation_resetView")}
-                        onClick={handleResetView}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </button>
-                    </div>
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                            title={t("app_navigation_zoomIn")}
+                            onClick={() => cameraControlsRef.current?.zoomIn()}
+                          >
+                            <ZoomIn className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                            title={t("app_navigation_zoomOut")}
+                            onClick={() => cameraControlsRef.current?.zoomOut()}
+                          >
+                            <ZoomOut className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                            title={t("app_navigation_zoomToFit")}
+                            onClick={handleCameraFitAll}
+                          >
+                            <Maximize className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-black/70 hover:text-black hover:bg-gray-100 rounded-full transition-all duration-200"
+                            title={t("app_navigation_resetView")}
+                            onClick={handleResetView}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1439,12 +1408,14 @@ function AppPage() {
                     cameraControlsRef.current = controls;
                   }}
                 />
-                {selectedFile && (
+                {/* Camera button - positioned separately on desktop, inside toolbar works on mobile */}
+                {!isMobile && selectedFile && (
                   <button
                     title={t("app_navigation_captureScreenshot")}
-                    className="absolute top-6 right-6 z-10 p-3 rounded-full bg-white shadow-lg border border-gray-200 text-black/70 hover:text-black hover:shadow-xl hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="absolute top-6 right-6 z-10 p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg border border-gray-200 text-black/70 hover:text-black hover:shadow-xl transition-all"
+                    onClick={() => cameraControlsRef.current?.captureScreenshot?.()}
                   >
-                    <Camera className="h-5 w-5" />
+                    <Camera className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -1515,10 +1486,162 @@ function AppPage() {
             </div>
           )}
         </div>
-      </div>
+      </div >
 
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600 h-10 flex-shrink-0">
-        <div className="flex items-center gap-4">
+      {/* Mobile Bottom Sheet - Compact Design */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden">
+          <div
+            className={`bg-white rounded-t-2xl shadow-2xl border-t border-gray-200 transition-all duration-300 ease-out ${bottomSheetOpen ? "h-[55vh]" : "h-14"}`}
+          >
+            {/* Drag Handle */}
+            <button
+              onClick={() => setBottomSheetOpen(!bottomSheetOpen)}
+              className="w-full flex flex-col items-center py-2 cursor-pointer active:bg-gray-50"
+            >
+              <div className="w-10 h-1 bg-gray-300 rounded-full mb-0.5" />
+              <span className="text-[10px] text-gray-400 font-medium">
+                {bottomSheetOpen ? t("app_bottomSheet_close") || "Kapat" : t("app_bottomSheet_open") || "Ayarlar"}
+              </span>
+            </button>
+
+            {/* Content when open */}
+            {bottomSheetOpen && (
+              <div className="flex flex-col h-[calc(55vh-48px)]">
+                {/* Tab Navigation - Compact */}
+                <div className="flex border-b border-gray-100 px-3">
+                  <button
+                    onClick={() => setActiveTab("scenes")}
+                    className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${activeTab === "scenes"
+                      ? "border-current"
+                      : "text-gray-400 border-transparent"
+                      }`}
+                    style={activeTab === "scenes" ? { color: "rgb(var(--primary))", borderColor: "rgb(var(--primary))" } : undefined}
+                  >
+                    {t("app_bottomSheet_scene")}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("appearance")}
+                    className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${activeTab === "appearance"
+                      ? "border-current"
+                      : "text-gray-400 border-transparent"
+                      }`}
+                    style={activeTab === "appearance" ? { color: "rgb(var(--primary))", borderColor: "rgb(var(--primary))" } : undefined}
+                  >
+                    {t("app_bottomSheet_view")}
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="flex-1 overflow-y-auto">
+                  {activeTab === "scenes" ? (
+                    <ScenesTab
+                      onFileChange={handleFileChange}
+                      onBrowseClick={openFileDialog}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      isDragOver={isDragOver}
+                      selectedFile={selectedFile}
+                      perspective={perspective}
+                      onApplyStudioScene={(sceneId) => {
+                        cameraControlsRef.current?.applyStudioScene?.(sceneId);
+                      }}
+                      onSetBackground={(color) => {
+                        cameraControlsRef.current?.setBackground?.(color);
+                      }}
+                      isMobile={true}
+                    />
+                  ) : (
+                    /* View Tab - Compact */
+                    <div className="px-3 py-2 space-y-3">
+                      {/* Quick Views - Compact Grid */}
+                      <div>
+                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{t("app_navigation_quickViews")}</span>
+                        <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+                          {[
+                            { key: "Top", label: t("app_navigation_top") },
+                            { key: "Front", label: t("app_navigation_front") },
+                            { key: "Right", label: t("app_navigation_right") },
+                            { key: "Iso", label: t("app_navigation_iso") },
+                            { key: "Left", label: t("app_navigation_left") },
+                            { key: "Back", label: t("app_navigation_back") },
+                            { key: "Bottom", label: t("app_navigation_bottom") },
+                          ].map(({ key, label }) => (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                handleViewChange(key);
+                                setBottomSheetOpen(false);
+                              }}
+                              className={`py-2 rounded-lg text-[11px] font-medium transition-all active:scale-95 ${activeView === key
+                                ? "text-white"
+                                : "bg-gray-100 text-gray-600"
+                                }`}
+                              style={activeView === key ? { backgroundColor: "rgb(var(--primary))" } : undefined}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Display Options - Compact toggles */}
+                      <div>
+                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{t("app_navigation_displayOptions") || "Görüntü Ayarları"}</span>
+                        <div className="space-y-1 mt-1.5">
+                          {[
+                            { key: "wireframe", icon: Eye, label: t("app_navigation_toggleWireframe") || "Tel Kafes", value: wireframe, setter: setWireframe },
+                            { key: "axes", icon: Move3d, label: t("app_navigation_toggleAxes") || "Eksenler", value: axes, setter: setAxes },
+                            { key: "smooth", icon: Sun, label: t("app_navigation_smoothFlat") || "Yumuşak", value: smooth, setter: setSmooth },
+                            { key: "perspective", icon: Box, label: t("app_navigation_perspective") || "Perspektif", value: perspective, setter: setPerspective },
+                          ].map(({ key, icon: Icon, label, value, setter }) => (
+                            <button
+                              key={key}
+                              onClick={() => setter(!value)}
+                              className="w-full flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg active:bg-gray-100"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4 text-gray-500" />
+                                <span className="text-xs text-gray-700">{label}</span>
+                              </div>
+                              <div className={`w-9 h-5 rounded-full transition-colors ${value ? "bg-green-500" : "bg-gray-300"}`}>
+                                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform mt-0.5 ${value ? "translate-x-4 ml-0.5" : "translate-x-0.5"}`} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Zoom Actions - Compact */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleCameraFitAll}
+                          className="flex-1 py-2 bg-gray-100 rounded-lg text-xs font-medium text-gray-600 active:bg-gray-200 flex items-center justify-center gap-1.5"
+                        >
+                          <Maximize className="h-3.5 w-3.5" />
+                          {t("app_navigation_zoomToFit")}
+                        </button>
+                        <button
+                          onClick={handleResetView}
+                          className="flex-1 py-2 bg-gray-100 rounded-lg text-xs font-medium text-gray-600 active:bg-gray-200 flex items-center justify-center gap-1.5"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          {t("app_navigation_resetView")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Footer - hidden on mobile when bottom sheet exists */}
+      <div className={`bg-white border-t border-gray-200 px-2 sm:px-4 py-1.5 sm:py-2 flex flex-col sm:flex-row items-center justify-between text-[10px] sm:text-sm text-gray-600 h-auto sm:h-10 flex-shrink-0 gap-1 sm:gap-0 ${isMobile ? "hidden" : ""}`}>
+        <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-gray-600">{t("app_status_ready")}</span>
           {selectedFile && (
             <>
@@ -1529,7 +1652,7 @@ function AppPage() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden sm:flex items-center gap-4">
           <span>{t("app_status_resolution")}: 1920x1080</span>
           <span>•</span>
           <span>
@@ -1540,6 +1663,6 @@ function AppPage() {
           </Button>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

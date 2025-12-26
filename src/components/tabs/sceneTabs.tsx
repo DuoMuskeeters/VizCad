@@ -14,6 +14,7 @@ export function ScenesTab({
   perspective,
   onApplyStudioScene,
   onSetBackground,
+  isMobile = false,
 }: {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onBrowseClick: () => void
@@ -25,6 +26,7 @@ export function ScenesTab({
   perspective: boolean
   onApplyStudioScene?: (sceneId: string) => void
   onSetBackground?: (color: [number, number, number]) => void
+  isMobile?: boolean
 }) {
   const backgroundInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -81,7 +83,7 @@ export function ScenesTab({
   const applyStudioSceneLocal = (sceneId: string) => {
     setSelectedStudio(sceneId)
     setCurrentBackgroundMode("studio")
-  // background image özelliği kaldırıldı
+    // background image özelliği kaldırıldı
 
     // Studio scene'i direkt uygula
     onApplyStudioScene?.(sceneId)
@@ -91,7 +93,7 @@ export function ScenesTab({
   const applyCustomBackground = (color: string) => {
     setCustomColor(color)
     setCurrentBackgroundMode("custom-color")
-  // background image özelliği kaldırıldı
+    // background image özelliği kaldırıldı
 
     // Custom background'u direkt uygula
     const rgb: [number, number, number] = [
@@ -127,31 +129,73 @@ export function ScenesTab({
       return "Custom Image"
     } else {
       const currentScene = studioScenes.find((s) => s.id === selectedStudio)
-  return currentScene?.name || t("scene_plainWhite")
+      return currentScene?.name || t("scene_plainWhite")
     }
   }
 
 
   return (
-    <div className="p-4 space-y-6">
-      {/* File Upload - Drag & Drop + Click */}
+    <div className={isMobile ? "px-3 py-2 space-y-3" : "p-4 space-y-6"}>
+      {/* File Upload */}
       <div>
-  <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("scene_uploadModel")}</h3>
-        <div
-          className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer`}
-          style={dragStyle}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          onClick={onBrowseClick}
-        >
+        <h3 className={isMobile ? "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5" : "text-sm font-semibold text-gray-900 mb-2"}>{t("scene_uploadModel")}</h3>
+        {isMobile ? (
+          /* Mobile: Simple button */
+          <div>
+            {selectedFile ? (
+              <div
+                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer active:bg-gray-100"
+                onClick={onBrowseClick}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-700 truncate">{selectedFile.name}</p>
+                  <p className="text-[10px] text-gray-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <Button
+                  onClick={(e) => { e.stopPropagation(); onBrowseClick(); }}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs px-2 py-1 h-auto shrink-0"
+                >
+                  {t("scene_change") || "Değiştir"}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={onBrowseClick}
+                className="w-full py-2 text-xs font-medium"
+                style={{ backgroundColor: "rgb(var(--primary))" }}
+              >
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {t("scene_browse") || "Dosya Seç"}
+              </Button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
+              className="hidden"
+              tabIndex={-1}
+              onChange={onFileChange}
+            />
+          </div>
+        ) : (
+          /* Desktop: Drag & Drop */
+          <div
+            className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer`}
+            style={dragStyle}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={onBrowseClick}
+          >
             <Upload className="h-5 w-5 mx-auto mb-1" style={{ color: "rgb(var(--muted-foreground))" }} />
-          <p className="text-xs text-gray-600 mb-1">
-            {isDragOver ? t("scene_dropModel") : t("scene_dragDropOrBrowse")}
-          </p>
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <p className="text-xs text-gray-600 mb-1">
+              {isDragOver ? t("scene_dropModel") : t("scene_dragDropOrBrowse")}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
               className="text-xs px-3 py-1 bg-transparent"
               onClick={(e) => {
                 e.stopPropagation();
@@ -161,24 +205,25 @@ export function ScenesTab({
                 }
               }}
             >
-            {t("scene_browse")}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
-            className="hidden"
-            tabIndex={-1}
-            onChange={onFileChange}
-          />
-          {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
-        </div>
+              {t("scene_browse")}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
+              className="hidden"
+              tabIndex={-1}
+              onChange={onFileChange}
+            />
+            {selectedFile && <div className="mt-2 text-xs" style={{ color: "rgb(var(--primary))" }}>Selected: {selectedFile.name}</div>}
+          </div>
+        )}
       </div>
 
       {/* Studio Scenes */}
       <div>
-  <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("scene_studioScenes")}</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <h3 className={isMobile ? "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5" : "text-sm font-semibold text-gray-900 mb-3"}>{t("scene_studioScenes")}</h3>
+        <div className={isMobile ? "grid grid-cols-4 gap-1.5" : "grid grid-cols-2 gap-3"}>
           {studioScenes.map((scene) => (
             <div
               key={scene.id}
@@ -190,17 +235,23 @@ export function ScenesTab({
                   : undefined
               }
             >
-              <div className={`h-20 rounded-t-md ${scene.preview}`}></div>
-              <div className="p-2">
-                <div className="text-xs font-medium text-gray-900">{scene.name}</div>
-                <div className="text-xs text-gray-500 mt-1">{scene.description}</div>
-              </div>
+              <div className={isMobile ? `h-10 rounded-t-md ${scene.preview}` : `h-20 rounded-t-md ${scene.preview}`}></div>
+              {isMobile ? (
+                <div className="p-1 text-center">
+                  <div className="text-[9px] font-medium text-gray-700 truncate">{scene.name}</div>
+                </div>
+              ) : (
+                <div className="p-2">
+                  <div className="text-xs font-medium text-gray-900">{scene.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{scene.description}</div>
+                </div>
+              )}
               {selectedStudio === scene.id && currentMode === "studio" && (
                 <div
-                  className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                  className={isMobile ? "absolute top-0.5 right-0.5 w-3 h-3 rounded-full flex items-center justify-center" : "absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"}
                   style={{ backgroundColor: "rgb(var(--primary))" }}
                 >
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <div className={isMobile ? "w-1.5 h-1.5 bg-white rounded-full" : "w-2 h-2 bg-white rounded-full"}></div>
                 </div>
               )}
             </div>
@@ -210,7 +261,7 @@ export function ScenesTab({
 
       {/* Custom Background Color */}
       <div>
-  <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("scene_customBackground")}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("scene_customBackground")}</h3>
         <div className="space-y-3">
           {/* Solid Color Section */}
           <div>
@@ -247,7 +298,7 @@ export function ScenesTab({
 
             {/* Simple Color Picker */}
             {showColorPicker && (
-              <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200 relative z-10">
                 <div className="grid grid-cols-8 gap-1 mb-2">
                   {[
                     "#ffffff",
@@ -341,38 +392,40 @@ export function ScenesTab({
         </div>
       </div>
 
-      {/* Scene Properties - Aktif sahne için */}
-      <div>
-  <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("scene_properties")}</h3>
-        <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">{t("scene_resolution")}</span>
-            <span className="text-gray-900 font-medium">1920×1080</span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">{t("scene_lightingMode")}</span>
-            <span className="text-gray-900 font-medium">{getCurrentLightingMode()}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">{t("scene_background")}</span>
-            <div className="flex items-center gap-2">
-              <>
-                <div
-                  className="w-4 h-4 rounded border border-gray-300"
-                  style={{ backgroundColor: getCurrentBackgroundColor() }}
-                ></div>
-                <span className="text-gray-900 font-medium">{getCurrentBackgroundColor()}</span>
-              </>
+      {/* Scene Properties - Hidden on mobile */}
+      {!isMobile && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("scene_properties")}</h3>
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">{t("scene_resolution")}</span>
+              <span className="text-gray-900 font-medium">1920×1080</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">{t("scene_lightingMode")}</span>
+              <span className="text-gray-900 font-medium">{getCurrentLightingMode()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">{t("scene_background")}</span>
+              <div className="flex items-center gap-2">
+                <>
+                  <div
+                    className="w-4 h-4 rounded border border-gray-300"
+                    style={{ backgroundColor: getCurrentBackgroundColor() }}
+                  ></div>
+                  <span className="text-gray-900 font-medium">{getCurrentBackgroundColor()}</span>
+                </>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">{t("scene_camera")}</span>
+              <span className="text-gray-900 font-medium">
+                {perspective ? t("scene_perspective") : t("scene_orthographic")}
+              </span>
             </div>
           </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">{t("scene_camera")}</span>
-            <span className="text-gray-900 font-medium">
-              {perspective ? t("scene_perspective") : t("scene_orthographic")}
-            </span>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
