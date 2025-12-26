@@ -198,6 +198,11 @@
   "app_navigation_zoomToFit": "Sığdır",
   "app_navigation_resetView": "Görünümü Sıfırla",
   "app_navigation_captureScreenshot": "Ekran Görüntüsü Al",
+  "app_navigation_displayOptions": "Görüntü Ayarları",
+  "app_bottomSheet_scene": "Sahne",
+  "app_bottomSheet_view": "Görünüm",
+  "app_bottomSheet_close": "Kapat",
+  "app_bottomSheet_open": "Ayarlar",
   "app_welcome_title": "VizCad Render Stüdyosuna Hoşgeldiniz",
   "app_welcome_desc": "Fotogerçekçi renderlar oluşturmak için 3B model dosyanızı yükleyin. Işık, malzeme ve kamera ayarlarını profesyonel sonuçlar için yapılandırın.",
   "app_welcome_upload": "Modelinizi Yükleyin",
@@ -222,6 +227,7 @@
   "scene_dropModel": "3D modelinizi buraya bırakın",
   "scene_dragDropOrBrowse": "3D modeli sürükleyip bırakın ya da tıklayıp seçin",
   "scene_browse": "Göz At",
+  "scene_change": "Değiştir",
   "scene_selected": "Seçildi",
   "scene_studioScenes": "Stüdyo Sahneleri",
   "scene_customBackground": "Özel Arka Plan",
@@ -266,4 +272,3 @@
   "modelsnap.viewSide": "Yan",
   "modelsnap.viewTop": "Üst"
 }
-
