@@ -1,7 +1,6 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
-import Header from "../components/Header"
-import AppHeader from "../components/AppHeader"
+import { LandingNavbar, AppNavbar } from "../components/navbar"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { SessionGuard } from "../components/SessionGuard"
@@ -13,21 +12,27 @@ import appCss from '../styles.css?url'
 import "@/i18n"
 
 
-// Landing page dışında her sayfada AppHeader kullan, dashboard için hiçbir header gösterme
+// Sayfa tipine göre uygun navbar'ı göster
 function AppAwareHeader() {
   const location = useLocation()
   const isLandingPage = location.pathname === "/"
-  const isDashboard = location.pathname.startsWith("/dashboard")
+  const isAppOrDashboard = location.pathname === "/app" ||
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname.startsWith("/file/")
+  const isAuthPage = ["/login", "/signup", "/verify-email"].includes(location.pathname)
 
-  if (isDashboard) {
+  // Auth sayfalarında navbar gösterme
+  if (isAuthPage) {
     return null
   }
 
+  // Landing page için LandingNavbar
   if (isLandingPage) {
-    return <Header />
+    return <LandingNavbar />
   }
 
-  return <AppHeader />
+  // App, Dashboard ve diğer sayfalar için AppNavbar
+  return <AppNavbar />
 }
 
 export const Route = createRootRoute({
@@ -38,6 +43,9 @@ export const Route = createRootRoute({
 
     return {
       meta: [
+        {
+          title: content.title,
+        },
         {
           charSet: "utf-8",
         },
@@ -224,11 +232,10 @@ function RootComponent({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
           <PaletteProvider>
             <SessionGuard>
               <div className="min-h-screen bg-background text-foreground">
-                <HeadContent />
                 <AppAwareHeader />
                 <main className="bg-background">
                   {children}

@@ -53,8 +53,10 @@ export const Route = createFileRoute("/app")({
     const content = seoContent[lang].app;
 
     return {
-      title: content.title,
       meta: [
+        {
+          title: content.title,
+        },
         {
           name: "description",
           content: content.description,
@@ -1464,7 +1466,7 @@ function AppPage() {
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
-                    accept=".stl,.obj,.ply,.3mf,.step,.stp,.iges,.igs,.brep"
+                    accept=".stl,.obj,.ply,.3mf,.step,.stp"
                     onChange={handleFileChange}
                   />
                   <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -1479,6 +1481,12 @@ function AppPage() {
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">
                         {t("app_welcome_ply")}
                       </span>
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                          {t("app_welcome_stp")}
+                        </span>
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                          {t("app_welcome_step")}
+                        </span>
                     </div>
                   </div>
                 </div>

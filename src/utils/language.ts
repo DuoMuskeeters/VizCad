@@ -3,7 +3,7 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
   if (typeof window === 'undefined') {
     return 'en' // Default to English for SSR
   }
-  
+
   // 1. Cookie'den kontrol et (server/client arası tutarlılık için)
   try {
     const cookieMatch = document.cookie.match(/(?:^|; )vizcad-language=([^;]+)/)
@@ -72,6 +72,7 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
 export const seoContent = {
   en: {
     root: {
+      title: "VizCad - Professional 3D CAD Viewer & Renderer",
       description: "VizCad - Professional 3D CAD file viewer and renderer. Upload STL, OBJ, PLY, 3MF files instantly. Free browser-based 3D visualization tool with render rendering capabilities.",
       keywords: "3d viewer, 3d models, stl viewer, stl file, obj viewer, ply viewer, 3mf viewer, cad viewer, render rendering, 3d file viewer, cad design, modeling software 3d, 3d creation software, browser 3d viewer, online 3d viewer, WebGL viewer",
       locale: "en_US",
@@ -124,6 +125,7 @@ export const seoContent = {
   },
   tr: {
     root: {
+      title: "VizCad - Profesyonel 3D CAD Görüntüleyici ve Render Aracı",
       description: "VizCad - Profesyonel 3D modeller görüntüleyici ve render aracı. STL viewer ile STL, OBJ, PLY, 3MF dosyalarını anında yükleyin. Ücretsiz tarayıcı tabanlı 3D görselleştirme aracı.",
       keywords: "3d viewer, 3d modeller, stl viewer, stl file viewer, obj viewer, ply viewer, 3mf viewer, render rendering, 3d file viewer, cad viewer, online stl viewer, 3d görselleştirme",
       locale: "tr_TR",
@@ -176,6 +178,7 @@ export const seoContent = {
   },
   de: {
     root: {
+      title: "VizCad - Professioneller 3D CAD Viewer & Renderer",
       description: "VizCad - Professioneller 3D Models Viewer und Render Rendering Tool. STL Viewer für STL, OBJ, PLY, 3MF-Dateien. Kostenloser browserbasierter 3D Viewer.",
       keywords: "3d models, render rendering, stl viewer, 3d viewer, 3d render, dwg file viewer, free 3d, stl file viewer, obj viewer, ply viewer, 3mf viewer, online 3d viewer",
       locale: "de_DE",
@@ -228,6 +231,7 @@ export const seoContent = {
   },
   es: {
     root: {
+      title: "VizCad - Visor Profesional de CAD 3D y Renderizador",
       description: "VizCad - Visor profesional de 3D Models con render rendering. STL Viewer para archivos STL, OBJ, PLY, 3MF. Herramienta gratuita de visualización 3D.",
       keywords: "3d models, render rendering, stl viewer, 3d viewer, dwg file viewer, free 3d, stl file viewer, obj viewer, ply viewer, 3mf viewer, visor 3d online",
       locale: "es_ES",
@@ -280,6 +284,7 @@ export const seoContent = {
   },
   fr: {
     root: {
+      title: "VizCad - Visionneuse CAD 3D Professionnelle et Rendu",
       description: "VizCad - Visionneuse professionnelle 3D Models avec render rendering. STL Viewer pour fichiers STL, OBJ, PLY, 3MF. Outil gratuit de visualisation 3D.",
       keywords: "3d models, render rendering, stl viewer, 3d viewer, dwg file viewer, free 3d model downloads, 3d design, cad design, cad software, obj viewer, visionneuse 3d",
       locale: "fr_FR",
@@ -332,6 +337,7 @@ export const seoContent = {
   },
   hi: {
     root: {
+      title: "VizCad - पेशेवर 3D CAD व्यूअर और रेंडरर",
       description: "VizCad - पेशेवर 3D मॉडल व्यूअर और रेंडर टूल। STL व्यूअर के साथ STL, OBJ, PLY, 3MF फ़ाइलें अपलोड करें। मुफ्त ब्राउज़र-आधारित 3D व्यूअर।",
       keywords: "3d viewer, 3d models, stl viewer, render rendering, stl file viewer, obj viewer, ply viewer, 3mf viewer, cad viewer, 3d file viewer, online 3d viewer",
       locale: "hi_IN",

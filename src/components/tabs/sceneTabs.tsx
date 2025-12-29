@@ -145,14 +145,25 @@ export function ScenesTab({
             {selectedFile ? (
               <div
                 className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer active:bg-gray-100"
-                onClick={onBrowseClick}
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                    fileInputRef.current.click();
+                  }
+                }}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 truncate">{selectedFile.name}</p>
                   <p className="text-[10px] text-gray-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <Button
-                  onClick={(e) => { e.stopPropagation(); onBrowseClick(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                      fileInputRef.current.click();
+                    }
+                  }}
                   size="sm"
                   variant="outline"
                   className="text-xs px-2 py-1 h-auto shrink-0"
@@ -162,7 +173,12 @@ export function ScenesTab({
               </div>
             ) : (
               <Button
-                onClick={onBrowseClick}
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                    fileInputRef.current.click();
+                  }
+                }}
                 className="w-full py-2 text-xs font-medium"
                 style={{ backgroundColor: "rgb(var(--primary))" }}
               >
@@ -173,7 +189,7 @@ export function ScenesTab({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
+              accept=".stl,.obj,.ply,.3mf,.step,.stp"
               className="hidden"
               tabIndex={-1}
               onChange={onFileChange}
@@ -210,7 +226,7 @@ export function ScenesTab({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".stl,.obj,.ply,.step,.stp,.iges,.igs,.brep"
+              accept=".stl,.obj,.ply,.3mf,.step,.stp"
               className="hidden"
               tabIndex={-1}
               onChange={onFileChange}

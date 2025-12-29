@@ -31,7 +31,7 @@ function LoginPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/dashboard",
+        callbackURL: "/",
       });
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google");
@@ -60,8 +60,8 @@ function LoginPage() {
           setError(result.error.message || "Invalid email or password");
         }
       } else {
-        // Success - redirect to dashboard
-        navigate({ to: "/dashboard" });
+        // Success - redirect to homepage
+        navigate({ to: "/" });
       }
     } catch (err: any) {
       setError(err.message || "Invalid email or password");

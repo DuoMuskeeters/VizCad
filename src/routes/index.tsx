@@ -23,16 +23,18 @@ import {
   Twitter,
   Linkedin,
 } from "lucide-react"
-    
+
 // index.tsx (Homepage)
 export const Route = createFileRoute("/")({
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].home
-    
+
     return {
-      title: content.title,
       meta: [
+        {
+          title: content.title,
+        },
         {
           name: "description",
           content: content.description,
@@ -556,9 +558,9 @@ export function HomePage() {
           </div>
 
           {/* Bottom section */}
-            <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="text-gray-500 text-sm">{t("footer_copyright")}</div>
-            </div>
+          <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-gray-500 text-sm">{t("footer_copyright")}</div>
+          </div>
         </div>
       </footer>
     </div>

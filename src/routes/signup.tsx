@@ -38,7 +38,7 @@ function SignupPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/dashboard",
+        callbackURL: "/",
       });
     } catch (err: any) {
       setError(err.message || "Failed to sign up with Google");

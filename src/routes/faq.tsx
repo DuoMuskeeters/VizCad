@@ -11,10 +11,12 @@ export const Route = createFileRoute("/faq")({
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].faq
-    
+
     return {
-      title: content.title,
       meta: [
+        {
+          title: content.title,
+        },
         {
           name: "description",
           content: content.description,
