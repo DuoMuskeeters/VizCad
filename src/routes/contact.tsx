@@ -14,10 +14,12 @@ export const Route = createFileRoute("/contact")({
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].contact
-    
+
     return {
-      title: content.title,
       meta: [
+        {
+          title: content.title,
+        },
         {
           name: "description",
           content: content.description,
@@ -111,8 +113,8 @@ function ContactPage() {
               form.current.reset();
             }
             alert('Your message has been sent successfully!');
-            },
-            (error: { text: string }) => {
+          },
+          (error: { text: string }) => {
             alert('Message could not be sent');
           },
         );

@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useSession } from "@/lib/auth-client";
 
+// 🔧 DEV MODE: Set to true to bypass auth checks locally
+const DEV_BYPASS_AUTH = true;
+
 // Routes that require authentication
 const protectedRoutes = ["/dashboard", "/admin"];
 
@@ -11,6 +14,9 @@ export function SessionGuard({ children }: { children: React.ReactNode }) {
     const { data: session, isPending, error } = useSession();
 
     useEffect(() => {
+        // Skip auth checks in dev mode
+        if (DEV_BYPASS_AUTH) return;
+
         // Only check for protected routes
         const isProtectedRoute = protectedRoutes.some(route =>
             location.pathname.startsWith(route)
@@ -32,6 +38,9 @@ export function SessionGuard({ children }: { children: React.ReactNode }) {
 
     // Check session periodically (every 5 minutes)
     useEffect(() => {
+        // Skip in dev mode
+        if (DEV_BYPASS_AUTH) return;
+
         const checkSession = async () => {
             try {
                 const response = await fetch("/api/auth/get-session", {

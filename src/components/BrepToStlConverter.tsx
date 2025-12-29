@@ -39,9 +39,13 @@ interface OcctLibrary {
   ReadBrepFile: (buffer: Uint8Array, params: any) => OcctResult;
 }
 
+interface OcctInitOptions {
+  locateFile?: (path: string) => string;
+}
+
 declare global {
   interface Window {
-    occtimportjs?: () => Promise<OcctLibrary>;
+    occtimportjs?: (options?: OcctInitOptions) => Promise<OcctLibrary>;
   }
 }
 
@@ -76,9 +80,23 @@ export class BrepToStlConverter {
         script.onload = async () => {
           console.log('[BrepConverter] OCCT script loaded, initializing...');
           if (window.occtimportjs) {
-            this.occtLib = await window.occtimportjs();
-            console.log('[BrepConverter] OCCT library initialized successfully');
-            resolve(this.occtLib!);
+            try {
+              // WASM dosyasının konumunu belirlemek için locateFile kullan
+              const initOptions = {
+                locateFile: (path: string) => {
+                  if (path.endsWith('.wasm')) {
+                    return 'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.wasm';
+                  }
+                  return path;
+                }
+              };
+              this.occtLib = await window.occtimportjs(initOptions);
+              console.log('[BrepConverter] OCCT library initialized successfully');
+              resolve(this.occtLib!);
+            } catch (initError) {
+              console.error('[BrepConverter] Error initializing OCCT:', initError);
+              reject(new Error('Failed to initialize OCCT library'));
+            }
           } else {
             console.error('[BrepConverter] occtimportjs not found on window');
             reject(new Error('OCCT library failed to initialize'));
@@ -234,9 +252,9 @@ export class BrepToStlConverter {
     // Normals ekle (varsa)
     if (allNormals.length > 0) {
       const normalData = Float32Array.from(allNormals);
-      const normalsArray = vtkDataArray.newInstance({ 
-        values: normalData, 
-        numberOfComponents: 3 
+      const normalsArray = vtkDataArray.newInstance({
+        values: normalData,
+        numberOfComponents: 3
       });
       polyData.getPointData().setNormals(normalsArray);
     }

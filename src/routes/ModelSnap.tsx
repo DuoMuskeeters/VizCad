@@ -19,10 +19,12 @@ export const Route = createFileRoute("/ModelSnap")({
   head: () => {
     const lang = detectLanguage()
     const content = seoContent[lang].modelSnap
-    
+
     return {
-      title: content.title,
       meta: [
+        {
+          title: content.title,
+        },
         {
           name: "description",
           content: content.description,
@@ -221,9 +223,9 @@ function StlToPngPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button 
+                    <Button
                       onClick={() => fileInputRef.current?.click()}
-                      size="sm" 
+                      size="sm"
                       className="flex-1 h-8 text-xs"
                       disabled={isGenerating}
                     >
@@ -274,11 +276,10 @@ function StlToPngPage() {
                       ].map((size) => (
                         <button
                           key={size.label}
-                          className={`px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
-                            settings.width === size.w && settings.height === size.h
+                          className={`px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.width === size.w && settings.height === size.h
                               ? "border-primary bg-primary text-white"
                               : "border-border hover:border-primary/50"
-                          }`}
+                            }`}
                           onClick={() => setSettings((prev) => ({ ...prev, width: size.w, height: size.h }))}
                         >
                           {size.label}
@@ -299,11 +300,10 @@ function StlToPngPage() {
                       ].map((view) => (
                         <button
                           key={view.value}
-                          className={`px-1.5 py-1.5 rounded text-xs font-medium capitalize border transition-colors ${
-                            settings.view === view.value
+                          className={`px-1.5 py-1.5 rounded text-xs font-medium capitalize border transition-colors ${settings.view === view.value
                               ? "border-primary bg-primary text-white"
                               : "border-border hover:border-primary/50"
-                          }`}
+                            }`}
                           onClick={() => setSettings((prev) => ({ ...prev, view: view.value }))}
                         >
                           {view.label}
@@ -360,11 +360,10 @@ function StlToPngPage() {
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">{t("modelsnap.wireframe")}</label>
                       <button
-                        className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
-                          settings.wireframe
+                        className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.wireframe
                             ? "border-primary bg-primary text-white"
                             : "border-border hover:border-primary/50"
-                        }`}
+                          }`}
                         onClick={() => setSettings((prev) => ({ ...prev, wireframe: !prev.wireframe }))}
                       >
                         {settings.wireframe ? t("modelsnap.on") : t("modelsnap.off")}
@@ -373,11 +372,10 @@ function StlToPngPage() {
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">{t("modelsnap.smooth")}</label>
                       <button
-                        className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${
-                          settings.smooth
+                        className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.smooth
                             ? "border-primary bg-primary text-white"
                             : "border-border hover:border-primary/50"
-                        }`}
+                          }`}
                         onClick={() => setSettings((prev) => ({ ...prev, smooth: !prev.smooth }))}
                       >
                         {settings.smooth ? t("modelsnap.on") : t("modelsnap.off")}

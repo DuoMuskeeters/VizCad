@@ -3,6 +3,9 @@ import { Sidebar } from "./sidebar";
 import { FileToolbar } from "./file-toolbar";
 import { FileList } from "./file-list";
 import { UploadModal } from "./upload-modal";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 
 // Define interfaces
 interface StorageSummary {
@@ -33,7 +36,7 @@ const sectionToEndpoint: Record<string, string> = {
   'starred': '/api/files/starred',
   'recent': '/api/files/recent',
   'trash': '/api/files/trash',
-  'shared': '/api/files/shared-with-me', // Will be implemented in Faz 3
+  'shared': '/api/files/shared-with-me',
 };
 
 // Map section to title
@@ -53,6 +56,7 @@ export function DashboardLayout() {
   const [activeSection, setActiveSection] = useState("my-files");
   const [currentPath, setCurrentPath] = useState<string[]>(["Dosyalarım"]);
   const [refreshFileListTrigger, setRefreshFileListTrigger] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // State for fetched data
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -70,7 +74,6 @@ export function DashboardLayout() {
         const response = await fetch(endpoint);
 
         if (!response.ok) {
-          // Handle 404 gracefully for endpoints not yet implemented
           if (response.status === 404) {
             setFiles([]);
             return;
@@ -81,7 +84,6 @@ export function DashboardLayout() {
         const data = await response.json() as { files?: FileItem[]; storageSummary?: StorageSummary };
         setFiles(data.files || []);
 
-        // Only update storage summary from my-files endpoint
         if (activeSection === 'my-files' && data.storageSummary) {
           setStorageSummary(data.storageSummary);
         }
@@ -110,7 +112,6 @@ export function DashboardLayout() {
 
   const handleUploadModalOpenChange = useCallback((open: boolean) => {
     setUploadModalOpen(open);
-    // If modal is closing, trigger file list refresh
     if (!open) {
       setRefreshFileListTrigger(prev => prev + 1);
     }
@@ -120,17 +121,55 @@ export function DashboardLayout() {
     setRefreshFileListTrigger(prev => prev + 1);
   }, []);
 
+  const handleSectionChange = (section: string) => {
+    setActiveSection(section);
+    setSidebarOpen(false); // Close sidebar on mobile after selection
+  };
+
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        onUploadClick={() => setUploadModalOpen(true)}
-        storageSummary={storageSummary}
-      />
+    <div className="flex h-screen bg-background pt-16">
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden lg:block">
+        <Sidebar
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          onUploadClick={() => setUploadModalOpen(true)}
+          storageSummary={storageSummary}
+        />
+      </div>
+
+      {/* Mobile Sidebar Sheet */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="p-0 w-64">
+          <Sidebar
+            activeSection={activeSection}
+            onSectionChange={handleSectionChange}
+            onUploadClick={() => {
+              setUploadModalOpen(true);
+              setSidebarOpen(false);
+            }}
+            storageSummary={storageSummary}
+          />
+        </SheetContent>
+      </Sheet>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6">
+          {/* Mobile Header with Menu Button */}
+          <div className="flex items-center gap-3 mb-4 lg:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(true)}
+              className="h-10 w-10 rounded-full border border-border"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <h1 className="text-lg font-semibold text-foreground">
+              {sectionToTitle[activeSection]}
+            </h1>
+          </div>
+
           <FileToolbar
             viewMode={viewMode}
             onViewModeChange={setViewMode}
@@ -159,4 +198,3 @@ export function DashboardLayout() {
     </div>
   );
 }
-
