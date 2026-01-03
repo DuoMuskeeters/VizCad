@@ -75,11 +75,11 @@ export const Route = createFileRoute("/app")({
         },
         {
           property: "og:url",
-          content: "https://vizcad.com/app",
+          content: "https://viz-cad.com/app",
         },
         {
           property: "og:image",
-          content: `https://vizcad.com/og-app-${lang}.png`,
+          content: `https://viz-cad.com/og-app-${lang}.png`,
         },
         {
           name: "twitter:title",
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/app")({
         },
         {
           name: "twitter:image",
-          content: `https://vizcad.com/twitter-app-${lang}.png`,
+          content: `https://viz-cad.com/twitter-app-${lang}.png`,
         },
         {
           name: "robots",
@@ -101,7 +101,7 @@ export const Route = createFileRoute("/app")({
       links: [
         {
           rel: "canonical",
-          href: "https://vizcad.com/app",
+          href: "https://viz-cad.com/app",
         },
       ],
     };
@@ -1481,12 +1481,12 @@ function AppPage() {
                       <span className="px-2 py-1 bg-gray-100 rounded text-xs">
                         {t("app_welcome_ply")}
                       </span>
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                          {t("app_welcome_stp")}
-                        </span>
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                          {t("app_welcome_step")}
-                        </span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                        {t("app_welcome_stp")}
+                      </span>
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                        {t("app_welcome_step")}
+                      </span>
                     </div>
                   </div>
                 </div>

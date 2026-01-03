@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/files/starred")({
                             userId: files.userId,
                             createdAt: files.createdAt,
                             updatedAt: files.updatedAt,
+                            thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
                             starredAt: fileStars.createdAt,
                         })

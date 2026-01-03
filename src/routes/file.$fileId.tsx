@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -12,7 +12,11 @@ import {
   Send,
   MoreVertical,
   Trash2,
-  Reply
+  Reply,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Maximize
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -82,6 +86,14 @@ function FileDetailPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
+  // Camera controls ref
+  const cameraControlsRef = useRef<{
+    resetCamera: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    setView: (view: string) => void;
+  } | null>(null);
 
   // Fetch file details
   useEffect(() => {
@@ -302,22 +314,66 @@ function FileDetailPage() {
                     <span className="ml-2 text-muted-foreground">Model yükleniyor...</span>
                   </div>
                 ) : previewFile ? (
-                  <Suspense fallback={
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                  <>
+                    <Suspense fallback={
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                      </div>
+                    }>
+                      <VtkApp
+                        file={previewFile}
+                        displayState={{
+                          wireframe: false,
+                          grid: false,
+                          axes: true,
+                          smooth: true
+                        }}
+                        onCameraReady={(controls) => {
+                          cameraControlsRef.current = controls;
+                        }}
+                      />
+                    </Suspense>
+                    {/* Viewer Controls */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => cameraControlsRef.current?.zoomIn()}
+                        title="Yakınlaştır"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => cameraControlsRef.current?.zoomOut()}
+                        title="Uzaklaştır"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </Button>
+                      <div className="w-px h-6 bg-border" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => cameraControlsRef.current?.resetCamera()}
+                        title="Sıfırla"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => cameraControlsRef.current?.setView('iso')}
+                        title="İzometrik Görünüm"
+                      >
+                        <Maximize className="w-4 h-4" />
+                      </Button>
                     </div>
-                  }>
-                    <VtkApp
-                      file={previewFile}
-                      viewMode="orbit"
-                      displayState={{
-                        wireframe: false,
-                        grid: true,
-                        axes: true,
-                        smooth: true
-                      }}
-                    />
-                  </Suspense>
+                  </>
                 ) : (
                   /* 3D Preview placeholder for unsupported formats or errors */
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">

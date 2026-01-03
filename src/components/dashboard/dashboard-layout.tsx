@@ -194,7 +194,11 @@ export function DashboardLayout() {
         </div>
       </main>
 
-      <UploadModal open={uploadModalOpen} onOpenChange={handleUploadModalOpenChange} />
+      <UploadModal
+        open={uploadModalOpen}
+        onOpenChange={handleUploadModalOpenChange}
+        onUploadComplete={handleRefresh}
+      />
     </div>
   );
 }

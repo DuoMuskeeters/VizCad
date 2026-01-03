@@ -4,7 +4,6 @@ import { env } from "cloudflare:workers";
 import { ulid } from "ulid";
 import { getDb } from "@/db/client";
 import { files } from "@/db/schema";
-import { sql } from "drizzle-orm";
 
 export const Route = createFileRoute("/api/files/upload")({
   server: {
@@ -88,8 +87,8 @@ export const Route = createFileRoute("/api/files/upload")({
               status: "uploaded", // Directly mark as uploaded
               userId: session.user.id,
               thumbnailR2Key: thumbnailKey,
-              createdAt: sql`CURRENT_TIMESTAMP`,
-              updatedAt: sql`CURRENT_TIMESTAMP`,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             })
             .returning();
 

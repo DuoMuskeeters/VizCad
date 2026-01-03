@@ -21,11 +21,12 @@ interface FileUploadState {
 interface UploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUploadComplete?: () => void;
 }
 
 const SUPPORTED_3D_EXTENSIONS = ['stl', 'obj', 'ply'];
 
-export function UploadModal({ open, onOpenChange }: UploadModalProps) {
+export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileUploadState[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,6 +123,25 @@ export function UploadModal({ open, onOpenChange }: UploadModalProps) {
       }
     });
   }, [filesToUpload, uploadFile]);
+
+  // Watch for all uploads complete
+  useEffect(() => {
+    if (filesToUpload.length > 0) {
+      const allCompleted = filesToUpload.every(
+        f => f.status === "uploaded" || f.status === "failed"
+      );
+      const someUploaded = filesToUpload.some(f => f.status === "uploaded");
+
+      if (allCompleted && someUploaded) {
+        // Delay to show completion status briefly
+        const timer = setTimeout(() => {
+          handleOpenChange(false);
+          onUploadComplete?.();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [filesToUpload, handleOpenChange, onUploadComplete]);
 
   const handleFileChange = useCallback(
     (selectedFiles: FileList | null) => {

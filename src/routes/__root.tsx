@@ -171,38 +171,38 @@ export const Route = createRootRoute({
         },
         {
           rel: "canonical",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         // Alternate language links for better SEO
         {
           rel: "alternate",
           hrefLang: "en",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         {
           rel: "alternate",
           hrefLang: "tr",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         {
           rel: "alternate",
           hrefLang: "de",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         {
           rel: "alternate",
           hrefLang: "es",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         {
           rel: "alternate",
           hrefLang: "fr",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
         {
           rel: "alternate",
           hrefLang: "hi",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
       ],
       scripts: [

@@ -53,11 +53,11 @@ export const Route = createFileRoute("/")({
         },
         {
           property: "og:url",
-          content: "https://vizcad.com",
+          content: "https://viz-cad.com",
         },
         {
           property: "og:image",
-          content: `https://vizcad.com/og-home-${lang}.png`,
+          content: `https://viz-cad.com/og-home-${lang}.png`,
         },
         {
           property: "og:image:width",
@@ -77,13 +77,13 @@ export const Route = createFileRoute("/")({
         },
         {
           name: "twitter:image",
-          content: `https://vizcad.com/twitter-home-${lang}.png`,
+          content: `https://viz-cad.com/twitter-home-${lang}.png`,
         },
       ],
       links: [
         {
           rel: "canonical",
-          href: "https://vizcad.com",
+          href: "https://viz-cad.com",
         },
       ],
     }

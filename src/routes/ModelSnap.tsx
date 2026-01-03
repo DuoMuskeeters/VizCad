@@ -43,11 +43,11 @@ export const Route = createFileRoute("/ModelSnap")({
         },
         {
           property: "og:url",
-          content: "https://vizcad.com/modelsnap",
+          content: "https://viz-cad.com/modelsnap",
         },
         {
           property: "og:image",
-          content: "https://vizcad.com/og-modelsnap.png",
+          content: "https://viz-cad.com/og-modelsnap.png",
         },
         {
           name: "twitter:title",
@@ -59,13 +59,13 @@ export const Route = createFileRoute("/ModelSnap")({
         },
         {
           name: "twitter:image",
-          content: "https://vizcad.com/twitter-modelsnap.png",
+          content: "https://viz-cad.com/twitter-modelsnap.png",
         },
       ],
       links: [
         {
           rel: "canonical",
-          href: "https://vizcad.com/modelsnap",
+          href: "https://viz-cad.com/modelsnap",
         },
       ],
     }
@@ -277,8 +277,8 @@ function StlToPngPage() {
                         <button
                           key={size.label}
                           className={`px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.width === size.w && settings.height === size.h
-                              ? "border-primary bg-primary text-white"
-                              : "border-border hover:border-primary/50"
+                            ? "border-primary bg-primary text-white"
+                            : "border-border hover:border-primary/50"
                             }`}
                           onClick={() => setSettings((prev) => ({ ...prev, width: size.w, height: size.h }))}
                         >
@@ -301,8 +301,8 @@ function StlToPngPage() {
                         <button
                           key={view.value}
                           className={`px-1.5 py-1.5 rounded text-xs font-medium capitalize border transition-colors ${settings.view === view.value
-                              ? "border-primary bg-primary text-white"
-                              : "border-border hover:border-primary/50"
+                            ? "border-primary bg-primary text-white"
+                            : "border-border hover:border-primary/50"
                             }`}
                           onClick={() => setSettings((prev) => ({ ...prev, view: view.value }))}
                         >
@@ -361,8 +361,8 @@ function StlToPngPage() {
                       <label className="text-xs font-medium">{t("modelsnap.wireframe")}</label>
                       <button
                         className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.wireframe
-                            ? "border-primary bg-primary text-white"
-                            : "border-border hover:border-primary/50"
+                          ? "border-primary bg-primary text-white"
+                          : "border-border hover:border-primary/50"
                           }`}
                         onClick={() => setSettings((prev) => ({ ...prev, wireframe: !prev.wireframe }))}
                       >
@@ -373,8 +373,8 @@ function StlToPngPage() {
                       <label className="text-xs font-medium">{t("modelsnap.smooth")}</label>
                       <button
                         className={`w-full px-2 py-1.5 rounded text-xs font-medium border transition-colors ${settings.smooth
-                            ? "border-primary bg-primary text-white"
-                            : "border-border hover:border-primary/50"
+                          ? "border-primary bg-primary text-white"
+                          : "border-border hover:border-primary/50"
                           }`}
                         onClick={() => setSettings((prev) => ({ ...prev, smooth: !prev.smooth }))}
                       >
