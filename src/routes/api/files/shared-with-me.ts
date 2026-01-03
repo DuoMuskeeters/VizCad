@@ -43,6 +43,7 @@ export const Route = createFileRoute("/api/files/shared-with-me")({
                             userId: files.userId,
                             createdAt: files.createdAt,
                             updatedAt: files.updatedAt,
+                            thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
                             shareId: fileShares.id,
                             permission: fileShares.permission,

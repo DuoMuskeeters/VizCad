@@ -38,11 +38,11 @@ export const Route = createFileRoute("/contact")({
         },
         {
           property: "og:url",
-          content: "https://vizcad.com/contact",
+          content: "https://viz-cad.com/contact",
         },
         {
           property: "og:image",
-          content: `https://vizcad.com/og-contact-${lang}.png`,
+          content: `https://viz-cad.com/og-contact-${lang}.png`,
         },
         {
           name: "twitter:title",
@@ -54,13 +54,13 @@ export const Route = createFileRoute("/contact")({
         },
         {
           name: "twitter:image",
-          content: `https://vizcad.com/twitter-contact-${lang}.png`,
+          content: `https://viz-cad.com/twitter-contact-${lang}.png`,
         },
       ],
       links: [
         {
           rel: "canonical",
-          href: "https://vizcad.com/contact",
+          href: "https://viz-cad.com/contact",
         },
       ],
     }

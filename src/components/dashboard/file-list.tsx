@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, AlertTriangle, MoreVertical, Eye, Download, Pencil, Trash2, Star, Share2, Info, RotateCcw, X } from "lucide-react";
+import { Loader2, AlertTriangle, MoreVertical, Eye, Download, Pencil, Trash2, Star, Share2, Info, RotateCcw, X, Calendar, FileBox, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,14 +73,52 @@ export function FileList({
   const [shareFileId, setShareFileId] = useState<string | null>(null);
   const [shareFileName, setShareFileName] = useState("");
 
-  const filteredFiles = files
+  // Local files state for optimistic updates
+  const [localFiles, setLocalFiles] = useState<FileItem[]>(files);
+
+  // Sync local files with prop
+  useEffect(() => {
+    setLocalFiles(files);
+  }, [files]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Reset page when files or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [files, searchQuery, activeSection]);
+
+  const itemsPerPage = isMobile ? 10 : 20;
+
+  const filteredFiles = localFiles
     .filter((file) => file.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "size") return a.size - b.size;
-      if (sortBy === "date") return b.createdAt - a.createdAt;
+      if (sortBy === "date") {
+        const dateA = typeof a.createdAt === 'number' ? a.createdAt : new Date(a.createdAt).getTime();
+        const dateB = typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      }
       return 0;
     });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredFiles.length / itemsPerPage);
+  const paginatedFiles = filteredFiles.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Download file
   const handleDownload = useCallback(async (file: FileItem) => {
@@ -109,24 +147,28 @@ export function FileList({
 
   // Toggle star
   const handleToggleStar = useCallback(async (file: FileItem) => {
+    // Optimistic update
+    setLocalFiles(prev => prev.map(f =>
+      f.id === file.id ? { ...f, isStarred: !f.isStarred } : f
+    ));
+
     try {
-      setActionLoading(file.id);
       const response = await fetch('/api/files/star', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId: file.id }),
       });
       if (!response.ok) {
-        throw new Error("Yıldız eklenemedi");
+        // Revert on error
+        setLocalFiles(prev => prev.map(f =>
+          f.id === file.id ? { ...f, isStarred: file.isStarred } : f
+        ));
+        throw new Error("Yıldız işlemi başarısız");
       }
-      onRefresh();
     } catch (err) {
       console.error("Star toggle error:", err);
-      alert("Yıldız işlemi başarısız: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
-    } finally {
-      setActionLoading(null);
     }
-  }, [onRefresh]);
+  }, []);
 
   // Move to trash
   const handleMoveToTrash = useCallback(async (file: FileItem) => {
@@ -235,6 +277,13 @@ export function FileList({
     setShareModalOpen(true);
   }, []);
 
+  // Format file size
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -271,12 +320,26 @@ export function FileList({
     return (
       <>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {filteredFiles.map((item) => (
+          {paginatedFiles.map((item) => (
             <Card
               key={item.id}
               className="group bg-card hover:bg-secondary/50 cursor-pointer transition-all border-transparent hover:border-border overflow-hidden"
             >
-              <div className="aspect-[4/3] bg-secondary/50 relative">
+              <div
+                className="aspect-[4/3] bg-secondary/50 relative cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => handlePreview(item)}
+              >
+                {/* Yıldız toggle butonu */}
+                <button
+                  className="absolute top-2 right-2 z-10 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleStar(item);
+                  }}
+                  title={item.isStarred ? "Yıldızı kaldır" : "Yıldızlı'ya ekle"}
+                >
+                  <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
+                </button>
                 <img
                   src={item.thumbnailR2Key ? `/api/files/thumbnail?fileId=${item.id}` : "/placeholder.svg"}
                   alt={item.name}
@@ -334,6 +397,30 @@ export function FileList({
             onShareCreated={onRefresh}
           />
         )}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Sayfa {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </>
     );
   }
@@ -342,7 +429,7 @@ export function FileList({
     <>
       <div className="space-y-0.5">
         {/* List Header */}
-        <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs text-muted-foreground font-medium">
+        <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs text-muted-foreground font-medium">
           <div className="col-span-6 flex items-center gap-3">
             <Checkbox className="h-4 w-4" />
             <span>Ad</span>
@@ -354,35 +441,52 @@ export function FileList({
         </div>
 
         {/* List Items */}
-        {filteredFiles.map((item) => (
+        {paginatedFiles.map((item) => (
           <div
             key={item.id}
-            className="group grid grid-cols-12 gap-4 px-4 py-2.5 rounded-lg hover:bg-secondary/50 cursor-pointer items-center"
+            className="group grid grid-cols-12 gap-2 px-3 py-4 md:gap-4 md:px-4 md:py-2.5 rounded-lg hover:bg-secondary/50 cursor-pointer items-center"
+            onClick={() => handlePreview(item)}
           >
-            <div className="col-span-6 flex items-center gap-3 min-w-0">
-              <Checkbox className="h-4 w-4 opacity-0 group-hover:opacity-100" />
-              <div className="w-8 h-8 rounded bg-secondary overflow-hidden shrink-0">
+            <div className="col-span-10 md:col-span-6 flex items-center gap-3 min-w-0">
+              <Checkbox className="hidden md:block h-4 w-4 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()} />
+              <div className="w-14 h-14 md:w-8 md:h-8 rounded bg-secondary overflow-hidden shrink-0 relative">
                 <img
                   src={item.thumbnailR2Key ? `/api/files/thumbnail?fileId=${item.id}` : "/placeholder.svg"}
                   alt={item.name}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-sm truncate">{item.name}</span>
+              {/* Yıldız toggle butonu */}
+              <button
+                className="shrink-0 p-1 rounded hover:bg-secondary transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleStar(item);
+                }}
+                title={item.isStarred ? "Yıldızı kaldır" : "Yıldızlı'ya ekle"}
+              >
+                <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
+              </button>
+              <div className="flex flex-col min-w-0">
+                <span className="text-base md:text-sm font-medium truncate">{item.name}</span>
+                <span className="text-sm md:text-xs text-muted-foreground md:hidden mt-0.5">
+                  {(item.size / 1024 / 1024).toFixed(2)} MB • {new Date(item.updatedAt).toLocaleDateString()}
+                </span>
+              </div>
               {item.extension && (
-                <Badge variant="outline" className="text-xs font-normal shrink-0">
+                <Badge variant="outline" className="text-xs font-normal shrink-0 hidden md:inline-flex">
                   {item.extension.toUpperCase()}
                 </Badge>
               )}
             </div>
-            <div className="col-span-2 text-sm text-muted-foreground truncate">{item.userName || item.userId}</div>
-            <div className="col-span-2 text-sm text-muted-foreground">
+            <div className="hidden md:block col-span-2 text-sm text-muted-foreground truncate">{item.userName || item.userId}</div>
+            <div className="hidden md:block col-span-2 text-sm text-muted-foreground">
               {new Date(item.updatedAt).toLocaleDateString()}
             </div>
-            <div className="col-span-1 text-sm text-muted-foreground">
+            <div className="hidden md:block col-span-1 text-sm text-muted-foreground">
               {(item.size / 1024 / 1024).toFixed(2)} MB
             </div>
-            <div className="col-span-1 flex justify-end">
+            <div className="col-span-2 md:col-span-1 flex justify-end">
               <FileActions
                 item={item}
                 activeSection={activeSection}
@@ -416,6 +520,30 @@ export function FileList({
           fileName={shareFileName}
           onShareCreated={onRefresh}
         />
+      )}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground px-2">
+            Sayfa {currentPage} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
       )}
     </>
   );
@@ -458,7 +586,7 @@ function FileActions({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-8 w-8"
           disabled={isLoading}
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
@@ -492,9 +620,6 @@ function FileActions({
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onOpenRename(item)}>
               <Pencil className="w-4 h-4" /> Yeniden adlandır
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer">
-              <Info className="w-4 h-4" /> Ayrıntıları görüntüle
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => onMoveToTrash(item)}>

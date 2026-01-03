@@ -45,6 +45,7 @@ export const Route = createFileRoute("/api/files/recent")({
                             userId: files.userId,
                             createdAt: files.createdAt,
                             updatedAt: files.updatedAt,
+                            thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
                             lastActivity: fileActivities.createdAt,
                             lastAction: fileActivities.action,

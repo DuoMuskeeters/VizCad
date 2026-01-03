@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useSession } from "@/lib/auth-client";
 
 // 🔧 DEV MODE: Set to true to bypass auth checks locally
-const DEV_BYPASS_AUTH = true;
+const DEV_BYPASS_AUTH = false;
 
 // Routes that require authentication
 const protectedRoutes = ["/dashboard", "/admin"];
