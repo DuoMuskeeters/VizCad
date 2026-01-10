@@ -111,7 +111,7 @@ function FileDetailPage() {
 
         // If file is supported 3D format, fetch content for preview
         const ext = data.file.extension.toLowerCase();
-        if (['stl', 'obj', 'ply'].includes(ext)) {
+        if (['stl', 'obj', 'ply', 'step', 'stp', 'iges', 'igs', 'brep'].includes(ext)) {
           setIsPreviewLoading(true);
           fetch(`/api/files/download?fileId=${fileId}`)
             .then(res => res.blob())

@@ -274,5 +274,16 @@
   "modelsnap.previewAlt": "Imagen de vista previa",
   "modelsnap.viewFront": "Frontal",
   "modelsnap.viewSide": "Lateral",
-  "modelsnap.viewTop": "Superior"
+  "modelsnap.viewTop": "Superior",
+  "app_toolbar_share": "Compartir",
+  "share_loading_title": "Cargando archivo compartido...",
+  "share_loading_subtitle": "Por favor espera",
+  "share_redirecting": "Redirigiendo...",
+  "share_modal_title": "Compartir archivo",
+  "share_modal_creating": "Creando enlace de compartir...",
+  "share_modal_description": "Comparte este enlace para dar acceso a tu archivo a otros:",
+  "share_modal_copied": "¡Enlace copiado!",
+  "share_modal_close": "Cerrar",
+  "share_error_no_file": "Por favor, suba un archivo primero.",
+  "share_error_generic": "Ha ocurrido un error"
 }

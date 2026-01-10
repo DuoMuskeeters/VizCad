@@ -274,5 +274,19 @@
   "modelsnap.previewAlt": "Önizleme Görüntüsü",
   "modelsnap.viewFront": "Ön",
   "modelsnap.viewSide": "Yan",
-  "modelsnap.viewTop": "Üst"
+  "modelsnap.viewTop": "Üst",
+  "app_toolbar_share": "Paylaş",
+  "share_loading_title": "Paylaşılan dosya yükleniyor...",
+  "share_loading_subtitle": "Lütfen bekleyin",
+  "share_redirecting": "Yönlendiriliyor...",
+  "share_modal_title": "Dosyayı Paylaş",
+  "share_modal_creating": "Paylaşım linki oluşturuluyor...",
+  "share_modal_description": "Bu linki paylaşarak dosyanızı başkalarıyla paylaşabilirsiniz:",
+  "share_modal_copied": "Link kopyalandı!",
+  "share_modal_close": "Kapat",
+  "share_error_no_file": "Lütfen önce bir dosya yükleyin.",
+  "share_error_generic": "Bir hata oluştu",
+  "share_modal_description_create": "Bu dosya için paylaşım linki oluşturun",
+  "share_modal_create_link": "Paylaşım Linki Oluştur",
+  "share_error_no_session": "Oturum bulunamadı"
 }

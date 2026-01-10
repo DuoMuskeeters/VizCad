@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import emailjs from "@emailjs/browser";
 
 import { VtkApp } from "@/components/VtkApp.client";
+import ThumbnailGenerator from "@/components/ThumbnailGenerator";
 import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -28,6 +29,11 @@ import {
   Maximize,
   Move3d,
   Box,
+  Share2,
+  Copy,
+  Check,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ScenesTab } from "@/components/tabs/sceneTabs";
@@ -36,6 +42,15 @@ import { AppearanceTab } from "@/components/tabs/AppearanceTab";
 import { OutputTab } from "@/components/tabs/OutputTab";
 import { CameraTab } from "@/components/tabs/CameraTab";
 import { detectLanguage, seoContent } from "@/utils/language";
+import { useSession } from "@/lib/auth-client";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787/api";
@@ -47,7 +62,8 @@ export const Route = createFileRoute("/app")({
     name: typeof search.name === "string" ? search.name : undefined,
     author: typeof search.author === "string" ? search.author : undefined,
     modelId: typeof search.modelId === "string" ? search.modelId : undefined,
-  } as { model?: string; name?: string; author?: string; modelId?: string }),
+    shareToken: typeof search.shareToken === "string" ? search.shareToken : undefined,
+  } as { model?: string; name?: string; author?: string; modelId?: string; shareToken?: string }),
   head: () => {
     const lang = detectLanguage();
     const content = seoContent[lang].app;
@@ -111,7 +127,7 @@ export const Route = createFileRoute("/app")({
 
 function AppPage() {
   const { t } = useTranslation();
-  const { model, name, author, modelId } = Route.useSearch();
+  const { model, name, author, modelId, shareToken } = Route.useSearch();
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 100, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -134,6 +150,17 @@ function AppPage() {
   const [isTablet, setIsTablet] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  // Auth
+  const { data: session } = useSession();
+  const navigate = useNavigate();
+
   // Camera controls ref
   const cameraControlsRef = useRef<{
     resetCamera: () => void
@@ -143,6 +170,7 @@ function AppPage() {
     applyStudioScene: (sceneId: string) => void
     setBackground: (color: [number, number, number]) => void
     captureScreenshot: () => void
+    captureAsBlob: () => Promise<Blob | null>
   } | null>(null)
 
   const isDeveloper = false;
@@ -158,7 +186,18 @@ function AppPage() {
   // Unified file change handler
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+      const file = event.target.files[0];
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      const isStepFormat = ['step', 'stp', 'iges', 'igs', 'brep'].includes(extension || '');
+      const MAX_STEP_SIZE = 5 * 1024 * 1024; // 5MB
+
+      if (isStepFormat && file.size > MAX_STEP_SIZE) {
+        alert(`${file.name} dosyası 5MB sınırını aşıyor. STEP/IGES dosyaları en fazla 5MB olabilir.`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      setSelectedFile(file);
     }
   };
 
@@ -416,6 +455,60 @@ function AppPage() {
       loadModelFromUrl();
     }
   }, [model, name, author, modelId]);
+
+  // Load shared file from shareToken
+  useEffect(() => {
+    if (shareToken) {
+      console.log("Loading shared file with token:", shareToken);
+      setIsLoading(true);
+
+      const loadSharedFile = async () => {
+        try {
+          const res = await fetch(`/api/shared/${shareToken}`);
+          const data = (await res.json()) as {
+            file?: { name: string; mimeType: string };
+            downloadUrl?: string;
+            error?: string;
+            requiresPassword?: boolean;
+          };
+
+          if (!res.ok) {
+            if (data.requiresPassword) {
+              // TODO: Implement password prompt modal
+              alert("Bu dosya parola korumalı. Parola desteği yakında eklenecek.");
+              return;
+            }
+            throw new Error(data.error || "Paylaşılan dosya yüklenemedi");
+          }
+
+          if (!data.downloadUrl || !data.file) {
+            throw new Error("Dosya bilgisi eksik");
+          }
+
+          // Download the file
+          const fileRes = await fetch(data.downloadUrl);
+          if (!fileRes.ok) {
+            throw new Error("Dosya indirilemedi");
+          }
+
+          const blob = await fileRes.blob();
+          const file = new window.File([blob], data.file.name, {
+            type: data.file.mimeType || "application/octet-stream",
+          });
+
+          console.log("Shared file loaded:", data.file.name);
+          setSelectedFile(file);
+        } catch (error) {
+          console.error("Error loading shared file:", error);
+          alert(error instanceof Error ? error.message : "Paylaşılan dosya yüklenemedi");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadSharedFile();
+    }
+  }, [shareToken]);
 
   // Open file dialog programmatically
   const openFileDialog = () => {
@@ -691,6 +784,158 @@ function AppPage() {
       });
   };
 
+  // Thumbnail state
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+
+  // ... (mevcut kodlar)
+
+  // Share file handler
+  const handleShare = async () => {
+    // 1. Check if user is logged in
+    if (!session?.user) {
+      const currentUrl = window.location.href;
+      navigate({ to: "/login", search: { redirect: currentUrl } });
+      return;
+    }
+
+    if (!selectedFile) {
+      alert(t("share_error_no_file"));
+      return;
+    }
+
+    setShareLoading(true);
+    setShareError(null);
+    setShowShareModal(true);
+
+    try {
+      const token = session.session?.token;
+      if (!token) throw new Error("Auth token not found");
+
+      // 2. Prepare thumbnail blob from generated base64
+      let thumbnailBlob: Blob | null = null;
+      if (generatedThumbnail) {
+        try {
+          const res = await fetch(generatedThumbnail);
+          thumbnailBlob = await res.blob();
+        } catch (err) {
+          console.warn("Failed to process thumbnail:", err);
+        }
+      }
+
+      // 3. Upload file to R2 first (using presigned upload)
+      const presignedRes = await fetch("/api/files/presigned-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: selectedFile.name,
+          type: selectedFile.type || 'application/octet-stream',
+          size: selectedFile.size,
+          withThumbnail: !!thumbnailBlob
+        })
+      });
+
+      if (!presignedRes.ok) {
+        const err = (await presignedRes.json()) as { error?: string };
+        throw new Error(err.error || "Presigned URL alınamadı");
+      }
+
+      const { fileId, uploadUrl, key, thumbnail } = (await presignedRes.json()) as {
+        fileId: string;
+        uploadUrl: string;
+        key: string;
+        thumbnail?: { uploadUrl: string; key: string };
+      };
+
+      // 4. Upload file to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: selectedFile,
+        headers: { "Content-Type": selectedFile.type || 'application/octet-stream' }
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Dosya yüklenemedi");
+      }
+
+      // 5. Upload thumbnail to R2
+      let thumbnailKey: string | null = null;
+      if (thumbnailBlob && thumbnail?.uploadUrl) {
+        try {
+          const thumbRes = await fetch(thumbnail.uploadUrl, {
+            method: "PUT",
+            body: thumbnailBlob,
+            headers: { "Content-Type": "image/png" }
+          });
+          if (thumbRes.ok) {
+            thumbnailKey = thumbnail.key;
+          }
+        } catch (err) {
+          console.warn("Failed to upload thumbnail:", err);
+        }
+      }
+
+      // 6. Complete upload
+      const completeRes = await fetch("/api/files/complete-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fileId,
+          name: selectedFile.name,
+          size: selectedFile.size,
+          type: selectedFile.type || 'application/octet-stream',
+          key,
+          thumbnailKey
+        })
+      });
+
+      if (!completeRes.ok) {
+        const err = (await completeRes.json()) as { error?: string };
+        throw new Error(err.error || "Yükleme tamamlanamadı");
+      }
+
+      // 7. Create share link
+      const shareRes = await fetch("/api/files/share", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fileId,
+          shareType: "link",
+          permission: "view"
+        })
+      });
+
+      if (!shareRes.ok) {
+        const err = (await shareRes.json()) as { error?: string };
+        throw new Error(err.error || "Paylaşım linki oluşturulamadı");
+      }
+
+      const shareData = (await shareRes.json()) as { shareUrl: string };
+      setShareUrl(shareData.shareUrl);
+
+    } catch (error) {
+      console.error("Share error:", error);
+      setShareError(error instanceof Error ? error.message : t("share_error_generic"));
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+
+  const copyShareUrl = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
+
   return (
     <div
       ref={pageRef}
@@ -715,6 +960,15 @@ function AppPage() {
         } as React.CSSProperties
       }
     >
+      {/* Loading overlay for shared files - stays behind navbar (z-40) */}
+      {isLoading && shareToken && (
+        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-40">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+          <p className="text-lg font-medium text-gray-700">{t("share_loading_title")}</p>
+          <p className="text-sm text-gray-500 mt-2">{t("share_loading_subtitle")}</p>
+        </div>
+      )}
+
       {/* Unavailable Feature Modal */}
       {showUnavailableModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -817,6 +1071,68 @@ function AppPage() {
         </div>
       )}
 
+      {/* Share Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5" />
+              {t("share_modal_title")}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {shareLoading ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                <p className="text-sm text-muted-foreground">{t("share_modal_creating")}</p>
+              </div>
+            ) : shareError ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
+                <p className="text-sm text-red-500">{shareError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => setShowShareModal(false)}
+                >
+                  {t("share_modal_close")}
+                </Button>
+              </div>
+            ) : shareUrl ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t("share_modal_description")}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyShareUrl}
+                    className="shrink-0"
+                  >
+                    {shareCopied ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {shareCopied && (
+                  <p className="text-xs text-green-600">{t("share_modal_copied")}</p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Top Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
@@ -876,6 +1192,19 @@ function AppPage() {
           >
             {t("app_toolbar_tryVizCad")}
           </Button>
+
+          {/* Share Button - Only show for own files, not shared files */}
+          {selectedFile && !shareToken && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 px-4 py-2"
+              onClick={handleShare}
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("app_toolbar_share") || "Paylaş"}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1410,6 +1739,19 @@ function AppPage() {
                     cameraControlsRef.current = controls;
                   }}
                 />
+
+                {/* Hidden Thumbnail Generator */}
+                {selectedFile && (
+                  <div className="hidden">
+                    <ThumbnailGenerator
+                      file={selectedFile}
+                      width={400}
+                      height={400}
+                      onThumbnailGenerated={(thumb: string) => setGeneratedThumbnail(thumb)}
+                      onError={(err: any) => console.warn("Thumbnail generation failed:", err)}
+                    />
+                  </div>
+                )}
                 {/* Camera button - positioned separately on desktop, inside toolbar works on mobile */}
                 {!isMobile && selectedFile && (
                   <button

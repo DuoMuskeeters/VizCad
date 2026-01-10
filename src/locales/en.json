@@ -274,5 +274,19 @@
   "modelsnap.previewAlt": "Preview Image",
   "modelsnap.viewFront": "Front",
   "modelsnap.viewSide": "Side",
-  "modelsnap.viewTop": "Top"
+  "modelsnap.viewTop": "Top",
+  "app_toolbar_share": "Share",
+  "share_loading_title": "Loading shared file...",
+  "share_loading_subtitle": "Please wait",
+  "share_redirecting": "Redirecting...",
+  "share_modal_title": "Share File",
+  "share_modal_creating": "Creating share link...",
+  "share_modal_description": "Share this link to give others access to your file:",
+  "share_modal_copied": "Link copied!",
+  "share_modal_close": "Close",
+  "share_error_no_file": "Please upload a file first.",
+  "share_error_generic": "An error occurred",
+  "share_modal_description_create": "Create a share link for this file",
+  "share_modal_create_link": "Create Share Link",
+  "share_error_no_session": "Session not found"
 }

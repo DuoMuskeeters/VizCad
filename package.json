@@ -12,6 +12,8 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.962.0",
+    "@aws-sdk/s3-request-presigner": "^3.962.0",
     "@better-auth/cli": "^1.4.7",
     "@emailjs/browser": "^4.4.1",
     "@kitware/vtk.js": "34.1.0",
@@ -81,6 +83,6 @@
     "wrangler": "^4.54.0"
   },
   "overrides": {
-    "@tanstack/react-router": "^1.121.2"
+    "@tanstack/react-router": "^1.141.2"
   }
 }

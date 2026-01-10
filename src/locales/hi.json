@@ -275,5 +275,16 @@
   "modelsnap.previewAlt": "पूर्वावलोकन छवि",
   "modelsnap.viewFront": "सामने",
   "modelsnap.viewSide": "पक्ष",
-  "modelsnap.viewTop": "शीर्ष"
+  "modelsnap.viewTop": "शीर्ष",
+  "app_toolbar_share": "साझा करें",
+  "share_loading_title": "साझा की गई फ़ाइल लोड हो रही है...",
+  "share_loading_subtitle": "कृपया प्रतीक्षा करें",
+  "share_redirecting": "पुनर्निर्देशित हो रहा है...",
+  "share_modal_title": "फ़ाइल साझा करें",
+  "share_modal_creating": "साझा लिंक बनाया जा रहा है...",
+  "share_modal_description": "दूसरों को अपनी फ़ाइल तक पहुंच देने के लिए इस लिंक को साझा करें:",
+  "share_modal_copied": "लिंक कॉपी किया गया!",
+  "share_modal_close": "बंद करें",
+  "share_error_no_file": "कृपया पहले एक फ़ाइल अपलोड करें।",
+  "share_error_generic": "एक त्रुटि हुई"
 }

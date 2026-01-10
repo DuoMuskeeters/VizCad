@@ -5,21 +5,29 @@ import { getDb } from "@/db/client";
 import { files, fileActivities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ulid } from "ulid";
+import { getR2Client } from "@/lib/s3";
 
 export const Route = createFileRoute("/api/files/download")({
     server: {
         handlers: {
-            // Get file download URL or stream file directly
             GET: async ({ request }) => {
                 try {
                     const d1 = env?.vizcad_auth;
-                    const R2Bucket = env?.R2_FILES_BUCKET;
 
-                    if (!d1 || !R2Bucket) {
-                        return new Response(
-                            JSON.stringify({ error: "Cloudflare bindings (D1 or R2) not configured." }),
-                            { status: 500, headers: { "Content-Type": "application/json" } }
-                        );
+                    if (!d1) {
+                        return new Response(JSON.stringify({ error: "Database binding not configured." }), {
+                            status: 500,
+                            headers: { "Content-Type": "application/json" }
+                        });
+                    }
+
+                    if (!env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY || !env.R2_ACCOUNT_ID) {
+                        return new Response(JSON.stringify({
+                            error: "R2 Credentials missing in environment variables."
+                        }), {
+                            status: 500,
+                            headers: { "Content-Type": "application/json" }
+                        });
                     }
 
                     const db = getDb(d1);
@@ -39,7 +47,7 @@ export const Route = createFileRoute("/api/files/download")({
                     if (!fileId) {
                         return new Response(JSON.stringify({ error: "fileId is required." }), {
                             status: 400,
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "Content-Type": "application/json" }
                         });
                     }
 
@@ -61,34 +69,23 @@ export const Route = createFileRoute("/api/files/download")({
                     if (!file.length) {
                         return new Response(JSON.stringify({ error: "File not found." }), {
                             status: 404,
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "Content-Type": "application/json" }
                         });
                     }
 
                     const fileData = file[0];
 
-                    // Check ownership (TODO: also check shared access in the future)
                     if (fileData.userId !== session.user.id) {
                         return new Response(JSON.stringify({ error: "Access denied." }), {
                             status: 403,
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "Content-Type": "application/json" }
                         });
                     }
 
                     if (fileData.isDeleted) {
                         return new Response(JSON.stringify({ error: "File is in trash." }), {
                             status: 410,
-                            headers: { "Content-Type": "application/json" },
-                        });
-                    }
-
-                    // Get file from R2
-                    const r2Object = await R2Bucket.get(fileData.r2Key);
-
-                    if (!r2Object) {
-                        return new Response(JSON.stringify({ error: "File not found in storage." }), {
-                            status: 404,
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "Content-Type": "application/json" }
                         });
                     }
 
@@ -103,21 +100,32 @@ export const Route = createFileRoute("/api/files/download")({
                         });
                     } catch (activityError) {
                         console.error("Error logging download activity:", activityError);
-                        // Non-critical, continue with download
                     }
 
-                    // Return file as download
-                    const headers = new Headers();
-                    headers.set("Content-Type", fileData.mimeType || "application/octet-stream");
-                    headers.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileData.name)}"`);
-                    headers.set("Content-Length", fileData.size.toString());
+                    // Generate Presigned URL
+                    const r2 = getR2Client(env);
+                    const bucketName = env.R2_BUCKET_NAME || "vizcad-files-bucket";
+                    const endpoint = env.R2_ENDPOINT || `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-                    return new Response(r2Object.body, {
-                        status: 200,
-                        headers,
+                    const downloadUrl = new URL(`${endpoint}/${bucketName}/${fileData.r2Key}`);
+
+                    // Set Content-Disposition
+                    downloadUrl.searchParams.set("response-content-disposition", `attachment; filename="${encodeURIComponent(fileData.name)}"`);
+                    // Set Content-Type
+                    if (fileData.mimeType) {
+                        downloadUrl.searchParams.set("response-content-type", fileData.mimeType);
+                    }
+                    downloadUrl.searchParams.set("X-Amz-Expires", "3600");
+
+                    const signedUrl = await r2.sign(downloadUrl, {
+                        method: "GET",
+                        aws: { signQuery: true }
                     });
+
+                    return Response.redirect(signedUrl.url, 302);
+
                 } catch (error) {
-                    console.error("Error downloading file:", error);
+                    console.error("Error generating download link:", error);
                     const message = error instanceof Error ? error.message : "Unknown error";
                     return new Response(JSON.stringify({ error: message }), {
                         status: 500,
