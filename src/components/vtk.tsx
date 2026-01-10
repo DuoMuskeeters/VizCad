@@ -30,6 +30,7 @@ interface VtkAppProps {
     applyStudioScene: (sceneId: string) => void
     setBackground: (color: [number, number, number]) => void
     captureScreenshot: () => void
+    captureAsBlob: () => Promise<Blob | null>
   }) => void
 }
 
@@ -87,6 +88,29 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     }, 'image/png', 1.0);
   };
 
+  // Capture canvas as blob for thumbnail generation
+  const captureAsBlob = (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!vtkContainerRef.current || !renderWindowRef.current) {
+        resolve(null);
+        return;
+      }
+
+      const canvas = vtkContainerRef.current.querySelector('canvas');
+      if (!canvas) {
+        resolve(null);
+        return;
+      }
+
+      // Force a render before capturing
+      renderWindowRef.current.render();
+
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/png', 1.0);
+    });
+  };
+
   // Expose camera controls to parent component
   useEffect(() => {
     if (onCameraReady) {
@@ -98,6 +122,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
         applyStudioScene,
         setBackground,
         captureScreenshot,
+        captureAsBlob,
       })
     }
   }, [onCameraReady, resetCamera, zoomIn, zoomOut, setView, applyStudioScene, setBackground])

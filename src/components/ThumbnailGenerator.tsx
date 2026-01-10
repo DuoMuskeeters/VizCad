@@ -5,6 +5,7 @@ import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
 import vtkSTLReader from '@kitware/vtk.js/IO/Geometry/STLReader';
 import vtkPLYReader from '@kitware/vtk.js/IO/Geometry/PLYReader';
 import vtkOBJReader from '@kitware/vtk.js/IO/Misc/OBJReader';
+import { BrepToStlConverter } from './BrepToStlConverter';
 import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 
 interface ThumbnailGeneratorProps {
@@ -97,34 +98,52 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({
       let reader: any;
       let polyData: any;
 
-      switch (fileExtension) {
-        case 'stl':
-          reader = vtkSTLReader.newInstance();
-          reader.parseAsArrayBuffer(fileData);
-          polyData = reader.getOutputData(0);
-          break;
+      // Check for BREP formats (STEP, IGES, BREP)
+      const isBrepFormat = ['step', 'stp', 'iges', 'igs', 'brep'].includes(fileExtension || '');
 
-        case 'ply':
-          reader = vtkPLYReader.newInstance();
-          reader.parseAsArrayBuffer(fileData);
-          polyData = reader.getOutputData(0);
-          break;
-
-        case 'obj':
-          reader = vtkOBJReader.newInstance();
-          const textDecoder = new TextDecoder();
-          const objText = textDecoder.decode(fileData);
-          reader.parseAsText(objText);
-          polyData = reader.getOutputData(0);
-          break;
-
-        case '3mf':
-          onError?.('3MF format is not supported. Please convert to STL, OBJ, or PLY format.');
+      if (isBrepFormat) {
+        // Use BrepToStlConverter for STEP/IGES/BREP files
+        try {
+          polyData = await BrepToStlConverter.convertToPolyData(file);
+        } catch (brepError) {
+          console.error('BREP conversion error:', brepError);
+          onError?.(`Failed to convert ${fileExtension?.toUpperCase()} file: ${brepError instanceof Error ? brepError.message : 'Unknown error'}`);
+          setIsGenerating(false);
           return;
+        }
+      } else {
+        // Standard mesh formats
+        switch (fileExtension) {
+          case 'stl':
+            reader = vtkSTLReader.newInstance();
+            reader.parseAsArrayBuffer(fileData);
+            polyData = reader.getOutputData(0);
+            break;
 
-        default:
-          onError?.('Unsupported file format. Supported: STL, PLY, OBJ');
-          return;
+          case 'ply':
+            reader = vtkPLYReader.newInstance();
+            reader.parseAsArrayBuffer(fileData);
+            polyData = reader.getOutputData(0);
+            break;
+
+          case 'obj':
+            reader = vtkOBJReader.newInstance();
+            const textDecoder = new TextDecoder();
+            const objText = textDecoder.decode(fileData);
+            reader.parseAsText(objText);
+            polyData = reader.getOutputData(0);
+            break;
+
+          case '3mf':
+            onError?.('3MF format is not supported. Please convert to STL, OBJ, or PLY format.');
+            setIsGenerating(false);
+            return;
+
+          default:
+            onError?.('Unsupported file format. Supported: STL, PLY, OBJ, STEP, STP, IGES');
+            setIsGenerating(false);
+            return;
+        }
       }
 
       if (!polyData || !polyData.getPoints || polyData.getPoints().getNumberOfPoints() === 0) {

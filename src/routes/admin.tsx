@@ -8,7 +8,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useEffect, useState, useMemo } from "react";
+import { Loader2, ArrowUpDown, HardDrive, File as FileIcon } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -25,13 +49,45 @@ interface User {
   createdAt: Date;
 }
 
+interface StorageStat {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  fileCount: number;
+  totalSize: number;
+}
+
+interface UserFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  createdAt: string;
+}
+
 function AdminPage() {
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
+
+  // Users State
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Pagination & Sorting State
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<keyof User | null>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Storage Stats State
+  const [storageStats, setStorageStats] = useState<StorageStat[]>([]);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [selectedUserForStorage, setSelectedUserForStorage] = useState<StorageStat | null>(null);
+  const [userFiles, setUserFiles] = useState<UserFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const sessionQuery = useSession();
   const session = isClient ? sessionQuery.data : null;
@@ -48,41 +104,76 @@ function AdminPage() {
     }
   }, [session, isPending, navigate]);
 
-  // Load users
+  // Load users on mount
   useEffect(() => {
     if (session?.user.role === "admin") {
       loadUsers();
+      loadStorageStats();
     }
   }, [session]);
 
   const loadUsers = async () => {
     try {
-      setLoading(true);
+      setUsersLoading(true);
       const response = await authClient.admin.listUsers({
         query: {
-          limit: 100,
+          limit: 1000,
         },
       });
       if (response.data) {
         setUsers(response.data.users as User[]);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load users");
+      setUsersError(err.message || "Failed to load users");
     } finally {
-      setLoading(false);
+      setUsersLoading(false);
     }
   };
 
+  const loadStorageStats = async () => {
+    try {
+      setStorageLoading(true);
+      const res = await fetch("/api/admin/storage-stats");
+      if (res.ok) {
+        const data = await res.json() as { stats: StorageStat[] };
+        setStorageStats(data.stats);
+      }
+    } catch (err) {
+      console.error("Failed to load storage stats", err);
+    } finally {
+      setStorageLoading(false);
+    }
+  };
+
+  const loadUserFiles = async (userId: string) => {
+    try {
+      setFilesLoading(true);
+      const res = await fetch(`/api/admin/user-files?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json() as { files: UserFile[] };
+        setUserFiles(data.files);
+      }
+    } catch (err) {
+      console.error("Failed to load user files", err);
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleOpenStorageDetails = (stat: StorageStat) => {
+    setSelectedUserForStorage(stat);
+    setIsSheetOpen(true);
+    loadUserFiles(stat.userId);
+  };
+
+  // User Management Actions
   const handleSetRole = async (userId: string, newRole: "user" | "admin") => {
     try {
       setActionLoading(userId);
-      await authClient.admin.setRole({
-        userId,
-        role: newRole,
-      });
+      await authClient.admin.setRole({ userId, role: newRole });
       await loadUsers();
     } catch (err: any) {
-      setError(err.message || "Failed to update role");
+      setUsersError(err.message || "Failed to update role");
     } finally {
       setActionLoading(null);
     }
@@ -92,13 +183,10 @@ function AdminPage() {
     const reason = prompt("Ban reason (optional):");
     try {
       setActionLoading(userId);
-      await authClient.admin.banUser({
-        userId,
-        banReason: reason || undefined,
-      });
+      await authClient.admin.banUser({ userId, banReason: reason || undefined });
       await loadUsers();
     } catch (err: any) {
-      setError(err.message || "Failed to ban user");
+      setUsersError(err.message || "Failed to ban user");
     } finally {
       setActionLoading(null);
     }
@@ -107,12 +195,10 @@ function AdminPage() {
   const handleUnbanUser = async (userId: string) => {
     try {
       setActionLoading(userId);
-      await authClient.admin.unbanUser({
-        userId,
-      });
+      await authClient.admin.unbanUser({ userId });
       await loadUsers();
     } catch (err: any) {
-      setError(err.message || "Failed to unban user");
+      setUsersError(err.message || "Failed to unban user");
     } finally {
       setActionLoading(null);
     }
@@ -124,21 +210,62 @@ function AdminPage() {
     }
     try {
       setActionLoading(userId);
-      await authClient.admin.removeUser({
-        userId,
-      });
+      await authClient.admin.removeUser({ userId });
       await loadUsers();
     } catch (err: any) {
-      setError(err.message || "Failed to remove user");
+      setUsersError(err.message || "Failed to remove user");
     } finally {
       setActionLoading(null);
     }
   };
 
-  if (isPending || loading) {
+  // Derived Users for Display
+  const sortedUsers = useMemo(() => {
+    let sorted = [...users];
+    if (sortField) {
+      sorted.sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        if (aVal === bVal) return 0;
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
+
+        if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sorted;
+  }, [users, sortField, sortOrder]);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedUsers.slice(start, start + pageSize);
+  }, [sortedUsers, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(users.length / pageSize);
+
+  const toggleSort = (field: keyof User) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  if (isPending || usersLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -148,165 +275,264 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8 pt-30">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">👤 Admin Panel</CardTitle>
-            <CardDescription>
-              Manage users, roles, and permissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-red-500 rounded-md">
-                {error}
-              </div>
-            )}
+    <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-30">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Manage users, permissions, and monitor storage usage.</p>
+        </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">Email</th>
-                    <th className="text-left p-3 font-medium">Verified</th>
-                    <th className="text-left p-3 font-medium">Role</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                    <th className="text-left p-3 font-medium">Created</th>
-                    <th className="text-left p-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">{user.name}</td>
-                      <td className="p-3 font-mono text-sm">{user.email}</td>
-                      <td className="p-3">
-                        {user.emailVerified ? (
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                            ✓ Verified
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
-                            ✗ Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${user.role === "admin"
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                            : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                            }`}
-                        >
-                          {user.role || "user"}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {user.banned ? (
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                            Banned
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                            Active
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2 flex-wrap">
-                          {user.id !== session.user.id && (
-                            <>
-                              {user.role !== "admin" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleSetRole(user.id, "admin")}
-                                  disabled={actionLoading === user.id}
-                                >
-                                  Make Admin
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleSetRole(user.id, "user")}
-                                  disabled={actionLoading === user.id}
-                                >
-                                  Remove Admin
-                                </Button>
-                              )}
+        <Tabs defaultValue="users" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="storage">Storage</TabsTrigger>
+          </TabsList>
 
-                              {!user.banned ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-orange-600"
-                                  onClick={() => handleBanUser(user.id)}
-                                  disabled={actionLoading === user.id}
-                                >
-                                  Ban
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-green-600"
-                                  onClick={() => handleUnbanUser(user.id)}
-                                  disabled={actionLoading === user.id}
-                                >
-                                  Unban
-                                </Button>
-                              )}
+          <TabsContent value="users" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <div>
+                  <CardTitle>Users</CardTitle>
+                  <CardDescription>Total: {users.length} users</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}
+                  >
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue placeholder="Pages" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 / page</SelectItem>
+                      <SelectItem value="20">20 / page</SelectItem>
+                      <SelectItem value="50">50 / page</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {usersError && (
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-red-500 rounded-md">
+                    {usersError}
+                  </div>
+                )}
 
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="bg-red-600 hover:bg-red-700 text-white"
-                                onClick={() => handleRemoveUser(user.id)}
-                                disabled={actionLoading === user.id}
-                              >
-                                Delete
-                              </Button>
-                            </>
-                          )}
-
-                          {user.id === session.user.id && (
-                            <span className="text-sm text-muted-foreground italic">
-                              (You)
+                {/* Responsive Table View */}
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[150px] cursor-pointer" onClick={() => toggleSort("name")}>
+                          Name <ArrowUpDown className="ml-1 h-3 w-3 inline" />
+                        </TableHead>
+                        <TableHead className="min-w-[200px] cursor-pointer" onClick={() => toggleSort("email")}>
+                          Email <ArrowUpDown className="ml-1 h-3 w-3 inline" />
+                        </TableHead>
+                        <TableHead className="min-w-[100px]">Role</TableHead>
+                        <TableHead className="min-w-[100px]">Status</TableHead>
+                        <TableHead className="min-w-[120px] cursor-pointer" onClick={() => toggleSort("createdAt")}>
+                          Created <ArrowUpDown className="ml-1 h-3 w-3 inline" />
+                        </TableHead>
+                        <TableHead className="min-w-[250px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium whitespace-nowrap">{user.name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{user.email}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === "admin" ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                              }`}>
+                              {user.role}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          </TableCell>
+                          <TableCell>
+                            {user.banned ? (
+                              <span className="text-red-500 font-medium">Banned</span>
+                            ) : (
+                              <span className="text-green-500 font-medium">Active</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                            {new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {user.id !== session.user.id && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleSetRole(user.id, user.role === "admin" ? "user" : "admin")}
+                                    disabled={actionLoading === user.id}
+                                  >
+                                    {user.role === "admin" ? "Demote" : "Promote"}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={user.banned ? "text-green-600" : "text-red-600"}
+                                    onClick={() => user.banned ? handleUnbanUser(user.id) : handleBanUser(user.id)}
+                                    disabled={actionLoading === user.id}
+                                  >
+                                    {user.banned ? "Unban" : "Ban"}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleRemoveUser(user.id)}
+                                    disabled={actionLoading === user.id}
+                                  >
+                                    Delete
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+
+
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between space-x-2 py-4">
+                  <div className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <div className="space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="storage">
+            <Card>
+              <CardHeader>
+                <CardTitle>Storage Usage</CardTitle>
+                <CardDescription>Overview of user storage consumption</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead className="text-right">Files</TableHead>
+                        <TableHead className="text-right">Total Size</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {storageStats.map((stat) => (
+                        <TableRow key={stat.userId}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{stat.userName}</div>
+                              <div className="text-xs text-muted-foreground">{stat.userEmail}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{stat.fileCount}</TableCell>
+                          <TableCell className="text-right font-mono">{formatBytes(stat.totalSize)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenStorageDetails(stat)}>
+                              <HardDrive className="h-4 w-4 mr-2" />
+                              View Files
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {storageStats.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            No storage data available.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>User Files</SheetTitle>
+            <SheetDescription>
+              Viewing files for {selectedUserForStorage?.userName}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg">
+              <div>
+                <div className="text-sm font-medium">Total Storage Used</div>
+                <div className="text-2xl font-bold">{formatBytes(selectedUserForStorage?.totalSize || 0)}</div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-right">Total Files</div>
+                <div className="text-2xl font-bold text-right">{selectedUserForStorage?.fileCount || 0}</div>
+              </div>
             </div>
 
-            {users.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No users found
+            {filesLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {userFiles.map(file => (
+                  <div key={file.id} className="flex items-center gap-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                    <div className="h-10 w-10 bg-primary/10 rounded flex items-center justify-center text-primary">
+                      <FileIcon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{file.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(file.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono whitespace-nowrap">
+                      {formatBytes(file.size)}
+                    </div>
+                  </div>
+                ))}
+                {userFiles.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No files found for this user.
+                  </div>
+                )}
               </div>
             )}
-
-            <div className="mt-4 pt-4 border-t flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                Total: {users.length} users |
-                Verified: {users.filter(u => u.emailVerified).length} |
-                Admins: {users.filter(u => u.role === "admin").length}
-              </div>
-              <Button variant="outline" onClick={loadUsers}>
-                Refresh
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
