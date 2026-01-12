@@ -109,18 +109,60 @@ function FileDetailPage() {
         const data = await response.json() as FileDetailResponse;
         setFileData(data);
 
-        // If file is supported 3D format, fetch content for preview
+        // If file is supported 3D format, fetch content for preview using parallel download
         const ext = data.file.extension.toLowerCase();
         if (['stl', 'obj', 'ply', 'step', 'stp', 'iges', 'igs', 'brep'].includes(ext)) {
           setIsPreviewLoading(true);
-          fetch(`/api/files/download?fileId=${fileId}`)
-            .then(res => res.blob())
-            .then(blob => {
-              const file = new File([blob], data.file.name, { type: data.file.mimeType });
-              setPreviewFile(file);
-            })
-            .catch(err => console.error("Preview download failed", err))
-            .finally(() => setIsPreviewLoading(false));
+          // Get presigned URL and download with parallel chunks for better performance
+          (async () => {
+            try {
+              const downloadRes = await fetch(`/api/files/download?fileId=${fileId}`);
+              const downloadData = await downloadRes.json() as { url: string; fileName: string; fileSize: number; mimeType: string };
+
+              const chunkSize = 10 * 1024 * 1024; // 10MB
+              const { url, fileSize, mimeType } = downloadData;
+
+              if (fileSize < chunkSize) {
+                // Small file: single request
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const file = new File([blob], data.file.name, { type: mimeType });
+                setPreviewFile(file);
+              } else {
+                // Large file: parallel chunk download
+                const numChunks = Math.ceil(fileSize / chunkSize);
+                const promises: Promise<{ index: number; data: ArrayBuffer }>[] = [];
+
+                for (let i = 0; i < numChunks; i++) {
+                  const start = i * chunkSize;
+                  const end = Math.min(start + chunkSize - 1, fileSize - 1);
+                  promises.push(
+                    fetch(url, { headers: { 'Range': `bytes=${start}-${end}` } })
+                      .then(res => res.arrayBuffer())
+                      .then(buffer => ({ index: i, data: buffer }))
+                  );
+                }
+
+                const results = await Promise.all(promises);
+                results.sort((a, b) => a.index - b.index);
+
+                const mergedBuffer = new Uint8Array(fileSize);
+                let offset = 0;
+                for (const result of results) {
+                  mergedBuffer.set(new Uint8Array(result.data), offset);
+                  offset += result.data.byteLength;
+                }
+
+                const blob = new Blob([mergedBuffer], { type: mimeType });
+                const file = new File([blob], data.file.name, { type: mimeType });
+                setPreviewFile(file);
+              }
+            } catch (err) {
+              console.error("Preview download failed", err);
+            } finally {
+              setIsPreviewLoading(false);
+            }
+          })();
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Bilinmeyen hata");
@@ -199,23 +241,16 @@ function FileDetailPage() {
     }
   };
 
-  // Download file
+  // Download file with parallel chunks for better performance
   const handleDownload = async () => {
     if (!fileData) return;
     try {
-      const response = await fetch(`/api/files/download?fileId=${fileId}`);
-      if (!response.ok) throw new Error("İndirme başarısız");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileData.file.name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const { downloadFileParallel } = await import('@/lib/parallel-download');
+      await downloadFileParallel(fileId, fileData.file.name, (progress) => {
+        console.log(`Download progress: ${progress.percent}%`);
+      });
     } catch (err) {
+      console.error("Download error:", err);
       alert("Dosya indirilemedi");
     }
   };

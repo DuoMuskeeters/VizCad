@@ -120,23 +120,19 @@ export function FileList({
     currentPage * itemsPerPage
   );
 
-  // Download file
+  // Download file with parallel chunks
   const handleDownload = useCallback(async (file: FileItem) => {
     try {
       setActionLoading(file.id);
-      const response = await fetch(`/api/files/download?fileId=${file.id}`);
-      if (!response.ok) {
-        throw new Error("İndirme başarısız");
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+
+      // Dynamic import to avoid SSR issues
+      const { downloadFileParallel } = await import('@/lib/parallel-download');
+
+      await downloadFileParallel(file.id, file.name, (progress) => {
+        // Optional: Could add progress UI here
+        console.log(`Download progress: ${progress.percent}%`);
+      });
+
     } catch (err) {
       console.error("Download error:", err);
       alert("Dosya indirilemedi: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));

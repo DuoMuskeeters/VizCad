@@ -122,7 +122,19 @@ export const Route = createFileRoute("/api/files/download")({
                         aws: { signQuery: true }
                     });
 
-                    return Response.redirect(signedUrl.url, 302);
+                    // Return JSON with presigned URL for parallel chunk download
+                    return new Response(JSON.stringify({
+                        url: signedUrl.url,
+                        fileName: fileData.name,
+                        fileSize: fileData.size,
+                        mimeType: fileData.mimeType || 'application/octet-stream',
+                    }), {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Cache-Control": "no-cache"
+                        }
+                    });
 
                 } catch (error) {
                     console.error("Error generating download link:", error);
