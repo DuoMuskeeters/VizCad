@@ -22,6 +22,13 @@ interface VtkAppProps {
   displayState?: DisplayState
   viewLocked?: boolean
   perspective?: boolean
+  minimal?: boolean
+  autoRotate?: boolean
+  rotationSpeed?: number
+  backgroundColor?: [number, number, number]
+  initialZoom?: number
+  initialView?: string
+  cameraAngles?: { azimuth: number; elevation: number } // Custom camera angles
   onCameraReady?: (cameraControls: {
     resetCamera: () => void
     zoomIn: () => void
@@ -34,7 +41,7 @@ interface VtkAppProps {
   }) => void
 }
 
-export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = false, perspective = false, onCameraReady }: VtkAppProps) {
+export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = false, perspective = false, minimal = false, autoRotate = false, rotationSpeed = 0.3, backgroundColor, initialZoom = 1, initialView = "iso", cameraAngles, onCameraReady }: VtkAppProps) {
   const {
     vtkContainerRef,
     rendererRef,
@@ -429,7 +436,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
 
       // Kamerayı sıfırla
       rendererRef.current.resetCamera()
-      setView("iso") // Set default view to Isometric
+      setView(initialView) // Use initialView prop
       rendererRef.current.resetCameraClippingRange()
       console.log("Kamera sıfırlandı. Kamera pozisyonu:", rendererRef.current.getActiveCamera().getPosition())
 
@@ -450,14 +457,76 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     fileReader.readAsArrayBuffer(file)
   }, [file])
 
+  // Initial zoom effect
+  useEffect(() => {
+    if (!rendererRef.current || !actorRef.current || initialZoom === 1 || isLoading) return
+
+    const camera = rendererRef.current.getActiveCamera()
+    if (camera) {
+      camera.dolly(initialZoom)
+      rendererRef.current.resetCameraClippingRange()
+      renderWindowRef.current?.render()
+    }
+  }, [initialZoom, isLoading])
+
+  // Background color effect
+  useEffect(() => {
+    if (!rendererRef.current || !backgroundColor) return
+    rendererRef.current.setBackground(backgroundColor[0], backgroundColor[1], backgroundColor[2])
+    renderWindowRef.current?.render()
+  }, [backgroundColor])
+
+  // Custom camera angles effect
+  useEffect(() => {
+    if (!rendererRef.current || !cameraAngles || isLoading) return
+
+    const camera = rendererRef.current.getActiveCamera()
+    if (camera) {
+      // Reset to front view first, then apply custom angles
+      rendererRef.current.resetCamera()
+      camera.azimuth(cameraAngles.azimuth)    // Horizontal rotation (-180 to 180)
+      camera.elevation(cameraAngles.elevation) // Vertical rotation (-90 to 90)
+      rendererRef.current.resetCameraClippingRange()
+      renderWindowRef.current?.render()
+    }
+  }, [cameraAngles, isLoading])
+
+  // Auto-rotate effect
+  useEffect(() => {
+    if (!autoRotate || !rendererRef.current || isLoading) return
+
+    let animationFrameId: number
+
+    const rotate = () => {
+      if (!rendererRef.current) return
+
+      const camera = rendererRef.current.getActiveCamera()
+      if (camera) {
+        camera.azimuth(rotationSpeed) // Use rotationSpeed prop
+        rendererRef.current.resetCameraClippingRange()
+        renderWindowRef.current?.render()
+      }
+
+      animationFrameId = requestAnimationFrame(rotate)
+    }
+
+    animationFrameId = requestAnimationFrame(rotate)
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
+    }
+  }, [autoRotate, isLoading])
+
   return (
-    <div className="w-full h-full flex flex-col relative bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
+    <div className={`w-full h-full flex flex-col relative overflow-hidden ${minimal ? '' : 'bg-white rounded-lg border border-gray-200 shadow-lg'}`}>
       <div
         ref={vtkContainerRef}
-        className={`w-full h-full flex-grow min-h-[400px]`}
+        className={`w-full h-full flex-grow ${minimal ? '' : 'min-h-[400px]'}`}
         style={{
           touchAction: "none",
-          minWidth: "300px",
+          minWidth: minimal ? undefined : "300px",
           maxWidth: "100%",
           maxHeight: "100vh",
           cursor:
@@ -474,14 +543,16 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
       {/* Loading Overlay */}
       {(isConverting || isLoading) && <LoadingSpinner />}
 
-      <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
-        <div className="flex items-center justify-between">
-          <span>{statusMessage}</span>
-          <span className="text-gray-500">
-            Mode: {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
-          </span>
+      {!minimal && (
+        <div className="absolute bottom-0 left-0 w-full bg-gray-50/80 backdrop-blur-sm text-gray-800 text-xs px-3 py-1 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <span>{statusMessage}</span>
+            <span className="text-gray-500">
+              Mode: {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

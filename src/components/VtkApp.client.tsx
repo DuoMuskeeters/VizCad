@@ -18,6 +18,13 @@ interface VtkAppProps {
   displayState?: DisplayState
   viewLocked?: boolean
   perspective?: boolean
+  minimal?: boolean
+  autoRotate?: boolean
+  rotationSpeed?: number
+  backgroundColor?: [number, number, number]
+  initialZoom?: number
+  initialView?: string
+  cameraAngles?: { azimuth: number; elevation: number }
   onCameraReady?: (cameraControls: {
     resetCamera: () => void
     zoomIn: () => void
