@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Share2, Sparkles } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { CollaborationDemo } from "./demos/CollaborationDemo"
+import { SharingDemo } from "./demos/SharingDemo"
+import { StudioDemo } from "./demos/StudioDemo"
+
 interface FeatureItemProps {
     icon: ReactNode
     titleKey: string
@@ -13,6 +17,7 @@ interface FeatureItemProps {
     imageSrc: string
     imageAlt: string
     reverse?: boolean
+    DemoComponent?: React.ComponentType
 }
 
 const featureItems: Omit<FeatureItemProps, 'reverse'>[] = [
@@ -23,6 +28,7 @@ const featureItems: Omit<FeatureItemProps, 'reverse'>[] = [
         badgeKey: "landing_showcase_collab_badge",
         imageSrc: "/images/features/collaboration.png",
         imageAlt: "Collaboration Feature",
+        DemoComponent: CollaborationDemo,
     },
     {
         icon: <Share2 className="w-6 h-6" />,
@@ -31,6 +37,7 @@ const featureItems: Omit<FeatureItemProps, 'reverse'>[] = [
         badgeKey: "landing_showcase_sharing_badge",
         imageSrc: "/images/features/file-sharing.png",
         imageAlt: "File Sharing Feature",
+        DemoComponent: SharingDemo,
     },
     {
         icon: <Sparkles className="w-6 h-6" />,
@@ -39,10 +46,11 @@ const featureItems: Omit<FeatureItemProps, 'reverse'>[] = [
         badgeKey: "landing_showcase_studio_badge",
         imageSrc: "/images/features/vizcad-studio.png",
         imageAlt: "VizCad Studio Feature",
+        DemoComponent: StudioDemo,
     },
 ]
 
-const FeatureItem = ({ icon, titleKey, descKey, badgeKey, imageSrc, imageAlt, reverse }: FeatureItemProps) => {
+const FeatureItem = ({ icon, titleKey, descKey, badgeKey, imageSrc, imageAlt, reverse, DemoComponent }: FeatureItemProps) => {
     const { t } = useTranslation()
 
     return (
@@ -68,14 +76,19 @@ const FeatureItem = ({ icon, titleKey, descKey, badgeKey, imageSrc, imageAlt, re
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-3xl blur-2xl opacity-60" />
 
                     {/* Image container */}
-                    <div className="relative rounded-2xl overflow-hidden border border-border/50 bg-card/50 backdrop-blur-sm shadow-2xl">
-                        <img
-                            src={imageSrc}
-                            alt={imageAlt}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                        />
-                    </div>
+                    {/* Image container or Demo Component */}
+                    {DemoComponent ? (
+                        <DemoComponent />
+                    ) : (
+                        <div className="relative rounded-2xl overflow-hidden border border-border/50 bg-card/50 backdrop-blur-sm shadow-2xl">
+                            <img
+                                src={imageSrc}
+                                alt={imageAlt}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                            />
+                        </div>
+                    )}
 
                     {/* Decorative elements */}
                     <div className="absolute -z-10 top-1/4 -right-8 w-32 h-32 bg-primary/10 rounded-full blur-xl" />

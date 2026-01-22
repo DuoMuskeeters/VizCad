@@ -92,14 +92,14 @@ export function HomePage() {
       {/* SPONSORS - Supported Formats */}
       {/* <Sponsors /> */}
 
-      {/* FEATURES SECTION */}
-      <Features />
-
       {/* FEATURE SHOWCASE SECTION */}
       <FeatureShowcase />
 
       {/* PRICING SECTION */}
-      <Pricing />
+      {/* <Pricing /> */}
+
+      {/* FEATURES SECTION */}
+      <Features />
 
       {/* CTA SECTION */}
       <Cta />

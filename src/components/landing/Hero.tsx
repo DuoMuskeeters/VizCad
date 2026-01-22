@@ -3,65 +3,68 @@
 import { Link } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Play } from "lucide-react"
+import { ArrowRight, Play, Sparkles, FileBox } from "lucide-react"
 import { HeroVtkViewer } from "./HeroVtkViewer"
+import { Badge } from "@/components/ui/badge"
+
+const SUPPORTED_FORMATS = ['STL', 'OBJ', 'STEP', 'IGES', 'PLY', 'FBX', 'GLB', '3MF']
 
 export const Hero = () => {
     const { t } = useTranslation()
 
     return (
-        <section className="w-full max-w-[1400px] mx-auto px-6 grid lg:grid-cols-2 place-items-center py-20 md:py-32 gap-10">
-            <div className="text-center lg:text-start space-y-6">
-                {/* Main Title */}
-                <main className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                    <h1>
-                        <span className="bg-gradient-to-r from-primary to-primary/60 text-transparent bg-clip-text">
-                            {t("landing_hero_title_1")}
-                        </span>
-                    </h1>
-                    <h2 className="text-foreground mt-2">
-                        {t("landing_hero_title_2")}
-                    </h2>
-                </main>
+        <section className="w-full relative overflow-hidden">
 
-                {/* Description */}
-                <p className="text-lg text-muted-foreground md:w-11/12 mx-auto lg:mx-0 leading-relaxed">
-                    {t("landing_hero_desc")}
-                </p>
+            {/* Main Content */}
+            <div className="w-full max-w-[1400px] mx-auto px-6 grid lg:grid-cols-2 place-items-center py-20 md:py-28 gap-10">
+                <div className="text-center lg:text-start space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-                {/* Buttons */}
-                <div className="space-y-4 md:space-y-0 md:space-x-4 pt-4">
-                    <Button asChild size="lg" className="w-full md:w-auto">
-                        <Link to="/app" className="flex items-center gap-2">
-                            {t("landing_hero_cta_primary")}
-                            <ArrowRight className="w-5 h-5" />
-                        </Link>
-                    </Button>
+                    {/* Main Title */}
+                    <main className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
+                        <h1>
+                            <span className="bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 text-transparent bg-clip-text">
+                                {t("landing_hero_title_1")}
+                            </span>
+                        </h1>
+                    </main>
 
-                    <Button
-                        variant="outline"
-                        size="lg"
-                        asChild
-                        className="w-full md:w-auto"
-                    >
-                        <Link to="/app" className="flex items-center gap-2">
-                            <Play className="w-5 h-5" />
-                            {t("landing_hero_cta_secondary")}
-                        </Link>
-                    </Button>
+                    {/* Description */}
+                    <p className="text-xl text-slate-500 md:w-11/12 mx-auto lg:mx-0 leading-relaxed font-light">
+                        {t("landing_hero_desc")}
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
+                        <Button asChild size="lg" className="h-14 px-8 text-lg bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-xl shadow-blue-500/20 rounded-full transition-all hover:scale-105 active:scale-95">
+                            <Link to="/app" className="flex items-center gap-2">
+                                {t("landing_hero_cta_primary")}
+                                <ArrowRight className="w-5 h-5 ml-1" />
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
-            </div>
 
-            {/* 3D VTK Viewer */}
-            <div className="w-full max-w-[600px] h-[600px] lg:h-[600px]">
-                <HeroVtkViewer
-                    modelUrl="/Robotic-Arm.stl"
-                    className="w-full h-full"
-                />
-            </div>
+                {/* 3D VTK Viewer */}
+                <div className="w-full relative group">
+                    {/* Decorative Blobs */}
+                    <div className="absolute -top-20 -right-20 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl -z-10 animate-pulse" />
+                    <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-cyan-400/20 rounded-full blur-3xl -z-10 animate-pulse delay-700" />
 
-            {/* Shadow effect */}
-            <div className="shadow"></div>
+                    <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-3xl p-2 shadow-2xl shadow-blue-900/5 ring-1 ring-white/50">
+                        <div className="w-full h-[500px] lg:h-[600px] rounded-2xl overflow-hidden bg-gradient-to-b from-slate-50 to-white relative">
+                            <HeroVtkViewer
+                                modelUrl="/Robotic-Arm.stl"
+                                className="w-full h-full mix-blend-multiply"
+                            />
+                            {/* Viewer Overlay UI Mock */}
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur border border-slate-200 shadow-lg rounded-full px-4 py-2 flex items-center gap-4 text-slate-500 scale-90 md:scale-100 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                <div className="flex gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /><div className="w-2 h-2 rounded-full bg-yellow-400" /><div className="w-2 h-2 rounded-full bg-green-400" /></div>
+                                <span className="text-xs font-mono">Robotic_Arm_Final_v2.stl</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>  
         </section>
     )
 }
