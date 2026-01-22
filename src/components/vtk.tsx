@@ -481,7 +481,7 @@ export function VtkApp({ file, viewMode = "orbit", displayState, viewLocked = fa
     if (!rendererRef.current || !cameraAngles || isLoading) return
 
     const camera = rendererRef.current.getActiveCamera()
-    if (camera) {
+    if (camera && !initialView) {
       // Reset to front view first, then apply custom angles
       rendererRef.current.resetCamera()
       camera.azimuth(cameraAngles.azimuth)    // Horizontal rotation (-180 to 180)
