@@ -9,7 +9,7 @@ export const LandingFooter = () => {
 
     return (
         <footer id="footer" className="bg-slate-900 dark:bg-slate-950 text-white">
-            <hr className="w-11/12 mx-auto border-slate-800" />
+            <hr className="w-11/12 mx-auto border-border/10" />
 
             <section className="w-full max-w-[1400px] mx-auto px-6 py-20 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-x-12 gap-y-8">
                 <div className="col-span-full xl:col-span-2">
@@ -19,20 +19,12 @@ export const LandingFooter = () => {
                         </div>
                         VizCad
                     </Link>
-                    <p className="text-gray-400 mt-4 max-w-xs">
+                    <p className="text-muted-foreground/60 mt-4 max-w-xs">
                         {t("footer_company_desc")}
                     </p>
                     <div className="flex gap-3 mt-4">
                         <a
-                            href="https://x.com/VizCad0"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-8 h-8 bg-primary hover:bg-primary/80 rounded-lg flex items-center justify-center transition-colors"
-                        >
-                            <Twitter className="w-4 h-4 text-primary-foreground" />
-                        </a>
-                        <a
-                            href="#"
+                            href="https://www.linkedin.com/company/vizcad?trk=public_post_feed-actor-name"
                             className="w-8 h-8 bg-primary hover:bg-primary/80 rounded-lg flex items-center justify-center transition-colors"
                         >
                             <Linkedin className="w-4 h-4 text-primary-foreground" />
@@ -45,7 +37,7 @@ export const LandingFooter = () => {
                     <div>
                         <a
                             rel="noreferrer noopener"
-                            href="https://github.com"
+                            href="https://github.com/Ferhatr10"
                             target="_blank"
                             className="opacity-60 hover:opacity-100 transition-opacity"
                         >
@@ -55,21 +47,25 @@ export const LandingFooter = () => {
                     <div>
                         <a
                             rel="noreferrer noopener"
-                            href="https://x.com/VizCad0"
-                            target="_blank"
-                            className="opacity-60 hover:opacity-100 transition-opacity"
-                        >
-                            Twitter
-                        </a>
-                    </div>
-                    <div>
-                        <a
-                            rel="noreferrer noopener"
-                            href="#"
+                            href="https://www.linkedin.com/company/vizcad?trk=public_post_feed-actor-name"
                             className="opacity-60 hover:opacity-100 transition-opacity"
                         >
                             LinkedIn
                         </a>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <h3 className="font-bold text-lg">{t("footer_tools")}</h3>
+                    <div>
+                        <Link to="/app" className="opacity-60 hover:opacity-100 transition-opacity">
+                            {t("nav_3d_viewer")}
+                        </Link>
+                    </div>
+                    <div>
+                        <Link to="/ModelSnap" className="opacity-60 hover:opacity-100 transition-opacity">
+                            ModelSnap
+                        </Link>
                     </div>
                 </div>
 
@@ -104,32 +100,9 @@ export const LandingFooter = () => {
                         </Link>
                     </div>
                 </div>
-
-                <div className="flex flex-col gap-2">
-                    <h3 className="font-bold text-lg">{t("landing_footer_community")}</h3>
-                    <div>
-                        <a
-                            rel="noreferrer noopener"
-                            href="#"
-                            className="opacity-60 hover:opacity-100 transition-opacity"
-                        >
-                            Youtube
-                        </a>
-                    </div>
-                    <div>
-                        <a
-                            rel="noreferrer noopener"
-                            href="#"
-                            className="opacity-60 hover:opacity-100 transition-opacity"
-                        >
-                            Discord
-                        </a>
-                    </div>
-                </div>
             </section>
-
             <section className="w-full max-w-[1400px] mx-auto px-6 pb-14 text-center">
-                <p className="text-gray-500 text-sm">{t("footer_copyright")}</p>
+                <p className="text-muted-foreground/40 text-sm">{t("footer_copyright")}</p>
             </section>
         </footer>
     )

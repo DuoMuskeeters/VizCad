@@ -21,7 +21,7 @@ export const Cta = () => {
 
                 <div className="pt-4">
                     <Button asChild size="lg" className="text-lg px-8 py-6">
-                        <Link to="/app" className="flex items-center gap-2">
+                        <Link to="/dashboard" className="flex items-center gap-2">
                             {t("landing_cta_button")}
                             <ArrowRight className="w-5 h-5" />
                         </Link>

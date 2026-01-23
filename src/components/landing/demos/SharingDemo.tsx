@@ -76,6 +76,21 @@ export const SharingDemo = () => {
     const [dragOverSidebar, setDragOverSidebar] = useState(false) // New state for drop zone hover
     const [cursor, setCursor] = useState({ x: 105, y: 80, clicking: false })
 
+    const getElementPos = (id: string, defaultPos: { x: number, y: number }) => {
+        const el = document.getElementById(id)
+        const container = document.getElementById("demo-sharing-container")
+
+        if (!el || !container) return { ...defaultPos, clicking: false }
+
+        const elRect = el.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+
+        const x = ((elRect.left + elRect.width / 2 - containerRect.left) / containerRect.width) * 100
+        const y = ((elRect.top + elRect.height / 2 - containerRect.top) / containerRect.height) * 100
+
+        return { x, y, clicking: false }
+    }
+
     // Static scenes for sidebar - PLAIN WHITE ACTIVE
     const studioScenes = [
         { id: "plain-white", name: "Plain White", preview: "bg-gradient-to-br from-gray-50 to-white", active: true },
@@ -118,10 +133,7 @@ export const SharingDemo = () => {
             await new Promise(r => setTimeout(r, 300))
 
             // Drag to Sidebar Drop Zone (Left side)
-            // Sidebar is approx 0-15% width (width is 64px/256px relative to scale). 
-            // In percentage of 100% width, typically ~10-15%. Drop zone is near top.
-            // Target: X=10, Y=25
-            setCursor({ x: 10, y: 25, clicking: true })
+            setCursor(getElementPos("demo-sharing-dropzone", { x: 12, y: 25 }))
             await new Promise(r => setTimeout(r, 800))
             setDragOverSidebar(true) // Visual feedback
             await new Promise(r => setTimeout(r, 300))
@@ -136,12 +148,11 @@ export const SharingDemo = () => {
             setStudioView('loading')
             await new Promise(r => setTimeout(r, 1200))
             setStudioView('viewer')
-            await new Promise(r => setTimeout(r, 800))
+            await new Promise(r => setTimeout(r, 1200))
 
             // 3. SHARE & COPY
             // Click Share (Top Right in App Toolbar)
-            // Coord approx: x=92, y=5 (Toolbar is top)
-            setCursor({ x: 92, y: 5, clicking: false })
+            setCursor(getElementPos("demo-sharing-button-studio", { x: 92, y: 5 }))
             await new Promise(r => setTimeout(r, 1000))
             setCursor(prev => ({ ...prev, clicking: true }))
             await new Promise(r => setTimeout(r, 200))
@@ -151,7 +162,7 @@ export const SharingDemo = () => {
             await new Promise(r => setTimeout(r, 600))
 
             // Click Copy
-            setCursor({ x: 74, y: 55, clicking: false })
+            setCursor(getElementPos("demo-sharing-copy", { x: 74, y: 55 }))
             await new Promise(r => setTimeout(r, 1000))
             setCursor(prev => ({ ...prev, clicking: true }))
             await new Promise(r => setTimeout(r, 200))
@@ -178,9 +189,7 @@ export const SharingDemo = () => {
             // ==========================================
 
             // 1. SELECT FILE
-            // Target: First card thumbnail (approx 16.6% width grid)
-            // X=25, Y=55
-            setCursor({ x: 25, y: 55, clicking: false })
+            setCursor(getElementPos("demo-sharing-file", { x: 45, y: 55 }))
             await new Promise(r => setTimeout(r, 1000))
 
             // Click
@@ -190,11 +199,10 @@ export const SharingDemo = () => {
 
             // Navigate
             setDashView('detail')
-            await new Promise(r => setTimeout(r, 600))
+            await new Promise(r => setTimeout(r, 1000))
 
             // 2. SHARE & COPY (Again, but in Dashboard context)
-            // Click Share (Top Right in Detail view)
-            setCursor({ x: 90, y: 8, clicking: false })
+            setCursor(getElementPos("demo-sharing-button-dash", { x: 90, y: 8 }))
             await new Promise(r => setTimeout(r, 1000))
             setCursor(prev => ({ ...prev, clicking: true }))
             await new Promise(r => setTimeout(r, 200))
@@ -204,7 +212,7 @@ export const SharingDemo = () => {
             await new Promise(r => setTimeout(r, 600))
 
             // Click Copy
-            setCursor({ x: 74, y: 55, clicking: false })
+            setCursor(getElementPos("demo-sharing-copy", { x: 74, y: 55 }))
             await new Promise(r => setTimeout(r, 1000))
             setCursor(prev => ({ ...prev, clicking: true }))
             await new Promise(r => setTimeout(r, 200))
@@ -223,7 +231,7 @@ export const SharingDemo = () => {
     }, [])
 
     return (
-        <DemoContainer className="bg-slate-50">
+        <DemoContainer id="demo-sharing-container" className="bg-slate-50 relative">
             {/* FLUID LAYOUT: Scale 0.6 */}
             <div className="relative w-[166.6%] h-[166.6%] bg-slate-50 text-slate-900 scale-[0.6] origin-top-left font-sans shadow-inner selection:bg-blue-100">
 
@@ -249,7 +257,7 @@ export const SharingDemo = () => {
                                 Try VizCad
                             </Button>
                             {studioView === 'viewer' && (
-                                <Button variant="outline" size="sm" className="h-8 text-xs gap-2 px-3 animate-in fade-in">
+                                <Button id="demo-sharing-button-studio" variant="outline" size="sm" className="h-8 text-xs gap-2 px-3 animate-in fade-in">
                                     <Share2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Share</span>
                                 </Button>
                             )}
@@ -258,7 +266,8 @@ export const SharingDemo = () => {
 
                     <div className="flex-1 flex overflow-hidden relative">
                         {/* Sidebar - Detailed Scene Tab */}
-                        <div className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+                        {/* Sidebar - Detailed Scene Tab - Fluid 25% */}
+                        <div className="w-[25%] bg-white border-r border-slate-200 flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
                             {/* Tabs */}
                             <div className="border-b border-slate-200 flex">
                                 {[
@@ -282,7 +291,7 @@ export const SharingDemo = () => {
                                 {/* Upload Area (Drop Target) */}
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-900 mb-2">Upload Model</h3>
-                                    <div className={cn(
+                                    <div id="demo-sharing-dropzone" className={cn(
                                         "border-2 border-dashed rounded-lg p-3 text-center transition-all duration-300 group",
                                         dragOverSidebar ? "border-blue-500 bg-blue-50 scale-105" : "border-slate-300 hover:border-slate-400"
                                     )}>
@@ -471,7 +480,7 @@ export const SharingDemo = () => {
                         )}>
                             <h2 className="text-lg font-semibold text-slate-700 mb-[2%] shrink-0">Recent Files</h2>
                             <div className="grid grid-cols-3 gap-[3%]">
-                                <div className="col-span-1 rounded-2xl bg-white border border-slate-200 p-0 overflow-hidden shadow-sm">
+                                <div id="demo-sharing-file" className="col-span-1 rounded-2xl bg-white border border-slate-200 p-0 overflow-hidden shadow-sm">
                                     <div className="aspect-[16/10] bg-slate-100 relative flex items-center justify-center border-b border-slate-50">
                                         <img src="/images/demo/batman-thumbnail.png" alt="Thumbnail" className="w-full h-full object-cover" />
                                     </div>
@@ -507,7 +516,7 @@ export const SharingDemo = () => {
                                     <h1 className="text-lg font-bold text-slate-800 leading-none">batman_v2.stl</h1>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Button className="h-9 gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20">
+                                    <Button id="demo-sharing-button-dash" className="h-9 gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20">
                                         <Share2 className="w-4 h-4" /> <span className="hidden md:inline">Share</span>
                                     </Button>
                                 </div>
@@ -568,7 +577,7 @@ export const SharingDemo = () => {
                             <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 font-mono truncate">
                                 https://vizcad.app/s/batman_v2
                             </div>
-                            <Button size="icon" className={cn("shrink-0 transition-colors", isCopied ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700")}>
+                            <Button id="demo-sharing-copy" size="icon" className={cn("shrink-0 transition-colors", isCopied ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700")}>
                                 {isCopied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-white" />}
                             </Button>
                         </div>
@@ -577,7 +586,7 @@ export const SharingDemo = () => {
 
                 {/* --- DRAGGING GHOST (Scenario 1) --- */}
                 <div className={cn(
-                    "absolute pointer-events-none z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-2xl border border-blue-200 ring-2 ring-blue-500 transition-all duration-100",
+                    "absolute pointer-events-none z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-2xl border border-blue-200 ring-2 ring-blue-500 transition-all duration-700 ease-in-out",
                     dragFile ? "opacity-100 scale-100" : "opacity-0 scale-50"
                 )} style={{
                     left: `${cursor.x - 5}%`,

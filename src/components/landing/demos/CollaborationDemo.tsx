@@ -59,6 +59,22 @@ export const CollaborationDemo = () => {
     const [inputValue, setInputValue] = useState("")
     const [cursor, setCursor] = useState({ x: 95, y: 95, clicking: false })
 
+    const getElementPos = (id: string, defaultPos: { x: number, y: number }) => {
+        const el = document.getElementById(id)
+        const container = document.getElementById("demo-collab-container")
+
+        if (!el || !container) return { ...defaultPos, clicking: false }
+
+        const elRect = el.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+
+        // Calculate center relative to container
+        const x = ((elRect.left + elRect.width / 2 - containerRect.left) / containerRect.width) * 100
+        const y = ((elRect.top + elRect.height / 2 - containerRect.top) / containerRect.height) * 100
+
+        return { x, y, clicking: false }
+    }
+
     // Initial comments only
     const [comments, setComments] = useState<{ id: number, author: string, text: string, time: string, initials: string, color: string, isNew?: boolean }[]>([
         { id: 1, author: "Sarah Miller", text: "Is it good? Waiting for approval.", time: "2m ago", initials: "SM", color: "bg-purple-600" },
@@ -83,7 +99,7 @@ export const CollaborationDemo = () => {
 
             // --- STEP 1: DASHBOARD -> CLICK FILE ---
             // Move cursor to the first file card
-            setCursor({ x: 30, y: 45, clicking: false })
+            setCursor(getElementPos("demo-collab-file-1", { x: 45, y: 45 }))
             await new Promise(r => setTimeout(r, 1000))
 
             // Click
@@ -97,7 +113,7 @@ export const CollaborationDemo = () => {
 
             // --- STEP 2: READ & COMMENT ---
             // Move to input area
-            setCursor({ x: 60, y: 85, clicking: false })
+            setCursor(getElementPos("demo-collab-input", { x: 80, y: 85 }))
             await new Promise(r => setTimeout(r, 1200))
 
             // Click Input
@@ -112,7 +128,7 @@ export const CollaborationDemo = () => {
 
             // --- STEP 3: SEND ---
             // Move to send button
-            setCursor({ x: 92, y: 85, clicking: false })
+            setCursor(getElementPos("demo-collab-send", { x: 92, y: 85 }))
             await new Promise(r => setTimeout(r, 600))
 
             // Click Send
@@ -141,7 +157,7 @@ export const CollaborationDemo = () => {
     }, [])
 
     return (
-        <DemoContainer className="bg-slate-50">
+        <DemoContainer id="demo-collab-container" className="bg-slate-50 relative">
             {/* VIRTUAL RESOLUTION WRAPPER: Width 833px scaled to 500px (0.6) */}
             <div className="relative w-[166.6%] h-[166.6%] bg-slate-50 text-slate-900 scale-[0.6] origin-top-left font-sans shadow-inner">
 
@@ -151,7 +167,8 @@ export const CollaborationDemo = () => {
                     view === 'dashboard' ? "opacity-100 z-20" : "opacity-0 z-0 pointer-events-none"
                 )}>
                     {/* Sidebar */}
-                    <div className="w-64 bg-white border-r border-slate-200 h-full flex flex-col p-6 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
+                    {/* Sidebar - fluid width 25% */}
+                    <div className="w-[25%] bg-white border-r border-slate-200 h-full flex flex-col p-[3%] shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
                         <div className="flex-shrink-0 flex items-center mb-10">
                             <span className="text-2xl font-bold" style={{ color: "rgb(15 23 42)" }}>
                                 <span className="text-cyan-500">Viz</span>Cad
@@ -182,7 +199,8 @@ export const CollaborationDemo = () => {
                     </div>
 
                     {/* Dashboard Content */}
-                    <div className="flex-1 p-8 bg-slate-50/50">
+                    {/* Dashboard Content */}
+                    <div className="flex-1 p-[4%] bg-slate-50/50">
                         <div className="flex justify-between items-center mb-8">
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-800">Welcome, Ferhat</h1>
@@ -194,9 +212,9 @@ export const CollaborationDemo = () => {
                         </div>
 
                         <h2 className="text-lg font-semibold text-slate-700 mb-4">Recent Files</h2>
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="grid grid-cols-3 gap-[4%]">
                             {/* ACTIVE FILE CARD */}
-                            <div className="col-span-1 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl rounded-2xl bg-white border border-slate-200 p-0 overflow-hidden cursor-pointer group shadow-sm ring-blue-500/0 hover:ring-2 hover:ring-blue-500/50">
+                            <div id="demo-collab-file-1" className="col-span-1 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl rounded-2xl bg-white border border-slate-200 p-0 overflow-hidden cursor-pointer group shadow-sm ring-blue-500/0 hover:ring-2 hover:ring-blue-500/50">
                                 <div className="aspect-[16/10] bg-slate-100 relative flex items-center justify-center border-b border-slate-50">
                                     {/* User to place image at: /public/images/demo/batman-thumbnail.png */}
                                     <img
@@ -271,7 +289,7 @@ export const CollaborationDemo = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 p-6 flex gap-6 overflow-hidden">
+                    <div className="flex-1 p-[4%] flex gap-[4%] overflow-hidden">
                         {/* 3D Scene */}
                         <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
                             <div className="absolute top-4 left-1/2 -translate-x-1/2 flex bg-white/90 backdrop-blur border border-slate-200 rounded-full shadow-lg p-1 gap-1 z-10">
@@ -280,7 +298,8 @@ export const CollaborationDemo = () => {
                         </div>
 
                         {/* Right Panel */}
-                        <div className="w-80 flex flex-col gap-6 shrink-0">
+                        {/* Right Panel - fluid width 30% */}
+                        <div className="w-[30%] flex flex-col gap-[4%] shrink-0">
                             {/* Stats Card */}
                             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -330,13 +349,14 @@ export const CollaborationDemo = () => {
                                 <div className="p-3 bg-white border-t border-slate-100">
                                     <div className="relative flex items-center">
                                         <input
+                                            id="demo-collab-input"
                                             value={inputValue}
                                             readOnly
                                             placeholder="Write a comment..."
                                             className="w-full bg-slate-50 border-0 rounded-xl px-4 py-3 pr-10 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
                                         />
                                         <div className="absolute right-2">
-                                            <Button size="icon" className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all hover:scale-105 active:scale-95">
+                                            <Button id="demo-collab-send" size="icon" className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all hover:scale-105 active:scale-95">
                                                 <Send className="w-4 h-4" />
                                             </Button>
                                         </div>

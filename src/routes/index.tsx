@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { useEffect } from "react"
 import {
   Hero,
-  Sponsors,
   Features,
   FeatureShowcase,
   Pricing,
@@ -89,14 +88,11 @@ export function HomePage() {
       {/* HERO SECTION */}
       <Hero />
 
-      {/* SPONSORS - Supported Formats */}
-      {/* <Sponsors /> */}
-
       {/* FEATURE SHOWCASE SECTION */}
       <FeatureShowcase />
 
       {/* PRICING SECTION */}
-      {/* <Pricing /> */}
+      {/*<Pricing />
 
       {/* FEATURES SECTION */}
       <Features />

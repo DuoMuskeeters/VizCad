@@ -115,7 +115,7 @@ export const FeatureShowcase = () => {
             </div>
 
             {/* Feature Items */}
-            <div className="space-y-24 lg:space-y-32">
+            <div className="space-y-32 lg:space-y-56">
                 {featureItems.map((item, index) => (
                     <FeatureItem
                         key={item.titleKey}

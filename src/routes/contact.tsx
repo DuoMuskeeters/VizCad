@@ -7,7 +7,7 @@ import { Mail, Phone, MapPin, Send, MessageCircle } from "lucide-react"
 import { useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import emailjs from "@emailjs/browser";
-import Header from "@/components/Header";
+
 import { detectLanguage, seoContent } from "@/utils/language"
 
 export const Route = createFileRoute("/contact")({

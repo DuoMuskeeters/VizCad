@@ -75,6 +75,21 @@ export const StudioDemo = () => {
     const [dragOverSidebar, setDragOverSidebar] = useState(false)
     const [cursor, setCursor] = useState({ x: 105, y: 80, clicking: false })
 
+    const getElementPos = (id: string, defaultPos: { x: number, y: number }) => {
+        const el = document.getElementById(id)
+        const container = document.getElementById("demo-studio-container")
+
+        if (!el || !container) return { ...defaultPos, clicking: false }
+
+        const elRect = el.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+
+        const x = ((elRect.left + elRect.width / 2 - containerRect.left) / containerRect.width) * 100
+        const y = ((elRect.top + elRect.height / 2 - containerRect.top) / containerRect.height) * 100
+
+        return { x, y, clicking: false }
+    }
+
     // Scenes
     const studioScenes = [
         { id: "plain-white", name: "Plain White", preview: "bg-gradient-to-br from-gray-50 to-white", filter: "" },
@@ -105,7 +120,7 @@ export const StudioDemo = () => {
             await new Promise(r => setTimeout(r, 300))
 
             // Drag to Sidebar
-            setCursor({ x: 10, y: 25, clicking: true })
+            setCursor(getElementPos("demo-studio-dropzone", { x: 10, y: 25 }))
             await new Promise(r => setTimeout(r, 800))
             setDragOverSidebar(true)
             await new Promise(r => setTimeout(r, 300))
@@ -123,8 +138,7 @@ export const StudioDemo = () => {
             await new Promise(r => setTimeout(r, 800))
 
             // 3. SELECT "WARM STUDIO" (Index 3 - Bottom Right of grid)
-            // Cursor to sidebar scene grid area (approx x=12, y=45)
-            setCursor({ x: 12, y: 45, clicking: false })
+            setCursor(getElementPos("demo-studio-scene-warm-studio", { x: 12, y: 45 }))
             await new Promise(r => setTimeout(r, 1000))
 
             // Click
@@ -135,9 +149,7 @@ export const StudioDemo = () => {
             await new Promise(r => setTimeout(r, 1500))
 
             // 4. CLICK CAMERA (Floating Controls)
-            // Camera icon position (approx center-right of pill) -> Pill is at 50% X, top 4% Y
-            // Pill width approx 30%, Camera is near end. Let's say X=58, Y=8
-            setCursor({ x: 58, y: 8, clicking: false })
+            setCursor(getElementPos("demo-studio-camera", { x: 58, y: 8 }))
             await new Promise(r => setTimeout(r, 1200))
 
             // Click
@@ -152,7 +164,7 @@ export const StudioDemo = () => {
             await new Promise(r => setTimeout(r, 3000)) // Show result
 
             // 5. CLOSE MODAL (Optional, or just reset)
-            setCursor({ x: 72, y: 25, clicking: false }) // Close button position
+            setCursor(getElementPos("demo-studio-modal-close", { x: 72, y: 25 })) // Close button position
             await new Promise(r => setTimeout(r, 1000))
             setCursor(prev => ({ ...prev, clicking: true }))
             setIsRenderModalOpen(false)
@@ -170,7 +182,7 @@ export const StudioDemo = () => {
     }, [])
 
     return (
-        <DemoContainer className="bg-slate-50">
+        <DemoContainer id="demo-studio-container" className="bg-slate-50 relative">
             {/* FLUID LAYOUT: Scale 0.6 */}
             <div className="relative w-[166.6%] h-[166.6%] bg-slate-50 text-slate-900 scale-[0.6] origin-top-left font-sans shadow-inner selection:bg-blue-100">
 
@@ -218,7 +230,7 @@ export const StudioDemo = () => {
                                 {/* Upload Area */}
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-900 mb-2">Upload Model</h3>
-                                    <div className={cn(
+                                    <div id="demo-studio-dropzone" className={cn(
                                         "border-2 border-dashed rounded-lg p-3 text-center transition-all duration-300 group",
                                         dragOverSidebar ? "border-blue-500 bg-blue-50 scale-105" : "border-slate-300 hover:border-slate-400"
                                     )}>
@@ -234,7 +246,7 @@ export const StudioDemo = () => {
                                     <h3 className="text-sm font-bold text-slate-900 mb-3">Studio Scenes</h3>
                                     <div className="grid grid-cols-2 gap-2">
                                         {studioScenes.map((scene) => (
-                                            <div key={scene.id} className={cn(
+                                            <div id={`demo-studio-scene-${scene.id}`} key={scene.id} className={cn(
                                                 "relative cursor-pointer rounded-lg border-2 overflow-hidden transition-all hover:border-blue-200",
                                                 activeScene === scene.id ? "border-blue-500 ring-2 ring-blue-500/10" : "border-slate-100"
                                             )}>
@@ -291,7 +303,7 @@ export const StudioDemo = () => {
                                             <div className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><ZoomIn className="w-3.5 h-3.5 text-slate-600" /></div>
                                             <div className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><ZoomOut className="w-3.5 h-3.5 text-slate-600" /></div>
                                             <div className="w-px h-4 bg-slate-200 mx-1" />
-                                            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors cursor-pointer"><Camera className="w-3.5 h-3.5" /></div>
+                                            <div id="demo-studio-camera" className="p-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors cursor-pointer"><Camera className="w-3.5 h-3.5" /></div>
                                         </div>
                                     </div>
                                 )}
@@ -359,21 +371,21 @@ export const StudioDemo = () => {
                     isRenderModalOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
                 )}>
                     <div className={cn(
-                        "bg-white w-[70%] h-[70%] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transform transition-all duration-500",
+                        "bg-white h-[95%] aspect-[453/751] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transform transition-all duration-500",
                         isRenderModalOpen ? "scale-100 translate-y-0" : "scale-95 translate-y-8"
                     )}>
                         <div className="h-12 border-b border-slate-100 flex items-center justify-between px-4">
                             <h3 className="font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-blue-600" /> Render Result</h3>
                             <div className="flex gap-2">
-                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-slate-100" onClick={() => setIsRenderModalOpen(false)}><X className="w-4 h-4" /></Button>
+                                <Button id="demo-studio-modal-close" size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-slate-100" onClick={() => setIsRenderModalOpen(false)}><X className="w-4 h-4" /></Button>
                             </div>
                         </div>
-                        <div className="flex-1 bg-slate-50 flex items-center justify-center p-8">
+                        <div className="flex-1 bg-slate-50 flex items-center justify-center p-2">
                             {/* Rendered Image (Same mock, but filtered) */}
                             <div className="w-full h-full bg-white shadow-lg rounded-lg overflow-hidden border border-slate-200 animate-in zoom-in duration-500">
                                 <img
                                     src="/images/demo/batman-viewer.png"
-                                    className={cn("w-full h-full object-contain p-4", studioScenes.find(s => s.id === 'warm-studio')?.filter)}
+                                    className={cn("w-full h-full object-contain", studioScenes.find(s => s.id === 'warm-studio')?.filter)}
                                 />
                             </div>
                         </div>
@@ -386,7 +398,7 @@ export const StudioDemo = () => {
 
                 {/* --- DRAGGING GHOST --- */}
                 <div className={cn(
-                    "absolute pointer-events-none z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-2xl border border-blue-200 ring-2 ring-blue-500 transition-all duration-100",
+                    "absolute pointer-events-none z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-2xl border border-blue-200 ring-2 ring-blue-500 transition-all duration-700 ease-in-out",
                     dragFile ? "opacity-100 scale-100" : "opacity-0 scale-50"
                 )} style={{
                     left: `${cursor.x - 5}%`,

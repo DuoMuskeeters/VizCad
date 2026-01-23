@@ -56,7 +56,7 @@ export const HeroVtkViewer = ({ modelUrl, className = "" }: HeroVtkViewerProps) 
     // Background color based on theme
     const resolvedTheme = theme === "system" ? systemTheme : theme
     const backgroundColor: [number, number, number] = mounted && resolvedTheme === "dark"
-        ? [0.09, 0.09, 0.11] // hsl(240, 10%, 3.9%) approx
+        ? [2 / 255, 6 / 255, 23 / 255]
         : [1, 1, 1] // white for light mode
 
     if (error) {

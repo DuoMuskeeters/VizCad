@@ -4,11 +4,12 @@ import type { ReactNode } from "react"
 interface DemoContainerProps {
     children: ReactNode
     className?: string
+    id?: string
 }
 
-export const DemoContainer = ({ children, className }: DemoContainerProps) => {
+export const DemoContainer = ({ children, className, id }: DemoContainerProps) => {
     return (
-        <div className={cn(
+        <div id={id} className={cn(
             "relative w-full aspect-square max-w-[500px] mx-auto overflow-hidden",
             "rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm shadow-2xl",
             "flex flex-col",

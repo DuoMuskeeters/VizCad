@@ -1,8 +1,6 @@
 export { Hero } from "./Hero"
-export { Sponsors } from "./Sponsors"
 export { HowItWorks } from "./HowItWorks"
 export { Features } from "./Features"
-export { Services } from "./Services"
 export { FeatureShowcase } from "./FeatureShowcase"
 export { Pricing } from "./Pricing"
 export { Cta } from "./Cta"

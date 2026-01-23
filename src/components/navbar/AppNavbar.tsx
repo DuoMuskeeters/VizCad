@@ -105,16 +105,16 @@ export function AppNavbar({ searchQuery = "", onSearchChange }: AppNavbarProps) 
                         {!isDashboard && (
                             <div className="flex items-center gap-1 mr-2">
                                 <Link
-                                    to="/ModelSnap"
-                                    className="text-muted-foreground hover:text-foreground text-sm font-medium px-3 py-2 rounded-lg hover:bg-accent transition-colors"
-                                >
-                                    ModelSnap
-                                </Link>
-                                <Link
                                     to="/faq"
                                     className="text-muted-foreground hover:text-foreground text-sm font-medium px-3 py-2 rounded-lg hover:bg-accent transition-colors"
                                 >
                                     {t("nav_faq")}
+                                </Link>
+                                <Link
+                                    to="/contact"
+                                    className="text-muted-foreground hover:text-foreground text-sm font-medium px-3 py-2 rounded-lg hover:bg-accent transition-colors"
+                                >
+                                    {t("nav_contact")}
                                 </Link>
                             </div>
                         )}

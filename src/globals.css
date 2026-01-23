@@ -189,29 +189,7 @@
   }
 }
 
-/* Professional marketplace specific styles */
-.marketplace-hero {
-  background: linear-gradient(135deg, oklch(0.99 0.005 85) 0%, oklch(0.97 0.01 85) 50%, oklch(0.95 0.02 45) 100%);
-  position: relative;
-  overflow: hidden;
-}
 
-.marketplace-hero::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url("/images/stl-hero-bg.jpg") center / cover;
-  opacity: 0.05;
-  z-index: 0;
-}
-
-.marketplace-hero>* {
-  position: relative;
-  z-index: 1;
-}
 
 .product-card {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

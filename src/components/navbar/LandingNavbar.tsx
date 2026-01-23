@@ -60,15 +60,15 @@ export function LandingNavbar() {
         <header className="fixed top-4 lg:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-6xl">
             <div className="bg-background border border-border rounded-2xl shadow-lg px-4 sm:px-6 py-3">
                 <nav className="w-full">
-                    {/* Desktop & Tablet View */}
-                    <div className="hidden md:flex items-center justify-between w-full gap-4">
+                    {/* Desktop View */}
+                    <div className="hidden lg:flex items-center justify-between w-full gap-4">
                         {/* Logo */}
                         <NavbarLogo />
 
                         {/* Nav Links - Center */}
                         <div className="flex items-center gap-1 lg:gap-2">
-                            <Link to="/ModelSnap" className={navLinkClass}>
-                                ModelSnap
+                            <Link to="/app" className={navLinkClass}>
+                                {t("nav_3d_viewer")}
                             </Link>
                             <Link to="/faq" className={navLinkClass}>
                                 {t("nav_faq")}
@@ -139,20 +139,10 @@ export function LandingNavbar() {
                         </div>
                     </div>
 
-                    {/* Mobile View */}
-                    <div className="flex md:hidden items-center justify-between w-full">
+                    {/* Mobile & Tablet View */}
+                    <div className="flex lg:hidden items-center justify-between w-full">
                         {/* Logo */}
                         <NavbarLogo />
-
-                        {/* Sign In Button (only show if not logged in) */}
-                        {!session && isClient && (
-                            <Link
-                                to="/login"
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 py-2 text-sm font-semibold shadow-md transition-all duration-200"
-                            >
-                                {t("nav_sign_in")}
-                            </Link>
-                        )}
 
                         {/* Mobile Menu */}
                         <DropdownMenu>
@@ -187,9 +177,6 @@ export function LandingNavbar() {
 
                                 {/* Navigation Links */}
                                 <div className="flex flex-col gap-1">
-                                    <DropdownMenuItem asChild className="text-sm font-medium">
-                                        <Link to="/ModelSnap">ModelSnap</Link>
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem asChild className="text-sm font-medium">
                                         <Link to="/faq">{t("nav_faq")}</Link>
                                     </DropdownMenuItem>
