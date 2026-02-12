@@ -1,4 +1,37 @@
+# https://www.robotstxt.org/robotstxt.html
+# VizCad - Professional 3D Model Viewer
 User-agent: *
 Allow: /
 
+# Block application routes
+Disallow: /dashboard
+Disallow: /app
+Disallow: /admin
+Disallow: /login
+Disallow: /signup
+Disallow: /verify-email
+Disallow: /file/
+Disallow: /shared/
+
+# Sitemap
 Sitemap: https://viz-cad.com/sitemap.xml
+
+# Block development files
+Disallow: /src/
+Disallow: /node_modules/
+Disallow: /_next/
+Disallow: /.git/
+Disallow: /package.json
+Disallow: /tsconfig.json
+Disallow: /vite.config.ts
+Disallow: /pnpm-lock.yaml
+
+# Allow important static assets
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.ico
+Allow: /*.svg
+Allow: /*.mp4
+Allow: /*.xml
