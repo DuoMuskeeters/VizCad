@@ -11,6 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/verify-email")({
+    head: () => ({
+        meta: [{ name: "robots", content: "noindex, nofollow" }],
+    }),
     component: VerifyEmailPage,
 });
 

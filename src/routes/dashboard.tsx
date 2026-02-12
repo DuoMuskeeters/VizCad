@@ -3,6 +3,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 
 export const Route = createFileRoute('/dashboard')({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: DashboardPage,
 })
 

@@ -5,6 +5,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTranslation } from "react-i18next"
 import { detectLanguage, seoContent } from "@/utils/language"
+import en from "@/locales/en.json"
+import tr from "@/locales/tr.json"
+import de from "@/locales/de.json"
+import es from "@/locales/es.json"
+import fr from "@/locales/fr.json"
+
+const locales: Record<string, any> = { en, tr, de, es, fr }
 
 // faq.tsx (FAQ Page)
 export const Route = createFileRoute("/faq")({
@@ -20,10 +27,6 @@ export const Route = createFileRoute("/faq")({
         {
           name: "description",
           content: content.description,
-        },
-        {
-          name: "keywords",
-          content: content.keywords,
         },
         {
           property: "og:title",
@@ -58,6 +61,25 @@ export const Route = createFileRoute("/faq")({
         {
           rel: "canonical",
           href: "https://viz-cad.com/faq",
+        },
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: Object.values(locales[lang]?.faq?.questions || locales.en.faq.questions).map(
+              (faq: any) => ({
+                "@type": "Question",
+                name: faq.question,
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: faq.answer,
+                },
+              })
+            ),
+          }),
         },
       ],
     }

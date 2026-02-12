@@ -78,10 +78,6 @@ export const Route = createFileRoute("/app")({
           content: content.description,
         },
         {
-          name: "keywords",
-          content: content.keywords,
-        },
-        {
           property: "og:title",
           content: content.ogTitle,
         },
@@ -108,10 +104,6 @@ export const Route = createFileRoute("/app")({
         {
           name: "twitter:image",
           content: `https://viz-cad.com/twitter-app-${lang}.png`,
-        },
-        {
-          name: "robots",
-          content: "noindex, nofollow",
         },
       ],
       links: [
@@ -968,7 +960,6 @@ function AppPage() {
           <p className="text-sm text-gray-500 mt-2">{t("share_loading_subtitle")}</p>
         </div>
       )}
-
       {/* Unavailable Feature Modal */}
       {showUnavailableModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -1070,7 +1061,6 @@ function AppPage() {
           </div>
         </div>
       )}
-
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
         <DialogContent className="sm:max-w-md">
@@ -1132,7 +1122,6 @@ function AppPage() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Top Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
@@ -1207,7 +1196,6 @@ function AppPage() {
           )}
         </div>
       </div>
-
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Render Studio (hidden on mobile, use bottom sheet) */}
         <div
@@ -1535,7 +1523,7 @@ function AppPage() {
                                   </div>
                                 </label>
                               </div>
-                            );
+                            )
                           })}
                         </div>
                       </div>
@@ -1837,7 +1825,6 @@ function AppPage() {
           )}
         </div>
       </div >
-
       {/* Mobile Bottom Sheet - Compact Design */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden">
@@ -1904,7 +1891,7 @@ function AppPage() {
                     />
                   ) : (
                     /* View Tab - Compact */
-                    <div className="px-3 py-2 space-y-3">
+                    (<div className="px-3 py-2 space-y-3">
                       {/* Quick Views - Compact Grid */}
                       <div>
                         <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{t("app_navigation_quickViews")}</span>
@@ -1935,7 +1922,6 @@ function AppPage() {
                           ))}
                         </div>
                       </div>
-
                       {/* Display Options - Compact toggles */}
                       <div>
                         <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{t("app_navigation_displayOptions") || "Görüntü Ayarları"}</span>
@@ -1962,7 +1948,6 @@ function AppPage() {
                           ))}
                         </div>
                       </div>
-
                       {/* Zoom Actions - Compact */}
                       <div className="flex gap-2">
                         <button
@@ -1980,7 +1965,7 @@ function AppPage() {
                           {t("app_navigation_resetView")}
                         </button>
                       </div>
-                    </div>
+                    </div>)
                   )}
                 </div>
               </div>
@@ -1988,7 +1973,6 @@ function AppPage() {
           </div>
         </div>
       )}
-
       {/* Footer - hidden on mobile when bottom sheet exists */}
       <div className={`bg-white border-t border-gray-200 px-2 sm:px-4 py-1.5 sm:py-2 flex flex-col sm:flex-row items-center justify-between text-[10px] sm:text-sm text-gray-600 h-auto sm:h-10 flex-shrink-0 gap-1 sm:gap-0 ${isMobile ? "hidden" : ""}`}>
         <div className="flex items-center gap-2 sm:gap-4">
@@ -2014,5 +1998,5 @@ function AppPage() {
         </div>
       </div>
     </div >
-  );
+  )
 }

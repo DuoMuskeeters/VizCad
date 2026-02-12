@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/card";
 
 export const Route = createFileRoute("/signup")({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: SignupPage,
 });
 

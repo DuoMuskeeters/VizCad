@@ -25,10 +25,6 @@ export const Route = createFileRoute("/contact")({
           content: content.description,
         },
         {
-          name: "keywords",
-          content: content.keywords,
-        },
-        {
           property: "og:title",
           content: content.ogTitle,
         },

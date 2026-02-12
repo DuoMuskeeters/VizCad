@@ -1,4 +1,4 @@
-export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
+export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' => {
   // Server-side check
   if (typeof window === 'undefined') {
     return 'en' // Default to English for SSR
@@ -9,8 +9,8 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
     const cookieMatch = document.cookie.match(/(?:^|; )vizcad-language=([^;]+)/)
     if (cookieMatch && cookieMatch[1]) {
       const c = decodeURIComponent(cookieMatch[1])
-      if (c === 'tr' || c === 'en' || c === 'de' || c === 'es' || c === 'fr' || c === 'hi') {
-        return c as 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi'
+      if (c === 'tr' || c === 'en' || c === 'de' || c === 'es' || c === 'fr') {
+        return c as 'en' | 'tr' | 'de' | 'es' | 'fr'
       }
     }
   } catch (e) {
@@ -20,8 +20,8 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
   // 2. localStorage'dan kontrol et (eğer daha önce seçilmişse)
   try {
     const savedLang = localStorage.getItem('vizcad-language')
-    if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr' || savedLang === 'hi') {
-      return savedLang as 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi'
+    if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr') {
+      return savedLang as 'en' | 'tr' | 'de' | 'es' | 'fr'
     }
   } catch (e) {
     // ignore localStorage errors (privacy mode)
@@ -43,9 +43,7 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
     if (browserLang.startsWith('fr')) {
       return 'fr'
     }
-    if (browserLang.startsWith('hi')) {
-      return 'hi'
-    }
+
     if (browserLang.startsWith('en')) {
       return 'en'
     }
@@ -58,7 +56,7 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
         if (langCode.startsWith('de')) return 'de'
         if (langCode.startsWith('es')) return 'es'
         if (langCode.startsWith('fr')) return 'fr'
-        if (langCode.startsWith('hi')) return 'hi'
+
         if (langCode.startsWith('en')) return 'en'
       }
     }
@@ -72,320 +70,283 @@ export const detectLanguage = (): 'en' | 'tr' | 'de' | 'es' | 'fr' | 'hi' => {
 export const seoContent = {
   en: {
     root: {
-      title: "VizCad - Professional 3D CAD Viewer & Renderer",
-      description: "VizCad - Professional 3D CAD file viewer and renderer. Upload STL, OBJ, PLY, 3MF files instantly. Free browser-based 3D visualization tool with render rendering capabilities.",
-      keywords: "3d viewer, 3d models, stl viewer, stl file, obj viewer, ply viewer, 3mf viewer, cad viewer, render rendering, 3d file viewer, cad design, modeling software 3d, 3d creation software, browser 3d viewer, online 3d viewer, WebGL viewer",
+      title: "VizCad - Online STP Viewer & 3D Collaboration Platform",
+      description: "VizCad is the fastest online STP viewer and 3D collaboration tool. Upload, view, and share STEP, STL, OBJ files in your browser. No installation required.",
+      keywords: "online stp viewer, step file viewer, stl viewer online, share 3d models, cloud cad viewer, 3d collaboration, view step file online, obj viewer free, cad design review, webgl viewer, vizcad",
       locale: "en_US",
     },
     home: {
-      title: "VizCad: Free 3D Models Viewer | STL Viewer | Render Rendering Tool Online",
-      description: "VizCad is a professional browser-based 3D models viewer with STL file support. Upload and visualize STL, OBJ, PLY, 3MF files instantly with render rendering capabilities. Free online 3D viewer for CAD design and modeling software.",
-      keywords: "3d models, stl viewer, render rendering, stl file, 3d creation software, modeling software 3d, cad design, stl file viewer, obj viewer, ply viewer, 3mf viewer, free 3d models, 3d file viewer, online 3d viewer, cad file visualization",
-      ogTitle: "VizCad: Free 3D Models Viewer | STL File Viewer | Render Rendering Online",
-      ogDescription: "Professional 3D models viewer with STL file support. Upload and render 3D models instantly. Free online STL viewer with studio-quality render rendering.",
-      twitterTitle: "VizCad - 3D Models & STL File Viewer",
-      twitterDescription: "Professional 3D models and STL file viewer. Upload STL, OBJ files and render with studio lighting.",
+      title: "Free Online STP Viewer & 3D Sharing Platform | VizCad",
+      description: "View, share, and review STEP, STP, STL, and OBJ files instantly in your browser. No installation required. Secure cloud 3D collaboration for teams.",
+      keywords: "online stp viewer, step file viewer, stl viewer online, share 3d models, cloud cad viewer, 3d collaboration, view step file online, vizcad, obj viewer",
+      ogTitle: "VizCad: The Fastest Online STP Viewer & Collaboration Tool",
+      ogDescription: "Stop sending heavy email attachments. Upload, view, and share 3D models (STEP, STL, OBJ) via secure links. Try VizCad for free.",
+      twitterTitle: "VizCad - Online STP Viewer & 3D Sharing",
+      twitterDescription: "View and share STEP, STL, and OBJ files in seconds. Professional browser-based 3D viewer."
     },
+
     app: {
-      title: "3D Models Viewer App - VizCad | STL Viewer | Render 3D Files Online",
-      description: "VizCad 3D Models Viewer App - Upload STL file, OBJ, PLY, 3MF files with professional render rendering tools. Advanced 3D viewer for CAD design, modeling software, wireframe view, and studio lighting.",
-      keywords: "3d models viewer, stl viewer, stl file, render rendering, obj viewer, ply viewer, 3mf viewer, cad design, 3d file viewer, modeling software 3d, wireframe view, 3d rendering, online stl viewer",
-      ogTitle: "VizCad 3D Models Viewer App - Professional STL File & Rendering Tool",
-      ogDescription: "Professional 3D models viewer application. Upload STL file and render with advanced tools, camera controls, and studio lighting.",
-      twitterTitle: "VizCad 3D Models Viewer - STL File & Render Tool",
-      twitterDescription: "Professional 3D models viewer with render rendering. Upload STL file, OBJ, PLY files and visualize instantly.",
+      title: "VizCad Studio - Online STP Viewer & 3D Tools",
+      description: "Launch VizCad Studio to view, measure, and analyze 3D models. Professional STEP, STL, OBJ viewer with real-time collaboration. No installation.",
+      ogTitle: "VizCad Studio - Professional Online STP & STL Viewer",
+      ogDescription: "Launch VizCad Studio. View, analyze, and share 3D CAD files in your browser. Professional tools for engineering teams.",
+      twitterTitle: "VizCad Studio - Online 3D Viewer for Teams",
+      twitterDescription: "Launch VizCad Studio. The fastest online STP and STL viewer with collaboration tools."
     },
+
     contact: {
-      title: "Contact VizCad - 3D Models & STL Viewer Support",
-      description: "Contact VizCad team for 3D models viewer and STL file support. Get help with render rendering, technical issues, or feature requests. Professional CAD design visualization support.",
-      keywords: "VizCad contact, 3d models viewer support, stl viewer help, render rendering support, technical support, cad design help, 3d visualization support",
-      ogTitle: "Contact VizCad - Professional 3D Models & STL Viewer Support",
-      ogDescription: "Get professional support for VizCad 3D models viewer and STL file rendering. Contact us for technical help and feature requests.",
-      twitterTitle: "Contact VizCad - 3D Models & STL Viewer Support",
-      twitterDescription: "Professional support for VizCad 3D models and STL file viewer. Get help with render rendering and technical issues.",
+      title: "Contact VizCad - Support: 3D Viewer & Enterprise Solutions",
+      description: "Get in touch with the VizCad team. Support for our online STP viewer, API access, bug reports, or enterprise collaboration plans.",
+      ogTitle: "Contact VizCad Team - Support & Inquiries",
+      ogDescription: "Need help with VizCad? Contact our support team for technical assistance or enterprise inquiries.",
+      twitterTitle: "Contact VizCad - 3D Viewer Support",
+      twitterDescription: "Get help with VizCad's online 3D viewer and collaboration tools.",
     },
+
     faq: {
-      title: "FAQ - VizCad 3D Models & STL Viewer Questions",
-      description: "Frequently asked questions about VizCad 3D models viewer and STL file support. Find answers about render rendering, supported file formats, browser compatibility, and how to use the CAD design viewer.",
-      keywords: "VizCad FAQ, 3d models viewer questions, stl viewer FAQ, render rendering help, stl file support, supported formats, cad design help",
-      ogTitle: "VizCad FAQ - 3D Models & STL Viewer Questions",
-      ogDescription: "Find answers about VizCad 3D models viewer, STL file support, and render rendering. Learn about features and CAD design visualization.",
-      twitterTitle: "VizCad FAQ - 3D Models & STL Viewer Help",
-      twitterDescription: "Frequently asked questions about 3D models viewer, STL file support, and render rendering features.",
+      title: "FAQ - Questions About VizCad Online STP Viewer & Features",
+      description: "Find answers about VizCad's supported formats (STEP, STL, OBJ), security, free tier limits, and how to share 3D models online securely.",
+      ogTitle: "VizCad FAQ - Common Questions & Tutorials",
+      ogDescription: "Learn how to view STEP files online, share 3D models securely, and use VizCad's collaboration features.",
+      twitterTitle: "VizCad FAQ - 3D Viewer Help",
+      twitterDescription: "Answers to common questions about VizCad's online STP viewer and collaboration tools.",
     },
+
     modelSnap: {
-      title: "ModelSnap | VizCad: Convert STL File to PNG, JPG, CSV Online - 3D Models Renderer",
-      description: "ModelSnap by VizCad lets you convert STL file to high-quality PNG, JPG images or CSV data online. Instantly upload your 3D models and generate visual outputs with render rendering for engineering, design, or 3D printing projects.",
-      keywords: "STL file to PNG, STL to JPG converter, STL to CSV, 3d models to image, convert STL file online, render rendering, STL visualization tool, 3D printing STL converter, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: Convert STL File to PNG, JPG, CSV with Render Rendering",
-      ogDescription: "Convert STL file to PNG, JPG or CSV instantly with render rendering. Perfect for 3D models visualization, engineers, and designers.",
-      twitterTitle: "ModelSnap | VizCad: STL File to Image Converter with Render Rendering",
-      twitterDescription: "Online STL file converter with render rendering. Generate high-quality PNG, JPG from 3D models instantly.",
+      title: "ModelSnap | High-Quality 3D Renders & Snapshots Online",
+      description: "Instantly capture studio-quality images of your STEP or STL files with ModelSnap. Convert 3D views to PNG/JPG for reports without complex rendering software.",
+      ogTitle: "ModelSnap - Turn 3D Models into Professional Images Instantly",
+      ogDescription: "Create studio-quality renders from your CAD files in seconds. Perfect for engineering reports and client presentations.",
+      twitterTitle: "ModelSnap - Instant 3D Rendering Tool",
+      twitterDescription: "Convert STEP and STL files to high-quality images instantly. No rendering expertise needed.",
     },
   },
   tr: {
     root: {
-      title: "VizCad - Profesyonel 3D CAD Görüntüleyici ve Render Aracı",
-      description: "VizCad - Profesyonel 3D modeller görüntüleyici ve render aracı. STL viewer ile STL, OBJ, PLY, 3MF dosyalarını anında yükleyin. Ücretsiz tarayıcı tabanlı 3D görselleştirme aracı.",
-      keywords: "3d viewer, 3d modeller, stl viewer, stl file viewer, obj viewer, ply viewer, 3mf viewer, render rendering, 3d file viewer, cad viewer, online stl viewer, 3d görselleştirme",
-      locale: "tr_TR",
+      title: "STP Viewer Online | STEP Dosyası Açma Programı | VizCad",
+      description: "STEP, STP ve STL dosyalarını tarayıcınızda ücretsiz açın. Kurulum gerektirmeyen en hızlı online STP açıcı. Mühendislik ekipleri için güvenli işbirliği platformu.",
+      keywords: "stp viewer online, step dosyası açma, stp dosyası görüntüle, stl viewer online, ücretsiz step açıcı, cad dosyası açma programı, 3d model paylaş, vizcad",
+      ogTitle: "VizCad - En Hızlı Online STP ve STEP Dosyası Açıcı",
+      ogDescription: "CAD dosyalarını program kurmadan anında tarayıcıda açın. 3D modellerinizi ekibinizle veya müşterilerinizle güvenle paylaşın.",
+      twitterTitle: "VizCad Studio - Online 3D Model Görüntüleme",
+      twitterDescription: "STEP ve STL dosyalarını tarayıcıda sorunsuz açın ve paylaşın. Ücretsiz, hızlı ve kurulumsuz.",
+      locale: "tr_TR"
     },
     home: {
-      title: "VizCad: Ücretsiz STL Viewer | 3D Modeller Görüntüleyici | Render Aracı Online",
-      description: "VizCad profesyonel STL viewer ve 3D modeller görüntüleyicisidir. STL file, OBJ, PLY, 3MF dosyalarını anında yükleyin ve render rendering ile görselleştirin. Ücretsiz online 3D viewer.",
-      keywords: "stl viewer, 3d modeller, 3d viewer, stl file viewer, render rendering, 3d file viewer, obj viewer, 3mf to stl, obj to stl, stl viewer online, 3d view, cad viewer",
-      ogTitle: "VizCad: Ücretsiz STL Viewer ve 3D Modeller Görüntüleyici Online",
-      ogDescription: "Profesyonel STL viewer ve 3D modeller görüntüleyici. STL file dosyalarını anında yükleyin ve render rendering ile görselleştirin.",
-      twitterTitle: "VizCad - STL Viewer ve 3D Modeller Görüntüleyici",
-      twitterDescription: "Profesyonel STL viewer ve 3D modeller görüntüleyici. STL file, OBJ dosyalarını render rendering ile görselleştirin.",
+      title: "Ücretsiz Online STP Görüntüleyici ve 3D Paylaşım | VizCad",
+      description: "STEP, STP, STL ve OBJ dosyalarını tarayıcıda anında açın, paylaşın ve inceleyin. Kurulum gerektirmez. Ekipler için güvenli bulut tabanlı 3D işbirliği.",
+      keywords: "online stp viewer, step dosyası açma, stl viewer online, 3d model paylaş, bulut cad görüntüleyici, 3d işbirliği, step dosyası görüntüle online, vizcad",
+      ogTitle: "VizCad: En Hızlı Online STP Görüntüleyici ve İşbirliği Aracı",
+      ogDescription: "Büyük e-posta ekleri göndermeyi bırakın. 3D modelleri (STEP, STL, OBJ) yükleyin ve güvenli linklerle paylaşın. VizCad'i ücretsiz deneyin.",
+      twitterTitle: "VizCad - Online STP Görüntüleyici ve 3D Paylaşım",
+      twitterDescription: "STEP, STL ve OBJ dosyalarını saniyeler içinde görüntüleyin. Profesyonel tarayıcı tabanlı 3D görüntüleyici.",
     },
+
     app: {
-      title: "3D Viewer Uygulaması - VizCad | STL Viewer | 3D Modeller Render",
-      description: "VizCad 3D Viewer ve STL Viewer Uygulaması - STL file, OBJ, PLY, 3MF dosyalarını profesyonel render rendering ile yükleyin. 3D modeller görselleştirme, wireframe görünümü ve stüdyo ışıklandırması.",
-      keywords: "3d viewer, stl viewer, stl file viewer, 3d modeller, render rendering, obj viewer, ply viewer, 3mf viewer, 3d file viewer, stl viewer online, wireframe, 3d görselleştirme",
-      ogTitle: "VizCad 3D Viewer - Profesyonel STL Viewer ve 3D Modeller Uygulaması",
-      ogDescription: "Profesyonel STL viewer ve 3D modeller uygulaması. STL file yükleyin ve render rendering ile görselleştirin.",
-      twitterTitle: "VizCad 3D Viewer - STL Viewer ve 3D Modeller",
-      twitterDescription: "Profesyonel STL viewer ve render rendering. 3D modeller ve STL file dosyalarını anında görselleştirin.",
+      title: "VizCad Studio - Online STEP Görüntüleme ve Ölçüm Aracı",
+      description: "3D modelleri tarayıcıda açmak, hassas ölçümler yapmak ve analiz etmek için VizCad Studio'yu kullanın. STEP ve STL için profesyonel araçlar. Kurulumsuz.",
+      ogTitle: "VizCad Studio: Tarayıcıda Profesyonel 3D Görüntüleme",
+      ogDescription: "STEP modellerini profesyonel araçlarla online analiz edin. Teknik incelemeler için geliştirilmiş 3D stüdyo.",
+      twitterTitle: "VizCad Studio - 3D CAD Online Görüntüleme",
+      twitterDescription: "STEP ve STL dosyalarını profesyonelce görüntüleyin ve ölçün. Herhangi bir yazılım yüklemenize gerek yok."
     },
-    contact: {
-      title: "VizCad İletişim - STL Viewer ve 3D Modeller Destek",
-      description: "STL viewer, 3D modeller görüntüleme ve render rendering için VizCad ekibi ile iletişime geçin. Teknik destek ve özellik talepleri.",
-      keywords: "VizCad iletişim, stl viewer destek, 3d modeller yardım, render rendering destek, teknik destek, 3d viewer yardım",
-      ogTitle: "VizCad İletişim - STL Viewer ve 3D Modeller Desteği",
-      ogDescription: "VizCad STL viewer ve 3D modeller için profesyonel destek. Render rendering ve teknik yardım.",
-      twitterTitle: "VizCad İletişim - STL Viewer Destek",
-      twitterDescription: "STL viewer ve 3D modeller için profesyonel destek. Render rendering konusunda yardım.",
-    },
-    faq: {
-      title: "SSS - VizCad STL Viewer ve 3D Modeller Sorular",
-      description: "VizCad STL viewer ve 3D modeller hakkında sık sorulan sorular. Render rendering, STL file desteği, desteklenen formatlar hakkında cevaplar.",
-      keywords: "VizCad SSS, stl viewer soruları, 3d modeller yardım, render rendering yardım, stl file destek, 3d viewer yardım",
-      ogTitle: "VizCad SSS - STL Viewer ve 3D Modeller Sorular",
-      ogDescription: "VizCad STL viewer ve 3D modeller hakkında cevaplar. Render rendering ve STL file desteği.",
-      twitterTitle: "VizCad SSS - STL Viewer Sorular",
-      twitterDescription: "STL viewer, 3D modeller ve render rendering hakkında sık sorulan sorular.",
-    },
+
     modelSnap: {
-      title: "ModelSnap | VizCad: STL File'ı PNG, JPG, CSV'ye Çevir - 3D Modeller Render",
-      description: "VizCad'in ModelSnap aracı ile STL file dosyalarını PNG, JPG görsellerine veya CSV verilerine çevirin. 3D modeller yükleyin ve render rendering ile görsel çıktılar oluşturun.",
-      keywords: "STL file dönüştürme, STL'den PNG, STL'den JPG, 3d modeller görsele, STL viewer, render rendering, STL dönüştürücü, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: STL File'ı PNG, JPG'ye Çevir - Render Rendering",
-      ogDescription: "STL file dosyalarını ModelSnap ile PNG, JPG'ye çevirin. 3D modeller için render rendering ile görsel çıktılar.",
-      twitterTitle: "ModelSnap | VizCad: STL File Dönüştürücü - Render Rendering",
-      twitterDescription: "STL file'ı render rendering ile PNG, JPG'ye çevirin. 3D modeller için online dönüştürücü.",
+      title: "ModelSnap | Online 3D Render ve CAD Görsel Oluşturucu",
+      description: "ModelSnap ile STEP dosyalarınızdan yüksek kaliteli renderlar alın. Raporlarınız için 3D görünümleri saniyeler içinde PNG veya JPG'ye dönüştürün.",
+      ogTitle: "ModelSnap - CAD Dosyalarından Profesyonel 3D Görseller",
+      ogDescription: "3D modelleriniz için anında stüdyo kalitesinde görseller oluşturun. Sunumlar ve teknik dokümanlar için mükemmel sonuç.",
+      twitterTitle: "ModelSnap - 3D CAD Görsel Dönüştürücü",
+      twitterDescription: "3D modellerinizden yüksek çözünürlüklü görselleri anında tarayıcıda oluşturun. Render yazılımı gerekmez."
     },
+
+    contact: {
+      title: "İletişim | VizCad - 3D Görüntüleyici Destek ve Kurumsal",
+      description: "VizCad ekibiyle iletişime geçin. STP görüntüleyici desteği, API erişimi veya kurumsal çözümler için bize ulaşın.",
+      ogTitle: "VizCad İletişim - Destek ve Talepler",
+      ogDescription: "Sorularınız için destek ekibimiz teknik konularda veya kurumsal taleplerinizde size yardımcı olmaktan mutluluk duyar.",
+      twitterTitle: "VizCad Destek - Bizimle İletişime Geçin",
+      twitterDescription: "VizCad 3D görüntüleyici için teknik destek ve işbirliği talepleri."
+    },
+
+    faq: {
+      title: "Sıkça Sorulan Sorular | VizCad Online STP Görüntüleyici",
+      description: "STEP açma, güvenlik ve 3D paylaşım hakkında tüm yanıtlar. CAD dosyalarını online ortamda nasıl güvenle paylaşacağınızı öğrenin.",
+      ogTitle: "VizCad SSS - Sıkça Sorulan Sorular ve Rehberler",
+      ogDescription: "STEP dosyalarını online açmayı ve VizCad özelliklerini en verimli şekilde kullanmayı öğrenin.",
+      twitterTitle: "VizCad SSS - Yardım ve Kılavuzlar",
+      twitterDescription: "VizCad'de STEP ve STL dosyalarını online çalıştırma hakkında bilmeniz gereken her şey."
+    }
   },
   de: {
     root: {
-      title: "VizCad - Professioneller 3D CAD Viewer & Renderer",
-      description: "VizCad - Professioneller 3D Models Viewer und Render Rendering Tool. STL Viewer für STL, OBJ, PLY, 3MF-Dateien. Kostenloser browserbasierter 3D Viewer.",
-      keywords: "3d models, render rendering, stl viewer, 3d viewer, 3d render, dwg file viewer, free 3d, stl file viewer, obj viewer, ply viewer, 3mf viewer, online 3d viewer",
-      locale: "de_DE",
+      title: "STP & STEP Dateien online öffnen | 3D Betrachter | VizCad",
+      description: "Öffnen Sie STP-, STEP- und STL-Dateien kostenlos direkt im Browser. Der schnellste 3D-Betrachter ohne Installation. Sichere Zusammenarbeit für Ingenieure.",
+      keywords: "stp viewer online, step datei öffnen, stp betrachter, stp datei online öffnen, stl viewer online, step viewer kostenlos, cad viewer online, 3d modelle teilen",
+      ogTitle: "VizCad - Ihr professioneller 3D-Betrachter für STEP-Dateien",
+      ogDescription: "CAD-Modelle sofort im Browser öffnen. Keine Software-Installation nötig. Teilen Sie Ihre Entwürfe sicher mit Ihrem Team.",
+      twitterTitle: "VizCad Studio - 3D-Modelle online ansehen",
+      twitterDescription: "Öffnen und teilen Sie STEP- und STL-Dateien sicher im Browser. Kostenlos, schnell ve kurulumsuz.",
+      locale: "de_DE"
     },
     home: {
-      title: "VizCad: Kostenloser STL Viewer | 3D Models Viewer | Render Rendering Online",
-      description: "VizCad ist ein professioneller STL Viewer und 3D Models Viewer. Laden Sie STL, OBJ, PLY, 3MF-Dateien mit render rendering hoch. Kostenloser Online-3D Viewer mit Studioqualität.",
-      keywords: "3d models, render rendering, stl viewer, 3d render, dwg file viewer, free 3d, stl file viewer, 3d viewer, obj viewer, ply viewer, online stl viewer",
-      ogTitle: "VizCad: Kostenloser STL Viewer und 3D Models Viewer mit Render Rendering",
-      ogDescription: "Professioneller STL Viewer und 3D Models Viewer. Laden Sie Dateien mit render rendering hoch. Kostenloser Online-3D Viewer.",
-      twitterTitle: "VizCad - STL Viewer und 3D Models Viewer",
-      twitterDescription: "Professioneller STL Viewer mit render rendering. 3D Models sofort visualisieren.",
+      title: "Kostenloser STP Viewer Online & 3D Plattform | VizCad",
+      description: "STEP, STP, STL und OBJ Dateien sofort im Browser öffnen und teilen. Keine Installation nötig. Sichere Cloud-3D-Zusammenarbeit für Teams.",
+      keywords: "stp viewer online, step datei öffnen, stl viewer online, 3d modelle teilen, cloud cad viewer, 3d zusammenarbeit, step datei online ansehen, vizcad",
+      ogTitle: "VizCad: Der schnellste Online STP Viewer & Collaboration Tool",
+      ogDescription: "Keine schweren E-Mail-Anhänge mehr. Laden Sie 3D-Modelle (STEP, STL, OBJ) hoch ve teilen Sie diese über sichere Links. VizCad kostenlos testen.",
+      twitterTitle: "VizCad - Online STP Viewer & 3D Sharing",
+      twitterDescription: "STEP, STL und OBJ Dateien in Sekundenschnelle betrachten. Professioneller browserbasierter 3D-Viewer."
     },
+
     app: {
-      title: "3D Viewer App - VizCad | STL Viewer | 3D Models Render Online",
-      description: "VizCad 3D Viewer und STL Viewer App - Laden Sie STL, OBJ, PLY, 3MF-Dateien mit render rendering hoch. Professioneller 3D Models Viewer mit Wireframe-Ansicht.",
-      keywords: "3d viewer, stl viewer, 3d models, render rendering, 3d render, stl file viewer, obj viewer, ply viewer, 3mf viewer, dwg file viewer, online 3d viewer",
-      ogTitle: "VizCad 3D Viewer App - STL Viewer und 3D Models mit Render Rendering",
-      ogDescription: "Professionelle 3D Viewer App mit STL Viewer. Laden Sie 3D Models mit render rendering hoch.",
-      twitterTitle: "VizCad 3D Viewer - STL Viewer und Render Tool",
-      twitterDescription: "Professioneller STL Viewer mit render rendering. 3D Models sofort visualisieren.",
+      title: "VizCad Studio - STEP-Dateien online ansehen & messen",
+      description: "Nutzen Sie VizCad Studio zum Öffnen, Messen und Analysieren von 3D-Modellen im Browser. Profi-Werkzeuge für STEP und STL. Sicher und installationsfrei.",
+      ogTitle: "VizCad Studio: Professionelle 3D-Analyse im Browser",
+      ogDescription: "Analysieren Sie STEP-Modelle online mit präzisen Werkzeugen. Das ideale Studio für technische Überprüfungen.",
+      twitterTitle: "VizCad Studio - 3D CAD Online Viewer",
+      twitterDescription: "STEP- und STL-Dateien professionell im Browser betrachten ve messen. Keine Software nötig."
     },
-    contact: {
-      title: "Kontakt VizCad - STL Viewer und 3D Models Support",
-      description: "Kontaktieren Sie VizCad für STL Viewer und 3D Models Support. Hilfe bei render rendering und technischen Problemen.",
-      keywords: "VizCad Kontakt, stl viewer support, 3d models hilfe, render rendering support, 3d viewer hilfe, technischer support",
-      ogTitle: "Kontakt VizCad - STL Viewer und 3D Models Support",
-      ogDescription: "Professioneller Support für VizCad STL Viewer und 3D Models. Hilfe bei render rendering.",
-      twitterTitle: "Kontakt VizCad - STL Viewer Support",
-      twitterDescription: "Support für STL Viewer und 3D Models. Hilfe bei render rendering.",
-    },
-    faq: {
-      title: "FAQ - VizCad STL Viewer und 3D Models Fragen",
-      description: "Häufig gestellte Fragen zum VizCad STL Viewer und 3D Models. Antworten zu render rendering und unterstützten Formaten.",
-      keywords: "VizCad FAQ, stl viewer fragen, 3d models hilfe, render rendering hilfe, 3d viewer fragen, dwg file viewer",
-      ogTitle: "VizCad FAQ - STL Viewer und 3D Models Fragen",
-      ogDescription: "Antworten zum VizCad STL Viewer und 3D Models. Informationen zu render rendering.",
-      twitterTitle: "VizCad FAQ - STL Viewer Fragen",
-      twitterDescription: "Häufige Fragen zu STL Viewer, 3D Models und render rendering.",
-    },
+
     modelSnap: {
-      title: "ModelSnap | VizCad: STL zu PNG, JPG, CSV konvertieren - 3D Models Render",
-      description: "Mit ModelSnap von VizCad STL-Dateien mit render rendering in PNG, JPG oder CSV konvertieren. 3D Models hochladen und visuelle Ausgaben erzeugen.",
-      keywords: "STL zu PNG, STL zu JPG, STL zu CSV, 3d models converter, stl viewer, render rendering, STL konverter, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: STL Konverter mit Render Rendering",
-      ogDescription: "STL-Dateien mit render rendering in PNG, JPG konvertieren. 3D Models visualisieren.",
-      twitterTitle: "ModelSnap | VizCad: STL zu Bild Konverter",
-      twitterDescription: "STL mit render rendering zu PNG, JPG konvertieren. 3D Models online.",
+      title: "ModelSnap | 3D-Renderings & CAD-Snapshots online",
+      description: "Erstellen Sie hochwertige Bilder aus Ihren STEP-Dateien mit ModelSnap. Konvertieren Sie 3D-Ansichten in PNG oder JPG für Ihre Berichte und Projekte.",
+      ogTitle: "ModelSnap - Professionelle 3D-Bilder aus CAD-Daten",
+      ogDescription: "Erstellen Sie sofort hochwertige Renderings Ihrer STEP-Dateien. Perfekt für Dokumentationen und Präsentationen.",
+      twitterTitle: "ModelSnap - 3D CAD zu Bild Konverter",
+      twitterDescription: "Erstellen Sie hochauflösende PNG/JPG-Bilder aus Ihren 3D-Modellen direkt im Browser."
     },
+
+    contact: {
+      title: "Kontakt VizCad - Support für 3D Betrachter & Enterprise",
+      description: "Kontaktieren Sie das VizCad-Team. Support für unseren STP-Betrachter, API-Zugriff, Fehlerberichte oder Enterprise-Lösungen.",
+      ogTitle: "VizCad Kontakt - Support und Anfragen",
+      ogDescription: "Haben Sie Fragen? Unser Support-Team hilft Ihnen bei technischen Problemen oder Enterprise-Anfragen gerne weiter.",
+      twitterTitle: "VizCad Support - Kontaktieren Sie uns",
+      twitterDescription: "Technischer Support und Enterprise-Anfragen für den VizCad 3D-Betrachter."
+    },
+
+    faq: {
+      title: "FAQ - Fragen zum VizCad Online STP Betrachter & Features",
+      description: "Antworten zu Formaten (STEP, STL, OBJ), Sicherheit und 3D-Sharing. Erfahren Sie, wie Sie CAD-Dateien sicher online teilen.",
+      ogTitle: "VizCad FAQ - Häufig gestellte Fragen und Tutorials",
+      ogDescription: "Lernen Sie, wie Sie STEP-Dateien online öffnen, 3D-Modelle sicher teilen und VizCad-Funktionen optimal nutzen.",
+      twitterTitle: "VizCad FAQ - Hilfe ve Anleitungen",
+      twitterDescription: "Alles, was Sie über den Online-Betrieb von STEP- und STL-Dateien bei VizCad wissen müssen."
+    }
   },
   es: {
     root: {
-      title: "VizCad - Visor Profesional de CAD 3D y Renderizador",
-      description: "VizCad - Visor profesional de 3D Models con render rendering. STL Viewer para archivos STL, OBJ, PLY, 3MF. Herramienta gratuita de visualización 3D.",
-      keywords: "3d models, render rendering, stl viewer, 3d viewer, dwg file viewer, free 3d, stl file viewer, obj viewer, ply viewer, 3mf viewer, visor 3d online",
-      locale: "es_ES",
+      title: "Visor STP Online | Abrir archivos STEP online | VizCad",
+      description: "Abra archivos STEP, STP y STL gratis en su navegador. El visor STP online más rápido sin instalación. Colaboración 3D segura para equipos de ingeniería.",
+      keywords: "visor stp online, abrir archivo step, abrir stp online, visor stl gratis, visualizador stp online, abrir archivos 3d sin programas, visor cad online",
+      ogTitle: "VizCad - El Visor STP y STEP Online más Rápido",
+      ogDescription: "Abra archivos CAD al instante en su navegador. Sin necesidad de software. Comparta sus modelos 3D de forma segura con su equipo o clientes.",
+      twitterTitle: "VizCad Studio - Visualizador de Modelos 3D Online",
+      twitterDescription: "Abra y comparta archivos STEP ve STL de forma segura en el navegador. Gratis, rápido y sin instalación.",
+      locale: "es_ES"
     },
     home: {
-      title: "VizCad: Visor STL Gratis | 3D Models Viewer | Render Rendering Online",
-      description: "VizCad es un STL Viewer profesional y visor de 3D Models. Carga archivos STL, OBJ, PLY, 3MF con render rendering. Visor 3D online gratuito con calidad de estudio.",
-      keywords: "3d models, render rendering, stl viewer, dwg file viewer, free 3d, stl file viewer, 3d viewer, obj viewer, ply viewer, visor stl online",
-      ogTitle: "VizCad: Visor STL y 3D Models con Render Rendering Online",
-      ogDescription: "Visor profesional STL y 3D Models. Carga archivos con render rendering. Visor 3D online gratuito.",
-      twitterTitle: "VizCad - Visor STL y 3D Models",
-      twitterDescription: "Visor profesional STL con render rendering. Visualiza 3D Models al instante.",
+      title: "Visor STP Online Gratis y Plataforma 3D | VizCad",
+      description: "Visualice, comparta y revise archivos STEP, STP, STL ve OBJ al instante en su navegador. Sin instalación. Colaboración 3D segura para equipos.",
+      keywords: "visor stp online, abrir archivo step, visor stl online, compartir modelos 3d, visor cad en la nube, colaboración 3d, ver archivos step online, vizcad",
+      ogTitle: "VizCad: El Visor STP Online más Rápido y Herramienta de Colaboración",
+      ogDescription: "Deje de enviar correos pesados. Suba, visualice ve comparta modelos 3D (STEP, STL, OBJ) mediante enlaces seguros. Pruebe VizCad gratis.",
+      twitterTitle: "VizCad - Visor STP Online y Uso Compartido 3D",
+      twitterDescription: "Vea y comparta archivos STEP, STL ve OBJ en segundos. Visor 3D profesional basado en navegador."
     },
+
     app: {
-      title: "Aplicación Visor 3D - VizCad | STL Viewer | 3D Models Render",
-      description: "Aplicación VizCad 3D Viewer y STL Viewer - Carga archivos STL, OBJ, PLY, 3MF con render rendering. Visor profesional de 3D Models con vista alambre.",
-      keywords: "3d viewer, stl viewer, 3d models, render rendering, stl file viewer, obj viewer, ply viewer, 3mf viewer, dwg file viewer, visor 3d online",
-      ogTitle: "Aplicación VizCad 3D Viewer - STL Viewer con Render Rendering",
-      ogDescription: "Aplicación profesional 3D Viewer con STL Viewer. Carga 3D Models con render rendering.",
-      twitterTitle: "VizCad 3D Viewer - STL Viewer y Render",
-      twitterDescription: "Visor profesional STL con render rendering. Visualiza 3D Models al instante.",
+      title: "VizCad Studio - Visualizar y Medir Archivos STEP Online",
+      description: "Utilice VizCad Studio para abrir, medir ve analizar modelos 3D en el navegador. Herramientas profesionales para STEP y STL. Sin instalación.",
+      ogTitle: "VizCad Studio: Análisis 3D Profesional en el Navegador",
+      ogDescription: "Analice modelos STEP online con herramientas precisas. El estudio 3D ideal para revisiones técnicas.",
+      twitterTitle: "VizCad Studio - 3D CAD Online Viewer",
+      twitterDescription: "Visualice y mida archivos STEP y STL de forma profesional. Sin necesidad de software."
     },
-    contact: {
-      title: "Contacto VizCad - Soporte STL Viewer y 3D Models",
-      description: "Contacta a VizCad para soporte de STL Viewer y 3D Models. Ayuda con render rendering y problemas técnicos.",
-      keywords: "VizCad contacto, soporte stl viewer, ayuda 3d models, soporte render rendering, ayuda 3d viewer, soporte técnico",
-      ogTitle: "Contacto VizCad - Soporte STL Viewer y 3D Models",
-      ogDescription: "Soporte profesional para VizCad STL Viewer y 3D Models. Ayuda con render rendering.",
-      twitterTitle: "Contacto VizCad - Soporte STL Viewer",
-      twitterDescription: "Soporte para STL Viewer y 3D Models. Ayuda con render rendering.",
-    },
-    faq: {
-      title: "FAQ - Preguntas VizCad STL Viewer y 3D Models",
-      description: "Preguntas frecuentes sobre VizCad STL Viewer y 3D Models. Respuestas sobre render rendering y formatos soportados.",
-      keywords: "VizCad FAQ, preguntas stl viewer, ayuda 3d models, ayuda render rendering, preguntas 3d viewer, dwg file viewer",
-      ogTitle: "FAQ VizCad - Preguntas STL Viewer y 3D Models",
-      ogDescription: "Respuestas sobre VizCad STL Viewer y 3D Models. Información sobre render rendering.",
-      twitterTitle: "FAQ VizCad - Preguntas STL Viewer",
-      twitterDescription: "Preguntas frecuentes sobre STL Viewer, 3D Models y render rendering.",
-    },
+
     modelSnap: {
-      title: "ModelSnap | VizCad: Convertir STL a PNG, JPG, CSV - 3D Models Render",
-      description: "Con ModelSnap de VizCad convierte archivos STL con render rendering a PNG, JPG o CSV. Carga 3D Models y genera salidas visuales.",
-      keywords: "STL a PNG, STL a JPG, STL a CSV, convertidor 3d models, stl viewer, render rendering, convertidor STL, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: Convertidor STL con Render Rendering",
-      ogDescription: "Convierte archivos STL con render rendering a PNG, JPG. Visualiza 3D Models.",
-      twitterTitle: "ModelSnap | VizCad: Convertidor STL a Imagen",
-      twitterDescription: "Convierte STL con render rendering a PNG, JPG. 3D Models online.",
+      title: "ModelSnap | Renders 3D y Capturas CAD Online Gratis",
+      description: "Cree imágenes de alta calidad de sus archivos STEP con ModelSnap. Convierta vistas 3D en PNG o JPG para sus informes y presentaciones al instante.",
+      ogTitle: "ModelSnap - Imágenes 3D Profesionales desde Archivos CAD",
+      ogDescription: "Cree renders de alta calidad para sus archivos STEP al instante. Resultados perfectos para documentación y presentaciones.",
+      twitterTitle: "ModelSnap - Convertidor de CAD a Imagen 3D",
+      twitterDescription: "Genere imágenes PNG/JPG de alta resolución de sus modelos 3D directamente en el navegador."
     },
+
+    contact: {
+      title: "Contacto | VizCad - Soporte de Visor 3D y Empresas",
+      description: "Contacte con el equipo de VizCad. Soporte para el visor STP, acceso a la API, informes de errores o soluciones empresariales.",
+      ogTitle: "Contacto VizCad - Soporte y Consultas",
+      ogDescription: "¿Tiene preguntas? Nuestro equipo de soporte está listo para ayudarle con problemas técnicos o consultas empresariales.",
+      twitterTitle: "Soporte VizCad - Contacte con nosotros",
+      twitterDescription: "Soporte técnico y consultas empresariales para el visor 3D VizCad."
+    },
+
+    faq: {
+      title: "Preguntas Frecuentes | VizCad Visor STP Online",
+      description: "Respuestas sobre formatos (STEP, STL, OBJ), seguridad y uso compartido en 3D. Aprenda a compartir archivos CAD online de forma segura.",
+      ogTitle: "FAQ de VizCad - Preguntas Frecuentes y Guías",
+      ogDescription: "Aprenda a abrir archivos STEP online y a utilizar las funciones de VizCad de forma eficiente.",
+      twitterTitle: "FAQ de VizCad - Ayuda y Guías",
+      twitterDescription: "Todo lo que necesita saber sobre el uso de archivos STEP y STL online en VizCad."
+    }
   },
   fr: {
     root: {
-      title: "VizCad - Visionneuse CAD 3D Professionnelle et Rendu",
-      description: "VizCad - Visionneuse professionnelle 3D Models avec render rendering. STL Viewer pour fichiers STL, OBJ, PLY, 3MF. Outil gratuit de visualisation 3D.",
-      keywords: "3d models, render rendering, stl viewer, 3d viewer, dwg file viewer, free 3d model downloads, 3d design, cad design, cad software, obj viewer, visionneuse 3d",
-      locale: "fr_FR",
+      title: "Visionneuse STP Online | Ouvrir fichier STEP en ligne | VizCad",
+      description: "Ouvrez vos fichiers STEP, STP et STL gratuitement dans votre navigateur. La visionneuse STP la plus rapide sans installation. Collaboration 3D sécurisée.",
+      keywords: "stp viewer online, visionneuse stp en ligne, ouvrir fichier step, visionneuse stl gratuite, ouvrir stp sans logiciel, cao en ligne, partager modèle 3d",
+      ogTitle: "VizCad - La visionneuse STP ve STEP en ligne la plus rapide",
+      ogDescription: "Ouvrez des fichiers CAD instantanément dans votre navigateur. Aucun logiciel requis. Partagez vos modèles 3D en toute sécurité avec votre équipe.",
+      twitterTitle: "VizCad Studio - Visionneuse de modèles 3D en ligne",
+      twitterDescription: "Ouvrez et partagez des fichiers STEP et STL en ligne. Gratuit, rapide ve sans installation.",
+      locale: "fr_FR"
     },
     home: {
-      title: "VizCad: Visionneuse STL Gratuite | 3D Models Viewer | Render Rendering",
-      description: "VizCad est une STL Viewer professionnelle et visionneuse 3D Models. Téléchargez fichiers STL, OBJ, PLY, 3MF avec render rendering. Visionneuse 3D en ligne gratuite.",
-      keywords: "3d models, render rendering, stl viewer, dwg file viewer, free 3d model downloads, 3d design, cad design, cad software, 3d viewer, obj viewer, visionneuse stl",
-      ogTitle: "VizCad: Visionneuse STL et 3D Models avec Render Rendering",
-      ogDescription: "Visionneuse professionnelle STL et 3D Models. Téléchargez avec render rendering. Visionneuse 3D gratuite.",
-      twitterTitle: "VizCad - Visionneuse STL et 3D Models",
-      twitterDescription: "Visionneuse professionnelle STL avec render rendering. Visualisez 3D Models instantanément.",
+      title: "Visionneuse STP Online Gratuite & Plateforme 3D | VizCad",
+      description: "Visualisez, partagez et révisez vos fichiers STEP, STP, STL ve OBJ instantanément. Aucune installation requise. Collaboration 3D sécurisée pour équipes.",
+      keywords: "visionneuse stp en ligne, ouvrir fichier step, visionneuse stl en ligne, partager modèles 3d, visionneuse cao cloud, collaboration 3d, vizcad",
+      ogTitle: "VizCad : La visionneuse STP en ligne la plus rapide",
+      ogDescription: "Arrêtez d'envoyer de lourdes pièces jointes. Chargez, visualisez et partagez vos modèles 3D (STEP, STL, OBJ) via des liens sécurisés.",
+      twitterTitle: "VizCad - Visionneuse STP en ligne & Partage 3D",
+      twitterDescription: "Visualisez et partagez des fichiers STEP, STL et OBJ en quelques secondes. Visionneuse 3D professionnelle sur navigateur."
     },
+
     app: {
-      title: "Application Visionneuse 3D - VizCad | STL Viewer | 3D Models Render",
-      description: "Application VizCad 3D Viewer et STL Viewer - Téléchargez fichiers STL, OBJ, PLY, 3MF avec render rendering. Visionneuse professionnelle 3D Models avec vue fil de fer.",
-      keywords: "3d viewer, stl viewer, 3d models, render rendering, 3d design, cad design, stl file viewer, obj viewer, ply viewer, dwg file viewer, visionneuse 3d",
-      ogTitle: "Application VizCad 3D Viewer - STL Viewer avec Render Rendering",
-      ogDescription: "Application professionnelle 3D Viewer avec STL Viewer. Téléchargez 3D Models avec render rendering.",
-      twitterTitle: "VizCad 3D Viewer - STL Viewer et Render",
-      twitterDescription: "Visionneuse professionnelle STL avec render rendering. Visualisez 3D Models instantanément.",
+      title: "VizCad Studio - Visualiser et mesurer des fichiers STEP",
+      description: "Utilisez VizCad Studio pour ouvrir, mesurer et analyser des modèles 3D. Outils professionnels pour STEP et STL. Sécurisé et sans installation.",
+      ogTitle: "VizCad Studio : Analyse 3D professionnelle en ligne",
+      ogDescription: "Analysez des modèles STEP en ligne avec des outils de précision. Le studio 3D idéal pour les revues techniques.",
+      twitterTitle: "VizCad Studio - 3D CAD Online Viewer",
+      twitterDescription: "Visualisez et mesurez des fichiers STEP et STL de manière professionnelle. Aucun logiciel requis."
     },
-    contact: {
-      title: "Contact VizCad - Support STL Viewer et 3D Models",
-      description: "Contactez VizCad pour support STL Viewer et 3D Models. Aide avec render rendering et problèmes techniques.",
-      keywords: "VizCad contact, support stl viewer, aide 3d models, support render rendering, aide 3d viewer, support technique",
-      ogTitle: "Contact VizCad - Support STL Viewer et 3D Models",
-      ogDescription: "Support professionnel pour VizCad STL Viewer et 3D Models. Aide avec render rendering.",
-      twitterTitle: "Contact VizCad - Support STL Viewer",
-      twitterDescription: "Support pour STL Viewer et 3D Models. Aide avec render rendering.",
-    },
-    faq: {
-      title: "FAQ - Questions VizCad STL Viewer et 3D Models",
-      description: "Questions fréquentes sur VizCad STL Viewer et 3D Models. Réponses sur render rendering et formats pris en charge.",
-      keywords: "VizCad FAQ, questions stl viewer, aide 3d models, aide render rendering, questions 3d viewer, dwg file viewer, cad design",
-      ogTitle: "FAQ VizCad - Questions STL Viewer et 3D Models",
-      ogDescription: "Réponses sur VizCad STL Viewer et 3D Models. Informations sur render rendering.",
-      twitterTitle: "FAQ VizCad - Questions STL Viewer",
-      twitterDescription: "Questions fréquentes sur STL Viewer, 3D Models et render rendering.",
-    },
+
     modelSnap: {
-      title: "ModelSnap | VizCad: Convertir STL en PNG, JPG, CSV - 3D Models Render",
-      description: "Avec ModelSnap de VizCad, convertissez fichiers STL avec render rendering en PNG, JPG ou CSV. Téléchargez 3D Models et générez sorties visuelles.",
-      keywords: "STL vers PNG, STL vers JPG, STL vers CSV, convertisseur 3d models, stl viewer, render rendering, convertisseur STL, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: Convertisseur STL avec Render Rendering",
-      ogDescription: "Convertissez fichiers STL avec render rendering en PNG, JPG. Visualisez 3D Models.",
-      twitterTitle: "ModelSnap | VizCad: Convertisseur STL en Image",
-      twitterDescription: "Convertissez STL avec render rendering en PNG, JPG. 3D Models en ligne.",
+      title: "ModelSnap | Rendu 3D ve captures d'écran CAD en ligne",
+      description: "Créez des images de haute qualité de vos fichiers STEP avec ModelSnap. Convertissez vos vues 3D en PNG ou JPG pour vos rapports et présentations.",
+      ogTitle: "ModelSnap - Images 3D professionnelles depuis fichiers CAD",
+      ogDescription: "Générez des rendus de haute qualité pour vos fichiers STEP instantanément. Parfait pour la documentation et les présentations.",
+      twitterTitle: "ModelSnap - Convertisseur CAD en image 3D",
+      twitterDescription: "Générez des images PNG/JPG haute résolution de vos modèles 3D directement dans votre navigateur."
     },
-  },
-  hi: {
-    root: {
-      title: "VizCad - पेशेवर 3D CAD व्यूअर और रेंडरर",
-      description: "VizCad - पेशेवर 3D मॉडल व्यूअर और रेंडर टूल। STL व्यूअर के साथ STL, OBJ, PLY, 3MF फ़ाइलें अपलोड करें। मुफ्त ब्राउज़र-आधारित 3D व्यूअर।",
-      keywords: "3d viewer, 3d models, stl viewer, render rendering, stl file viewer, obj viewer, ply viewer, 3mf viewer, cad viewer, 3d file viewer, online 3d viewer",
-      locale: "hi_IN",
-    },
-    home: {
-      title: "VizCad: मुफ्त STL व्यूअर | 3D मॉडल व्यूअर | रेंडर टूल ऑनलाइन",
-      description: "VizCad एक पेशेवर STL व्यूअर और 3D मॉडल व्यूअर है। STL फ़ाइल, OBJ, PLY, 3MF फ़ाइलें रेंडर रेंडरिंग के साथ अपलोड करें। मुफ्त ऑनलाइन 3D व्यूअर।",
-      keywords: "stl viewer, 3d models, 3d viewer, render rendering, stl file viewer, obj viewer, ply viewer, 3mf viewer, 3d file viewer, online stl viewer, cad viewer",
-      ogTitle: "VizCad: मुफ्त STL व्यूअर और 3D मॉडल व्यूअर रेंडर रेंडरिंग के साथ",
-      ogDescription: "पेशेवर STL व्यूअर और 3D मॉडल व्यूअर। STL फ़ाइल रेंडर रेंडरिंग के साथ अपलोड करें।",
-      twitterTitle: "VizCad - STL व्यूअर और 3D मॉडल",
-      twitterDescription: "पेशेवर STL व्यूअर रेंडर रेंडरिंग के साथ। 3D मॉडल तुरंत देखें।",
-    },
-    app: {
-      title: "3D व्यूअर ऐप - VizCad | STL व्यूअर | 3D मॉडल रेंडर",
-      description: "VizCad 3D व्यूअर और STL व्यूअर ऐप - STL फ़ाइल, OBJ, PLY, 3MF फ़ाइलें रेंडर रेंडरिंग के साथ अपलोड करें। पेशेवर 3D मॉडल व्यूअर।",
-      keywords: "3d viewer, stl viewer, 3d models, render rendering, stl file viewer, obj viewer, ply viewer, 3mf viewer, 3d file viewer, online 3d viewer",
-      ogTitle: "VizCad 3D व्यूअर ऐप - STL व्यूअर रेंडर रेंडरिंग के साथ",
-      ogDescription: "पेशेवर 3D व्यूअर ऐप STL व्यूअर के साथ। 3D मॉडल रेंडर रेंडरिंग के साथ अपलोड करें।",
-      twitterTitle: "VizCad 3D व्यूअर - STL व्यूअर और रेंडर",
-      twitterDescription: "पेशेवर STL व्यूअर रेंडर रेंडरिंग के साथ। 3D मॉडल तुरंत देखें।",
-    },
+
     contact: {
-      title: "VizCad संपर्क करें - STL व्यूअर और 3D मॉडल सपोर्ट",
-      description: "STL व्यूअर और 3D मॉडल सपोर्ट के लिए VizCad से संपर्क करें। रेंडर रेंडरिंग और तकनीकी समस्याओं में मदद।",
-      keywords: "VizCad संपर्क, stl viewer सपोर्ट, 3d models मदद, render rendering सपोर्ट, 3d viewer मदद, तकनीकी सपोर्ट",
-      ogTitle: "VizCad संपर्क - STL व्यूअर और 3D मॉडल सपोर्ट",
-      ogDescription: "VizCad STL व्यूअर और 3D मॉडल के लिए पेशेवर सपोर्ट। रेंडर रेंडरिंग में मदद।",
-      twitterTitle: "VizCad संपर्क - STL व्यूअर सपोर्ट",
-      twitterDescription: "STL व्यूअर और 3D मॉडल के लिए सपोर्ट। रेंडर रेंडरिंग में मदद।",
+      title: "Contact | VizCad - Support Visionneuse 3D et Entreprise",
+      description: "Contactez l'équipe VizCad. Support pour notre visionneuse STP, accès API, rapports d'erreurs ou solutions d'entreprise.",
+      ogTitle: "Contact VizCad - Support et demandes",
+      ogDescription: "Des questions ? Notre équipe de support est prête à vous aider pour vos problèmes techniques ou demandes d'entreprise.",
+      twitterTitle: "Support VizCad - Contactez-nous",
+      twitterDescription: "Support technique et demandes d'entreprise pour la visionneuse 3D VizCad."
     },
+
     faq: {
-      title: "FAQ - VizCad STL व्यूअर और 3D मॉडल प्रश्न",
-      description: "VizCad STL व्यूअर और 3D मॉडल के बारे में अक्सर पूछे जाने वाले प्रश्न। रेंडर रेंडरिंग और समर्थित फ़ॉर्मेट के उत्तर।",
-      keywords: "VizCad FAQ, stl viewer प्रश्न, 3d models मदद, render rendering मदद, 3d viewer प्रश्न, cad viewer",
-      ogTitle: "VizCad FAQ - STL व्यूअर और 3D मॉडल प्रश्न",
-      ogDescription: "VizCad STL व्यूअर और 3D मॉडल के उत्तर। रेंडर रेंडरिंग की जानकारी।",
-      twitterTitle: "VizCad FAQ - STL व्यूअर प्रश्न",
-      twitterDescription: "STL व्यूअर, 3D मॉडल और रेंडर रेंडरिंग के बारे में प्रश्न।",
-    },
-    modelSnap: {
-      title: "ModelSnap | VizCad: STL फ़ाइल को PNG, JPG, CSV में बदलें - 3D मॉडल रेंडर",
-      description: "VizCad का ModelSnap टूल STL फ़ाइल को रेंडर रेंडरिंग के साथ PNG, JPG या CSV में बदलता है। 3D मॉडल अपलोड करें और विज़ुअल आउटपुट बनाएं।",
-      keywords: "STL से PNG, STL से JPG, STL से CSV, 3d models कन्वर्टर, stl viewer, render rendering, STL कन्वर्टर, VizCad ModelSnap",
-      ogTitle: "ModelSnap | VizCad: STL कन्वर्टर रेंडर रेंडरिंग के साथ",
-      ogDescription: "STL फ़ाइल को रेंडर रेंडरिंग के साथ PNG, JPG में बदलें। 3D मॉडल देखें।",
-      twitterTitle: "ModelSnap | VizCad: STL से इमेज कन्वर्टर",
-      twitterDescription: "STL को रेंडर रेंडरिंग के साथ PNG, JPG में बदलें। 3D मॉडल ऑनलाइन।",
-    },
+      title: "FAQ | Questions sur la visionneuse STP en ligne VizCad",
+      description: "Réponses sur les formats (STEP, STL, OBJ), la sécurité et le partage 3D. Apprenez à partager des fichiers CAD en ligne en toute sécurité.",
+      ogTitle: "FAQ VizCad - Questions fréquentes et guides",
+      ogDescription: "Apprenez à ouvrir des fichiers STEP en ligne et à utiliser efficacement les fonctionnalités de VizCad.",
+      twitterTitle: "FAQ VizCad - Aide et guides",
+      twitterDescription: "Tout ce que vous devez savoir sur l'utilisation des fichiers STEP et STL en ligne sur VizCad."
+    }
   },
 };

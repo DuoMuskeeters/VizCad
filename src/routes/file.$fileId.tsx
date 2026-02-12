@@ -70,6 +70,9 @@ interface FileDetailResponse {
 }
 
 export const Route = createFileRoute("/file/$fileId")({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: FileDetailPage,
 });
 
@@ -335,7 +338,6 @@ function FileDetailPage() {
           </div>
         </div>
       </header>
-
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -411,11 +413,11 @@ function FileDetailPage() {
                   </>
                 ) : (
                   /* 3D Preview placeholder for unsupported formats or errors */
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                  (<div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
                     <FileBox className="w-16 h-16 opacity-50 mb-2" />
                     <p>Önizleme mevcut değil</p>
                     <p className="text-xs">Dosyayı indirerek görüntüleyebilirsiniz</p>
-                  </div>
+                  </div>)
                 )}
               </div>
             </Card>
@@ -551,7 +553,6 @@ function FileDetailPage() {
           )}
         </Card>
       </div>
-
       {/* Share Modal */}
       <ShareModal
         open={shareModalOpen}
@@ -560,7 +561,7 @@ function FileDetailPage() {
         fileName={file.name}
       />
     </div>
-  );
+  )
 }
 
 // Comment Item Component

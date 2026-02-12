@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ViewEmbedRouteImport } from './routes/viewEmbed'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
@@ -43,11 +42,6 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAdminUserFilesRouteImport } from './routes/api/admin/user-files'
 import { Route as ApiAdminStorageStatsRouteImport } from './routes/api/admin/storage-stats'
 
-const ViewEmbedRoute = ViewEmbedRouteImport.update({
-  id: '/viewEmbed',
-  path: '/viewEmbed',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
@@ -220,7 +214,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/viewEmbed': typeof ViewEmbedRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
@@ -255,7 +248,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/viewEmbed': typeof ViewEmbedRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
@@ -291,7 +283,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/viewEmbed': typeof ViewEmbedRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
@@ -328,7 +319,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
-    | '/viewEmbed'
     | '/file/$fileId'
     | '/shared/$token'
     | '/api/admin/storage-stats'
@@ -363,7 +353,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
-    | '/viewEmbed'
     | '/file/$fileId'
     | '/shared/$token'
     | '/api/admin/storage-stats'
@@ -398,7 +387,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
-    | '/viewEmbed'
     | '/file/$fileId'
     | '/shared/$token'
     | '/api/admin/storage-stats'
@@ -434,7 +422,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
-  ViewEmbedRoute: typeof ViewEmbedRoute
   FileFileIdRoute: typeof FileFileIdRoute
   SharedTokenRoute: typeof SharedTokenRoute
   ApiAdminStorageStatsRoute: typeof ApiAdminStorageStatsRoute
@@ -461,13 +448,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/viewEmbed': {
-      id: '/viewEmbed'
-      path: '/viewEmbed'
-      fullPath: '/viewEmbed'
-      preLoaderRoute: typeof ViewEmbedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/verify-email': {
       id: '/verify-email'
       path: '/verify-email'
@@ -706,7 +686,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
-  ViewEmbedRoute: ViewEmbedRoute,
   FileFileIdRoute: FileFileIdRoute,
   SharedTokenRoute: SharedTokenRoute,
   ApiAdminStorageStatsRoute: ApiAdminStorageStatsRoute,

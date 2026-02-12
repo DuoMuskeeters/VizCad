@@ -20,7 +20,7 @@ function AppAwareHeader() {
     location.pathname.startsWith("/dashboard") ||
     location.pathname.startsWith("/file/")
   const isAuthPage = ["/login", "/signup", "/verify-email"].includes(location.pathname)
-
+  
   // Auth sayfalarında navbar gösterme
   if (isAuthPage) {
     return null
@@ -168,41 +168,6 @@ export const Route = createRootRoute({
           rel: "sitemap",
           type: "application/xml",
           href: "/sitemap.xml",
-        },
-        {
-          rel: "canonical",
-          href: "https://viz-cad.com",
-        },
-        // Alternate language links for better SEO
-        {
-          rel: "alternate",
-          hrefLang: "en",
-          href: "https://viz-cad.com",
-        },
-        {
-          rel: "alternate",
-          hrefLang: "tr",
-          href: "https://viz-cad.com",
-        },
-        {
-          rel: "alternate",
-          hrefLang: "de",
-          href: "https://viz-cad.com",
-        },
-        {
-          rel: "alternate",
-          hrefLang: "es",
-          href: "https://viz-cad.com",
-        },
-        {
-          rel: "alternate",
-          hrefLang: "fr",
-          href: "https://viz-cad.com",
-        },
-        {
-          rel: "alternate",
-          hrefLang: "hi",
-          href: "https://viz-cad.com",
         },
       ],
       scripts: [

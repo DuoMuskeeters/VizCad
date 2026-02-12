@@ -22,8 +22,11 @@ export const Hero = () => {
                     {/* Main Title */}
                     <main className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
                         <h1>
-                            <span className="bg-gradient-to-r from-primary via-primary/80 to-accent text bg-clip-text">
+                            <span className="text-foreground">
                                 {t("landing_hero_title_1")}
+                            </span>
+                            <span className="block mt-2 text-foreground">
+                                {t("landing_hero_title_2")}
                             </span>
                         </h1>
                     </main>

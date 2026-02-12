@@ -5,7 +5,6 @@ import tr from "@/locales/tr.json"
 import de from "@/locales/de.json"
 import es from "@/locales/es.json"
 import fr from "@/locales/fr.json"
-import hi from "@/locales/hi.json"
 
 // Browser language detection
 const getBrowserLanguage = (): string => {
@@ -13,7 +12,7 @@ const getBrowserLanguage = (): string => {
 
   // 1. localStorage'dan kontrol et
   const savedLang = localStorage.getItem('vizcad-language')
-  if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr' || savedLang === 'hi') {
+  if (savedLang === 'tr' || savedLang === 'en' || savedLang === 'de' || savedLang === 'es' || savedLang === 'fr') {
     return savedLang
   }
 
@@ -31,9 +30,6 @@ const getBrowserLanguage = (): string => {
   if (browserLang.startsWith('fr')) {
     return 'fr'
   }
-  if (browserLang.startsWith('hi')) {
-    return 'hi'
-  }
 
   // 3. Default olarak İngilizce
   return 'en'
@@ -48,7 +44,6 @@ i18n
       de: { translation: de },
       es: { translation: es },
       fr: { translation: fr },
-      hi: { translation: hi },
     },
     lng: getBrowserLanguage(),
     fallbackLng: "en",

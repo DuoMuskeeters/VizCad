@@ -35,6 +35,9 @@ import { useEffect, useState, useMemo } from "react";
 import { Loader2, ArrowUpDown, HardDrive, File as FileIcon } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: AdminPage,
 });
 
