@@ -15,12 +15,15 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as SharedTokenRouteImport } from './routes/shared.$token'
 import { Route as FileFileIdRouteImport } from './routes/file.$fileId'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as ApiSharedTokenRouteImport } from './routes/api/shared.$token'
 import { Route as ApiFilesVersionsRouteImport } from './routes/api/files/versions'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
@@ -72,6 +75,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
@@ -92,6 +100,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRoute,
+} as any)
 const SharedTokenRoute = SharedTokenRouteImport.update({
   id: '/shared/$token',
   path: '/shared/$token',
@@ -101,6 +114,11 @@ const FileFileIdRoute = FileFileIdRouteImport.update({
   id: '/file/$fileId',
   path: '/file/$fileId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRoute,
 } as any)
 const ApiSharedTokenRoute = ApiSharedTokenRouteImport.update({
   id: '/api/shared/$token',
@@ -208,14 +226,17 @@ export interface FileRoutesByFullPath {
   '/ModelSnap': typeof ModelSnapRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -248,8 +269,10 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/blog': typeof BlogIndexRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -277,14 +300,17 @@ export interface FileRoutesById {
   '/ModelSnap': typeof ModelSnapRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -313,14 +339,17 @@ export interface FileRouteTypes {
     | '/ModelSnap'
     | '/admin'
     | '/app'
+    | '/blog'
     | '/contact'
     | '/dashboard'
     | '/faq'
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/blog/'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -353,8 +382,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/blog'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -381,14 +412,17 @@ export interface FileRouteTypes {
     | '/ModelSnap'
     | '/admin'
     | '/app'
+    | '/blog'
     | '/contact'
     | '/dashboard'
     | '/faq'
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/blog/'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -416,6 +450,7 @@ export interface RootRouteChildren {
   ModelSnapRoute: typeof ModelSnapRoute
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
+  BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   FaqRoute: typeof FaqRoute
@@ -490,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -518,6 +560,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/shared/$token': {
       id: '/shared/$token'
       path: '/shared/$token'
@@ -531,6 +580,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/file/$fileId'
       preLoaderRoute: typeof FileFileIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRoute
     }
     '/api/shared/$token': {
       id: '/api/shared/$token'
@@ -675,11 +731,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface BlogRouteChildren {
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+}
+
+const BlogRouteChildren: BlogRouteChildren = {
+  BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
+}
+
+const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ModelSnapRoute: ModelSnapRoute,
   AdminRoute: AdminRoute,
   AppRoute: AppRoute,
+  BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   FaqRoute: FaqRoute,

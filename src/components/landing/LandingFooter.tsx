@@ -99,6 +99,11 @@ export const LandingFooter = () => {
                             {t("nav_contact")}
                         </Link>
                     </div>
+                    <div>
+                        <Link to="/blog" className="opacity-60 hover:opacity-100 transition-opacity">
+                            {t("nav_blog", "Blog")}
+                        </Link>
+                    </div>
                 </div>
             </section>
             <section className="w-full max-w-[1400px] mx-auto px-6 pb-14 text-center">

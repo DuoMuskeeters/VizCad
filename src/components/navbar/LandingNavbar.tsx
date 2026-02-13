@@ -76,6 +76,9 @@ export function LandingNavbar() {
                             <Link to="/contact" className={navLinkClass}>
                                 {t("nav_contact")}
                             </Link>
+                            <Link to="/blog" className={navLinkClass}>
+                                {t("nav_blog", "Blog")}
+                            </Link>
                             <button onClick={() => handleNavClick("about")} className={navLinkClass}>
                                 {t("nav_about")}
                             </button>
@@ -182,6 +185,9 @@ export function LandingNavbar() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild className="text-sm font-medium">
                                         <Link to="/contact">{t("nav_contact")}</Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild className="text-sm font-medium">
+                                        <Link to="/blog">{t("nav_blog", "Blog")}</Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         onSelect={() => handleNavClick("about")}

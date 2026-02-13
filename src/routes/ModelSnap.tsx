@@ -30,10 +30,6 @@ export const Route = createFileRoute("/ModelSnap")({
           content: content.description,
         },
         {
-          name: "keywords",
-          content: content.keywords,
-        },
-        {
           property: "og:title",
           content: content.ogTitle,
         },

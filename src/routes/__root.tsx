@@ -4,6 +4,7 @@ import { LandingNavbar, AppNavbar } from "../components/navbar"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { SessionGuard } from "../components/SessionGuard"
+import { SurveyBubble } from "../components/SurveyBubble" 
 import { detectLanguage, seoContent } from "@/utils/language"
 import { useLocation } from "@tanstack/react-router"
 
@@ -16,18 +17,20 @@ import "@/i18n"
 function AppAwareHeader() {
   const location = useLocation()
   const isLandingPage = location.pathname === "/"
+  const isBlogPage = location.pathname.startsWith("/blog")
+  const isPublicPage = ["/faq", "/contact", "/ModelSnap"].includes(location.pathname)
   const isAppOrDashboard = location.pathname === "/app" ||
     location.pathname.startsWith("/dashboard") ||
     location.pathname.startsWith("/file/")
   const isAuthPage = ["/login", "/signup", "/verify-email"].includes(location.pathname)
-  
+
   // Auth sayfalarında navbar gösterme
   if (isAuthPage) {
     return null
   }
 
-  // Landing page için LandingNavbar
-  if (isLandingPage) {
+  // Landing, blog ve public sayfalar için LandingNavbar
+  if (isLandingPage || isBlogPage || isPublicPage) {
     return <LandingNavbar />
   }
 
@@ -206,6 +209,7 @@ function RootComponent({ children }: { children: React.ReactNode }) {
                   {children}
                 </main>
                 <TanStackRouterDevtools />
+                <SurveyBubble />
                 <Scripts />
               </div>
             </SessionGuard>

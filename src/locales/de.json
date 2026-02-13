@@ -8,6 +8,7 @@
   "nav_sign_in": "Anmelden",
   "nav_3d_viewer": "VizCAD Studio",
   "nav_dashboard": "Dashboard",
+  "nav_blog": "Blog",
   "contact": {
     "header": {
       "title": "Kontakt",
@@ -43,7 +44,6 @@
       "button": "FAQ ansehen"
     }
   },
-
   "landing_hero_badge": "Keine Installation erforderlich",
   "landing_hero_title_1": "Der schnellste Online",
   "landing_hero_title_2": "STP & 3D Betrachter.",

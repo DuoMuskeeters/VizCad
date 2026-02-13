@@ -120,6 +120,15 @@ export const seoContent = {
       twitterTitle: "ModelSnap - Instant 3D Rendering Tool",
       twitterDescription: "Convert STEP and STL files to high-quality images instantly. No rendering expertise needed.",
     },
+
+    blog: {
+      title: "Blog | VizCad - Engineering & Digital Twin Insights",
+      description: "Explore articles on digital twins, 3D printing, CAD collaboration, and engineering innovation.",
+      ogTitle: "VizCad Blog - Engineering & Digital Twin Insights",
+      ogDescription: "Stay ahead with expert articles on digital twins, 3D printing, STEP files, and CAD collaboration.",
+      twitterTitle: "VizCad Blog - Engineering Insights",
+      twitterDescription: "Expert articles on digital twins, 3D printing, and CAD collaboration.",
+    },
   },
   tr: {
     root: {
@@ -158,6 +167,15 @@ export const seoContent = {
       ogDescription: "3D modelleriniz için anında stüdyo kalitesinde görseller oluşturun. Sunumlar ve teknik dokümanlar için mükemmel sonuç.",
       twitterTitle: "ModelSnap - 3D CAD Görsel Dönüştürücü",
       twitterDescription: "3D modellerinizden yüksek çözünürlüklü görselleri anında tarayıcıda oluşturun. Render yazılımı gerekmez."
+    },
+
+    blog: {
+      title: "Blog | VizCad - Mühendislik ve Dijital İkiz Yazıları",
+      description: "Dijital ikizler, 3D baskı, CAD işbirliği ve mühendislik yenilikleri hakkında makaleler keşfedin.",
+      ogTitle: "VizCad Blog - Mühendislik ve Dijital İkiz İçgörüleri",
+      ogDescription: "Dijital ikizler, 3D baskı, STEP dosyaları ve CAD konularında uzman makaleleriyle güncel kalın.",
+      twitterTitle: "VizCad Blog - Mühendislik İçgörüleri",
+      twitterDescription: "Dijital ikizler, 3D baskı ve CAD işbirliği hakkında uzman makaleleri."
     },
 
     contact: {
@@ -217,6 +235,15 @@ export const seoContent = {
       twitterDescription: "Erstellen Sie hochauflösende PNG/JPG-Bilder aus Ihren 3D-Modellen direkt im Browser."
     },
 
+    blog: {
+      title: "Blog | VizCad - Engineering & Digital Twin Einblicke",
+      description: "Entdecken Sie Artikel über digitale Zwillinge, 3D-Druck, CAD-Zusammenarbeit und Ingenieursinnovation.",
+      ogTitle: "VizCad Blog - Engineering & Digital Twin Einblicke",
+      ogDescription: "Bleiben Sie mit Expertenartikeln über digitale Zwillinge, 3D-Druck und CAD auf dem Laufenden.",
+      twitterTitle: "VizCad Blog - Engineering Einblicke",
+      twitterDescription: "Expertenartikel über digitale Zwillinge, 3D-Druck und CAD-Zusammenarbeit."
+    },
+
     contact: {
       title: "Kontakt VizCad - Support für 3D Betrachter & Enterprise",
       description: "Kontaktieren Sie das VizCad-Team. Support für unseren STP-Betrachter, API-Zugriff, Fehlerberichte oder Enterprise-Lösungen.",
@@ -274,6 +301,15 @@ export const seoContent = {
       twitterDescription: "Genere imágenes PNG/JPG de alta resolución de sus modelos 3D directamente en el navegador."
     },
 
+    blog: {
+      title: "Blog | VizCad - Ingeniería y Digital Twin",
+      description: "Explore artículos sobre gemelos digitales, impresión 3D, colaboración CAD e innovación en ingeniería.",
+      ogTitle: "VizCad Blog - Ingeniería y Digital Twin",
+      ogDescription: "Manténgase al día con artículos sobre gemelos digitales, impresión 3D y colaboración CAD.",
+      twitterTitle: "VizCad Blog - Ingeniería",
+      twitterDescription: "Artículos expertos sobre gemelos digitales, impresión 3D y colaboración CAD."
+    },
+
     contact: {
       title: "Contacto | VizCad - Soporte de Visor 3D y Empresas",
       description: "Contacte con el equipo de VizCad. Soporte para el visor STP, acceso a la API, informes de errores o soluciones empresariales.",
@@ -329,6 +365,15 @@ export const seoContent = {
       ogDescription: "Générez des rendus de haute qualité pour vos fichiers STEP instantanément. Parfait pour la documentation et les présentations.",
       twitterTitle: "ModelSnap - Convertisseur CAD en image 3D",
       twitterDescription: "Générez des images PNG/JPG haute résolution de vos modèles 3D directement dans votre navigateur."
+    },
+
+    blog: {
+      title: "Blog | VizCad - Ingénierie et Jumeaux Numériques",
+      description: "Explorez des articles sur les jumeaux numériques, l'impression 3D, la collaboration CAD et l'innovation en ingénierie.",
+      ogTitle: "VizCad Blog - Ingénierie et Jumeaux Numériques",
+      ogDescription: "Restez à jour avec des articles d'experts sur les jumeaux numériques, l'impression 3D et la collaboration CAD.",
+      twitterTitle: "VizCad Blog - Insights Ingénierie",
+      twitterDescription: "Articles d'experts sur les jumeaux numériques, l'impression 3D et la collaboration CAD."
     },
 
     contact: {

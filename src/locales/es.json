@@ -5,9 +5,10 @@
   "nav_contact": "Contacto",
   "nav_launch_app": "Iniciar App",
   "nav_launch_app_short": "App",
-  "nav_sign_in": "Iniciar sesión",  
+  "nav_sign_in": "Iniciar sesión",
   "nav_3d_viewer": "VizCAD Studio",
   "nav_dashboard": "Panel",
+  "nav_blog": "Blog",
   "contact": {
     "header": {
       "title": "Ponerse en",
