@@ -1,9 +1,9 @@
 "use client"
 
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router"
-import { useState, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { LandingFooter } from "@/components/landing"
-import type { BlogPost } from "@/db/schema"
+import type { BlogPost, BlogPostWithAuthor } from "@/db/schema"
 import MDEditor from "@uiw/react-md-editor"
 import {
     ArrowLeft,
@@ -14,74 +14,62 @@ import {
     ArrowRight,
 } from "lucide-react"
 
+import { fetchPostBySlug } from "@/lib/blog.functions"
+import { detectLanguage, seoContent } from "@/utils/language"
+
 // Define Loader Return Type
 interface BlogArticleData {
-    post: BlogPost
-    relatedPosts: BlogPost[]
+    post: BlogPostWithAuthor
+    relatedPosts: BlogPostWithAuthor[]
 }
 
 export const Route = createFileRoute("/blog/$slug")({
     loader: async ({ params }): Promise<BlogArticleData> => {
-        try {
-            const { slug } = params
-            // Fetch the specific post
-            const postRes = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog/slug/${slug}` : `/api/blog/slug/${slug}`)
-            if (!postRes.ok) throw new Error("Post not found")
-
-            const post = await postRes.json() as BlogPost | null
-            if (!post) throw new Error("Post not found")
-
-            // Fetch all published posts to calculate related posts
-            // TODO: Move this logic to backend /api/blog/related?slug=xyz
-            const allRes = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog?status=published` : "/api/blog?status=published")
-            const allPosts = await allRes.json() as BlogPost[]
-
-            const relatedPosts = allPosts
-                .filter(p => p.id !== post.id && p.status === 'published')
-                .sort((a, b) => {
-                    // Prioritize same category
-                    const aScore = a.category === post.category ? 2 : 0
-                    const bScore = b.category === post.category ? 2 : 0
-                    // Prioritize shared tags (if tags exist)
-                    const pTags = post.tags || []
-                    const aTags = a.tags || []
-                    const bTags = b.tags || []
-
-                    const aTagScore = aTags.filter(t => pTags.includes(t)).length
-                    const bTagScore = bTags.filter(t => pTags.includes(t)).length
-
-                    return (bScore + bTagScore) - (aScore + aTagScore)
-                })
-                .slice(0, 3)
-
-            return { post, relatedPosts }
-        } catch (error) {
-            console.error(error)
-            // Allow hydration to handle 404 UI
-            throw error
-        }
+        // @ts-ignore
+        return fetchPostBySlug({ data: { slug: params.slug } })
     },
     head: ({ loaderData }) => {
         const post = loaderData?.post
+        const lang = detectLanguage()
+        const content = seoContent.en.blog
+        const ui = content.ui
+
         if (!post) {
             return {
-                meta: [{ title: "Article Not Found | VizCad Blog" }],
+                meta: [{ title: ui.articleNotFound }],
             }
         }
+
+        // Construct absolute image URL for OG tags
+        const baseUrl = "https://viz-cad.com"
+        const coverImageUrl = post.coverImage
+            ? (post.coverImage.startsWith("http") ? post.coverImage : `${baseUrl}${post.coverImage}`)
+            : `${baseUrl}/heros.png`
+
+        // Author details
+        const authorName = post.author?.name || "VizCad Team";
+        const authorUrl = post.author?.userId ? `${baseUrl}/author/${post.author.userId}` : baseUrl; // or just baseUrl if no author page
+
         return {
             meta: [
                 { title: `${post.title} | VizCad Blog` },
                 { name: "description", content: post.metaDescription || post.excerpt || "" },
+                { name: "keywords", content: (post.tags || []).join(", ") },
+                { name: "author", content: authorName },
+                { property: "article:modified_time", content: new Date(post.updatedAt || post.createdAt).toISOString() },
                 { property: "og:title", content: post.title },
                 { property: "og:description", content: post.metaDescription || post.excerpt || "" },
                 {
                     property: "og:url",
-                    content: `https://viz-cad.com/blog/${post.slug}`,
+                    content: `${baseUrl}/blog/${post.slug}`,
                 },
                 { property: "og:type", content: "article" },
-                { property: "og:image", content: `https://viz-cad.com${post.coverImage || ""}` },
-                { property: "article:published_time", content: post.publishedAt?.toString() || "" },
-                { property: "article:author", content: "VizCad Team" }, // Author logic pending
+                { property: "og:image", content: coverImageUrl },
+                { property: "og:image:width", content: "1200" },
+                { property: "og:image:height", content: "630" },
+                { property: "article:published_time", content: post.publishedAt ? new Date(post.publishedAt).toISOString() : "" },
+                { property: "article:modified_time", content: new Date(post.updatedAt || post.createdAt).toISOString() },
+                { property: "article:author", content: authorName },
                 { property: "article:section", content: post.category },
                 ...(post.tags || []).map((tag: string) => ({
                     property: "article:tag",
@@ -90,12 +78,13 @@ export const Route = createFileRoute("/blog/$slug")({
                 { name: "twitter:card", content: "summary_large_image" },
                 { name: "twitter:title", content: post.title },
                 { name: "twitter:description", content: post.metaDescription || post.excerpt || "" },
-                { name: "twitter:image", content: `https://viz-cad.com${post.coverImage || ""}` },
+                { name: "twitter:image", content: coverImageUrl },
+                { name: "twitter:creator", content: "@VizCad0" }, // Could be dynamic if author has twitter handle
             ],
             links: [
                 {
                     rel: "canonical",
-                    href: `https://viz-cad.com/blog/${post.slug}`,
+                    href: `${baseUrl}/blog/${post.slug}`,
                 },
             ],
             scripts: [
@@ -103,23 +92,59 @@ export const Route = createFileRoute("/blog/$slug")({
                     type: "application/ld+json",
                     children: JSON.stringify({
                         "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [{
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Home",
+                            "item": baseUrl
+                        }, {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "Blog",
+                            "item": `${baseUrl}/blog`
+                        }, {
+                            "@type": "ListItem",
+                            "position": 3,
+                            "name": post.category,
+                            "item": `${baseUrl}/blog?category=${encodeURIComponent(post.category)}`
+                        }, {
+                            "@type": "ListItem",
+                            "position": 4,
+                            "name": post.title
+                        }]
+                    }),
+                },
+                {
+                    type: "application/ld+json",
+                    children: JSON.stringify({
+                        "@context": "https://schema.org",
                         "@type": "BlogPosting",
                         headline: post.title,
                         description: post.excerpt,
-                        image: `https://viz-cad.com${post.coverImage}`,
+                        image: coverImageUrl,
                         datePublished: post.publishedAt,
+                        dateModified: post.updatedAt,
+                        keywords: (post.tags || []).join(", "),
                         author: {
                             "@type": "Person",
-                            name: "VizCad Team",
+                            name: authorName,
+                            image: post.author?.avatarUrl,
+                            description: post.author?.bio,
+                            jobTitle: post.author?.role,
                         },
                         publisher: {
                             "@type": "Organization",
                             name: "VizCad",
-                            url: "https://viz-cad.com",
+                            url: baseUrl,
+                            logo: {
+                                "@type": "ImageObject",
+                                url: `${baseUrl}/vizcad-logo.png`
+                            }
                         },
                         mainEntityOfPage: {
                             "@type": "WebPage",
-                            "@id": `https://viz-cad.com/blog/${post.slug}`,
+                            "@id": `${baseUrl}/blog/${post.slug}`,
                         },
                     }),
                 },
@@ -309,9 +334,23 @@ function RelatedSlider({ relatedPosts }: { relatedPosts: BlogPost[] }) {
 /* ----------- Blog Article Page ----------- */
 function BlogArticlePage() {
     const { post, relatedPosts } = useLoaderData({ from: "/blog/$slug" }) as BlogArticleData
+    const [isMounted, setIsMounted] = useState(false)
+
+    const lang = detectLanguage()
+    const content = seoContent.en.blog
+    const ui = content.ui
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     // Fallback for 404 handled in loader, but just in case
     if (!post) return null;
+
+    const authorName = post.author?.name || "VizCad Team";
+    const authorRole = post.author?.role || "Engineering Team";
+    const authorBio = post.author?.bio || `Insights on ${post.category.toLowerCase()}, engineering innovation, and the future of digital manufacturing.`;
+    const authorAvatar = post.author?.avatarUrl;
 
     return (
         <div className="min-h-screen bg-background">
@@ -335,7 +374,7 @@ function BlogArticlePage() {
                             </span>
                             <span className="flex items-center gap-1 text-white/80 text-sm">
                                 <Clock className="w-3.5 h-3.5" />
-                                {post.readTime} min read
+                                {post.readTime} {ui.minRead}
                             </span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
@@ -383,27 +422,34 @@ function BlogArticlePage() {
 
                 {/* About the Author */}
                 <div className="mt-14 pt-8 border-t border-border">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-5">About the Author</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-5">{ui.aboutAuthor}</h3>
                     <div className="flex items-start gap-5">
-                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                            <User className="w-8 h-8 text-primary" />
+                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+                            {authorAvatar ? (
+                                <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
+                            ) : (
+                                <User className="w-8 h-8 text-primary" />
+                            )}
                         </div>
                         <div>
                             {/* Author Name */}
-                            <p className="text-lg font-bold text-foreground mb-1">VizCad Team</p>
+                            <p className="text-lg font-bold text-foreground mb-1 flex items-center gap-2">
+                                {authorName}
+                                {authorRole && <span className="text-xs font-normal text-muted-foreground px-2 py-0.5 bg-muted rounded-full">{authorRole}</span>}
+                            </p>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                                 <span className="flex items-center gap-1">
                                     <Calendar className="w-3.5 h-3.5" />
                                     {formatDate(post.publishedAt)}
                                 </span>
-                                <span className="flex items-center gap-1">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {post.readTime} min read
-                                </span>
+                                {post.updatedAt && post.updatedAt > (post.publishedAt || new Date(0)) && (
+                                    <span className="flex items-center gap-1 text-xs" title={`${ui.updated}: ${formatDate(post.updatedAt)}`}>
+                                        {ui.updated}
+                                    </span>
+                                )}
                             </div>
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                                {/* Bio logic could be here if author had bio in schema */}
-                                Insights on {post.category.toLowerCase()}, engineering innovation, and the future of digital manufacturing.
+                                {authorBio}
                             </p>
                         </div>
                     </div>
@@ -415,7 +461,7 @@ function BlogArticlePage() {
                 <section className="bg-muted/30 border-t border-border">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
                         <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-8">
-                            Related Articles
+                            {ui.related}
                         </h2>
 
                         {/* Desktop: grid */}

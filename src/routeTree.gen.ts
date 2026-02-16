@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FaqRouteImport } from './routes/faq'
@@ -25,6 +26,7 @@ import { Route as SharedTokenRouteImport } from './routes/shared.$token'
 import { Route as FileFileIdRouteImport } from './routes/file.$fileId'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as ApiBlogRouteImport } from './routes/api/blog'
+import { Route as AdminAuthorsRouteImport } from './routes/admin.authors'
 import { Route as ApiSharedTokenRouteImport } from './routes/api/shared.$token'
 import { Route as ApiFilesVersionsRouteImport } from './routes/api/files/versions'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
@@ -42,6 +44,7 @@ import { Route as ApiFilesDownloadRouteImport } from './routes/api/files/downloa
 import { Route as ApiFilesDetailRouteImport } from './routes/api/files/detail'
 import { Route as ApiFilesCompleteUploadRouteImport } from './routes/api/files/complete-upload'
 import { Route as ApiFilesCommentsRouteImport } from './routes/api/files/comments'
+import { Route as ApiBlogUploadRouteImport } from './routes/api/blog.upload'
 import { Route as ApiBlogIdRouteImport } from './routes/api/blog.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAdminUserFilesRouteImport } from './routes/api/admin/user-files'
@@ -49,10 +52,16 @@ import { Route as ApiAdminStorageStatsRouteImport } from './routes/api/admin/sto
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
 import { Route as AdminBlogPostIdRouteImport } from './routes/admin.blog.$postId'
 import { Route as ApiBlogSlugSlugRouteImport } from './routes/api/blog.slug.$slug'
+import { Route as ApiBlogImageKeyRouteImport } from './routes/api/blog.image.$key'
 
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -128,6 +137,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
 const ApiBlogRoute = ApiBlogRouteImport.update({
   id: '/api/blog',
   path: '/api/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAuthorsRoute = AdminAuthorsRouteImport.update({
+  id: '/admin/authors',
+  path: '/admin/authors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSharedTokenRoute = ApiSharedTokenRouteImport.update({
@@ -215,6 +229,11 @@ const ApiFilesCommentsRoute = ApiFilesCommentsRouteImport.update({
   path: '/api/files/comments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBlogUploadRoute = ApiBlogUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => ApiBlogRoute,
+} as any)
 const ApiBlogIdRoute = ApiBlogIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -250,6 +269,11 @@ const ApiBlogSlugSlugRoute = ApiBlogSlugSlugRouteImport.update({
   path: '/slug/$slug',
   getParentRoute: () => ApiBlogRoute,
 } as any)
+const ApiBlogImageKeyRoute = ApiBlogImageKeyRouteImport.update({
+  id: '/image/$key',
+  path: '/image/$key',
+  getParentRoute: () => ApiBlogRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -261,7 +285,9 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/authors': typeof AdminAuthorsRoute
   '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
@@ -274,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
+  '/api/blog/upload': typeof ApiBlogUploadRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -291,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRoutesByTo {
@@ -302,7 +330,9 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/authors': typeof AdminAuthorsRoute
   '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
@@ -315,6 +345,7 @@ export interface FileRoutesByTo {
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
+  '/api/blog/upload': typeof ApiBlogUploadRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -332,6 +363,7 @@ export interface FileRoutesByTo {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRoutesById {
@@ -345,7 +377,9 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/authors': typeof AdminAuthorsRoute
   '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
@@ -358,6 +392,7 @@ export interface FileRoutesById {
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
+  '/api/blog/upload': typeof ApiBlogUploadRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -375,6 +410,7 @@ export interface FileRoutesById {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRouteTypes {
@@ -389,7 +425,9 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
+    | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/authors'
     | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
@@ -402,6 +440,7 @@ export interface FileRouteTypes {
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
+    | '/api/blog/upload'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -419,6 +458,7 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/image/$key'
     | '/api/blog/slug/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -430,7 +470,9 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
+    | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/authors'
     | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
@@ -443,6 +485,7 @@ export interface FileRouteTypes {
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
+    | '/api/blog/upload'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -460,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/image/$key'
     | '/api/blog/slug/$slug'
   id:
     | '__root__'
@@ -472,7 +516,9 @@ export interface FileRouteTypes {
     | '/faq'
     | '/login'
     | '/signup'
+    | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/authors'
     | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
@@ -485,6 +531,7 @@ export interface FileRouteTypes {
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
+    | '/api/blog/upload'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -502,6 +549,7 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/image/$key'
     | '/api/blog/slug/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -515,7 +563,9 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  AdminAuthorsRoute: typeof AdminAuthorsRoute
   ApiBlogRoute: typeof ApiBlogRouteWithChildren
   FileFileIdRoute: typeof FileFileIdRoute
   SharedTokenRoute: typeof SharedTokenRoute
@@ -551,6 +601,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -656,6 +713,13 @@ declare module '@tanstack/react-router' {
       path: '/api/blog'
       fullPath: '/api/blog'
       preLoaderRoute: typeof ApiBlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/authors': {
+      id: '/admin/authors'
+      path: '/admin/authors'
+      fullPath: '/admin/authors'
+      preLoaderRoute: typeof AdminAuthorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/shared/$token': {
@@ -777,6 +841,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesCommentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/blog/upload': {
+      id: '/api/blog/upload'
+      path: '/upload'
+      fullPath: '/api/blog/upload'
+      preLoaderRoute: typeof ApiBlogUploadRouteImport
+      parentRoute: typeof ApiBlogRoute
+    }
     '/api/blog/$id': {
       id: '/api/blog/$id'
       path: '/$id'
@@ -826,6 +897,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBlogSlugSlugRouteImport
       parentRoute: typeof ApiBlogRoute
     }
+    '/api/blog/image/$key': {
+      id: '/api/blog/image/$key'
+      path: '/image/$key'
+      fullPath: '/api/blog/image/$key'
+      preLoaderRoute: typeof ApiBlogImageKeyRouteImport
+      parentRoute: typeof ApiBlogRoute
+    }
   }
 }
 
@@ -843,11 +921,15 @@ const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
 interface ApiBlogRouteChildren {
   ApiBlogIdRoute: typeof ApiBlogIdRoute
+  ApiBlogUploadRoute: typeof ApiBlogUploadRoute
+  ApiBlogImageKeyRoute: typeof ApiBlogImageKeyRoute
   ApiBlogSlugSlugRoute: typeof ApiBlogSlugSlugRoute
 }
 
 const ApiBlogRouteChildren: ApiBlogRouteChildren = {
   ApiBlogIdRoute: ApiBlogIdRoute,
+  ApiBlogUploadRoute: ApiBlogUploadRoute,
+  ApiBlogImageKeyRoute: ApiBlogImageKeyRoute,
   ApiBlogSlugSlugRoute: ApiBlogSlugSlugRoute,
 }
 
@@ -864,7 +946,9 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  AdminAuthorsRoute: AdminAuthorsRoute,
   ApiBlogRoute: ApiBlogRouteWithChildren,
   FileFileIdRoute: FileFileIdRoute,
   SharedTokenRoute: SharedTokenRoute,

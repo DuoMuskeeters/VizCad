@@ -73,6 +73,33 @@ export const Route = createFileRoute("/")({
           href: "https://viz-cad.com",
         },
       ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "VizCad",
+            "operatingSystem": "Web Browser",
+            "applicationCategory": "DesignApplication",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "description": "Fast and free online 3D CAD file viewer and sharing platform. Supports STEP, STL, and OBJ formats in your browser.",
+          }),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "VizCad",
+            "url": "https://viz-cad.com",
+          }),
+        },
+      ],
     }
   },
   component: HomePage,

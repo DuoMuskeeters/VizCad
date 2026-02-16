@@ -23,6 +23,7 @@ export function LandingNavbar() {
     const location = useLocation()
     const navigate = useNavigate()
     const [isClient, setIsClient] = useState(false)
+    const isBlogPath = location.pathname.startsWith("/blog")
 
     const sessionQuery = useSession()
     const session = isClient ? sessionQuery.data : null
@@ -89,7 +90,7 @@ export function LandingNavbar() {
                             <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1">
                                 <PaletteSelector />
                                 <ModeToggle />
-                                <LanguageSwitcher />
+                                {!isBlogPath && <LanguageSwitcher />}
                             </div>
 
                             {session ? (
@@ -236,7 +237,7 @@ export function LandingNavbar() {
                                 <div className="flex items-center justify-between gap-2 px-2">
                                     <PaletteSelector />
                                     <ModeToggle />
-                                    <LanguageSwitcher />
+                                    {!isBlogPath && <LanguageSwitcher />}
                                 </div>
                             </DropdownMenuContent>
                         </DropdownMenu>

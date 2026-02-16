@@ -436,7 +436,7 @@ async function main() {
     // If no users exist, we might fail constraint.
     // Let's create a dummy user or assume one exists. 
     // To be safe, let's create a seed user if not exists.
-    sql += `INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('user_admin_seed', 'Admin', 'admin@vizcad.com', 1, ${Date.now()}, ${Date.now()});\n`;
+    sql += `INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('user_admin_seed', 'Admin', 'admin@viz-cad.com', 1, ${Date.now()}, ${Date.now()});\n`;
 
     for (const post of blogPosts) {
         const id = ulid();

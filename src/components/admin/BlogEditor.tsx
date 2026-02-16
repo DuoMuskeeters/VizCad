@@ -22,8 +22,13 @@ import type { BlogPost } from "@/db/schema"; // Ensure this import exists
 
 // Helper to slugify title
 const slugify = (text: string) => {
+    const trMap: { [key: string]: string } = {
+        'ğ': 'g', 'ü': 'u', 'ş': 's', 'ı': 'i', 'ö': 'o', 'ç': 'c',
+        'Ğ': 'g', 'Ü': 'u', 'Ş': 's', 'İ': 'i', 'Ö': 'o', 'Ç': 'c'
+    };
     return text
         .toString()
+        .replace(/[ğüşıöçĞÜŞİÖÇ]/g, (match) => trMap[match])
         .toLowerCase()
         .trim()
         .replace(/\s+/g, "-") // Replace spaces with -
@@ -43,6 +48,7 @@ export function BlogEditor({ postId }: BlogEditorProps) {
     // Loading State
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Form State
     const [title, setTitle] = useState("");
@@ -61,6 +67,39 @@ export function BlogEditor({ postId }: BlogEditorProps) {
 
     // Ref for file input
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
+    // Image upload handler
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("slug", slug || "general");
+
+            const res = await fetch("/api/blog/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json() as { error?: string };
+                throw new Error(err.error || "Upload failed");
+            }
+
+            const data = await res.json() as { url: string; key: string; filename: string };
+            setCoverImage(data.url);
+        } catch (error: any) {
+            console.error("Upload error:", error);
+            alert(`Yükleme hatası: ${error.message}`);
+        } finally {
+            setIsUploading(false);
+            if (imageInputRef.current) imageInputRef.current.value = "";
+        }
+    };
 
     // Auth Check
     useEffect(() => {
@@ -116,18 +155,30 @@ export function BlogEditor({ postId }: BlogEditorProps) {
     }, [title, postId, slug]);
 
     const handleSave = async () => {
-        if (!title || !content) {
-            alert("Title and Content are required");
+        if (!title || !content || !category) {
+            alert("Please fill in required fields (Title, Content, Category)");
             return;
         }
 
+        setIsSaving(true);
         try {
-            setIsSaving(true);
-            const newId = postId || ulid();
-
-            // Prepare tags/keywords array
+            const newId = postId || crypto.randomUUID();
             const tagArray = tags.split(",").map(t => t.trim()).filter(Boolean);
-            const keywordArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
+            const keywordArray = keywords.split(",").map((k: string) => k.trim()).filter(Boolean);
+
+            // Fetch existing post to check current status and publishedAt
+            let existingPublishedAt: string | number | Date | null = null;
+            if (postId) {
+                try {
+                    const res = await fetch(`/api/blog/${postId}`);
+                    if (res.ok) {
+                        const existing = await res.json() as BlogPost;
+                        existingPublishedAt = existing?.publishedAt;
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch existing post for comparison", e);
+                }
+            }
 
             const postData = {
                 id: newId,
@@ -143,10 +194,10 @@ export function BlogEditor({ postId }: BlogEditorProps) {
                 metaDescription: metaDescription || excerpt || content.substring(0, 160).replace(/[#*`]/g, "").trim() + "...",
                 keywords: keywordArray,
                 authorId: session?.user.id,
-                readTime: Math.ceil((content?.split(" ").length || 0) / 200), // Est. 200 wpm
+                readTime: Math.ceil((content?.split(/\s+/).length || 0) / 200), // Est. 200 wpm
                 tableOfContents: true,
-                publishedAt: status === 'published' ? (postId ? undefined : new Date()) : null,
-                // Note: API should handle keeping existing publishedAt if null/undefined on edit
+                // Only set publishedAt if it's currently published and doesn't already have a date
+                publishedAt: status === 'published' ? (existingPublishedAt || new Date()) : null,
             };
 
             const method = postId ? "PUT" : "POST";
@@ -158,18 +209,15 @@ export function BlogEditor({ postId }: BlogEditorProps) {
                 body: JSON.stringify(postData),
             });
 
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error(err || "Failed to save");
+            if (!res.ok) throw new Error("Failed to save");
+
+            alert(postId ? "Post updated!" : "Post created!");
+            if (!postId) {
+                navigate({ to: "/admin" });
             }
-
-            const result = await res.json();
-
-            alert("Post saved successfully!");
-            navigate({ to: "/admin" }); // Go back to admin list
-        } catch (error) {
-            console.error("Failed to save post", error);
-            alert("Failed to save post. See console.");
+        } catch (err) {
+            console.error("Save failed:", err);
+            alert("Failed to save post");
         } finally {
             setIsSaving(false);
         }
@@ -390,16 +438,47 @@ export function BlogEditor({ postId }: BlogEditorProps) {
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="coverImage">Cover Image URL</Label>
+                                    <Label htmlFor="coverImage">Cover Image</Label>
                                     <div className="flex gap-2">
                                         <Input
                                             id="coverImage"
                                             value={coverImage}
                                             onChange={(e) => setCoverImage(e.target.value)}
-                                            placeholder="/blog/image.jpg"
+                                            placeholder="/api/blog/image/blog/..."
+                                            className="flex-1"
                                         />
-                                        {/* Future: Image Helper/Picker */}
+                                        <input
+                                            ref={imageInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                                            className="hidden"
+                                            onChange={handleImageUpload}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            disabled={isUploading}
+                                            onClick={() => imageInputRef.current?.click()}
+                                            title="Resim yükle"
+                                        >
+                                            {isUploading ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Upload className="h-4 w-4" />
+                                            )}
+                                        </Button>
                                     </div>
+                                    {coverImage && (
+                                        <div className="mt-2 rounded-md border overflow-hidden">
+                                            <img
+                                                src={coverImage}
+                                                alt="Cover preview"
+                                                className="w-full h-40 object-cover"
+                                                onError={(e) => (e.currentTarget.style.display = "none")}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

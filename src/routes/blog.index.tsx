@@ -1,52 +1,30 @@
-"use client"
-
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useSession } from "@/lib/auth-client"
-import { detectLanguage, seoContent } from "@/utils/language"
-import type { BlogPost } from "@/db/schema"
+import type { BlogPost, BlogPostWithAuthor } from "@/db/schema"
 import { LandingFooter } from "@/components/landing"
-import { Clock } from "lucide-react"
+import { fetchAllPosts } from "@/lib/blog.functions"
+import { detectLanguage, seoContent } from "@/utils/language"
 
 // Define the loader return type
 interface BlogIndexData {
-  posts: BlogPost[]
+  posts: BlogPostWithAuthor[]
 }
 
 export const Route = createFileRoute("/blog/")({
   loader: async (): Promise<BlogIndexData> => {
     try {
-      // In a real generic loader, we'd use the fully qualified URL or window.origin
-      // For a client-side transition, relative path works. For SSR, we need absolute.
-      // Since this is TanStack Start/Router, we should preferably fetch from the server function or API.
-      // For now, using fetch to relative path which works in browser.
-      // Note: On SSR this might fail if not handled.
-      // Ideally, we import the server function directly.
-      // But assuming /api/blog is available.
-      const res = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog` : "/api/blog")
-      if (!res.ok) throw new Error("Failed to fetch posts")
-      const posts = await res.json() as BlogPost[]
-
-      // Sort by publishedAt desc (newest first)
-      posts.sort((a, b) => {
-        const dateA = new Date(a.publishedAt || a.createdAt).getTime()
-        const dateB = new Date(b.publishedAt || b.createdAt).getTime()
-        return dateB - dateA
-      })
-
+      const posts = await fetchAllPosts()
       return { posts }
-    } catch (e) {
-      console.error("Failed to load blog posts", e)
+    } catch (e: any) {
+      console.error("Critical: Blog loader failed", e)
       return { posts: [] }
     }
   },
+
   head: ({ loaderData }) => {
     const lang = detectLanguage()
-    const content = (seoContent as any)[lang]?.blog || {
-      title: "Blog | VizCad - Engineering & Digital Twin Insights",
-      description:
-        "Explore articles on digital twins, 3D printing, CAD collaboration, and engineering innovation. Stay ahead with VizCad's engineering blog.",
-    }
+    const content = seoContent.en.blog
 
     return {
       meta: [
@@ -81,7 +59,7 @@ export const Route = createFileRoute("/blog/")({
             name: "VizCad Blog",
             url: "https://viz-cad.com/blog",
             description:
-              "Engineering insights on digital twins, 3D printing, CAD collaboration, and more.",
+              "Explore articles on 3D printing, CAD collaboration, and engineering innovation. Stay ahead with VizCad's engineering blog.",
             publisher: {
               "@type": "Organization",
               name: "VizCad",
@@ -92,7 +70,7 @@ export const Route = createFileRoute("/blog/")({
               headline: post.title,
               description: post.excerpt,
               datePublished: post.publishedAt,
-              // author: { "@type": "Person", name: post.author.name }, // Author name not on post object directly, requires join or extra fetch
+              author: { "@type": "Person", name: post.author?.name || "VizCad Team" },
               url: `https://viz-cad.com/blog/${post.slug}`,
             })) || [],
           }),
@@ -301,7 +279,7 @@ function HeroSlider({ posts }: { posts: BlogPost[] }) {
 }
 
 /* ----------- Newsletter Sidebar ----------- */
-function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
+function NewsletterSidebar({ posts, ui }: { posts: BlogPost[], ui: any }) {
   const [email, setEmail] = useState("")
   const [subscribed, setSubscribed] = useState(false)
   const popularPosts = posts.slice(0, 3) // Need real popularity metric later
@@ -325,13 +303,13 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
       <div className="sticky top-28 space-y-6">
         {/* Newsletter */}
         <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <h3 className="text-lg font-bold text-foreground mb-1">📬 Newsletter</h3>
+          <h3 className="text-lg font-bold text-foreground mb-1">{ui.newsletter}</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Get the latest engineering insights delivered to your inbox.
+            {ui.newsletterDesc}
           </p>
           {subscribed ? (
             <div className="text-sm text-primary font-medium bg-primary/10 rounded-lg p-3 text-center">
-              ✓ Subscribed! Thank you.
+              {ui.subscribed}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -339,7 +317,7 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder={ui.emailPlaceholder}
                 required
                 className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
@@ -347,7 +325,7 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
                 type="submit"
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
-                Subscribe
+                {ui.subscribe}
               </button>
             </form>
           )}
@@ -355,7 +333,7 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
 
         {/* Categories */}
         <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <h3 className="text-lg font-bold text-foreground mb-3">Categories</h3>
+          <h3 className="text-lg font-bold text-foreground mb-3">{ui.categories}</h3>
           <div className="space-y-2">
             {Object.entries(categories).map(([cat, count]) => (
               <div key={cat} className="flex items-center justify-between py-1.5 text-sm">
@@ -368,7 +346,7 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
 
         {/* Popular Posts */}
         <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <h3 className="text-lg font-bold text-foreground mb-3">Popular</h3>
+          <h3 className="text-lg font-bold text-foreground mb-3">{ui.popular}</h3>
           <div className="space-y-4">
             {popularPosts.map((post) => (
               <Link
@@ -393,10 +371,20 @@ function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
 /* ----------- Blog Page ----------- */
 function BlogPage() {
   const { posts } = useLoaderData({ from: "/blog/" })
+  const [isMounted, setIsMounted] = useState(false)
   const sessionQuery = useSession()
-  const isAdmin = sessionQuery.data?.user.role === "admin"
 
-  // Filter posts: Admins see all, others see only published
+  const lang = detectLanguage()
+  const content = seoContent.en.blog
+  const ui = content.ui
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  const isAdmin = isMounted && sessionQuery.data?.user.role === "admin"
+
+  // Filter posts: Admins see all (after mount), others see only published
   const visiblePosts = isAdmin
     ? posts
     : posts.filter(p => p.status === "published")
@@ -470,7 +458,7 @@ function BlogPage() {
                             params={{ slug: post.slug }}
                             className="inline-flex items-center gap-1 text-primary font-medium hover:underline whitespace-nowrap"
                           >
-                            read more →
+                            {ui.readMore} →
                           </Link>
                         </p>
 
@@ -482,8 +470,7 @@ function BlogPage() {
                           <span className="sm:hidden text-border">·</span>
                           <span>{formatDate(post.publishedAt)}</span>
                           <span className="text-border">·</span>
-                          <span>VizCad Team</span>
-                          {/* Author info not available in simple post object - could add to query */}
+                          <span>{post.author?.name || "VizCad Team"}</span>
                           <span className="text-border">·</span>
                           <span>{post.category}</span>
                         </div>
@@ -498,14 +485,14 @@ function BlogPage() {
             {posts.length === 0 && (
               <div className="text-center py-24">
                 <p className="text-lg text-muted-foreground">
-                  No articles found yet.
+                  {ui.noPosts}
                 </p>
               </div>
             )}
           </div>
 
           {/* Newsletter Sidebar — desktop only */}
-          <NewsletterSidebar posts={posts} />
+          <NewsletterSidebar posts={posts} ui={ui} />
         </div>
       </section>
 

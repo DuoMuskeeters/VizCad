@@ -4,9 +4,10 @@ import { LandingNavbar, AppNavbar } from "../components/navbar"
 import { ThemeProvider } from "../components/theme-provider"
 import { PaletteProvider } from "../components/palette-provider"
 import { SessionGuard } from "../components/SessionGuard"
-import { SurveyBubble } from "../components/SurveyBubble" 
+import { SurveyBubble } from "../components/SurveyBubble"
 import { detectLanguage, seoContent } from "@/utils/language"
 import { useLocation } from "@tanstack/react-router"
+import { useEffect } from "react"
 
 // @ts-ignore
 import appCss from '../styles.css?url'
@@ -41,8 +42,9 @@ function AppAwareHeader() {
 export const Route = createRootRoute({
   ssr: true,
   head: () => {
-    const lang = detectLanguage()
-    const content = seoContent[lang].root
+    // For hydration safety, we use 'en' as default for metadata.
+    // If we're on a blog page, we strictly use English.
+    const content = seoContent.en.root
 
     return {
       meta: [
@@ -102,7 +104,7 @@ export const Route = createRootRoute({
         },
         {
           property: "og:locale",
-          content: content.locale,
+          content: "en_US",
         },
         {
           name: "twitter:card",
@@ -179,6 +181,25 @@ export const Route = createRootRoute({
           async: true,
         },
         {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "VizCad",
+            "url": "https://viz-cad.com",
+            "logo": "https://viz-cad.com/vizcad-logo-512.png",
+            "description": "Visualize and collaborate on 3D CAD models in your browser. VizCad supports STL, OBJ, and 3MF files with ease.",
+            "sameAs": [
+              "https://www.linkedin.com/company/vizcad"
+            ],
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "url": "https://viz-cad.com/contact"
+            }
+          }),
+        },
+        {
           type: "text/javascript",
           children: `
             window.dataLayer = window.dataLayer || [];
@@ -194,6 +215,23 @@ export const Route = createRootRoute({
 })
 
 function RootComponent({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+
+  useEffect(() => {
+    // Restore language from localStorage after hydration.
+    // However, if we are in the blog section, we might want to stay in English.
+    // For now, let's restore it globally, but blog content itself is hardcoded to English.
+    const savedLang = localStorage.getItem('vizcad-language')
+    if (savedLang && ['tr', 'en', 'de', 'es', 'fr'].includes(savedLang)) {
+      import('@/i18n').then((i18nModule) => {
+        const i18n = i18nModule.default
+        if (i18n.language !== savedLang) {
+          i18n.changeLanguage(savedLang)
+        }
+      })
+    }
+  }, [])
+
   return (
     <html>
       <head>

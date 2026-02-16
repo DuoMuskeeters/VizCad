@@ -198,3 +198,26 @@ export const posts = sqliteTable("posts", {
 
 export type BlogPost = typeof posts.$inferSelect;
 export type NewBlogPost = typeof posts.$inferInsert;
+
+// Author profiles - for richer blog author metadata
+export const authorProfiles = sqliteTable("author_profiles", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // Display name for the author
+  bio: text("bio"), // Short biography
+  role: text("role"), // e.g. "Senior Engineer", "Editor"
+  avatarUrl: text("avatarUrl"), // Custom avatar URL
+  socialLinks: text("socialLinks", { mode: "json" }).$type<Record<string, string>>(), // JSON object for social links
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+});
+
+export type AuthorProfile = typeof authorProfiles.$inferSelect;
+export type NewAuthorProfile = typeof authorProfiles.$inferInsert;
+
+export type BlogPostWithAuthor = BlogPost & {
+  author: AuthorProfile | null;
+};

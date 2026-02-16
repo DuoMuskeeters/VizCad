@@ -45,7 +45,9 @@ i18n
       es: { translation: es },
       fr: { translation: fr },
     },
-    lng: getBrowserLanguage(),
+    // CRITICAL: Start with 'en' to match Server-Side Rendering output.
+    // We will sync with local storage/browser preference in the root component after hydration.
+    lng: "en",
     fallbackLng: "en",
     interpolation: { escapeValue: false },
   })

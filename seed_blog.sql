@@ -1,5 +1,5 @@
 DELETE FROM posts;
-INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('user_admin_seed', 'Admin', 'admin@vizcad.com', 1, 1771201827864, 1771201827864);
+INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('user_admin_seed', 'Admin', 'admin@viz-cad.com', 1, 1771201827864, 1771201827864);
 INSERT INTO posts (
             id, slug, title, excerpt, content, coverImage, 
             metaTitle, metaDescription, keywords,
