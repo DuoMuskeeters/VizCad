@@ -1,48 +1,24 @@
-export interface BlogPost {
-    slug: string
-    title: string
-    excerpt: string
-    content: string
-    coverImage: string
-    author: {
-        name: string
-        avatar: string
-        bio?: string
-    }
-    date: string
-    category: string
-    tags: string[]
-    readTime: number
-    featured?: boolean
-}
+DELETE FROM posts;
+INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('user_admin_seed', 'Admin', 'admin@vizcad.com', 1, 1771201827864, 1771201827864);
+INSERT INTO posts (
+            id, slug, title, excerpt, content, coverImage, 
+            metaTitle, metaDescription, keywords,
+            tableOfContents, publishedAt, status, category, tags, readTime, featured,
+            authorId, createdAt, updatedAt
+        ) VALUES (
+            '01KHHXP50S97MHT7A9422GWPVN',
+            'digital-twin-fundamentals-engineering',
+            'Digital Twin Fundamentals: How Virtual Replicas Are Transforming Engineering',
+            'Explore how digital twins create real-time virtual models of physical assets, enabling predictive maintenance, design optimization, and smarter decision-making across industries.',
+            '## What Is a Digital Twin?
 
-export const categories = [
-    "All",
-    "Digital Twin",
-    "3D Printing",
-    "CAD",
-    "Engineering",
-    "Software",
-] as const
-
-export type Category = (typeof categories)[number]
-
-export const blogPosts: BlogPost[] = [
-    {
-        slug: "digital-twin-fundamentals-engineering",
-        title: "Digital Twin Fundamentals: How Virtual Replicas Are Transforming Engineering",
-        excerpt:
-            "Explore how digital twins create real-time virtual models of physical assets, enabling predictive maintenance, design optimization, and smarter decision-making across industries.",
-        content: `
-## What Is a Digital Twin?
-
-A digital twin is a virtual representation of a physical object, process, or system that is continuously updated with real-time data from its physical counterpart. This concept, which originated in NASA's Apollo program, has evolved into one of the most impactful technologies in modern engineering.
+A digital twin is a virtual representation of a physical object, process, or system that is continuously updated with real-time data from its physical counterpart. This concept, which originated in NASA''s Apollo program, has evolved into one of the most impactful technologies in modern engineering.
 
 Unlike a simple 3D model, a digital twin is **alive** — it reflects the current state of the physical asset through sensor data, simulation results, and historical analytics.
 
 ## Why Engineers Should Care
 
-Digital twins bridge the gap between the design phase and the operational lifecycle of a product. Here's why that matters:
+Digital twins bridge the gap between the design phase and the operational lifecycle of a product. Here''s why that matters:
 
 - **Predictive Maintenance**: Instead of scheduled maintenance, engineers can predict exactly when a component will fail and service it proactively.
 - **Design Validation**: Test thousands of design variations in a virtual environment before committing to physical prototypes.
@@ -71,7 +47,7 @@ A typical digital twin architecture includes:
 
 ## Getting Started
 
-If you're new to digital twins, start small:
+If you''re new to digital twins, start small:
 
 1. Create a detailed 3D model of your asset using CAD software
 2. Identify the key parameters you want to monitor
@@ -81,28 +57,35 @@ If you're new to digital twins, start small:
 
 ## The Future
 
-By 2027, Gartner predicts that over 75% of large industrial companies will have deployed at least one digital twin in production. The technology is no longer experimental — it's becoming essential infrastructure for competitive engineering organizations.
+By 2027, Gartner predicts that over 75% of large industrial companies will have deployed at least one digital twin in production. The technology is no longer experimental — it''s becoming essential infrastructure for competitive engineering organizations.
 
-The convergence of 5G, edge computing, and advanced AI will make digital twins more accessible and powerful than ever. Engineers who invest in understanding this technology today will be the leaders of tomorrow's industry.
-    `.trim(),
-        coverImage: "/blog/digital-twin-cover.webp",
-        author: {
-            name: "Dr. Ayşe Kaya",
-            avatar: "",
-        },
-        date: "2026-02-10",
-        category: "Digital Twin",
-        tags: ["Digital Twin", "IoT", "Industry 4.0", "Predictive Maintenance"],
-        readTime: 8,
-        featured: true,
-    },
-    {
-        slug: "3d-printing-metal-parts-guide",
-        title: "The Complete Guide to Metal 3D Printing for Functional Parts",
-        excerpt:
-            "From DMLS to SLM, learn the key processes, materials, and design considerations for producing production-grade metal parts with additive manufacturing.",
-        content: `
-## Why Metal 3D Printing?
+The convergence of 5G, edge computing, and advanced AI will make digital twins more accessible and powerful than ever. Engineers who invest in understanding this technology today will be the leaders of tomorrow''s industry.',
+            '/blog/digital-twin-cover.webp',
+            'Digital Twin Fundamentals: How Virtual Replicas Are Transforming Engineering', -- Default metaTitle
+            'Explore how digital twins create real-time virtual models of physical assets, enabling predictive maintenance, design optimization, and smarter decision-making across industries.', -- Default metaDescription
+            '["Digital Twin","IoT","Industry 4.0","Predictive Maintenance"]',
+            1, -- default TOC true
+            1770681600000,
+            'published',
+            'Digital Twin',
+            '["Digital Twin","IoT","Industry 4.0","Predictive Maintenance"]',
+            8,
+            1,
+            'user_admin_seed',
+            1771201827866,
+            1771201827866
+        );
+INSERT INTO posts (
+            id, slug, title, excerpt, content, coverImage, 
+            metaTitle, metaDescription, keywords,
+            tableOfContents, publishedAt, status, category, tags, readTime, featured,
+            authorId, createdAt, updatedAt
+        ) VALUES (
+            '01KHHXP50T1MFV3WNJN6BMBT93',
+            '3d-printing-metal-parts-guide',
+            'The Complete Guide to Metal 3D Printing for Functional Parts',
+            'From DMLS to SLM, learn the key processes, materials, and design considerations for producing production-grade metal parts with additive manufacturing.',
+            '## Why Metal 3D Printing?
 
 Metal additive manufacturing has moved beyond prototyping. Today, engineers use metal 3D printing to create functional, end-use parts that outperform traditionally manufactured components in specific applications.
 
@@ -157,25 +140,33 @@ Metal 3D printed parts require rigorous QA:
 - **Surface roughness measurement** for functional surfaces
 - **Dimensional inspection** using CMM or 3D scanning
 
-Use tools like VizCad to share inspection results and 3D models with your quality team for fast review cycles.
-    `.trim(),
-        coverImage: "/blog/metal-3d-printing-cover.webp",
-        author: {
-            name: "Mehmet Yılmaz",
-            avatar: "",
-        },
-        date: "2026-02-05",
-        category: "3D Printing",
-        tags: ["3D Printing", "Metal AM", "DMLS", "Manufacturing"],
-        readTime: 10,
-    },
-    {
-        slug: "step-file-format-explained",
-        title: "STEP File Format Explained: Why It's the Universal Language of CAD",
-        excerpt:
-            "Understand why STEP (ISO 10303) is the gold standard for CAD data exchange, its structure, limitations, and how to work with it effectively.",
-        content: `
-## What Is a STEP File?
+Use tools like VizCad to share inspection results and 3D models with your quality team for fast review cycles.',
+            '/blog/metal-3d-printing-cover.webp',
+            'The Complete Guide to Metal 3D Printing for Functional Parts', -- Default metaTitle
+            'From DMLS to SLM, learn the key processes, materials, and design considerations for producing production-grade metal parts with additive manufacturing.', -- Default metaDescription
+            '["3D Printing","Metal AM","DMLS","Manufacturing"]',
+            1, -- default TOC true
+            1770249600000,
+            'published',
+            '3D Printing',
+            '["3D Printing","Metal AM","DMLS","Manufacturing"]',
+            10,
+            0,
+            'user_admin_seed',
+            1771201827867,
+            1771201827867
+        );
+INSERT INTO posts (
+            id, slug, title, excerpt, content, coverImage, 
+            metaTitle, metaDescription, keywords,
+            tableOfContents, publishedAt, status, category, tags, readTime, featured,
+            authorId, createdAt, updatedAt
+        ) VALUES (
+            '01KHHXP50VYYX47WBCDSY82RN9',
+            'step-file-format-explained',
+            'STEP File Format Explained: Why It''s the Universal Language of CAD',
+            'Understand why STEP (ISO 10303) is the gold standard for CAD data exchange, its structure, limitations, and how to work with it effectively.',
+            '## What Is a STEP File?
 
 STEP (Standard for the Exchange of Product Data) is an ISO standard (ISO 10303) for representing 3D CAD data. It was developed to solve a fundamental problem in engineering: **sharing 3D models between different CAD systems without losing data**.
 
@@ -205,18 +196,18 @@ As an ISO standard, STEP is ideal for long-term data archival. Your files will b
 
 A STEP file is a plain-text file with two main sections:
 
-\`\`\`
+```
 HEADER;
-FILE_DESCRIPTION(('FreeCAD Model'), '2;1');
-FILE_NAME('part.stp', '2026-01-15T10:00:00', ('Author'), ('Org'));
-FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
+FILE_DESCRIPTION((''FreeCAD Model''), ''2;1'');
+FILE_NAME(''part.stp'', ''2026-01-15T10:00:00'', (''Author''), (''Org''));
+FILE_SCHEMA((''AUTOMOTIVE_DESIGN''));
 ENDSEC;
 DATA;
-#1 = PRODUCT('MyPart', 'MyPart', '', (#2));
-#2 = MECHANICAL_CONTEXT('', #3);
+#1 = PRODUCT(''MyPart'', ''MyPart'', '''', (#2));
+#2 = MECHANICAL_CONTEXT('''', #3);
 ...
 ENDSEC;
-\`\`\`
+```
 
 Each entity is numbered and can reference other entities, creating a graph of product data.
 
@@ -239,27 +230,35 @@ Each entity is numbered and can reference other entities, creating a graph of pr
 
 ## Viewing STEP Files Without CAD Software
 
-Not everyone has a CAD license. VizCad lets you open STEP files directly in the browser — just drag and drop. No installation, no account required. Perfect for engineers, procurement teams, and clients who need to review designs quickly.
-    `.trim(),
-        coverImage: "/blog/step-format-cover.webp",
-        author: {
-            name: "VizCad Team",
-            avatar: "",
-        },
-        date: "2026-01-28",
-        category: "CAD",
-        tags: ["STEP", "CAD", "File Formats", "Interoperability"],
-        readTime: 7,
-    },
-    {
-        slug: "cad-collaboration-remote-teams",
-        title: "Effective CAD Collaboration for Remote Engineering Teams",
-        excerpt:
-            "Discover strategies, tools, and workflows that enable distributed engineering teams to review, share, and iterate on 3D designs efficiently.",
-        content: `
-## The Remote Engineering Challenge
+Not everyone has a CAD license. VizCad lets you open STEP files directly in the browser — just drag and drop. No installation, no account required. Perfect for engineers, procurement teams, and clients who need to review designs quickly.',
+            '/blog/step-format-cover.webp',
+            'STEP File Format Explained: Why It''s the Universal Language of CAD', -- Default metaTitle
+            'Understand why STEP (ISO 10303) is the gold standard for CAD data exchange, its structure, limitations, and how to work with it effectively.', -- Default metaDescription
+            '["STEP","CAD","File Formats","Interoperability"]',
+            1, -- default TOC true
+            1769558400000,
+            'published',
+            'CAD',
+            '["STEP","CAD","File Formats","Interoperability"]',
+            7,
+            0,
+            'user_admin_seed',
+            1771201827867,
+            1771201827867
+        );
+INSERT INTO posts (
+            id, slug, title, excerpt, content, coverImage, 
+            metaTitle, metaDescription, keywords,
+            tableOfContents, publishedAt, status, category, tags, readTime, featured,
+            authorId, createdAt, updatedAt
+        ) VALUES (
+            '01KHHXP50VRHKVMJZ9RHQW4VB3',
+            'cad-collaboration-remote-teams',
+            'Effective CAD Collaboration for Remote Engineering Teams',
+            'Discover strategies, tools, and workflows that enable distributed engineering teams to review, share, and iterate on 3D designs efficiently.',
+            '## The Remote Engineering Challenge
 
-Engineering teams are increasingly distributed. Whether your team spans offices in Istanbul, Munich, and San Francisco, or includes freelance designers and manufacturing partners, the challenge is the same: **how do you collaborate on 3D designs when you can't gather around the same screen?**
+Engineering teams are increasingly distributed. Whether your team spans offices in Istanbul, Munich, and San Francisco, or includes freelance designers and manufacturing partners, the challenge is the same: **how do you collaborate on 3D designs when you can''t gather around the same screen?**
 
 Traditional workflows — emailing massive CAD files, scheduling screen-share meetings, printing drawings — are slow, error-prone, and frustrating.
 
@@ -292,7 +291,7 @@ Not every review needs a meeting. Enable asynchronous feedback by:
 
 ### 4. Standardized File Formats
 
-Agree on a standard exchange format (STEP is recommended) to avoid compatibility issues. Document your team's file naming conventions and folder structure.
+Agree on a standard exchange format (STEP is recommended) to avoid compatibility issues. Document your team''s file naming conventions and folder structure.
 
 ## Tool Selection Criteria
 
@@ -309,7 +308,7 @@ When evaluating CAD collaboration tools, consider:
 
 ## Workflow Example
 
-Here's a proven workflow for distributed teams:
+Here''s a proven workflow for distributed teams:
 
 1. **Designer** creates or updates the CAD model in their native software
 2. **Designer** exports STEP file and uploads to VizCad
@@ -326,7 +325,7 @@ When sharing CAD files externally:
 
 - Use **time-limited share links** that expire automatically
 - Enable **view-only access** — prevent downloads when possible
-- **Watermark** shared views with the recipient's email
+- **Watermark** shared views with the recipient''s email
 - Keep an **audit log** of who accessed what and when
 - Use **encryption** for files at rest and in transit
 
@@ -337,27 +336,35 @@ Start by identifying your biggest collaboration pain point. Is it:
 - Review cycles? → Implement asynchronous markup tools
 - Version confusion? → Establish naming conventions and centralized storage
 
-Small changes in your workflow can dramatically improve your team's productivity and reduce costly errors.
-    `.trim(),
-        coverImage: "/blog/cad-collaboration-cover.webp",
-        author: {
-            name: "Ali Demir",
-            avatar: "",
-        },
-        date: "2026-01-20",
-        category: "Engineering",
-        tags: ["Collaboration", "Remote Work", "CAD", "Workflow"],
-        readTime: 9,
-    },
-    {
-        slug: "topology-optimization-beginners",
-        title: "Topology Optimization for Beginners: Designing Parts That Nature Would Approve",
-        excerpt:
-            "Learn how topology optimization uses algorithms to create lightweight, high-performance parts by removing material where it's not needed.",
-        content: `
-## What Is Topology Optimization?
+Small changes in your workflow can dramatically improve your team''s productivity and reduce costly errors.',
+            '/blog/cad-collaboration-cover.webp',
+            'Effective CAD Collaboration for Remote Engineering Teams', -- Default metaTitle
+            'Discover strategies, tools, and workflows that enable distributed engineering teams to review, share, and iterate on 3D designs efficiently.', -- Default metaDescription
+            '["Collaboration","Remote Work","CAD","Workflow"]',
+            1, -- default TOC true
+            1768867200000,
+            'published',
+            'Engineering',
+            '["Collaboration","Remote Work","CAD","Workflow"]',
+            9,
+            0,
+            'user_admin_seed',
+            1771201827867,
+            1771201827867
+        );
+INSERT INTO posts (
+            id, slug, title, excerpt, content, coverImage, 
+            metaTitle, metaDescription, keywords,
+            tableOfContents, publishedAt, status, category, tags, readTime, featured,
+            authorId, createdAt, updatedAt
+        ) VALUES (
+            '01KHHXP50VWAMZ0H1TJBS9M5W7',
+            'topology-optimization-beginners',
+            'Topology Optimization for Beginners: Designing Parts That Nature Would Approve',
+            'Learn how topology optimization uses algorithms to create lightweight, high-performance parts by removing material where it''s not needed.',
+            '## What Is Topology Optimization?
 
-Topology optimization is a mathematical method that optimizes material distribution within a given design space. Given a set of loads, constraints, and objectives, the algorithm determines the **optimal shape** — removing material where it isn't needed while maintaining structural integrity.
+Topology optimization is a mathematical method that optimizes material distribution within a given design space. Given a set of loads, constraints, and objectives, the algorithm determines the **optimal shape** — removing material where it isn''t needed while maintaining structural integrity.
 
 The result? Parts that look organic, almost like they were designed by nature. And they often outperform traditionally designed components in terms of strength-to-weight ratio.
 
@@ -379,7 +386,7 @@ The optimization process follows these steps:
 Start with a block of material that represents the maximum allowable volume for your part.
 
 ### Step 2: Apply Loads and Constraints
-Define where forces act on the part and where it's fixed (boundary conditions).
+Define where forces act on the part and where it''s fixed (boundary conditions).
 
 ### Step 3: Set Objectives
 Typically, the objective is to **minimize mass** while maintaining a **maximum stress threshold** or a **minimum stiffness requirement**.
@@ -410,7 +417,7 @@ The ideal match. AM can produce almost any geometry the optimizer creates. Check
 - Build orientation effects
 
 ### CNC Machining
-More restrictive. You'll need to simplify the optimized shape to ensure tool access and machinability.
+More restrictive. You''ll need to simplify the optimized shape to ensure tool access and machinability.
 
 ### Casting
 Topology-optimized shapes can be cast using investment casting, but draft angles and minimum wall thicknesses must be considered.
@@ -434,56 +441,19 @@ The optimized design was shared with the manufacturing team via VizCad, allowing
 
 ## The Bottom Line
 
-Topology optimization is no longer reserved for F1 teams and satellite engineers. With modern tools and additive manufacturing, any engineer can leverage this technique to create lighter, stronger, more efficient parts.
-    `.trim(),
-        coverImage: "/blog/topology-optimization-cover.webp",
-        author: {
-            name: "Dr. Ayşe Kaya",
-            avatar: "",
-        },
-        date: "2026-01-12",
-        category: "Engineering",
-        tags: ["Topology Optimization", "FEA", "Lightweight Design", "3D Printing"],
-        readTime: 11,
-    },
-]
-
-export function getPostBySlug(slug: string): BlogPost | undefined {
-    return blogPosts.find((post) => post.slug === slug)
-}
-
-export function getPostsByCategory(category: Category): BlogPost[] {
-    if (category === "All") return blogPosts
-    return blogPosts.filter((post) => post.category === category)
-}
-
-export function getRelatedPosts(currentSlug: string, limit: number = 3): BlogPost[] {
-    const current = getPostBySlug(currentSlug)
-    if (!current) return blogPosts.slice(0, limit)
-
-    return blogPosts
-        .filter((post) => post.slug !== currentSlug)
-        .sort((a, b) => {
-            // Prioritize same category
-            const aScore = a.category === current.category ? 2 : 0
-            const bScore = b.category === current.category ? 2 : 0
-            // Then shared tags
-            const aTagScore = a.tags.filter((t) => current.tags.includes(t)).length
-            const bTagScore = b.tags.filter((t) => current.tags.includes(t)).length
-            return bScore + bTagScore - (aScore + aTagScore)
-        })
-        .slice(0, limit)
-}
-
-export function getFeaturedPost(): BlogPost {
-    return blogPosts.find((post) => post.featured) || blogPosts[0]
-}
-
-export function formatDate(dateString: string): string {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    })
-}
+Topology optimization is no longer reserved for F1 teams and satellite engineers. With modern tools and additive manufacturing, any engineer can leverage this technique to create lighter, stronger, more efficient parts.',
+            '/blog/topology-optimization-cover.webp',
+            'Topology Optimization for Beginners: Designing Parts That Nature Would Approve', -- Default metaTitle
+            'Learn how topology optimization uses algorithms to create lightweight, high-performance parts by removing material where it''s not needed.', -- Default metaDescription
+            '["Topology Optimization","FEA","Lightweight Design","3D Printing"]',
+            1, -- default TOC true
+            1768176000000,
+            'published',
+            'Engineering',
+            '["Topology Optimization","FEA","Lightweight Design","3D Printing"]',
+            11,
+            0,
+            'user_admin_seed',
+            1771201827867,
+            1771201827867
+        );

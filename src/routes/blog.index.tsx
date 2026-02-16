@@ -1,82 +1,107 @@
 "use client"
 
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router"
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useSession } from "@/lib/auth-client"
 import { detectLanguage, seoContent } from "@/utils/language"
-import {
-  blogPosts,
-  formatDate,
-} from "@/data/blog-posts"
+import type { BlogPost } from "@/db/schema"
 import { LandingFooter } from "@/components/landing"
+import { Clock } from "lucide-react"
 
-export const Route = createFileRoute("/blog/")(
-  {
-    head: () => {
-      const lang = detectLanguage()
-      const content = (seoContent as any)[lang]?.blog || {
-        title: "Blog | VizCad - Engineering & Digital Twin Insights",
-        description:
-          "Explore articles on digital twins, 3D printing, CAD collaboration, and engineering innovation. Stay ahead with VizCad's engineering blog.",
-      }
+// Define the loader return type
+interface BlogIndexData {
+  posts: BlogPost[]
+}
 
-      return {
-        meta: [
-          { title: content.title },
-          { name: "description", content: content.description },
-          {
-            property: "og:title",
-            content: content.ogTitle || content.title,
-          },
-          {
-            property: "og:description",
-            content: content.ogDescription || content.description,
-          },
-          { property: "og:url", content: "https://viz-cad.com/blog" },
-          { property: "og:type", content: "website" },
-          {
-            name: "twitter:title",
-            content: content.twitterTitle || content.title,
-          },
-          {
-            name: "twitter:description",
-            content: content.twitterDescription || content.description,
-          },
-        ],
-        links: [{ rel: "canonical", href: "https://viz-cad.com/blog" }],
-        scripts: [
-          {
-            type: "application/ld+json",
-            children: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Blog",
-              name: "VizCad Blog",
-              url: "https://viz-cad.com/blog",
-              description:
-                "Engineering insights on digital twins, 3D printing, CAD collaboration, and more.",
-              publisher: {
-                "@type": "Organization",
-                name: "VizCad",
-                url: "https://viz-cad.com",
-              },
-              blogPost: blogPosts.map((post) => ({
-                "@type": "BlogPosting",
-                headline: post.title,
-                description: post.excerpt,
-                datePublished: post.date,
-                author: {
-                  "@type": "Person",
-                  name: post.author.name,
-                },
-                url: `https://viz-cad.com/blog/${post.slug}`,
-              })),
-            }),
-          },
-        ],
-      }
-    },
-    component: BlogPage,
-  }
-)
+export const Route = createFileRoute("/blog/")({
+  loader: async (): Promise<BlogIndexData> => {
+    try {
+      // In a real generic loader, we'd use the fully qualified URL or window.origin
+      // For a client-side transition, relative path works. For SSR, we need absolute.
+      // Since this is TanStack Start/Router, we should preferably fetch from the server function or API.
+      // For now, using fetch to relative path which works in browser.
+      // Note: On SSR this might fail if not handled.
+      // Ideally, we import the server function directly.
+      // But assuming /api/blog is available.
+      const res = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog` : "/api/blog")
+      if (!res.ok) throw new Error("Failed to fetch posts")
+      const posts = await res.json() as BlogPost[]
+
+      // Sort by publishedAt desc (newest first)
+      posts.sort((a, b) => {
+        const dateA = new Date(a.publishedAt || a.createdAt).getTime()
+        const dateB = new Date(b.publishedAt || b.createdAt).getTime()
+        return dateB - dateA
+      })
+
+      return { posts }
+    } catch (e) {
+      console.error("Failed to load blog posts", e)
+      return { posts: [] }
+    }
+  },
+  head: ({ loaderData }) => {
+    const lang = detectLanguage()
+    const content = (seoContent as any)[lang]?.blog || {
+      title: "Blog | VizCad - Engineering & Digital Twin Insights",
+      description:
+        "Explore articles on digital twins, 3D printing, CAD collaboration, and engineering innovation. Stay ahead with VizCad's engineering blog.",
+    }
+
+    return {
+      meta: [
+        { title: content.title },
+        { name: "description", content: content.description },
+        {
+          property: "og:title",
+          content: content.ogTitle || content.title,
+        },
+        {
+          property: "og:description",
+          content: content.ogDescription || content.description,
+        },
+        { property: "og:url", content: "https://viz-cad.com/blog" },
+        { property: "og:type", content: "website" },
+        {
+          name: "twitter:title",
+          content: content.twitterTitle || content.title,
+        },
+        {
+          name: "twitter:description",
+          content: content.twitterDescription || content.description,
+        },
+      ],
+      links: [{ rel: "canonical", href: "https://viz-cad.com/blog" }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            name: "VizCad Blog",
+            url: "https://viz-cad.com/blog",
+            description:
+              "Engineering insights on digital twins, 3D printing, CAD collaboration, and more.",
+            publisher: {
+              "@type": "Organization",
+              name: "VizCad",
+              url: "https://viz-cad.com",
+            },
+            blogPost: loaderData?.posts.map((post) => ({
+              "@type": "BlogPosting",
+              headline: post.title,
+              description: post.excerpt,
+              datePublished: post.publishedAt,
+              // author: { "@type": "Person", name: post.author.name }, // Author name not on post object directly, requires join or extra fetch
+              url: `https://viz-cad.com/blog/${post.slug}`,
+            })) || [],
+          }),
+        },
+      ],
+    }
+  },
+  component: BlogPage,
+})
 
 /* ----------- Category Gradient Map ----------- */
 const categoryGradients: Record<string, string> = {
@@ -92,13 +117,13 @@ function BlogCoverImage({
   post,
   className = "",
 }: {
-  post: { coverImage: string; category: string; title: string }
+  post: BlogPost
   className?: string
 }) {
   const [imgError, setImgError] = useState(false)
   const gradient = categoryGradients[post.category] || "from-gray-600 to-gray-800"
 
-  if (imgError) {
+  if (imgError || !post.coverImage) {
     return (
       <div
         className={`bg-gradient-to-br ${gradient} flex items-center justify-center ${className}`}
@@ -122,8 +147,18 @@ function BlogCoverImage({
 }
 
 /* ----------- Date helper ----------- */
-function getMonthDay(dateStr: string) {
-  const d = new Date(dateStr)
+function formatDate(date: Date | string | null) {
+  if (!date) return ""
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
+
+function getMonthDay(date: Date | string | null) {
+  if (!date) return { month: "", day: "" }
+  const d = new Date(date)
   const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase()
   const day = d.getDate()
   return { month, day }
@@ -131,9 +166,15 @@ function getMonthDay(dateStr: string) {
 
 /* ----------- Hero Slider ----------- */
 const SLIDE_INTERVAL = 5000
-const heroSlides = blogPosts.slice(0, 5)
 
-function HeroSlider() {
+function HeroSlider({ posts }: { posts: BlogPost[] }) {
+  // Only use featured or latest 5 posts
+  const heroSlides = posts.filter(p => p.featured).slice(0, 5)
+  // If no featured, use latest 5
+  if (heroSlides.length === 0) {
+    heroSlides.push(...posts.slice(0, 5))
+  }
+
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -145,20 +186,22 @@ function HeroSlider() {
 
   const next = useCallback(() => {
     setCurrent((prev) => (prev + 1) % heroSlides.length)
-  }, [])
+  }, [heroSlides.length])
 
   const prev = useCallback(() => {
     setCurrent((p) => (p - 1 + heroSlides.length) % heroSlides.length)
-  }, [])
+  }, [heroSlides.length])
 
   // Auto-slide
   useEffect(() => {
-    if (isPaused) return
+    if (isPaused || heroSlides.length <= 1) return
     timerRef.current = setInterval(next, SLIDE_INTERVAL)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [isPaused, next])
+  }, [isPaused, next, heroSlides.length])
+
+  if (heroSlides.length === 0) return null// No posts to show
 
   return (
     <div
@@ -169,7 +212,7 @@ function HeroSlider() {
       {/* Slides */}
       {heroSlides.map((post, idx) => (
         <Link
-          key={post.slug}
+          key={post.id}
           to="/blog/$slug"
           params={{ slug: post.slug }}
           className="absolute inset-0 transition-opacity duration-700 ease-in-out block"
@@ -193,7 +236,7 @@ function HeroSlider() {
           >
             {/* Date */}
             <p className="text-white/70 text-xs sm:text-sm font-medium mb-1.5 tracking-wide">
-              {formatDate(post.date)}
+              {formatDate(post.publishedAt)}
             </p>
 
             {/* Title */}
@@ -210,51 +253,58 @@ function HeroSlider() {
       ))}
 
       {/* Left arrow — hover only */}
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}
-        aria-label="Previous slide"
-        className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center transition-all duration-300"
-        style={{ opacity: isHovered ? 1 : 0, pointerEvents: isHovered ? "auto" : "none" }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
+      {heroSlides.length > 1 && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}
+          aria-label="Previous slide"
+          className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center transition-all duration-300"
+          style={{ opacity: isHovered ? 1 : 0, pointerEvents: isHovered ? "auto" : "none" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
 
       {/* Right arrow — hover only */}
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); next() }}
-        aria-label="Next slide"
-        className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center transition-all duration-300"
-        style={{ opacity: isHovered ? 1 : 0, pointerEvents: isHovered ? "auto" : "none" }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      {heroSlides.length > 1 && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); next() }}
+          aria-label="Next slide"
+          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center transition-all duration-300"
+          style={{ opacity: isHovered ? 1 : 0, pointerEvents: isHovered ? "auto" : "none" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
 
       {/* Dot indicators — always visible, bottom right */}
-      <div className="absolute bottom-4 right-4 sm:right-6 z-30 flex items-center gap-1.5">
-        {heroSlides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goTo(idx) }}
-            aria-label={`Go to slide ${idx + 1}`}
-            className={`rounded-full transition-all duration-300 ${idx === current
-              ? "w-3 h-3 bg-white"
-              : "w-2 h-2 bg-white/50 hover:bg-white/80"
-              }`}
-          />
-        ))}
-      </div>
+      {heroSlides.length > 1 && (
+        <div className="absolute bottom-4 right-4 sm:right-6 z-30 flex items-center gap-1.5">
+          {heroSlides.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goTo(idx) }}
+              aria-label={`Go to slide ${idx + 1}`}
+              className={`rounded-full transition-all duration-300 ${idx === current
+                ? "w-3 h-3 bg-white"
+                : "w-2 h-2 bg-white/50 hover:bg-white/80"
+                }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 /* ----------- Newsletter Sidebar ----------- */
-function NewsletterSidebar() {
+function NewsletterSidebar({ posts }: { posts: BlogPost[] }) {
   const [email, setEmail] = useState("")
   const [subscribed, setSubscribed] = useState(false)
+  const popularPosts = posts.slice(0, 3) // Need real popularity metric later
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -263,6 +313,12 @@ function NewsletterSidebar() {
       setEmail("")
     }
   }
+
+  // Calculate categories
+  const categories: Record<string, number> = {}
+  posts.forEach(p => {
+    categories[p.category] = (categories[p.category] || 0) + 1
+  })
 
   return (
     <aside className="hidden xl:block w-[300px] shrink-0">
@@ -301,15 +357,12 @@ function NewsletterSidebar() {
         <div className="rounded-2xl border border-border/60 bg-card p-6">
           <h3 className="text-lg font-bold text-foreground mb-3">Categories</h3>
           <div className="space-y-2">
-            {["Digital Twin", "3D Printing", "CAD", "Engineering", "Software"].map((cat) => {
-              const count = blogPosts.filter(p => p.category === cat).length
-              return (
-                <div key={cat} className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">{cat}</span>
-                  <span className="text-xs text-muted-foreground/60 bg-muted rounded-full px-2 py-0.5">{count}</span>
-                </div>
-              )
-            })}
+            {Object.entries(categories).map(([cat, count]) => (
+              <div key={cat} className="flex items-center justify-between py-1.5 text-sm">
+                <span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">{cat}</span>
+                <span className="text-xs text-muted-foreground/60 bg-muted rounded-full px-2 py-0.5">{count}</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -317,9 +370,9 @@ function NewsletterSidebar() {
         <div className="rounded-2xl border border-border/60 bg-card p-6">
           <h3 className="text-lg font-bold text-foreground mb-3">Popular</h3>
           <div className="space-y-4">
-            {blogPosts.slice(0, 3).map((post) => (
+            {popularPosts.map((post) => (
               <Link
-                key={post.slug}
+                key={post.id}
                 to="/blog/$slug"
                 params={{ slug: post.slug }}
                 className="block group/pop"
@@ -327,7 +380,7 @@ function NewsletterSidebar() {
                 <p className="text-sm font-medium text-foreground group-hover/pop:text-primary transition-colors leading-snug line-clamp-2">
                   {post.title}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{formatDate(post.date)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{formatDate(post.publishedAt)}</p>
               </Link>
             ))}
           </div>
@@ -339,11 +392,20 @@ function NewsletterSidebar() {
 
 /* ----------- Blog Page ----------- */
 function BlogPage() {
+  const { posts } = useLoaderData({ from: "/blog/" })
+  const sessionQuery = useSession()
+  const isAdmin = sessionQuery.data?.user.role === "admin"
+
+  // Filter posts: Admins see all, others see only published
+  const visiblePosts = isAdmin
+    ? posts
+    : posts.filter(p => p.status === "published")
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Slider */}
+      {/* Hero Slider - Only show published/featured even for admin usually, or maybe draft too? Let's just show visible */}
       <div className="pt-24 sm:pt-28 px-0 lg:px-8 max-w-7xl mx-auto">
-        <HeroSlider />
+        <HeroSlider posts={visiblePosts.filter(p => p.status === 'published')} />
       </div>
 
       {/* Content: Posts + Sidebar */}
@@ -352,11 +414,11 @@ function BlogPage() {
           {/* Posts List */}
           <div className="flex-1 min-w-0 max-w-4xl">
             <div className="space-y-16 sm:space-y-20">
-              {blogPosts.map((post) => {
-                const { month, day } = getMonthDay(post.date)
+              {visiblePosts.map((post) => {
+                const { month, day } = getMonthDay(post.publishedAt || post.createdAt)
 
                 return (
-                  <article key={post.slug} className="group">
+                  <article key={post.id} className="group">
                     <div className="flex gap-6 sm:gap-10">
                       {/* Date Column */}
                       <div className="hidden sm:flex flex-col items-center pt-1 min-w-[60px]">
@@ -381,6 +443,11 @@ function BlogPage() {
                               post={post}
                               className="w-full h-full group-hover:scale-[1.03] transition-transform duration-700"
                             />
+                            {post.status !== "published" && (
+                              <span className="absolute top-4 right-4 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md uppercase tracking-wider">
+                                {post.status}
+                              </span>
+                            )}
                           </div>
                         </Link>
 
@@ -395,9 +462,9 @@ function BlogPage() {
                           </h2>
                         </Link>
 
-                        {/* Excerpt */}
+                        {/* Post Summary */}
                         <p className="text-base text-muted-foreground leading-relaxed mb-4 line-clamp-3">
-                          {post.excerpt}{" "}
+                          {post.metaDescription || post.excerpt}{" "}
                           <Link
                             to="/blog/$slug"
                             params={{ slug: post.slug }}
@@ -410,12 +477,13 @@ function BlogPage() {
                         {/* Meta Row */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground uppercase tracking-wide">
                           <span className="sm:hidden">
-                            {month} {day}, {new Date(post.date).getFullYear()}
+                            {month} {day}, {new Date(post.publishedAt || "").getFullYear()}
                           </span>
                           <span className="sm:hidden text-border">·</span>
-                          <span>{formatDate(post.date)}</span>
+                          <span>{formatDate(post.publishedAt)}</span>
                           <span className="text-border">·</span>
-                          <span>{post.author.name}</span>
+                          <span>VizCad Team</span>
+                          {/* Author info not available in simple post object - could add to query */}
                           <span className="text-border">·</span>
                           <span>{post.category}</span>
                         </div>
@@ -427,7 +495,7 @@ function BlogPage() {
             </div>
 
             {/* Empty state */}
-            {blogPosts.length === 0 && (
+            {posts.length === 0 && (
               <div className="text-center py-24">
                 <p className="text-lg text-muted-foreground">
                   No articles found yet.
@@ -437,7 +505,7 @@ function BlogPage() {
           </div>
 
           {/* Newsletter Sidebar — desktop only */}
-          <NewsletterSidebar />
+          <NewsletterSidebar posts={posts} />
         </div>
       </section>
 
@@ -446,3 +514,4 @@ function BlogPage() {
     </div>
   )
 }
+

@@ -32,9 +32,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useEffect, useState, useMemo } from "react";
-import { Loader2, ArrowUpDown, HardDrive, File as FileIcon } from "lucide-react";
+import { Loader2, ArrowUpDown, HardDrive, File as FileIcon, FileText, Plus, Edit, Trash2, ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
@@ -68,6 +69,16 @@ interface UserFile {
   createdAt: string;
 }
 
+interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  status: "draft" | "published" | "archived";
+  authorId: string;
+  publishedAt: Date | null;
+  createdAt: Date;
+}
+
 function AdminPage() {
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
@@ -92,6 +103,10 @@ function AdminPage() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
+  // Blog State
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+
   const sessionQuery = useSession();
   const session = isClient ? sessionQuery.data : null;
   const isPending = isClient ? sessionQuery.isPending : true;
@@ -112,8 +127,36 @@ function AdminPage() {
     if (session?.user.role === "admin") {
       loadUsers();
       loadStorageStats();
+      loadPosts();
     }
   }, [session]);
+
+  const loadPosts = async () => {
+    try {
+      setPostsLoading(true);
+      const res = await fetch("/api/blog");
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data as BlogPost[]);
+      }
+    } catch (err) {
+      console.error("Failed to load posts", err);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const handleDeletePost = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+    try {
+      const res = await fetch(`/api/blog/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      await loadPosts();
+    } catch (err) {
+      console.error("Failed to delete post", err);
+      alert("Failed to delete post");
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -288,6 +331,7 @@ function AdminPage() {
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="blog">Blog</TabsTrigger>
             <TabsTrigger value="storage">Storage</TabsTrigger>
           </TabsList>
 
@@ -426,6 +470,111 @@ function AdminPage() {
                       Next
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="blog" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <div>
+                  <CardTitle>Blog Posts</CardTitle>
+                  <CardDescription>Manage your blog content</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link to="/admin/blog/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Post
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Published</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {postsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                          </TableCell>
+                        </TableRow>
+                      ) : posts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            No posts found. Create one to get started.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        posts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex flex-col">
+                                <span>{post.title}</span>
+                                <span className="text-xs text-muted-foreground">/{post.slug}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${post.status === "published"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                  : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                                  }`}
+                              >
+                                {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {post.publishedAt
+                                ? new Date(post.publishedAt).toLocaleDateString()
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  asChild
+                                  title="View"
+                                >
+                                  <Link to="/blog/$slug" params={{ slug: post.slug }} target="_blank">
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  asChild
+                                  title="Edit"
+                                >
+                                  <Link to="/admin/blog/$postId" params={{ postId: post.id }}>
+                                    <Edit className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => handleDeletePost(post.id)}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>

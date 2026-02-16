@@ -17,13 +17,14 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AppRouteImport } from './routes/app'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ModelSnapRouteImport } from './routes/ModelSnap'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as SharedTokenRouteImport } from './routes/shared.$token'
 import { Route as FileFileIdRouteImport } from './routes/file.$fileId'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as ApiBlogRouteImport } from './routes/api/blog'
 import { Route as ApiSharedTokenRouteImport } from './routes/api/shared.$token'
 import { Route as ApiFilesVersionsRouteImport } from './routes/api/files/versions'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
@@ -41,9 +42,13 @@ import { Route as ApiFilesDownloadRouteImport } from './routes/api/files/downloa
 import { Route as ApiFilesDetailRouteImport } from './routes/api/files/detail'
 import { Route as ApiFilesCompleteUploadRouteImport } from './routes/api/files/complete-upload'
 import { Route as ApiFilesCommentsRouteImport } from './routes/api/files/comments'
+import { Route as ApiBlogIdRouteImport } from './routes/api/blog.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAdminUserFilesRouteImport } from './routes/api/admin/user-files'
 import { Route as ApiAdminStorageStatsRouteImport } from './routes/api/admin/storage-stats'
+import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
+import { Route as AdminBlogPostIdRouteImport } from './routes/admin.blog.$postId'
+import { Route as ApiBlogSlugSlugRouteImport } from './routes/api/blog.slug.$slug'
 
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -85,11 +90,6 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ModelSnapRoute = ModelSnapRouteImport.update({
   id: '/ModelSnap',
   path: '/ModelSnap',
@@ -105,6 +105,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   path: '/',
   getParentRoute: () => BlogRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SharedTokenRoute = SharedTokenRouteImport.update({
   id: '/shared/$token',
   path: '/shared/$token',
@@ -119,6 +124,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => BlogRoute,
+} as any)
+const ApiBlogRoute = ApiBlogRouteImport.update({
+  id: '/api/blog',
+  path: '/api/blog',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSharedTokenRoute = ApiSharedTokenRouteImport.update({
   id: '/api/shared/$token',
@@ -205,6 +215,11 @@ const ApiFilesCommentsRoute = ApiFilesCommentsRouteImport.update({
   path: '/api/files/comments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBlogIdRoute = ApiBlogIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiBlogRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -220,11 +235,25 @@ const ApiAdminStorageStatsRoute = ApiAdminStorageStatsRouteImport.update({
   path: '/api/admin/storage-stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminBlogNewRoute = AdminBlogNewRouteImport.update({
+  id: '/admin/blog/new',
+  path: '/admin/blog/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminBlogPostIdRoute = AdminBlogPostIdRouteImport.update({
+  id: '/admin/blog/$postId',
+  path: '/admin/blog/$postId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBlogSlugSlugRoute = ApiBlogSlugSlugRouteImport.update({
+  id: '/slug/$slug',
+  path: '/slug/$slug',
+  getParentRoute: () => ApiBlogRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
-  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
@@ -233,13 +262,18 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/admin/blog/$postId': typeof AdminBlogPostIdRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/blog/$id': typeof ApiBlogIdRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -257,11 +291,11 @@ export interface FileRoutesByFullPath {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
-  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
@@ -269,13 +303,18 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/admin': typeof AdminIndexRoute
   '/blog': typeof BlogIndexRoute
+  '/admin/blog/$postId': typeof AdminBlogPostIdRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/blog/$id': typeof ApiBlogIdRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -293,12 +332,12 @@ export interface FileRoutesByTo {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ModelSnap': typeof ModelSnapRoute
-  '/admin': typeof AdminRoute
   '/app': typeof AppRoute
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
@@ -307,13 +346,18 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/api/blog': typeof ApiBlogRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/file/$fileId': typeof FileFileIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/admin/blog/$postId': typeof AdminBlogPostIdRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/blog/$id': typeof ApiBlogIdRoute
   '/api/files/comments': typeof ApiFilesCommentsRoute
   '/api/files/complete-upload': typeof ApiFilesCompleteUploadRoute
   '/api/files/detail': typeof ApiFilesDetailRoute
@@ -331,13 +375,13 @@ export interface FileRoutesById {
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/files/versions': typeof ApiFilesVersionsRoute
   '/api/shared/$token': typeof ApiSharedTokenRoute
+  '/api/blog/slug/$slug': typeof ApiBlogSlugSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/ModelSnap'
-    | '/admin'
     | '/app'
     | '/blog'
     | '/contact'
@@ -346,13 +390,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/admin/'
     | '/blog/'
+    | '/admin/blog/$postId'
+    | '/admin/blog/new'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
+    | '/api/blog/$id'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -370,11 +419,11 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/slug/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/ModelSnap'
-    | '/admin'
     | '/app'
     | '/contact'
     | '/dashboard'
@@ -382,13 +431,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/admin'
     | '/blog'
+    | '/admin/blog/$postId'
+    | '/admin/blog/new'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
+    | '/api/blog/$id'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -406,11 +460,11 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/slug/$slug'
   id:
     | '__root__'
     | '/'
     | '/ModelSnap'
-    | '/admin'
     | '/app'
     | '/blog'
     | '/contact'
@@ -419,13 +473,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/verify-email'
+    | '/api/blog'
     | '/blog/$slug'
     | '/file/$fileId'
     | '/shared/$token'
+    | '/admin/'
     | '/blog/'
+    | '/admin/blog/$postId'
+    | '/admin/blog/new'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
+    | '/api/blog/$id'
     | '/api/files/comments'
     | '/api/files/complete-upload'
     | '/api/files/detail'
@@ -443,12 +502,12 @@ export interface FileRouteTypes {
     | '/api/files/upload'
     | '/api/files/versions'
     | '/api/shared/$token'
+    | '/api/blog/slug/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ModelSnapRoute: typeof ModelSnapRoute
-  AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
   BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
@@ -457,8 +516,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  ApiBlogRoute: typeof ApiBlogRouteWithChildren
   FileFileIdRoute: typeof FileFileIdRoute
   SharedTokenRoute: typeof SharedTokenRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminBlogPostIdRoute: typeof AdminBlogPostIdRoute
+  AdminBlogNewRoute: typeof AdminBlogNewRoute
   ApiAdminStorageStatsRoute: typeof ApiAdminStorageStatsRoute
   ApiAdminUserFilesRoute: typeof ApiAdminUserFilesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -539,13 +602,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/ModelSnap': {
       id: '/ModelSnap'
       path: '/ModelSnap'
@@ -567,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shared/$token': {
       id: '/shared/$token'
       path: '/shared/$token'
@@ -587,6 +650,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/api/blog': {
+      id: '/api/blog'
+      path: '/api/blog'
+      fullPath: '/api/blog'
+      preLoaderRoute: typeof ApiBlogRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/shared/$token': {
       id: '/api/shared/$token'
@@ -707,6 +777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesCommentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/blog/$id': {
+      id: '/api/blog/$id'
+      path: '/$id'
+      fullPath: '/api/blog/$id'
+      preLoaderRoute: typeof ApiBlogIdRouteImport
+      parentRoute: typeof ApiBlogRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -728,6 +805,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminStorageStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/blog/new': {
+      id: '/admin/blog/new'
+      path: '/admin/blog/new'
+      fullPath: '/admin/blog/new'
+      preLoaderRoute: typeof AdminBlogNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/blog/$postId': {
+      id: '/admin/blog/$postId'
+      path: '/admin/blog/$postId'
+      fullPath: '/admin/blog/$postId'
+      preLoaderRoute: typeof AdminBlogPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/blog/slug/$slug': {
+      id: '/api/blog/slug/$slug'
+      path: '/slug/$slug'
+      fullPath: '/api/blog/slug/$slug'
+      preLoaderRoute: typeof ApiBlogSlugSlugRouteImport
+      parentRoute: typeof ApiBlogRoute
+    }
   }
 }
 
@@ -743,10 +841,22 @@ const BlogRouteChildren: BlogRouteChildren = {
 
 const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
+interface ApiBlogRouteChildren {
+  ApiBlogIdRoute: typeof ApiBlogIdRoute
+  ApiBlogSlugSlugRoute: typeof ApiBlogSlugSlugRoute
+}
+
+const ApiBlogRouteChildren: ApiBlogRouteChildren = {
+  ApiBlogIdRoute: ApiBlogIdRoute,
+  ApiBlogSlugSlugRoute: ApiBlogSlugSlugRoute,
+}
+
+const ApiBlogRouteWithChildren =
+  ApiBlogRoute._addFileChildren(ApiBlogRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ModelSnapRoute: ModelSnapRoute,
-  AdminRoute: AdminRoute,
   AppRoute: AppRoute,
   BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
@@ -755,8 +865,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  ApiBlogRoute: ApiBlogRouteWithChildren,
   FileFileIdRoute: FileFileIdRoute,
   SharedTokenRoute: SharedTokenRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminBlogPostIdRoute: AdminBlogPostIdRoute,
+  AdminBlogNewRoute: AdminBlogNewRoute,
   ApiAdminStorageStatsRoute: ApiAdminStorageStatsRoute,
   ApiAdminUserFilesRoute: ApiAdminUserFilesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -1,14 +1,10 @@
 "use client"
 
-import { createFileRoute, Link, useParams } from "@tanstack/react-router"
+import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router"
 import { useState, useRef } from "react"
-import {
-    getPostBySlug,
-    getRelatedPosts,
-    formatDate,
-    blogPosts,
-} from "@/data/blog-posts"
 import { LandingFooter } from "@/components/landing"
+import type { BlogPost } from "@/db/schema"
+import MDEditor from "@uiw/react-md-editor"
 import {
     ArrowLeft,
     Clock,
@@ -18,9 +14,55 @@ import {
     ArrowRight,
 } from "lucide-react"
 
+// Define Loader Return Type
+interface BlogArticleData {
+    post: BlogPost
+    relatedPosts: BlogPost[]
+}
+
 export const Route = createFileRoute("/blog/$slug")({
-    head: ({ params }) => {
-        const post = getPostBySlug(params.slug)
+    loader: async ({ params }): Promise<BlogArticleData> => {
+        try {
+            const { slug } = params
+            // Fetch the specific post
+            const postRes = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog/slug/${slug}` : `/api/blog/slug/${slug}`)
+            if (!postRes.ok) throw new Error("Post not found")
+
+            const post = await postRes.json() as BlogPost | null
+            if (!post) throw new Error("Post not found")
+
+            // Fetch all published posts to calculate related posts
+            // TODO: Move this logic to backend /api/blog/related?slug=xyz
+            const allRes = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/blog?status=published` : "/api/blog?status=published")
+            const allPosts = await allRes.json() as BlogPost[]
+
+            const relatedPosts = allPosts
+                .filter(p => p.id !== post.id && p.status === 'published')
+                .sort((a, b) => {
+                    // Prioritize same category
+                    const aScore = a.category === post.category ? 2 : 0
+                    const bScore = b.category === post.category ? 2 : 0
+                    // Prioritize shared tags (if tags exist)
+                    const pTags = post.tags || []
+                    const aTags = a.tags || []
+                    const bTags = b.tags || []
+
+                    const aTagScore = aTags.filter(t => pTags.includes(t)).length
+                    const bTagScore = bTags.filter(t => pTags.includes(t)).length
+
+                    return (bScore + bTagScore) - (aScore + aTagScore)
+                })
+                .slice(0, 3)
+
+            return { post, relatedPosts }
+        } catch (error) {
+            console.error(error)
+            // Allow hydration to handle 404 UI
+            throw error
+        }
+    },
+    head: ({ loaderData }) => {
+        const post = loaderData?.post
         if (!post) {
             return {
                 meta: [{ title: "Article Not Found | VizCad Blog" }],
@@ -29,26 +71,26 @@ export const Route = createFileRoute("/blog/$slug")({
         return {
             meta: [
                 { title: `${post.title} | VizCad Blog` },
-                { name: "description", content: post.excerpt },
+                { name: "description", content: post.metaDescription || post.excerpt || "" },
                 { property: "og:title", content: post.title },
-                { property: "og:description", content: post.excerpt },
+                { property: "og:description", content: post.metaDescription || post.excerpt || "" },
                 {
                     property: "og:url",
                     content: `https://viz-cad.com/blog/${post.slug}`,
                 },
                 { property: "og:type", content: "article" },
-                { property: "og:image", content: `https://viz-cad.com${post.coverImage}` },
-                { property: "article:published_time", content: post.date },
-                { property: "article:author", content: post.author.name },
+                { property: "og:image", content: `https://viz-cad.com${post.coverImage || ""}` },
+                { property: "article:published_time", content: post.publishedAt?.toString() || "" },
+                { property: "article:author", content: "VizCad Team" }, // Author logic pending
                 { property: "article:section", content: post.category },
-                ...post.tags.map((tag) => ({
+                ...(post.tags || []).map((tag: string) => ({
                     property: "article:tag",
                     content: tag,
                 })),
                 { name: "twitter:card", content: "summary_large_image" },
                 { name: "twitter:title", content: post.title },
-                { name: "twitter:description", content: post.excerpt },
-                { name: "twitter:image", content: `https://viz-cad.com${post.coverImage}` },
+                { name: "twitter:description", content: post.metaDescription || post.excerpt || "" },
+                { name: "twitter:image", content: `https://viz-cad.com${post.coverImage || ""}` },
             ],
             links: [
                 {
@@ -65,10 +107,10 @@ export const Route = createFileRoute("/blog/$slug")({
                         headline: post.title,
                         description: post.excerpt,
                         image: `https://viz-cad.com${post.coverImage}`,
-                        datePublished: post.date,
+                        datePublished: post.publishedAt,
                         author: {
                             "@type": "Person",
-                            name: post.author.name,
+                            name: "VizCad Team",
                         },
                         publisher: {
                             "@type": "Organization",
@@ -104,280 +146,14 @@ const categoryColors: Record<string, string> = {
     Software: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
 }
 
-/* ----------- Markdown-like renderer ----------- */
-function renderContent(content: string) {
-    const lines = content.split("\n")
-    const elements: React.ReactNode[] = []
-    let inCodeBlock = false
-    let codeLines: string[] = []
-    let inTable = false
-    let tableHeader: string[] = []
-    let tableRows: string[][] = []
-    let inList = false
-    let listItems: React.ReactNode[] = []
-    let listType: "ul" | "ol" = "ul"
-
-    const flushList = () => {
-        if (inList && listItems.length > 0) {
-            if (listType === "ol") {
-                elements.push(
-                    <ol
-                        key={`ol-${elements.length}`}
-                        className="list-decimal list-inside space-y-2 my-6 pl-2 text-foreground/90"
-                    >
-                        {listItems}
-                    </ol>
-                )
-            } else {
-                elements.push(
-                    <ul
-                        key={`ul-${elements.length}`}
-                        className="list-disc list-inside space-y-2 my-6 pl-2 text-foreground/90"
-                    >
-                        {listItems}
-                    </ul>
-                )
-            }
-            listItems = []
-            inList = false
-        }
-    }
-
-    const flushTable = () => {
-        if (inTable && tableHeader.length > 0) {
-            elements.push(
-                <div key={`table-${elements.length}`} className="overflow-x-auto my-8">
-                    <table className="min-w-full border border-border rounded-xl overflow-hidden">
-                        <thead>
-                            <tr className="bg-muted">
-                                {tableHeader.map((h, i) => (
-                                    <th
-                                        key={i}
-                                        className="px-4 py-3 text-left text-sm font-bold text-foreground border-b border-border"
-                                    >
-                                        {h}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {tableRows.map((row, ri) => (
-                                <tr
-                                    key={ri}
-                                    className={ri % 2 === 0 ? "bg-background" : "bg-muted/30"}
-                                >
-                                    {row.map((cell, ci) => (
-                                        <td
-                                            key={ci}
-                                            className="px-4 py-3 text-sm text-foreground/80 border-b border-border/50"
-                                        >
-                                            {cell}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )
-            tableHeader = []
-            tableRows = []
-            inTable = false
-        }
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-
-        // Code blocks
-        if (line.startsWith("```")) {
-            if (inCodeBlock) {
-                elements.push(
-                    <pre
-                        key={`code-${elements.length}`}
-                        className="bg-slate-900 dark:bg-slate-800 text-slate-100 rounded-xl p-6 overflow-x-auto my-6 text-sm leading-relaxed font-mono border border-slate-700/50"
-                    >
-                        <code>{codeLines.join("\n")}</code>
-                    </pre>
-                )
-                codeLines = []
-                inCodeBlock = false
-            } else {
-                flushList()
-                flushTable()
-                inCodeBlock = true
-            }
-            continue
-        }
-        if (inCodeBlock) {
-            codeLines.push(line)
-            continue
-        }
-
-        // Tables
-        if (line.includes("|") && line.trim().startsWith("|")) {
-            flushList()
-            const cells = line
-                .split("|")
-                .slice(1, -1)
-                .map((c) => c.trim())
-
-            if (!inTable) {
-                tableHeader = cells
-                inTable = true
-                continue
-            }
-
-            // Check if separator row
-            if (cells.every((c) => /^[-:]+$/.test(c))) {
-                continue
-            }
-
-            tableRows.push(cells)
-            continue
-        } else if (inTable) {
-            flushTable()
-        }
-
-        // Empty line
-        if (line.trim() === "") {
-            flushList()
-            continue
-        }
-
-        // Headers
-        if (line.startsWith("### ")) {
-            flushList()
-            elements.push(
-                <h3
-                    key={`h3-${elements.length}`}
-                    className="text-xl font-bold text-foreground mt-10 mb-4"
-                >
-                    {line.replace("### ", "")}
-                </h3>
-            )
-            continue
-        }
-        if (line.startsWith("## ")) {
-            flushList()
-            elements.push(
-                <h2
-                    key={`h2-${elements.length}`}
-                    className="text-2xl sm:text-3xl font-bold text-foreground mt-12 mb-6 pb-3 border-b border-border/50"
-                >
-                    {line.replace("## ", "")}
-                </h2>
-            )
-            continue
-        }
-
-        // Ordered list
-        const olMatch = line.match(/^(\d+)\.\s\*\*(.+?)\*\*\s*—?\s*(.*)/)
-        const olMatchSimple = line.match(/^(\d+)\.\s(.+)/)
-        if (olMatch) {
-            if (!inList || listType !== "ol") {
-                flushList()
-                inList = true
-                listType = "ol"
-            }
-            listItems.push(
-                <li key={`li-${elements.length}-${listItems.length}`} className="text-base leading-relaxed">
-                    <strong className="font-semibold text-foreground">{olMatch[2]}</strong>
-                    {olMatch[3] && <span> — {olMatch[3]}</span>}
-                </li>
-            )
-            continue
-        } else if (olMatchSimple && !line.startsWith("#")) {
-            if (!inList || listType !== "ol") {
-                flushList()
-                inList = true
-                listType = "ol"
-            }
-            listItems.push(
-                <li key={`li-${elements.length}-${listItems.length}`} className="text-base leading-relaxed">
-                    {renderInline(olMatchSimple[2])}
-                </li>
-            )
-            continue
-        }
-
-        // Unordered list
-        if (line.startsWith("- ")) {
-            if (!inList || listType !== "ul") {
-                flushList()
-                inList = true
-                listType = "ul"
-            }
-            const content = line.replace(/^- /, "")
-            listItems.push(
-                <li key={`li-${elements.length}-${listItems.length}`} className="text-base leading-relaxed">
-                    {renderInline(content)}
-                </li>
-            )
-            continue
-        }
-
-        // Paragraph
-        flushList()
-        elements.push(
-            <p
-                key={`p-${elements.length}`}
-                className="text-base sm:text-lg leading-relaxed text-foreground/80 my-4"
-            >
-                {renderInline(line)}
-            </p>
-        )
-    }
-
-    flushList()
-    flushTable()
-    return elements
-}
-
-function renderInline(text: string): React.ReactNode {
-    const parts: React.ReactNode[] = []
-    const regex = /(\*\*(.+?)\*\*|`(.+?)`|\[(.+?)\]\((.+?)\))/g
-    let lastIndex = 0
-    let match
-
-    while ((match = regex.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-            parts.push(text.slice(lastIndex, match.index))
-        }
-        if (match[2]) {
-            parts.push(
-                <strong key={`b-${match.index}`} className="font-semibold text-foreground">
-                    {match[2]}
-                </strong>
-            )
-        } else if (match[3]) {
-            parts.push(
-                <code
-                    key={`c-${match.index}`}
-                    className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono text-foreground"
-                >
-                    {match[3]}
-                </code>
-            )
-        } else if (match[4] && match[5]) {
-            parts.push(
-                <a
-                    key={`a-${match.index}`}
-                    href={match[5]}
-                    className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
-                >
-                    {match[4]}
-                </a>
-            )
-        }
-        lastIndex = match.index + match[0].length
-    }
-
-    if (lastIndex < text.length) {
-        parts.push(text.slice(lastIndex))
-    }
-
-    return parts.length === 1 ? parts[0] : <>{parts}</>
+/* ----------- Date helper ----------- */
+function formatDate(date: Date | string | null | undefined) {
+    if (!date) return ""
+    return new Date(date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    })
 }
 
 /* ----------- Blog Cover Image ----------- */
@@ -385,13 +161,13 @@ function ArticleCoverImage({
     post,
     className = "",
 }: {
-    post: { coverImage: string; category: string; title: string }
+    post: BlogPost
     className?: string
 }) {
     const [imgError, setImgError] = useState(false)
     const gradient = categoryGradients[post.category] || "from-gray-600 to-gray-800"
 
-    if (imgError) {
+    if (imgError || !post.coverImage) {
         return (
             <div
                 className={`bg-gradient-to-br ${gradient} flex items-center justify-center ${className}`}
@@ -417,7 +193,7 @@ function ArticleCoverImage({
 }
 
 /* ----------- Related Posts Mobile Slider ----------- */
-function RelatedSlider({ relatedPosts }: { relatedPosts: ReturnType<typeof getRelatedPosts> }) {
+function RelatedSlider({ relatedPosts }: { relatedPosts: BlogPost[] }) {
     const [current, setCurrent] = useState(0)
     const touchStartX = useRef(0)
     const touchDeltaX = useRef(0)
@@ -532,32 +308,10 @@ function RelatedSlider({ relatedPosts }: { relatedPosts: ReturnType<typeof getRe
 
 /* ----------- Blog Article Page ----------- */
 function BlogArticlePage() {
-    const { slug } = useParams({ from: "/blog/$slug" })
-    const post = getPostBySlug(slug)
+    const { post, relatedPosts } = useLoaderData({ from: "/blog/$slug" }) as BlogArticleData
 
-    if (!post) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-4">
-                        Article Not Found
-                    </h1>
-                    <p className="text-muted-foreground mb-8">
-                        The article you're looking for doesn't exist.
-                    </p>
-                    <Link
-                        to="/blog"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Blog
-                    </Link>
-                </div>
-            </div>
-        )
-    }
-
-    const relatedPosts = getRelatedPosts(slug, 3)
+    // Fallback for 404 handled in loader, but just in case
+    if (!post) return null;
 
     return (
         <div className="min-h-screen bg-background">
@@ -605,7 +359,7 @@ function BlogArticlePage() {
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-2 mb-10">
-                    {post.tags.map((tag) => (
+                    {(post.tags || []).map((tag: string) => (
                         <span
                             key={tag}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-sm text-primary-foreground font-medium"
@@ -617,7 +371,15 @@ function BlogArticlePage() {
                 </div>
 
                 {/* Content */}
-                <div className="prose-vizcad">{renderContent(post.content)}</div>
+                <div data-color-mode="light" className="prose-vizcad leading-relaxed">
+                    <MDEditor.Markdown
+                        source={post.content}
+                        style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                        wrapperElement={{
+                            "data-color-mode": "light"
+                        }}
+                    />
+                </div>
 
                 {/* About the Author */}
                 <div className="mt-14 pt-8 border-t border-border">
@@ -627,11 +389,12 @@ function BlogArticlePage() {
                             <User className="w-8 h-8 text-primary" />
                         </div>
                         <div>
-                            <p className="text-lg font-bold text-foreground mb-1">{post.author.name}</p>
+                            {/* Author Name */}
+                            <p className="text-lg font-bold text-foreground mb-1">VizCad Team</p>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                                 <span className="flex items-center gap-1">
                                     <Calendar className="w-3.5 h-3.5" />
-                                    {formatDate(post.date)}
+                                    {formatDate(post.publishedAt)}
                                 </span>
                                 <span className="flex items-center gap-1">
                                     <Clock className="w-3.5 h-3.5" />
@@ -639,7 +402,8 @@ function BlogArticlePage() {
                                 </span>
                             </div>
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                                {post.author.bio || `${post.author.name} is a contributor at VizCad, sharing insights on ${post.category.toLowerCase()}, engineering innovation, and the future of digital manufacturing.`}
+                                {/* Bio logic could be here if author had bio in schema */}
+                                Insights on {post.category.toLowerCase()}, engineering innovation, and the future of digital manufacturing.
                             </p>
                         </div>
                     </div>
@@ -656,7 +420,7 @@ function BlogArticlePage() {
 
                         {/* Desktop: grid */}
                         <div className="hidden md:grid md:grid-cols-3 gap-6">
-                            {relatedPosts.map((rPost) => (
+                            {relatedPosts.map((rPost: BlogPost) => (
                                 <Link
                                     key={rPost.slug}
                                     to="/blog/$slug"
@@ -701,11 +465,11 @@ function BlogArticlePage() {
     )
 }
 
-function RelatedCoverImage({ post }: { post: { coverImage: string; category: string; title: string } }) {
+function RelatedCoverImage({ post }: { post: BlogPost }) {
     const [imgError, setImgError] = useState(false)
     const gradient = categoryGradients[post.category] || "from-gray-600 to-gray-800"
 
-    if (imgError) {
+    if (imgError || !post.coverImage) {
         return (
             <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                 <span className="text-white/30 text-5xl font-black select-none">{post.category.charAt(0)}</span>

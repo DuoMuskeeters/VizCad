@@ -161,3 +161,40 @@ export const fileComments = sqliteTable("file_comments", {
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
+
+// ============================================
+// BLOG TABLES
+// ============================================
+
+export const posts = sqliteTable("posts", {
+  id: text("id").primaryKey(), // UUID
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt").notNull(),
+  content: text("content").notNull(), // Markdown/MDX content
+  coverImage: text("coverImage"),
+
+  // SEO Fields
+  metaTitle: text("metaTitle"),
+  metaDescription: text("metaDescription"),
+  keywords: text("keywords", { mode: "json" }).$type<string[]>(), // Array of strings
+
+  // Structure & Metadata
+  tableOfContents: integer("tableOfContents", { mode: "boolean" }).default(true).notNull(),
+  publishedAt: integer("publishedAt", { mode: "timestamp" }),
+  status: text("status", { enum: ['draft', 'published', 'archived'] }).default('draft').notNull(),
+  category: text("category").notNull(),
+  tags: text("tags", { mode: "json" }).$type<string[]>(), // Array of strings
+  readTime: integer("readTime").notNull(), // In minutes
+  featured: integer("featured", { mode: "boolean" }).default(false).notNull(),
+
+  authorId: text("authorId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+});
+
+export type BlogPost = typeof posts.$inferSelect;
+export type NewBlogPost = typeof posts.$inferInsert;
