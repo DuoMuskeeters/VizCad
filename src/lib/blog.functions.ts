@@ -32,3 +32,13 @@ export const fetchPostBySlug = createServerFn({ method: "GET" })
         const relatedPosts = await getRelatedPosts(post, 3);
         return { post, relatedPosts };
     });
+
+/**
+ * Increment view count for a post.
+ */
+export const fetchIncrementView = createServerFn({ method: "POST" })
+    .inputValidator((data: { slug: string }) => data)
+    .handler(async ({ data }) => {
+        const { incrementPostViews } = await import("./blog.server");
+        await incrementPostViews(data.slug);
+    });

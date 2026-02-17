@@ -1,5 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useSession, authClient } from "@/lib/auth-client";
+import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Loader2, Edit, ArrowLeft } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,89 +22,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { useEffect, useState } from "react";
-import { Loader2, Plus, Edit, Trash2, ArrowLeft } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getDb } from "@/db/client";
-import { authorProfiles, user } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { env } from "cloudflare:workers";
-
-// --- Server Functions ---
-
-export const getAuthorProfile = createServerFn({ method: "GET" })
-    .handler(async ({ context }) => {
-        // We need to fetch current user's profile
-        // But strictly speaking we want to list ALL authors or manage current user's author profile?
-        // The plan implies an admin panel to manage profiles.
-        // Let's implement fetching all profiles for now, or at least the current user's.
-        // To keep it simple for the first iteration, let's just fetch the current user's profile to edit.
-        // But wait, the request was "admin panel author details update". 
-        // Let's list all users and allow editing their author profile.
-
-        const d1 = env?.vizcad_auth;
-        if (!d1) throw new Error("D1 Binding 'vizcad_auth' not found");
-        const db = getDb(d1);
-
-        const profiles = await db.select({
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            authorName: authorProfiles.name,
-            authorBio: authorProfiles.bio,
-            authorRole: authorProfiles.role,
-            authorAvatar: authorProfiles.avatarUrl,
-        })
-            .from(user)
-            .leftJoin(authorProfiles, eq(user.id, authorProfiles.userId))
-            .all();
-
-        return profiles;
-    });
-
-// Define input schema interface
-interface UpdateAuthorProfileInput {
-    userId: string;
-    name: string;
-    bio: string;
-    role: string;
-    avatarUrl: string;
-}
-
-export const updateAuthorProfile = createServerFn({ method: "POST" })
-    .inputValidator((data: UpdateAuthorProfileInput) => data)
-    .handler(async ({ data }) => {
-        const d1 = env?.vizcad_auth;
-        if (!d1) throw new Error("D1 Binding 'vizcad_auth' not found");
-        const db = getDb(d1);
-
-        // Check if profile exists
-        const existing = await db.select().from(authorProfiles).where(eq(authorProfiles.userId, data.userId)).get();
-
-        if (existing) {
-            await db.update(authorProfiles).set({
-                name: data.name,
-                bio: data.bio,
-                role: data.role,
-                avatarUrl: data.avatarUrl,
-                updatedAt: new Date(),
-            }).where(eq(authorProfiles.userId, data.userId));
-        } else {
-            await db.insert(authorProfiles).values({
-                id: crypto.randomUUID(),
-                userId: data.userId,
-                name: data.name,
-                bio: data.bio,
-                role: data.role,
-                avatarUrl: data.avatarUrl,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            });
-        }
-
-        return { success: true };
-    });
+import { createFileRoute } from "@tanstack/react-router";
 
 // --- Component ---
 
@@ -113,6 +34,7 @@ function AdminAuthorsPage() {
     const navigate = useNavigate();
     const [profiles, setProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form State
@@ -132,10 +54,17 @@ function AdminAuthorsPage() {
     const loadProfiles = async () => {
         try {
             setLoading(true);
-            const data = await getAuthorProfile();
-            setProfiles(data);
-        } catch (e) {
+            setError(null);
+            const res = await fetch("/api/admin/authors");
+            if (!res.ok) {
+                const data = await res.json() as { error?: string };
+                throw new Error(data.error || "Loading failed");
+            }
+            const data = await res.json() as { profiles: any[] };
+            setProfiles(data.profiles);
+        } catch (e: any) {
             console.error(e);
+            setError(e.message || "Profil listesi yüklenemedi.");
         } finally {
             setLoading(false);
         }
@@ -144,7 +73,7 @@ function AdminAuthorsPage() {
     const handleEdit = (profile: any) => {
         setEditingId(profile.userId);
         setFormData({
-            name: profile.authorName || profile.userName, // Default to user name if no author name
+            name: profile.authorName || profile.userName,
             bio: profile.authorBio || "",
             role: profile.authorRole || "",
             avatarUrl: profile.authorAvatar || "",
@@ -155,16 +84,24 @@ function AdminAuthorsPage() {
         if (!editingId) return;
         try {
             setLoading(true);
-            await updateAuthorProfile({
-                data: {
+            const res = await fetch("/api/admin/authors", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                     userId: editingId,
                     ...formData
-                }
+                })
             });
+
+            if (!res.ok) {
+                const data = await res.json() as { error?: string };
+                throw new Error(data.error || "Save failed");
+            }
+
             setEditingId(null);
             await loadProfiles();
-        } catch (e) {
-            alert("Failed to save");
+        } catch (e: any) {
+            alert(e.message || "Failed to save");
         } finally {
             setLoading(false);
         }
@@ -184,12 +121,16 @@ function AdminAuthorsPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Authors</CardTitle>
-                        <CardDescription>Manage how authors appear on blog posts.</CardDescription>
+                        <CardTitle>Admin Authors</CardTitle>
+                        <CardDescription>Manage how administrators appear as authors on blog posts.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {loading && !profiles.length ? (
                             <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+                        ) : error ? (
+                            <div className="p-8 text-center text-red-500 font-medium bg-red-50 rounded-lg">{error}</div>
+                        ) : profiles.length === 0 ? (
+                            <div className="p-8 text-center text-muted-foreground">Admin rolünde yazar bulunamadı.</div>
                         ) : (
                             <Table>
                                 <TableHeader>
@@ -225,7 +166,6 @@ function AdminAuthorsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Edit Dialog/Card - Keeping it simple, showing inline or overlay would be better but simple conditional render for now */}
                 {editingId && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                         <Card className="w-full max-w-lg">

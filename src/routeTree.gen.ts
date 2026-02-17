@@ -49,6 +49,7 @@ import { Route as ApiBlogIdRouteImport } from './routes/api/blog.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAdminUserFilesRouteImport } from './routes/api/admin/user-files'
 import { Route as ApiAdminStorageStatsRouteImport } from './routes/api/admin/storage-stats'
+import { Route as ApiAdminAuthorsRouteImport } from './routes/api/admin/authors'
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
 import { Route as AdminBlogPostIdRouteImport } from './routes/admin.blog.$postId'
 import { Route as ApiBlogSlugSlugRouteImport } from './routes/api/blog.slug.$slug'
@@ -254,6 +255,11 @@ const ApiAdminStorageStatsRoute = ApiAdminStorageStatsRouteImport.update({
   path: '/api/admin/storage-stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminAuthorsRoute = ApiAdminAuthorsRouteImport.update({
+  id: '/api/admin/authors',
+  path: '/api/admin/authors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminBlogNewRoute = AdminBlogNewRouteImport.update({
   id: '/admin/blog/new',
   path: '/admin/blog/new',
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -436,6 +445,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/api/admin/authors'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -481,6 +491,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/api/admin/authors'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -527,6 +538,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/api/admin/authors'
     | '/api/admin/storage-stats'
     | '/api/admin/user-files'
     | '/api/auth/$'
@@ -572,6 +584,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBlogPostIdRoute: typeof AdminBlogPostIdRoute
   AdminBlogNewRoute: typeof AdminBlogNewRoute
+  ApiAdminAuthorsRoute: typeof ApiAdminAuthorsRoute
   ApiAdminStorageStatsRoute: typeof ApiAdminStorageStatsRoute
   ApiAdminUserFilesRoute: typeof ApiAdminUserFilesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -876,6 +889,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminStorageStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/authors': {
+      id: '/api/admin/authors'
+      path: '/api/admin/authors'
+      fullPath: '/api/admin/authors'
+      preLoaderRoute: typeof ApiAdminAuthorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/blog/new': {
       id: '/admin/blog/new'
       path: '/admin/blog/new'
@@ -955,6 +975,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminBlogPostIdRoute: AdminBlogPostIdRoute,
   AdminBlogNewRoute: AdminBlogNewRoute,
+  ApiAdminAuthorsRoute: ApiAdminAuthorsRoute,
   ApiAdminStorageStatsRoute: ApiAdminStorageStatsRoute,
   ApiAdminUserFilesRoute: ApiAdminUserFilesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

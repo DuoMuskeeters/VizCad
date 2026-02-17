@@ -32,7 +32,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useEffect, useState, useMemo } from "react";
-import { Loader2, ArrowUpDown, HardDrive, File as FileIcon, FileText, Plus, Edit, Trash2, ExternalLink } from "lucide-react";
+import { Loader2, ArrowUpDown, HardDrive, File as FileIcon, FileText, Plus, Edit, Trash2, ExternalLink, User as UserIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin/")({
@@ -482,12 +482,20 @@ function AdminPage() {
                   <CardTitle>Blog Posts</CardTitle>
                   <CardDescription>Manage your blog content</CardDescription>
                 </div>
-                <Button asChild>
-                  <Link to="/admin/blog/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Post
-                  </Link>
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" asChild>
+                    <Link to="/admin/authors">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      Authors
+                    </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/admin/blog/new">
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Post
+                    </Link>
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">

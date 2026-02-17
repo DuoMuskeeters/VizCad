@@ -5,6 +5,7 @@ import type { BlogPost, BlogPostWithAuthor } from "@/db/schema"
 import { LandingFooter } from "@/components/landing"
 import { fetchAllPosts } from "@/lib/blog.functions"
 import { detectLanguage, seoContent } from "@/utils/language"
+import { Eye, Clock } from "lucide-react"
 
 // Define the loader return type
 interface BlogIndexData {
@@ -469,10 +470,12 @@ function BlogPage() {
                           </span>
                           <span className="sm:hidden text-border">·</span>
                           <span>{formatDate(post.publishedAt)}</span>
-                          <span className="text-border">·</span>
-                          <span>{post.author?.name || "VizCad Team"}</span>
-                          <span className="text-border">·</span>
                           <span>{post.category}</span>
+                          <span className="text-border">·</span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3 h-3" />
+                            {post.views || 0}
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -57,6 +57,13 @@
       "when": 1771282016478,
       "tag": "0007_next_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1771290974429,
+      "tag": "0008_friendly_goliath",
+      "breakpoints": true
     }
   ]
 }

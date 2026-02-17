@@ -125,3 +125,23 @@ export async function getRelatedPosts(post: BlogPost, limit: number = 3): Promis
 
     return scored.slice(0, limit).map((s) => s.post);
 }
+
+/**
+ * Increment the view count for a post by slug.
+ */
+export async function incrementPostViews(slug: string): Promise<void> {
+    const db = getDatabase();
+    // Use raw SQL or drizzle update to increment
+    // Since it's D1 (SQLite), we can use sql template tag or just update
+    // For simplicity, let's use the update syntax incrementing the views field
+    const post = await getPostBySlug(slug);
+    if (!post) return;
+
+    await db
+        .update(posts)
+        .set({
+            views: (post.views || 0) + 1,
+            // We don't want to update updatedAt for view counts usually
+        })
+        .where(eq(posts.id, post.id));
+}

@@ -187,6 +187,7 @@ export const posts = sqliteTable("posts", {
   tags: text("tags", { mode: "json" }).$type<string[]>(), // Array of strings
   readTime: integer("readTime").notNull(), // In minutes
   featured: integer("featured", { mode: "boolean" }).default(false).notNull(),
+  views: integer("views").default(0).notNull(),
 
   authorId: text("authorId")
     .notNull()

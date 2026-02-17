@@ -12,9 +12,10 @@ import {
     User,
     Tag,
     ArrowRight,
+    Eye,
 } from "lucide-react"
 
-import { fetchPostBySlug } from "@/lib/blog.functions"
+import { fetchPostBySlug, fetchIncrementView } from "@/lib/blog.functions"
 import { detectLanguage, seoContent } from "@/utils/language"
 
 // Define Loader Return Type
@@ -342,7 +343,11 @@ function BlogArticlePage() {
 
     useEffect(() => {
         setIsMounted(true)
-    }, [])
+        // Increment view count
+        fetchIncrementView({ data: { slug: post.slug } }).catch(err => {
+            console.error("Failed to increment view", err)
+        })
+    }, [post.slug])
 
     // Fallback for 404 handled in loader, but just in case
     if (!post) return null;
@@ -375,6 +380,10 @@ function BlogArticlePage() {
                             <span className="flex items-center gap-1 text-white/80 text-sm">
                                 <Clock className="w-3.5 h-3.5" />
                                 {post.readTime} {ui.minRead}
+                            </span>
+                            <span className="flex items-center gap-1 text-white/80 text-sm">
+                                <Eye className="w-3.5 h-3.5" />
+                                {post.views || 0} views
                             </span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
@@ -435,18 +444,13 @@ function BlogArticlePage() {
                             {/* Author Name */}
                             <p className="text-lg font-bold text-foreground mb-1 flex items-center gap-2">
                                 {authorName}
-                                {authorRole && <span className="text-xs font-normal text-muted-foreground px-2 py-0.5 bg-muted rounded-full">{authorRole}</span>}
+                                {authorRole && <span className="text-xs font-normal text-primary px-2.5 py-1 bg-primary/10 rounded-full">{authorRole}</span>}
                             </p>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                                 <span className="flex items-center gap-1">
                                     <Calendar className="w-3.5 h-3.5" />
                                     {formatDate(post.publishedAt)}
                                 </span>
-                                {post.updatedAt && post.updatedAt > (post.publishedAt || new Date(0)) && (
-                                    <span className="flex items-center gap-1 text-xs" title={`${ui.updated}: ${formatDate(post.updatedAt)}`}>
-                                        {ui.updated}
-                                    </span>
-                                )}
                             </div>
                             <p className="text-sm text-muted-foreground leading-relaxed">
                                 {authorBio}
