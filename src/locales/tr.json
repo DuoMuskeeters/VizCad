@@ -302,5 +302,70 @@
   "share_error_generic": "Bir hata oluştu",
   "share_modal_description_create": "Bu dosya için paylaşım linki oluşturun",
   "share_modal_create_link": "Paylaşım Linki Oluştur",
-  "share_error_no_session": "Oturum bulunamadı"
+  "share_error_no_session": "Oturum bulunamadı",
+  "dashboard": {
+    "sidebar": {
+      "my_files": "Dosyalarım",
+      "shared": "Benimle Paylaşılan",
+      "recent": "Son Kullanılanlar",
+      "starred": "Yıldızlı",
+      "trash": "Çöp Kutusu",
+      "upload_button": "Dosya Yükle",
+      "storage": "Depolama",
+      "used_of": "{{usedGb}} GB / {{quotaGb}} GB kullanıldı",
+      "settings": "Ayarlar"
+    },
+    "toolbar": {
+      "sort_by": "Sırala",
+      "date": "Tarih",
+      "name": "Ad",
+      "size": "Boyut",
+      "last_modified": "Son değiştirme"
+    },
+    "list": {
+      "name": "Ad",
+      "owner": "Sahip",
+      "last_modified": "Son değiştirme",
+      "size": "Boyut",
+      "loading": "Dosyalar yükleniyor...",
+      "error_title": "Dosyalar yüklenemedi",
+      "empty_title": "Bu bölümde dosya bulunamadı",
+      "empty_desc_my_files": "Dosya yüklemek için 'Dosya Yükle' butonunu kullanın",
+      "empty_desc_starred": "Henüz yıldızlı dosyanız yok",
+      "empty_desc_recent": "Son görüntülenen dosya yok",
+      "empty_desc_trash": "Çöp kutusu boş",
+      "actions": {
+        "preview": "Önizle",
+        "download": "İndir",
+        "share": "Paylaş",
+        "star": "Yıldızlı'ya ekle",
+        "unstar": "Yıldızı kaldır",
+        "rename": "Yeniden adlandır",
+        "move_to_trash": "Çöp kutusuna taşı",
+        "restore": "Geri Yükle",
+        "permanent_delete": "Kalıcı Olarak Sil",
+        "delete_confirm": "Bu dosyayı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+      },
+      "pagination": {
+        "page": "Sayfa {{current}} / {{total}}"
+      }
+    },
+    "rename": {
+      "title": "Dosyayı Yeniden Adlandır",
+      "placeholder": "Yeni dosya adı",
+      "cancel": "İptal",
+      "save": "Kaydet"
+    },
+    "upload": {
+      "title": "Dosya Yükle",
+      "drop_zone": "Dosyaları sürükle bırak veya",
+      "select_button": "Dosya Seç",
+      "supported_formats": "Desteklenen: STL, OBJ, PLY (Thumbnail), STEP, IGES",
+      "generating_thumbnail": "Thumbnail oluşturuluyor...",
+      "uploading": "Yükleniyor...",
+      "uploaded": "Yüklendi",
+      "failed": "Hata",
+      "size_limit_error": "{{name}} dosyası 5MB sınırını aşıyor. STEP/IGES dosyaları en fazla 5MB olabilir."
+    }
+  }
 }

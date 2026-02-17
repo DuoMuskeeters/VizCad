@@ -17,6 +17,17 @@ export const fetchAllPosts = createServerFn({ method: "GET" }).handler(
 );
 
 /**
+ * Fetch most viewed posts.
+ * Used by blog index for Featured/Popular sections.
+ */
+export const fetchMostViewedPosts = createServerFn({ method: "GET" })
+    .inputValidator((data: { limit: number }) => data)
+    .handler(async ({ data }) => {
+        const { getMostViewedPosts } = await import("./blog.server");
+        return getMostViewedPosts(data.limit);
+    });
+
+/**
  * Fetch a single post by slug + its related posts.
  * Used by blog article loader. Throws notFound if post doesn't exist.
  */

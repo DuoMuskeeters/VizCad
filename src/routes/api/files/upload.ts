@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { ulid } from "ulid";
 import { getDb } from "@/db/client";
 import { files } from "@/db/schema";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/upload")({
   server: {
@@ -74,6 +75,7 @@ export const Route = createFileRoute("/api/files/upload")({
             httpMetadata: { contentType: file.type },
           });
 
+
           // Create an entry in the database
           const [insertedFile] = await db
             .insert(files)
@@ -91,6 +93,17 @@ export const Route = createFileRoute("/api/files/upload")({
               updatedAt: new Date(),
             })
             .returning();
+
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_upload",
+            entityId: fileId,
+            entityType: "file",
+            details: { name: file.name, size: file.size },
+            request
+          });
 
           return new Response(JSON.stringify(insertedFile), {
             status: 200,

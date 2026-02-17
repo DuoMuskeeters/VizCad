@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
 import { files, user } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/trash")({
     server: {
@@ -104,7 +105,7 @@ export const Route = createFileRoute("/api/files/trash")({
 
                     // Check if file exists and user owns it
                     const file = await db
-                        .select({ id: files.id, userId: files.userId })
+                        .select({ id: files.id, userId: files.userId, name: files.name })
                         .from(files)
                         .where(eq(files.id, fileId))
                         .limit(1);
@@ -132,6 +133,17 @@ export const Route = createFileRoute("/api/files/trash")({
                             updatedAt: new Date(),
                         })
                         .where(eq(files.id, fileId));
+
+                    // Log activity
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_delete",
+                        entityId: fileId,
+                        entityType: "file",
+                        details: { type: "soft_delete", name: file[0].name },
+                        request
+                    });
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -185,7 +197,7 @@ export const Route = createFileRoute("/api/files/trash")({
 
                     // Check if file exists and user owns it
                     const file = await db
-                        .select({ id: files.id, userId: files.userId })
+                        .select({ id: files.id, userId: files.userId, name: files.name })
                         .from(files)
                         .where(eq(files.id, fileId))
                         .limit(1);
@@ -213,6 +225,17 @@ export const Route = createFileRoute("/api/files/trash")({
                             updatedAt: new Date(),
                         })
                         .where(eq(files.id, fileId));
+
+                    // Log activity
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_edit", // restoring is technically an edit
+                        entityId: fileId,
+                        entityType: "file",
+                        details: { type: "restore_from_trash", name: file[0].name },
+                        request
+                    });
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -295,6 +318,17 @@ export const Route = createFileRoute("/api/files/trash")({
                             // Continue with DB deletion even if R2 fails
                         }
                     }
+
+                    // Log activity (before delete so we have record)
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_delete",
+                        entityId: fileId,
+                        entityType: "file",
+                        details: { type: "permanent_delete", name: file[0].r2Key }, // r2Key often contains name
+                        request
+                    });
 
                     // Permanently delete from database
                     await db.delete(files).where(eq(files.id, fileId));

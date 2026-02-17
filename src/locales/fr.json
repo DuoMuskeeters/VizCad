@@ -302,5 +302,70 @@
   "share_error_generic": "Une erreur s'est produite",
   "share_modal_description_create": "Créer un lien de partage pour ce fichier",
   "share_modal_create_link": "Créer un lien de partage",
-  "share_error_no_session": "Session introuvable"
+  "share_error_no_session": "Session introuvable",
+  "dashboard": {
+    "sidebar": {
+      "my_files": "Mes fichiers",
+      "shared": "Partagés avec moi",
+      "recent": "Récents",
+      "starred": "Favoris",
+      "trash": "Corbeille",
+      "upload_button": "Télécharger un fichier",
+      "storage": "Stockage",
+      "used_of": "{{usedGb}} Go / {{quotaGb}} Go utilisés",
+      "settings": "Paramètres"
+    },
+    "toolbar": {
+      "sort_by": "Trier par",
+      "date": "Date",
+      "name": "Nom",
+      "size": "Taille",
+      "last_modified": "Dernière modification"
+    },
+    "list": {
+      "name": "Nom",
+      "owner": "Propriétaire",
+      "last_modified": "Dernière modification",
+      "size": "Taille",
+      "loading": "Chargement des fichiers...",
+      "error_title": "Échec du chargement des fichiers",
+      "empty_title": "Aucun fichier trouvé dans cette section",
+      "empty_desc_my_files": "Utilisez le bouton 'Télécharger un fichier' pour télécharger un fichier",
+      "empty_desc_starred": "Vous n'avez pas encore de fichiers favoris",
+      "empty_desc_recent": "Aucun fichier consulté récemment",
+      "empty_desc_trash": "La corbeille est vide",
+      "actions": {
+        "preview": "Aperçu",
+        "download": "Télécharger",
+        "share": "Partager",
+        "star": "Ajouter aux favoris",
+        "unstar": "Retirer des favoris",
+        "rename": "Renommer",
+        "move_to_trash": "Mettre à la corbeille",
+        "restore": "Restaurer",
+        "permanent_delete": "Supprimer définitivement",
+        "delete_confirm": "Êtes-vous sûr de vouloir supprimer définitivement ce fichier ? Cette action est irréversible."
+      },
+      "pagination": {
+        "page": "Page {{current}} / {{total}}"
+      }
+    },
+    "rename": {
+      "title": "Renommer le fichier",
+      "placeholder": "Nouveau nom de fichier",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
+    },
+    "upload": {
+      "title": "Télécharger un fichier",
+      "drop_zone": "Glisser-déposer des fichiers ou",
+      "select_button": "Sélectionner un fichier",
+      "supported_formats": "Supporté : STL, OBJ, PLY (Miniature), STEP, IGES",
+      "generating_thumbnail": "Génération de la miniature...",
+      "uploading": "Téléchargement...",
+      "uploaded": "Téléchargé",
+      "failed": "Erreur",
+      "size_limit_error": "Le fichier {{name}} dépasse la limite de 5 Mo. Les fichiers STEP/IGES peuvent aller jusqu'à 5 Mo."
+    }
+  }
 }

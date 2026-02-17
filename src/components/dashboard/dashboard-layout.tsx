@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Sidebar } from "./sidebar";
 import { FileToolbar } from "./file-toolbar";
 import { FileList } from "./file-list";
@@ -39,22 +40,26 @@ const sectionToEndpoint: Record<string, string> = {
   'shared': '/api/files/shared-with-me',
 };
 
-// Map section to title
-const sectionToTitle: Record<string, string> = {
-  'my-files': 'Dosyalarım',
-  'starred': 'Yıldızlı',
-  'recent': 'Son Kullanılanlar',
-  'trash': 'Çöp Kutusu',
-  'shared': 'Benimle Paylaşılan',
-};
-
 export function DashboardLayout() {
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("my-files");
-  const [currentPath, setCurrentPath] = useState<string[]>(["Dosyalarım"]);
+
+  // Map section to translation keys
+  const sectionToTitleKey: Record<string, string> = {
+    'my-files': 'dashboard.sidebar.my_files',
+    'starred': 'dashboard.sidebar.starred',
+    'recent': 'dashboard.sidebar.recent',
+    'trash': 'dashboard.sidebar.trash',
+    'shared': 'dashboard.sidebar.shared',
+  };
+
+  const getSectionTitle = (section: string) => t(sectionToTitleKey[section] || 'dashboard.sidebar.my_files');
+
+  const [currentPath, setCurrentPath] = useState<string[]>([getSectionTitle("my-files")]);
   const [refreshFileListTrigger, setRefreshFileListTrigger] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -78,7 +83,7 @@ export function DashboardLayout() {
             setFiles([]);
             return;
           }
-          throw new Error('Veri çekme başarısız oldu');
+          throw new Error(t('dashboard.list.error_title'));
         }
 
         const data = await response.json() as { files?: FileItem[]; storageSummary?: StorageSummary };
@@ -88,19 +93,19 @@ export function DashboardLayout() {
           setStorageSummary(data.storageSummary);
         }
       } catch (e) {
-        setError(e instanceof Error ? e : new Error('Bilinmeyen bir hata oluştu'));
+        setError(e instanceof Error ? e : new Error(t('share_error_generic')));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [activeSection, refreshFileListTrigger]);
+  }, [activeSection, refreshFileListTrigger, t]);
 
   // Update path when section changes
   useEffect(() => {
-    setCurrentPath([sectionToTitle[activeSection] || 'Dosyalarım']);
-  }, [activeSection]);
+    setCurrentPath([getSectionTitle(activeSection)]);
+  }, [activeSection, t]);
 
   const handleFolderClick = (folderName: string) => {
     setCurrentPath([...currentPath, folderName]);
@@ -166,7 +171,7 @@ export function DashboardLayout() {
               <Menu className="h-5 w-5" />
             </Button>
             <h1 className="text-lg font-semibold text-foreground">
-              {sectionToTitle[activeSection]}
+              {getSectionTitle(activeSection)}
             </h1>
           </div>
 

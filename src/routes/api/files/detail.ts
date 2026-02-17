@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
 import { files, fileShares, user, fileComments, fileVersions } from "@/db/schema";
 import { eq, and, count } from "drizzle-orm";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/detail")({
   server: {
@@ -111,10 +112,35 @@ export const Route = createFileRoute("/api/files/detail")({
             .from(fileComments)
             .where(eq(fileComments.fileId, fileId));
 
+          // Log activity
+          /* await */ logActivity({
+              db,
+              userId: session.user.id,
+              action: "file_view",
+              entityId: fileId,
+              entityType: "file",
+              details: { name: file.name },
+              request
+            });
+
           const versionCount = await db
             .select({ count: count() })
             .from(fileVersions)
             .where(eq(fileVersions.fileId, fileId));
+
+          // Log activity (async, don't block response)
+          // Only log if not owner to reduce noise? OR log all views?
+          // User asked for "file view" so let's log all checks.
+          // Ideally we should check if user already viewed it recently to avoid spam, but for now log every hit.
+          /* await */ logActivity({
+              db,
+              userId: session.user.id,
+              action: "file_view",
+              entityId: fileId,
+              entityType: "file",
+              details: { name: file.name },
+              request
+            });
 
           return new Response(JSON.stringify({
             file,

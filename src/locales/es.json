@@ -85,7 +85,7 @@
   "pricing_title_1": "Obtén",
   "pricing_title_highlight": "acceso",
   "pricing_title_2": "ilimitado",
-  "pricing_subtitle": "Elige el plan que se adapte a tus necesidades y descubre el poder de la visualización 3D.",
+  "pricing_subtitle": "Elige el plan que se adapte a tus necesidades y descubre el power de la visualización 3D.",
   "pricing_most_popular": "Más popular",
   "pricing_per_month": "/mes",
   "pricing_free_title": "Gratis",
@@ -302,5 +302,70 @@
   "share_error_generic": "Ha ocurrido un error",
   "share_modal_description_create": "Crear un enlace de uso compartido para este archivo",
   "share_modal_create_link": "Crear enlace de compartir",
-  "share_error_no_session": "Sesión no encontrada"
+  "share_error_no_session": "Sesión no encontrada",
+  "dashboard": {
+    "sidebar": {
+      "my_files": "Mis archivos",
+      "shared": "Compartido conmigo",
+      "recent": "Recientes",
+      "starred": "Destacados",
+      "trash": "Papelera",
+      "upload_button": "Subir archivo",
+      "storage": "Almacenamiento",
+      "used_of": "{{usedGb}} GB / {{quotaGb}} GB usados",
+      "settings": "Ajustes"
+    },
+    "toolbar": {
+      "sort_by": "Ordenar por",
+      "date": "Fecha",
+      "name": "Nombre",
+      "size": "Tamaño",
+      "last_modified": "Última modificación"
+    },
+    "list": {
+      "name": "Nombre",
+      "owner": "Propietario",
+      "last_modified": "Última modificación",
+      "size": "Tamaño",
+      "loading": "Cargando archivos...",
+      "error_title": "Error al cargar archivos",
+      "empty_title": "No se encontraron archivos en esta sección",
+      "empty_desc_my_files": "Usa el botón 'Subir archivo' para subir un archivo",
+      "empty_desc_starred": "Aún no tienes archivos destacados",
+      "empty_desc_recent": "No hay archivos vistos recientemente",
+      "empty_desc_trash": "La papelera está vacía",
+      "actions": {
+        "preview": "Vista previa",
+        "download": "Descargar",
+        "share": "Compartir",
+        "star": "Añadir a destacados",
+        "unstar": "Quitar de destacados",
+        "rename": "Renombrar",
+        "move_to_trash": "Mover a la papelera",
+        "restore": "Restaurar",
+        "permanent_delete": "Eliminar permanentemente",
+        "delete_confirm": "¿Estás seguro de que quieres eliminar permanentemente este archivo? Esta acción no se puede deshacer."
+      },
+      "pagination": {
+        "page": "Página {{current}} / {{total}}"
+      }
+    },
+    "rename": {
+      "title": "Renombrar archivo",
+      "placeholder": "Nuevo nombre de archivo",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    },
+    "upload": {
+      "title": "Subir archivo",
+      "drop_zone": "Arrastra y suelta archivos o",
+      "select_button": "Seleccionar archivo",
+      "supported_formats": "Soportado: STL, OBJ, PLY (Thumbnail), STEP, IGES",
+      "generating_thumbnail": "Generando miniatura...",
+      "uploading": "Subiendo...",
+      "uploaded": "Subido",
+      "failed": "Error",
+      "size_limit_error": "El archivo {{name}} excede el límite de 5 MB. Los archivos STEP/IGES pueden tener hasta 5 MB."
+    }
+  }
 }

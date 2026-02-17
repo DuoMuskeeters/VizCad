@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/admin/authors")({
                     const session = await auth.api.getSession(request);
 
                     // Admin check
-                    if (!session || !session.user || session.user.role !== "admin") {
+                    if (!session || !session.user || (session.user as any).role !== "admin") {
                         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
                     }
 
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/admin/authors")({
                     const session = await auth.api.getSession(request);
 
                     // Admin check
-                    if (!session || !session.user || session.user.role !== "admin") {
+                    if (!session || !session.user || (session.user as any).role !== "admin") {
                         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
                     }
 

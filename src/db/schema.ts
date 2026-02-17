@@ -222,3 +222,38 @@ export type NewAuthorProfile = typeof authorProfiles.$inferInsert;
 export type BlogPostWithAuthor = BlogPost & {
   author: AuthorProfile | null;
 };
+
+// ============================================
+// SURVEY TABLES
+// ============================================
+
+export const surveyResponses = sqliteTable("survey_responses", {
+  id: text("id").primaryKey(),
+  source: text("source").notNull(), // "Google Search", "Social Media", etc. or "dismissed"
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+});
+
+
+export type SurveyResponse = typeof surveyResponses.$inferSelect;
+export type NewSurveyResponse = typeof surveyResponses.$inferInsert;
+
+// ============================================
+// ACTIVITY LOGGING
+// ============================================
+
+export const activityLogs = sqliteTable("activity_logs", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // e.g. "file_upload", "login", "signup"
+  entityId: text("entityId"), // ID of the affected entity (fileId, etc.)
+  entityType: text("entityType"), // "file", "user", "comment"
+  details: text("details", { mode: "json" }).$type<string>(), // JSON string metadata
+  ipAddress: text("ipAddress"),
+  userAgent: text("userAgent"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+});
+
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type NewActivityLog = typeof activityLogs.$inferInsert;

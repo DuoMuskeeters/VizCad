@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
 import { files } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/rename")({
     server: {
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/api/files/rename")({
 
                     // Check if file exists and user owns it
                     const file = await db
-                        .select({ id: files.id, userId: files.userId, extension: files.extension })
+                        .select({ id: files.id, userId: files.userId, name: files.name })
                         .from(files)
                         .where(eq(files.id, fileId))
                         .limit(1);
@@ -86,6 +87,17 @@ export const Route = createFileRoute("/api/files/rename")({
                             updatedAt: new Date(),
                         })
                         .where(eq(files.id, fileId));
+
+                    // Log activity
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_rename",
+                        entityId: fileId,
+                        entityType: "file",
+                        details: { oldName: file[0].name, newName: trimmedName }, // need to fetch old name properly if not available, but 'file' query has it
+                        request
+                    });
 
                     return new Response(JSON.stringify({
                         success: true,

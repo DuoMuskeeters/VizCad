@@ -23,52 +23,33 @@ export function ShareModal({ open, onOpenChange, fileId, fileName, onShareCreate
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
-    // Check for existing share when modal opens
-    const checkExistingShare = useCallback(async () => {
+    // Initialize share (check existing or create new)
+    const initShare = useCallback(async () => {
         if (!session?.session?.token || !open) return;
-
-        try {
-            const response = await fetch(`/api/files/share?fileId=${fileId}`, {
-                headers: {
-                    'Authorization': `Bearer ${session.session.token}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json() as { shares: Array<{ shareToken: string; isActive: boolean }> };
-                // Find active link share
-                const activeShare = data.shares?.find(s => s.isActive && s.shareToken);
-                if (activeShare) {
-                    setShareUrl(`${window.location.origin}/shared/${activeShare.shareToken}`);
-                }
-            }
-        } catch (err) {
-            console.error("Error checking existing shares:", err);
-        }
-    }, [fileId, session, open]);
-
-    useEffect(() => {
-        if (open) {
-            checkExistingShare();
-        } else {
-            // Reset state when modal closes
-            setError(null);
-            setCopied(false);
-        }
-    }, [open, checkExistingShare]);
-
-    // Create share link
-    const handleCreateShare = async () => {
-        if (!session?.session?.token) {
-            setError(t("share_error_no_session", "Oturum bulunamadı"));
-            return;
-        }
 
         setLoading(true);
         setError(null);
 
         try {
-            const response = await fetch('/api/files/share', {
+            // 1. Check for existing share
+            const checkRes = await fetch(`/api/files/share?fileId=${fileId}`, {
+                headers: {
+                    'Authorization': `Bearer ${session.session.token}`
+                }
+            });
+
+            if (checkRes.ok) {
+                const data = await checkRes.json() as { shares: Array<{ shareToken: string; isActive: boolean }> };
+                const activeShare = data.shares?.find(s => s.isActive && s.shareToken);
+                if (activeShare) {
+                    setShareUrl(`${window.location.origin}/shared/${activeShare.shareToken}`);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // 2. If no active share or check failed, create once
+            const createRes = await fetch('/api/files/share', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -81,21 +62,32 @@ export function ShareModal({ open, onOpenChange, fileId, fileName, onShareCreate
                 }),
             });
 
-            if (!response.ok) {
-                const data = await response.json() as { error?: string };
+            if (!createRes.ok) {
+                const data = await createRes.json() as { error?: string };
                 throw new Error(data.error || t("share_error_generic"));
             }
 
-            const data = await response.json() as { shareUrl: string };
+            const data = await createRes.json() as { shareUrl: string };
             setShareUrl(data.shareUrl);
             onShareCreated?.();
         } catch (err) {
-            console.error("Error creating share:", err);
+            console.error("Error initializing share:", err);
             setError(err instanceof Error ? err.message : t("share_error_generic"));
         } finally {
             setLoading(false);
         }
-    };
+    }, [fileId, session, open, t, onShareCreated]);
+
+    useEffect(() => {
+        if (open) {
+            initShare();
+        } else {
+            // Reset state when modal closes
+            setShareUrl(null);
+            setError(null);
+            setCopied(false);
+        }
+    }, [open, initShare]);
 
     // Copy URL to clipboard
     const handleCopy = async () => {
@@ -143,9 +135,9 @@ export function ShareModal({ open, onOpenChange, fileId, fileName, onShareCreate
                                 variant="outline"
                                 size="sm"
                                 className="mt-4"
-                                onClick={() => setError(null)}
+                                onClick={() => initShare()}
                             >
-                                {t("share_modal_close")}
+                                {t("try_again", "Tekrar Dene")}
                             </Button>
                         </div>
                     )}
@@ -178,19 +170,6 @@ export function ShareModal({ open, onOpenChange, fileId, fileName, onShareCreate
                             {copied && (
                                 <p className="text-xs text-green-600">{t("share_modal_copied")}</p>
                             )}
-                        </div>
-                    )}
-
-                    {/* Create share button (when no URL exists) */}
-                    {!shareUrl && !loading && !error && (
-                        <div className="flex flex-col items-center justify-center py-8">
-                            <p className="text-sm text-muted-foreground mb-4">
-                                {t("share_modal_description_create", "Bu dosya için paylaşım linki oluşturun")}
-                            </p>
-                            <Button onClick={handleCreateShare} className="gap-2">
-                                <Share2 className="w-4 h-4" />
-                                {t("share_modal_create_link", "Paylaşım Linki Oluştur")}
-                            </Button>
                         </div>
                     )}
                 </div>

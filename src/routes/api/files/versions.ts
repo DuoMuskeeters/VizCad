@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { files, fileVersions, user } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { ulid } from "ulid";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/versions")({
   server: {

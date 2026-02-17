@@ -3,23 +3,28 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useSession } from "@/lib/auth-client"
 import type { BlogPost, BlogPostWithAuthor } from "@/db/schema"
 import { LandingFooter } from "@/components/landing"
-import { fetchAllPosts } from "@/lib/blog.functions"
+import { fetchAllPosts, fetchMostViewedPosts } from "@/lib/blog.functions"
 import { detectLanguage, seoContent } from "@/utils/language"
 import { Eye, Clock } from "lucide-react"
+import emailjs from "@emailjs/browser"
 
 // Define the loader return type
 interface BlogIndexData {
   posts: BlogPostWithAuthor[]
+  mostViewed: BlogPostWithAuthor[]
 }
 
 export const Route = createFileRoute("/blog/")({
   loader: async (): Promise<BlogIndexData> => {
     try {
-      const posts = await fetchAllPosts()
-      return { posts }
+      const [posts, mostViewed] = await Promise.all([
+        fetchAllPosts(),
+        fetchMostViewedPosts({ data: { limit: 5 } }),
+      ])
+      return { posts, mostViewed }
     } catch (e: any) {
       console.error("Critical: Blog loader failed", e)
-      return { posts: [] }
+      return { posts: [], mostViewed: [] }
     }
   },
 
@@ -147,12 +152,8 @@ function getMonthDay(date: Date | string | null) {
 const SLIDE_INTERVAL = 5000
 
 function HeroSlider({ posts }: { posts: BlogPost[] }) {
-  // Only use featured or latest 5 posts
-  const heroSlides = posts.filter(p => p.featured).slice(0, 5)
-  // If no featured, use latest 5
-  if (heroSlides.length === 0) {
-    heroSlides.push(...posts.slice(0, 5))
-  }
+  // Use passed posts (which should be top viewed)
+  const heroSlides = posts.slice(0, 5)
 
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -280,16 +281,35 @@ function HeroSlider({ posts }: { posts: BlogPost[] }) {
 }
 
 /* ----------- Newsletter Sidebar ----------- */
-function NewsletterSidebar({ posts, ui }: { posts: BlogPost[], ui: any }) {
+function NewsletterSidebar({ posts, popularPosts, ui }: { posts: BlogPost[], popularPosts: BlogPost[], ui: any }) {
   const [email, setEmail] = useState("")
   const [subscribed, setSubscribed] = useState(false)
-  const popularPosts = posts.slice(0, 3) // Need real popularity metric later
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email) {
+    if (!email || !email.includes("@")) return
+
+    setLoading(true)
+    try {
+      const templateParams = {
+        user_email: email,
+        feature: "Newsletter Subscription",
+      };
+
+      await emailjs.send(
+        "service_7d3dqff",
+        "template_iyg3c0t",
+        templateParams,
+        "2EhLYfAt6PzN8J5Ue"
+      )
       setSubscribed(true)
       setEmail("")
+    } catch (error) {
+      console.error("Newsletter error:", error)
+      alert("Failed to subscribe. Please try again later.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -320,13 +340,15 @@ function NewsletterSidebar({ posts, ui }: { posts: BlogPost[], ui: any }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={ui.emailPlaceholder}
                 required
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                disabled={loading}
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all disabled:opacity-50"
               />
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                disabled={loading}
+                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {ui.subscribe}
+                {loading ? "..." : ui.subscribe}
               </button>
             </form>
           )}
@@ -349,7 +371,7 @@ function NewsletterSidebar({ posts, ui }: { posts: BlogPost[], ui: any }) {
         <div className="rounded-2xl border border-border/60 bg-card p-6">
           <h3 className="text-lg font-bold text-foreground mb-3">{ui.popular}</h3>
           <div className="space-y-4">
-            {popularPosts.map((post) => (
+            {popularPosts.slice(0, 3).map((post) => (
               <Link
                 key={post.id}
                 to="/blog/$slug"
@@ -371,7 +393,7 @@ function NewsletterSidebar({ posts, ui }: { posts: BlogPost[], ui: any }) {
 
 /* ----------- Blog Page ----------- */
 function BlogPage() {
-  const { posts } = useLoaderData({ from: "/blog/" })
+  const { posts, mostViewed } = useLoaderData({ from: "/blog/" })
   const [isMounted, setIsMounted] = useState(false)
   const sessionQuery = useSession()
 
@@ -392,9 +414,9 @@ function BlogPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Slider - Only show published/featured even for admin usually, or maybe draft too? Let's just show visible */}
+      {/* Hero Slider - Always Top 5 Viewed */}
       <div className="pt-24 sm:pt-28 px-0 lg:px-8 max-w-7xl mx-auto">
-        <HeroSlider posts={visiblePosts.filter(p => p.status === 'published')} />
+        <HeroSlider posts={mostViewed} />
       </div>
 
       {/* Content: Posts + Sidebar */}
@@ -495,7 +517,7 @@ function BlogPage() {
           </div>
 
           {/* Newsletter Sidebar — desktop only */}
-          <NewsletterSidebar posts={posts} ui={ui} />
+          <NewsletterSidebar posts={posts} popularPosts={mostViewed} ui={ui} />
         </div>
       </section>
 

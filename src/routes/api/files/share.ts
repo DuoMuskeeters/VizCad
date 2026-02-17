@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { files, fileShares, user } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { ulid } from "ulid";
+import { logActivity } from "@/lib/activity.server";
 
 // Generate a random share token
 function generateShareToken(): string {
@@ -53,7 +54,7 @@ export const Route = createFileRoute("/api/files/share")({
 
           // Check file ownership
           const file = await db
-            .select({ id: files.id, userId: files.userId })
+            .select({ id: files.id, userId: files.userId, name: files.name })
             .from(files)
             .where(eq(files.id, fileId))
             .limit(1);
@@ -82,6 +83,17 @@ export const Route = createFileRoute("/api/files/share")({
             .from(fileShares)
             .leftJoin(user, eq(fileShares.sharedWithUserId, user.id))
             .where(eq(fileShares.fileId, fileId));
+
+          // Log activity (every time the share modal is opened/shares are viewed)
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_share",
+            entityId: fileId,
+            entityType: "file",
+            details: { name: file[0].name, type: "view_share_link" },
+            request
+          });
 
           return new Response(JSON.stringify({ shares }), {
             status: 200,
@@ -223,6 +235,17 @@ export const Route = createFileRoute("/api/files/share")({
             updatedAt: now,
           });
 
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_share",
+            entityId: fileId,
+            entityType: "file",
+            details: { name: file[0].name, shareType, permission, sharedWithUserId },
+            request
+          });
+
           // Build share URL for link shares
           const shareUrl = shareType === 'link'
             ? `${new URL(request.url).origin}/shared/${shareToken}`
@@ -322,6 +345,17 @@ export const Route = createFileRoute("/api/files/share")({
             .set(updateData)
             .where(eq(fileShares.id, shareId));
 
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_share", // using same action for update
+            entityId: share[0].fileId,
+            entityType: "file",
+            details: { type: "update_share", shareId, ...updateData },
+            request
+          });
+
           return new Response(JSON.stringify({
             success: true,
             message: "Paylaşım ayarları güncellendi."
@@ -375,6 +409,7 @@ export const Route = createFileRoute("/api/files/share")({
           const share = await db
             .select({
               id: fileShares.id,
+              fileId: fileShares.fileId,
               sharedByUserId: fileShares.sharedByUserId,
             })
             .from(fileShares)
@@ -389,6 +424,17 @@ export const Route = createFileRoute("/api/files/share")({
           }
 
           await db.delete(fileShares).where(eq(fileShares.id, shareId));
+
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_share",
+            entityId: share[0].fileId,
+            entityType: "file",
+            details: { type: "delete_share", shareId },
+            request
+          });
 
           return new Response(JSON.stringify({
             success: true,

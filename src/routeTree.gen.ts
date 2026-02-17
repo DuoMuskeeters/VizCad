@@ -48,8 +48,11 @@ import { Route as ApiBlogUploadRouteImport } from './routes/api/blog.upload'
 import { Route as ApiBlogIdRouteImport } from './routes/api/blog.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAdminUserFilesRouteImport } from './routes/api/admin/user-files'
+import { Route as ApiAdminSurveyRouteImport } from './routes/api/admin/survey'
 import { Route as ApiAdminStorageStatsRouteImport } from './routes/api/admin/storage-stats'
 import { Route as ApiAdminAuthorsRouteImport } from './routes/api/admin/authors'
+import { Route as ApiAdminActivitiesRouteImport } from './routes/api/admin/activities'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
 import { Route as AdminBlogPostIdRouteImport } from './routes/admin.blog.$postId'
 import { Route as ApiBlogSlugSlugRouteImport } from './routes/api/blog.slug.$slug'
@@ -250,6 +253,11 @@ const ApiAdminUserFilesRoute = ApiAdminUserFilesRouteImport.update({
   path: '/api/admin/user-files',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminSurveyRoute = ApiAdminSurveyRouteImport.update({
+  id: '/api/admin/survey',
+  path: '/api/admin/survey',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminStorageStatsRoute = ApiAdminStorageStatsRouteImport.update({
   id: '/api/admin/storage-stats',
   path: '/api/admin/storage-stats',
@@ -258,6 +266,16 @@ const ApiAdminStorageStatsRoute = ApiAdminStorageStatsRouteImport.update({
 const ApiAdminAuthorsRoute = ApiAdminAuthorsRouteImport.update({
   id: '/api/admin/authors',
   path: '/api/admin/authors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminActivitiesRoute = ApiAdminActivitiesRouteImport.update({
+  id: '/api/admin/activities',
+  path: '/api/admin/activities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
+  id: '/admin/users/$userId',
+  path: '/admin/users/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminBlogNewRoute = AdminBlogNewRouteImport.update({
@@ -302,8 +320,11 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/api/admin/activities': typeof ApiAdminActivitiesRoute
   '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
+  '/api/admin/survey': typeof ApiAdminSurveyRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
@@ -348,8 +369,11 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/api/admin/activities': typeof ApiAdminActivitiesRoute
   '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
+  '/api/admin/survey': typeof ApiAdminSurveyRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
@@ -396,8 +420,11 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/admin/blog/$postId': typeof AdminBlogPostIdRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/api/admin/activities': typeof ApiAdminActivitiesRoute
   '/api/admin/authors': typeof ApiAdminAuthorsRoute
   '/api/admin/storage-stats': typeof ApiAdminStorageStatsRoute
+  '/api/admin/survey': typeof ApiAdminSurveyRoute
   '/api/admin/user-files': typeof ApiAdminUserFilesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/blog/$id': typeof ApiBlogIdRoute
@@ -445,8 +472,11 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/admin/users/$userId'
+    | '/api/admin/activities'
     | '/api/admin/authors'
     | '/api/admin/storage-stats'
+    | '/api/admin/survey'
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
@@ -491,8 +521,11 @@ export interface FileRouteTypes {
     | '/blog'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/admin/users/$userId'
+    | '/api/admin/activities'
     | '/api/admin/authors'
     | '/api/admin/storage-stats'
+    | '/api/admin/survey'
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
@@ -538,8 +571,11 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/admin/blog/$postId'
     | '/admin/blog/new'
+    | '/admin/users/$userId'
+    | '/api/admin/activities'
     | '/api/admin/authors'
     | '/api/admin/storage-stats'
+    | '/api/admin/survey'
     | '/api/admin/user-files'
     | '/api/auth/$'
     | '/api/blog/$id'
@@ -584,8 +620,11 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBlogPostIdRoute: typeof AdminBlogPostIdRoute
   AdminBlogNewRoute: typeof AdminBlogNewRoute
+  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
+  ApiAdminActivitiesRoute: typeof ApiAdminActivitiesRoute
   ApiAdminAuthorsRoute: typeof ApiAdminAuthorsRoute
   ApiAdminStorageStatsRoute: typeof ApiAdminStorageStatsRoute
+  ApiAdminSurveyRoute: typeof ApiAdminSurveyRoute
   ApiAdminUserFilesRoute: typeof ApiAdminUserFilesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesCommentsRoute: typeof ApiFilesCommentsRoute
@@ -882,6 +921,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminUserFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/survey': {
+      id: '/api/admin/survey'
+      path: '/api/admin/survey'
+      fullPath: '/api/admin/survey'
+      preLoaderRoute: typeof ApiAdminSurveyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/storage-stats': {
       id: '/api/admin/storage-stats'
       path: '/api/admin/storage-stats'
@@ -894,6 +940,20 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/authors'
       fullPath: '/api/admin/authors'
       preLoaderRoute: typeof ApiAdminAuthorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/activities': {
+      id: '/api/admin/activities'
+      path: '/api/admin/activities'
+      fullPath: '/api/admin/activities'
+      preLoaderRoute: typeof ApiAdminActivitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users/$userId': {
+      id: '/admin/users/$userId'
+      path: '/admin/users/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AdminUsersUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/blog/new': {
@@ -975,8 +1035,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminBlogPostIdRoute: AdminBlogPostIdRoute,
   AdminBlogNewRoute: AdminBlogNewRoute,
+  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
+  ApiAdminActivitiesRoute: ApiAdminActivitiesRoute,
   ApiAdminAuthorsRoute: ApiAdminAuthorsRoute,
   ApiAdminStorageStatsRoute: ApiAdminStorageStatsRoute,
+  ApiAdminSurveyRoute: ApiAdminSurveyRoute,
   ApiAdminUserFilesRoute: ApiAdminUserFilesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesCommentsRoute: ApiFilesCommentsRoute,

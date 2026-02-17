@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/blog")({
                     // Auth check
                     const auth = getAuth(d1, env, request.url);
                     const session = await auth.api.getSession(request);
-                    if (!session || session.user.role !== "admin") {
+                    if (!session || (session.user as any).role !== "admin") {
                         return new Response(JSON.stringify({ error: "Unauthorized" }), {
                             status: 401,
                             headers: { "Content-Type": "application/json" }

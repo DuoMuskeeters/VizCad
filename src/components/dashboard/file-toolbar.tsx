@@ -1,4 +1,5 @@
 import { LayoutGrid, List, ChevronRight } from "lucide-react"
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -22,6 +23,8 @@ export function FileToolbar({
   currentPath,
   onNavigate,
 }: FileToolbarProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
       {/* Breadcrumb Navigation - Hidden on mobile (title shown in main header) */}
@@ -53,15 +56,15 @@ export function FileToolbar({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 h-9 rounded-lg">
               <span className="text-sm">
-                {sortBy === "date" ? "Tarih" : sortBy === "name" ? "Ad" : "Boyut"}
+                {sortBy === "date" ? t("dashboard.toolbar.date") : sortBy === "name" ? t("dashboard.toolbar.name") : t("dashboard.toolbar.size")}
               </span>
               <ChevronRight className="w-4 h-4 rotate-90" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onSortChange("date")}>Son değiştirme</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange("name")}>Ad</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange("size")}>Boyut</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSortChange("date")}>{t("dashboard.toolbar.last_modified")}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSortChange("name")}>{t("dashboard.toolbar.name")}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSortChange("size")}>{t("dashboard.toolbar.size")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

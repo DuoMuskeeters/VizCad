@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Upload, X, FileBox, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ interface UploadModalProps {
 const SUPPORTED_3D_EXTENSIONS = ['stl', 'obj', 'ply', 'step', 'stp', 'iges', 'igs', 'brep'];
 
 export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModalProps) {
+    const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
     const [filesToUpload, setFilesToUpload] = useState<FileUploadState[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,13 +52,13 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
         async (fileState: FileUploadState) => {
             if (!session?.session.token) {
                 setFilesToUpload((prev) =>
-                    prev.map((f) => (f.id === fileState.id ? { ...f, status: "failed", message: "Kimlik doğrulama token'ı yok." } : f))
+                    prev.map((f) => (f.id === fileState.id ? { ...f, status: "failed", message: t("share_error_no_session") } : f))
                 );
                 return;
             }
 
             setFilesToUpload((prev) =>
-                prev.map((f) => (f.id === fileState.id ? { ...f, status: "uploading", message: "Yükleniyor..." } : f))
+                prev.map((f) => (f.id === fileState.id ? { ...f, status: "uploading", message: t("dashboard.upload.uploading") } : f))
             );
 
             try {
@@ -80,7 +82,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                 if (!presignedRes.ok) {
                     const errText = await presignedRes.text();
                     console.error("Presigned API Hatası:", errText);
-                    let errMsg = "Presigned URL alınamadı";
+                    let errMsg = t("share_error_generic");
                     try {
                         const errJson = JSON.parse(errText);
                         if (errJson.error) errMsg = errJson.error;
@@ -118,7 +120,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                         }
                     };
 
-                    xhr.onerror = () => reject(new Error("Ağ hatası"));
+                    xhr.onerror = () => reject(new Error(t("share_error_generic")));
                     xhr.send(fileState.file);
                 });
 
@@ -158,7 +160,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
 
                 if (!completeRes.ok) {
                     const errText = await completeRes.text();
-                    let errMsg = "Yükleme tamamlanamadı";
+                    let errMsg = t("share_error_generic");
                     try {
                         const errJson = JSON.parse(errText);
                         if (errJson.error) errMsg = errJson.error;
@@ -169,7 +171,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                 // Success
                 setFilesToUpload((prev) =>
                     prev.map((f) =>
-                        f.id === fileState.id ? { ...f, progress: 100, status: "uploaded", message: "Yüklendi." } : f
+                        f.id === fileState.id ? { ...f, progress: 100, status: "uploaded", message: t("dashboard.upload.uploaded") } : f
                     )
                 );
 
@@ -178,13 +180,13 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                 setFilesToUpload((prev) =>
                     prev.map((f) =>
                         f.id === fileState.id
-                            ? { ...f, status: "failed", message: (error as Error).message || "Yükleme başarısız." }
+                            ? { ...f, status: "failed", message: (error as Error).message || t("dashboard.upload.failed") }
                             : f
                     )
                 );
             }
         },
-        [session]
+        [session, t]
     );
 
     // Watch for files ready to upload
@@ -228,7 +230,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                 const MAX_STEP_SIZE = 5 * 1024 * 1024; // 5MB
 
                 if (isStepFormat && file.size > MAX_STEP_SIZE) {
-                    alert(`${file.name} dosyası 5MB sınırını aşıyor. STEP/IGES dosyaları en fazla 5MB olabilir.`);
+                    alert(t("dashboard.upload.size_limit_error", { name: file.name }));
                     return;
                 }
 
@@ -245,7 +247,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
 
             setFilesToUpload((prevFiles) => [...prevFiles, ...newFiles]);
         },
-        []
+        [t]
     );
 
     const handleThumbnailGenerated = useCallback((id: string, thumbnail: string) => {
@@ -255,12 +257,12 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                     ...f,
                     thumbnail,
                     status: "pending-upload",
-                    message: "Thumbnail hazır, yükleniyor..."
+                    message: t("dashboard.upload.uploading")
                 };
             }
             return f;
         }));
-    }, []);
+    }, [t]);
 
     const handleThumbnailError = useCallback((id: string, error: string) => {
         console.warn(`Thumbnail generation failed for ${id}:`, error);
@@ -270,12 +272,12 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                 return {
                     ...f,
                     status: "pending-upload",
-                    message: "Thumbnail oluşturulamadı, yine de yükleniyor..."
+                    message: t("dashboard.upload.uploading")
                 };
             }
             return f;
         }));
-    }, []);
+    }, [t]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -300,7 +302,7 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md bg-card border-border">
                 <DialogHeader>
-                    <DialogTitle>Dosya Yükle</DialogTitle>
+                    <DialogTitle>{t("dashboard.upload.title")}</DialogTitle>
                 </DialogHeader>
 
                 <input
@@ -324,11 +326,11 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
           `}
                 >
                     <Upload className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-2">Dosyaları sürükle bırak veya</p>
+                    <p className="text-sm text-muted-foreground mb-2">{t("dashboard.upload.drop_zone")}</p>
                     <Button variant="outline" size="sm">
-                        Dosya Seç
+                        {t("dashboard.upload.select_button")}
                     </Button>
-                    <p className="text-xs text-muted-foreground mt-3">Desteklenen: STL, OBJ, PLY (Thumbnail), STEP, IGES</p>
+                    <p className="text-xs text-muted-foreground mt-3">{t("dashboard.upload.supported_formats")}</p>
                 </div>
 
                 {/* Hidden Thumbnail Generators */}
@@ -365,18 +367,18 @@ export function UploadModal({ open, onOpenChange, onUploadComplete }: UploadModa
                                     {file.status === "failed" ? (
                                         <div className="flex items-center text-red-500 text-xs mt-1">
                                             <AlertCircle className="w-3 h-3 mr-1" />
-                                            <span>{file.message || "Hata"}</span>
+                                            <span>{file.message || t("dashboard.upload.failed")}</span>
                                         </div>
                                     ) : file.status === "uploaded" ? (
                                         <div className="flex items-center text-green-500 text-xs mt-1">
                                             <CheckCircle className="w-3 h-3 mr-1" />
-                                            <span>{file.message || "Yüklendi"}</span>
+                                            <span>{file.message || t("dashboard.upload.uploaded")}</span>
                                         </div>
                                     ) : (
                                         <>
                                             <div className="flex items-center justify-between mt-2 mb-1">
                                                 <span className="text-xs text-muted-foreground">
-                                                    {file.status === "pending-thumbnail" ? "Thumbnail oluşturuluyor..." : "Yükleniyor..."}
+                                                    {file.status === "pending-thumbnail" ? t("dashboard.upload.generating_thumbnail") : t("dashboard.upload.uploading")}
                                                 </span>
                                                 <span className="text-xs font-medium">{file.progress}%</span>
                                             </div>

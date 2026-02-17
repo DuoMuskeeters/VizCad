@@ -160,7 +160,7 @@
       },
       "how-is-it-different": {
         "question": "Wie unterscheidet sich VizCAD von Konkurrenten wie AutoCAD?",
-        "answer": "Der größte Unterschied von VizCAD besteht darin, dass es einen professionellen Service mit einer benutzerfreundlichen Oberfläche bietet, im Gegensatz zu komplexer und teurer Software wie Autodesk. Im Gegensatz zu CAD-Viewern für Amateure auf dem Markt ermöglicht VizCAD allen Benutzern, ihre Designs in hochwertige Visualisierungen umzuwandeln, ohne umfangreiche Softwarekenntnisse zu benötigen."
+        "answer": "Der größte Unterschied von VizCAD besteht darin, dass es einen professionellen Service mit einer benutzerfreundlichen Oberfläche bietet, im Gegensatz zu komplexer und teurer Software wie Autodesk. Im Gegensatz zu CAD-Viewern für Amateure auf dem Markt ermöglicht VizCAD allen Benutzern, ihre Designs in hochwertige Visualisierungen umzuwandeln, ohne umfangreiche Softwarekenntnisse zu erhalten."
       },
       "development-process": {
         "question": "Wie sah der Entwicklungsprozess von VizCAD aus und was waren die wichtigsten Wendepunkte?",
@@ -231,7 +231,7 @@
   "app_status_ready": "Bereit",
   "app_status_model": "Modell",
   "app_status_resolution": "Auflösung",
-  "app_status_quality": "Qualität",
+  "app_status_quality": "Kalite",
   "app_status_qualityHigh": "Hoch",
   "scene_plainWhite": "Schlichtes Weiß",
   "scene_plainWhite_desc": "Sauberer weißer Hintergrund",
@@ -302,5 +302,70 @@
   "share_error_generic": "Ein Fehler ist aufgetreten",
   "share_modal_description_create": "Erstellen Sie einen Freigabelink für diese Datei",
   "share_modal_create_link": "Freigabelink erstellen",
-  "share_error_no_session": "Sitzung nicht gefunden"
+  "share_error_no_session": "Sitzung nicht gefunden",
+  "dashboard": {
+    "sidebar": {
+      "my_files": "Meine Dateien",
+      "shared": "Mit mir geteilt",
+      "recent": "Zuletzt verwendet",
+      "starred": "Markiert",
+      "trash": "Papierkorb",
+      "upload_button": "Datei hochladen",
+      "storage": "Speicher",
+      "used_of": "{{usedGb}} GB / {{quotaGb}} GB verwendet",
+      "settings": "Einstellungen"
+    },
+    "toolbar": {
+      "sort_by": "Sortieren nach",
+      "date": "Datum",
+      "name": "Name",
+      "size": "Größe",
+      "last_modified": "Zuletzt geändert"
+    },
+    "list": {
+      "name": "Name",
+      "owner": "Besitzer",
+      "last_modified": "Zuletzt geändert",
+      "size": "Größe",
+      "loading": "Dateien werden geladen...",
+      "error_title": "Dateien konnten nicht geladen werden",
+      "empty_title": "Keine Dateien in diesem Bereich gefunden",
+      "empty_desc_my_files": "Verwenden Sie die Schaltfläche 'Datei hochladen', um eine Datei hochzuladen",
+      "empty_desc_starred": "Sie haben noch keine markierten Dateien",
+      "empty_desc_recent": "Keine zuletzt angesehenen Dateien",
+      "empty_desc_trash": "Der Papierkorb ist leer",
+      "actions": {
+        "preview": "Vorschau",
+        "download": "Herunterladen",
+        "share": "Teilen",
+        "star": "Zu Markiert hinzufügen",
+        "unstar": "Von Markiert entfernen",
+        "rename": "Umbenennen",
+        "move_to_trash": "In den Papierkorb verschieben",
+        "restore": "Wiederherstellen",
+        "permanent_delete": "Endgültig löschen",
+        "delete_confirm": "Sind Sie sicher, dass Sie diese Datei endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden."
+      },
+      "pagination": {
+        "page": "Seite {{current}} / {{total}}"
+      }
+    },
+    "rename": {
+      "title": "Datei umbenennen",
+      "placeholder": "Neuer Dateiname",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
+    "upload": {
+      "title": "Datei hochladen",
+      "drop_zone": "Dateien hierher ziehen oder",
+      "select_button": "Datei auswählen",
+      "supported_formats": "Unterstützt: STL, OBJ, PLY (Thumbnail), STEP, IGES",
+      "generating_thumbnail": "Thumbnail wird erstellt...",
+      "uploading": "Wird hochgeladen...",
+      "uploaded": "Hochgeladen",
+      "failed": "Fehler",
+      "size_limit_error": "Die Datei {{name}} überschreitet das Limit von 5 MB. STEP/IGES-Dateien können bis zu 5 MB groß sein."
+    }
+  }
 }

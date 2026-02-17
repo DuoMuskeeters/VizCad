@@ -77,6 +77,26 @@ interface BlogPost {
   authorId: string;
   publishedAt: Date | null;
   createdAt: Date;
+  views: number;
+}
+
+interface SurveyResponse {
+  id: string;
+  source: string;
+  createdAt: string;
+}
+
+interface ActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  details?: string; // JSON string
+  ipAddress?: string;
+  createdAt: string;
 }
 
 function AdminPage() {
@@ -107,6 +127,14 @@ function AdminPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
 
+  // Activity Logs State
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+  // Survey State
+  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
+  const [surveyLoading, setSurveyLoading] = useState(false);
+
   const sessionQuery = useSession();
   const session = isClient ? sessionQuery.data : null;
   const isPending = isClient ? sessionQuery.isPending : true;
@@ -128,8 +156,41 @@ function AdminPage() {
       loadUsers();
       loadStorageStats();
       loadPosts();
+      loadSurveyResponses();
+      loadActivities();
     }
   }, [session]);
+
+  const loadActivities = async () => {
+    try {
+      setActivitiesLoading(true);
+      const res = await fetch("/api/admin/activities?limit=50");
+      if (res.ok) {
+        const data = await res.json() as { logs: ActivityLog[] };
+        setActivities(data.logs);
+      }
+    } catch (err) {
+      console.error("Failed to load activity logs", err);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const loadSurveyResponses = async () => {
+    try {
+      setSurveyLoading(true);
+      const res = await fetch("/api/admin/survey");
+      if (res.ok) {
+        const data = await res.json() as { responses: SurveyResponse[] };
+        setSurveyResponses(data.responses);
+      }
+    } catch (err) {
+      console.error("Failed to load survey responses", err);
+    } finally {
+      setSurveyLoading(false);
+    }
+  }
+
 
   const loadPosts = async () => {
     try {
@@ -333,6 +394,8 @@ function AdminPage() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="blog">Blog</TabsTrigger>
             <TabsTrigger value="storage">Storage</TabsTrigger>
+            <TabsTrigger value="survey">Survey</TabsTrigger>
+            <TabsTrigger value="activities">Activities</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -429,6 +492,15 @@ function AdminPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
+                                    asChild
+                                  >
+                                    <Link to="/admin/users/$userId" params={{ userId: user.id }}>
+                                      View
+                                    </Link>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                     onClick={() => handleRemoveUser(user.id)}
                                     disabled={actionLoading === user.id}
@@ -504,6 +576,7 @@ function AdminPage() {
                       <TableRow>
                         <TableHead>Title</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Views</TableHead>
                         <TableHead>Published</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -511,13 +584,13 @@ function AdminPage() {
                     <TableBody>
                       {postsLoading ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
+                          <TableCell colSpan={5} className="h-24 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                           </TableCell>
                         </TableRow>
                       ) : posts.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                             No posts found. Create one to get started.
                           </TableCell>
                         </TableRow>
@@ -539,6 +612,9 @@ function AdminPage() {
                               >
                                 {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
                               </span>
+                            </TableCell>
+                            <TableCell>
+                              {post.views || 0}
                             </TableCell>
                             <TableCell>
                               {post.publishedAt
@@ -630,6 +706,185 @@ function AdminPage() {
                             No storage data available.
                           </TableCell>
                         </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="survey">
+            <Card>
+              <CardHeader>
+                <CardTitle>Survey Responses</CardTitle>
+                <CardDescription>User feedback on where they heard about us</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Stats Section */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Opened</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {surveyResponses.filter(r => r.source === "Opened").length}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Dismissed (X)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {surveyResponses.filter(r => r.source === "Dismissed").length}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Responses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {surveyResponses.filter(r => r.source !== "Opened" && r.source !== "Dismissed").length}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Breakdown */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                  {Object.entries(surveyResponses.reduce((acc, curr) => {
+                    if (curr.source !== "Opened" && curr.source !== "Dismissed") {
+                      acc[curr.source] = (acc[curr.source] || 0) + 1;
+                    }
+                    return acc;
+                  }, {} as Record<string, number>)).map(([source, count]) => (
+                    <Card key={source}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium truncate" title={source}>{source}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{count}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {surveyLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={2} className="h-24 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                          </TableCell>
+                        </TableRow>
+                      ) : surveyResponses.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                            No survey responses found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        surveyResponses.map((response) => (
+                          <TableRow key={response.id}>
+                            <TableCell className="font-medium">{response.source}</TableCell>
+                            <TableCell>
+                              {new Date(response.createdAt).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="activities">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activities</CardTitle>
+                <CardDescription>Monitor user actions across the platform</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activitiesLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                          </TableCell>
+                        </TableRow>
+                      ) : activities.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            No activities recorded yet.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        activities.map((log) => {
+                          let detailsObj = {};
+                          try {
+                            detailsObj = log.details ? JSON.parse(log.details) : {};
+                          } catch (e) {
+                            detailsObj = { raw: log.details };
+                          }
+
+                          // Fix for timestamp issue (detecting seconds vs ms)
+                          let date = new Date(log.createdAt);
+                          const now = new Date();
+                          // If date is very old (e.g. 1970) but we expect recent, it's likely seconds interpreted as ms
+                          if (date.getFullYear() < 2024) {
+                            const secondsTimestamp = new Date(log.createdAt).getTime();
+                            const time = date.getTime();
+                            if (time < 2000000000000 && time > 1000000000) {
+                              date = new Date(time * 1000);
+                            }
+                          }
+
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{log.userName || "Unknown"}</div>
+                                  <div className="text-xs text-muted-foreground">{log.userEmail}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                                  {log.action}
+                                </span>
+                              </TableCell>
+                              <TableCell className="max-w-[300px] truncate text-xs font-mono text-muted-foreground" title={JSON.stringify(detailsObj, null, 2)}>
+                                {JSON.stringify(detailsObj)}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                {date.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
                       )}
                     </TableBody>
                   </Table>

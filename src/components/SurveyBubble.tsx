@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { submitSurveyResponse } from "@/lib/survey.functions"
 
 const SOURCES = [
     "Google Search",
@@ -20,9 +21,17 @@ export function SurveyBubble() {
         setDismissed(!!stored)
     }, [])
 
-    const handleSelect = (source: string) => {
+    const handleSelect = async (source: string) => {
         console.log("Survey response:", source)
         localStorage.setItem("vizcad-survey-done", "true")
+
+        // Log to DB
+        try {
+            await submitSurveyResponse({ data: { source } })
+        } catch (e) {
+            console.error("Failed to log survey response", e)
+        }
+
         setSubmitted(true)
         setTimeout(() => {
             setIsOpen(false)
@@ -30,10 +39,17 @@ export function SurveyBubble() {
         }, 2000)
     }
 
-    const handleDismiss = () => {
+    const handleDismiss = async () => {
         localStorage.setItem("vizcad-survey-done", "true")
         setIsOpen(false)
         setDismissed(true)
+
+        // Log dismissal
+        try {
+            await submitSurveyResponse({ data: { source: "Dismissed" } })
+        } catch (e) {
+            console.error("Failed to log survey dismissal", e)
+        }
     }
 
     if (dismissed) return null
@@ -43,7 +59,13 @@ export function SurveyBubble() {
             {/* Bubble button */}
             {!isOpen && (
                 <button
-                    onClick={() => setIsOpen(true)}
+                    onClick={() => {
+                        setIsOpen(true)
+                        // Log opened
+                        submitSurveyResponse({ data: { source: "Opened" } }).catch(e => {
+                            console.error("Failed to log survey open", e)
+                        })
+                    }}
                     className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 
                      w-12 h-12 sm:w-14 sm:h-14 
                      rounded-full bg-primary text-primary-foreground 

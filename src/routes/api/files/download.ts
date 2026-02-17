@@ -6,6 +6,7 @@ import { files, fileActivities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { getR2Client } from "@/lib/s3";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/download")({
     server: {
@@ -90,17 +91,16 @@ export const Route = createFileRoute("/api/files/download")({
                     }
 
                     // Log activity
-                    try {
-                        await db.insert(fileActivities).values({
-                            id: ulid(),
-                            fileId: fileId,
-                            userId: session.user.id,
-                            action: 'downloaded',
-                            createdAt: new Date(),
-                        });
-                    } catch (activityError) {
-                        console.error("Error logging download activity:", activityError);
-                    }
+                    // Log activity
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_download",
+                        entityId: fileId,
+                        entityType: "file",
+                        details: { name: fileData.name, size: fileData.size },
+                        request
+                    });
 
                     // Generate Presigned URL
                     const r2 = getR2Client(env);

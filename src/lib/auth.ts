@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
 import { getDb } from "@/db/client";
 import { Resend } from "resend";
+import { logActivity } from "@/lib/activity.server";
 
 export function getAuth(d1: D1Database, env: Cloudflare.Env, requestUrl?: string) {
   const db = getDb(d1);
@@ -88,5 +89,6 @@ export function getAuth(d1: D1Database, env: Cloudflare.Env, requestUrl?: string
     ],
   });
 }
+
 
 export type Auth = ReturnType<typeof getAuth>;

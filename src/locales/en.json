@@ -302,5 +302,70 @@
   "share_error_generic": "An error occurred",
   "share_modal_description_create": "Create a share link for this file",
   "share_modal_create_link": "Create Share Link",
-  "share_error_no_session": "Session not found"
+  "share_error_no_session": "Session not found",
+  "dashboard": {
+    "sidebar": {
+      "my_files": "My Files",
+      "shared": "Shared with Me",
+      "recent": "Recent",
+      "starred": "Starred",
+      "trash": "Trash",
+      "upload_button": "Upload File",
+      "storage": "Storage",
+      "used_of": "{{usedGb}} GB / {{quotaGb}} GB used",
+      "settings": "Settings"
+    },
+    "toolbar": {
+      "sort_by": "Sort by",
+      "date": "Date",
+      "name": "Name",
+      "size": "Size",
+      "last_modified": "Last modified"
+    },
+    "list": {
+      "name": "Name",
+      "owner": "Owner",
+      "last_modified": "Last modified",
+      "size": "Size",
+      "loading": "Loading files...",
+      "error_title": "Failed to load files",
+      "empty_title": "No files found in this section",
+      "empty_desc_my_files": "Use the 'Upload File' button to upload a file",
+      "empty_desc_starred": "You don't have any starred files yet",
+      "empty_desc_recent": "No recently viewed files",
+      "empty_desc_trash": "Trash is empty",
+      "actions": {
+        "preview": "Preview",
+        "download": "Download",
+        "share": "Share",
+        "star": "Add to Starred",
+        "unstar": "Remove from Starred",
+        "rename": "Rename",
+        "move_to_trash": "Move to trash",
+        "restore": "Restore",
+        "permanent_delete": "Permanently Delete",
+        "delete_confirm": "Are you sure you want to permanently delete this file? This action cannot be undone."
+      },
+      "pagination": {
+        "page": "Page {{current}} / {{total}}"
+      }
+    },
+    "rename": {
+      "title": "Rename File",
+      "placeholder": "New file name",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "upload": {
+      "title": "Upload File",
+      "drop_zone": "Drag & drop files or",
+      "select_button": "Select File",
+      "supported_formats": "Supported: STL, OBJ, PLY (Thumbnail), STEP, IGES",
+      "generating_thumbnail": "Generating thumbnail...",
+      "uploading": "Uploading...",
+      "uploaded": "Uploaded",
+      "failed": "Error",
+      "size_limit_error": "{{name}} file exceeds the 5MB limit. STEP/IGES files can be up to 5MB."
+    }
+  }
 }

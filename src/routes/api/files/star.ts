@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { files, fileStars } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { ulid } from "ulid";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/star")({
     server: {
@@ -77,6 +78,18 @@ export const Route = createFileRoute("/api/files/star")({
                     if (existingStar.length > 0) {
                         // Remove star (toggle off)
                         await db.delete(fileStars).where(eq(fileStars.id, existingStar[0].id));
+
+                        // Log activity
+                        await logActivity({
+                            db,
+                            userId: session.user.id,
+                            action: "file_star", // or 'file_unstar' if we want detailed distinction, but 'star' with details is fine
+                            entityId: fileId,
+                            entityType: "file",
+                            details: { starred: false },
+                            request
+                        });
+
                         return new Response(JSON.stringify({
                             success: true,
                             starred: false,
@@ -93,6 +106,18 @@ export const Route = createFileRoute("/api/files/star")({
                             userId: session.user.id,
                             createdAt: new Date(),
                         });
+
+                        // Log activity
+                        await logActivity({
+                            db,
+                            userId: session.user.id,
+                            action: "file_star",
+                            entityId: fileId,
+                            entityType: "file",
+                            details: { starred: true },
+                            request
+                        });
+
                         return new Response(JSON.stringify({
                             success: true,
                             starred: true,

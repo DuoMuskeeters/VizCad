@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
   Settings,
@@ -25,16 +26,17 @@ interface SidebarProps {
   storageSummary: StorageSummary
 }
 
-const navItems = [
-  { id: "my-files", label: "Dosyalarım", icon: FolderOpen },
-  { id: "shared", label: "Benimle Paylaşılan", icon: Users },
-  { id: "recent", label: "Son Kullanılanlar", icon: Clock },
-  { id: "starred", label: "Yıldızlı", icon: Star },
-  { id: "trash", label: "Çöp Kutusu", icon: Trash2 },
-]
-
 export function Sidebar({ activeSection, onSectionChange, onUploadClick, storageSummary }: SidebarProps) {
+  const { t } = useTranslation();
   const { usedBytes, quotaBytes, quotaGb } = storageSummary;
+
+  const navItems = [
+    { id: "my-files", label: t("dashboard.sidebar.my_files"), icon: FolderOpen },
+    { id: "shared", label: t("dashboard.sidebar.shared"), icon: Users },
+    { id: "recent", label: t("dashboard.sidebar.recent"), icon: Clock },
+    { id: "starred", label: t("dashboard.sidebar.starred"), icon: Star },
+    { id: "trash", label: t("dashboard.sidebar.trash"), icon: Trash2 },
+  ]
 
   // Convert usedBytes to GB for display
   const storageUsedGb = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
@@ -51,7 +53,7 @@ export function Sidebar({ activeSection, onSectionChange, onUploadClick, storage
           className="w-full justify-start gap-3 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md rounded-xl h-11"
         >
           <Upload className="w-5 h-5" />
-          <span className="font-medium">Dosya Yükle</span>
+          <span className="font-medium">{t("dashboard.sidebar.upload_button")}</span>
         </Button>
       </div>
 
@@ -80,11 +82,11 @@ export function Sidebar({ activeSection, onSectionChange, onUploadClick, storage
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <HardDrive className="w-4 h-4" />
-            <span>Depolama</span>
+            <span>{t("dashboard.sidebar.storage")}</span>
           </div>
           <Progress value={storagePercent} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            {storageUsedGb} GB / {quotaGb} GB kullanıldı
+            {t("dashboard.sidebar.used_of", { usedGb: storageUsedGb, quotaGb: quotaGb })}
           </p>
         </div>
 
@@ -93,7 +95,7 @@ export function Sidebar({ activeSection, onSectionChange, onUploadClick, storage
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground rounded-lg h-10 px-3"
         >
           <Settings className="w-5 h-5 shrink-0" />
-          <span>Ayarlar</span>
+          <span>{t("dashboard.sidebar.settings")}</span>
         </Button>
       </div>
     </div>

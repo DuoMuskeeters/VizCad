@@ -64,6 +64,20 @@
       "when": 1771290974429,
       "tag": "0008_friendly_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1771329479917,
+      "tag": "0009_sour_mongu",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1771336515211,
+      "tag": "0010_watery_red_ghost",
+      "breakpoints": true
     }
   ]
 }

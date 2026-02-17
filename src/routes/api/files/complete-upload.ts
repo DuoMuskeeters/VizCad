@@ -63,6 +63,18 @@ export const Route = createFileRoute("/api/files/complete-upload")({
                         })
                         .returning();
 
+                    // Log activity
+                    const { logActivity } = await import("@/lib/activity.server");
+                    await logActivity({
+                        db,
+                        userId: session.user.id,
+                        action: "file_upload",
+                        entityId: body.fileId,
+                        entityType: "file",
+                        details: { name: body.name, size: body.size },
+                        request
+                    });
+
                     return new Response(JSON.stringify(insertedFile), {
                         status: 200,
                         headers: { "Content-Type": "application/json" },

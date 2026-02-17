@@ -40,6 +40,29 @@ export async function getAllPosts(status?: "draft" | "published" | "archived"): 
 }
 
 /**
+ * Get most viewed posts for "Featured" or "Popular" sections.
+ */
+export async function getMostViewedPosts(limit: number = 5): Promise<BlogPostWithAuthor[]> {
+    const db = getDatabase();
+
+    const results = await db
+        .select({
+            post: posts,
+            author: authorProfiles,
+        })
+        .from(posts)
+        .leftJoin(authorProfiles, eq(posts.authorId, authorProfiles.userId))
+        .where(eq(posts.status, "published"))
+        .orderBy(desc(posts.views), desc(posts.publishedAt))
+        .limit(limit);
+
+    return results.map(r => ({
+        ...r.post,
+        author: r.author
+    }));
+}
+
+/**
  * Get a single post by slug.
  */
 export async function getPostBySlug(slug: string): Promise<BlogPostWithAuthor | null> {

@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { files, fileComments, user, fileShares } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { ulid } from "ulid";
+import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/comments")({
   server: {
@@ -121,6 +122,17 @@ export const Route = createFileRoute("/api/files/comments")({
             updatedAt: now,
           });
 
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_comment",
+            entityId: fileId,
+            entityType: "file",
+            details: { commentId, content: content.trim() },
+            request
+          });
+
           return new Response(JSON.stringify({
             success: true,
             commentId,
@@ -173,7 +185,7 @@ export const Route = createFileRoute("/api/files/comments")({
 
           // Verify ownership
           const comment = await db
-            .select({ id: fileComments.id, userId: fileComments.userId })
+            .select({ id: fileComments.id, userId: fileComments.userId, fileId: fileComments.fileId })
             .from(fileComments)
             .where(eq(fileComments.id, commentId))
             .limit(1);
@@ -188,6 +200,19 @@ export const Route = createFileRoute("/api/files/comments")({
           // Delete the comment and its replies
           await db.delete(fileComments).where(eq(fileComments.parentId, commentId));
           await db.delete(fileComments).where(eq(fileComments.id, commentId));
+
+          // Log activity
+          await logActivity({
+            db,
+            userId: session.user.id,
+            action: "file_comment", // Maybe differentiate delete? sticking to general action or 'file_edit'
+            entityId: comment[0].id, // logging the comment ID or file ID? schema says entityId. Let's use fileId if possible, but we don't have it easily here without join. 
+            // Actually we are logging 'file_comment' action. The entity should probably be the file.
+            // But we didn't select fileId. Let's select it.
+            entityType: "comment",
+            details: { type: "delete", commentId },
+            request
+          });
 
           return new Response(JSON.stringify({
             success: true,

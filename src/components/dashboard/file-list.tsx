@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, AlertTriangle, MoreVertical, Eye, Download, Pencil, Trash2, Star, Share2, Info, RotateCcw, X, Calendar, FileBox, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -62,6 +63,7 @@ export function FileList({
   activeSection,
   onRefresh
 }: FileListProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameFileId, setRenameFileId] = useState<string | null>(null);
@@ -135,11 +137,11 @@ export function FileList({
 
     } catch (err) {
       console.error("Download error:", err);
-      alert("Dosya indirilemedi: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
+      alert(t("dashboard.list.actions.download") + " " + t("dashboard.upload.failed") + ": " + (err instanceof Error ? err.message : t("share_error_generic")));
     } finally {
       setActionLoading(null);
     }
-  }, []);
+  }, [t]);
 
   // Toggle star
   const handleToggleStar = useCallback(async (file: FileItem) => {
@@ -181,11 +183,11 @@ export function FileList({
       onRefresh();
     } catch (err) {
       console.error("Trash error:", err);
-      alert("Silme işlemi başarısız: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
+      alert(t("dashboard.list.actions.move_to_trash") + " " + t("dashboard.upload.failed") + ": " + (err instanceof Error ? err.message : t("share_error_generic")));
     } finally {
       setActionLoading(null);
     }
-  }, [onRefresh]);
+  }, [onRefresh, t]);
 
   // Restore from trash
   const handleRestore = useCallback(async (file: FileItem) => {
@@ -202,15 +204,15 @@ export function FileList({
       onRefresh();
     } catch (err) {
       console.error("Restore error:", err);
-      alert("Geri yükleme başarısız: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
+      alert(t("dashboard.list.actions.restore") + " " + t("dashboard.upload.failed") + ": " + (err instanceof Error ? err.message : t("share_error_generic")));
     } finally {
       setActionLoading(null);
     }
-  }, [onRefresh]);
+  }, [onRefresh, t]);
 
   // Permanently delete
   const handlePermanentDelete = useCallback(async (file: FileItem) => {
-    if (!confirm("Bu dosyayı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
+    if (!confirm(t("dashboard.list.actions.delete_confirm"))) {
       return;
     }
     try {
@@ -224,11 +226,11 @@ export function FileList({
       onRefresh();
     } catch (err) {
       console.error("Permanent delete error:", err);
-      alert("Kalıcı silme başarısız: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
+      alert(t("dashboard.list.actions.permanent_delete") + " " + t("dashboard.upload.failed") + ": " + (err instanceof Error ? err.message : t("share_error_generic")));
     } finally {
       setActionLoading(null);
     }
-  }, [onRefresh]);
+  }, [onRefresh, t]);
 
   // Open rename dialog
   const handleOpenRename = useCallback((file: FileItem) => {
@@ -255,11 +257,11 @@ export function FileList({
       onRefresh();
     } catch (err) {
       console.error("Rename error:", err);
-      alert("Yeniden adlandırma başarısız: " + (err instanceof Error ? err.message : "Bilinmeyen hata"));
+      alert(t("dashboard.rename.title") + " " + t("dashboard.upload.failed") + ": " + (err instanceof Error ? err.message : t("share_error_generic")));
     } finally {
       setActionLoading(null);
     }
-  }, [renameFileId, newFileName, onRefresh]);
+  }, [renameFileId, newFileName, onRefresh, t]);
 
   // Navigate to file preview
   const handlePreview = useCallback((file: FileItem) => {
@@ -292,7 +294,7 @@ export function FileList({
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-destructive/10 rounded-lg">
         <AlertTriangle className="w-8 h-8 text-destructive mb-2" />
-        <p className="text-destructive font-medium">Dosyalar yüklenemedi</p>
+        <p className="text-destructive font-medium">{t("dashboard.list.error_title")}</p>
         <p className="text-sm text-muted-foreground">{error.message}</p>
       </div>
     );
@@ -301,12 +303,12 @@ export function FileList({
   if (filteredFiles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-        <p className="text-lg">Bu bölümde dosya bulunamadı</p>
+        <p className="text-lg">{t("dashboard.list.empty_title")}</p>
         <p className="text-sm mt-2">
-          {activeSection === 'my-files' && "Dosya yüklemek için 'Yeni' butonunu kullanın"}
-          {activeSection === 'starred' && "Henüz yıldızlı dosyanız yok"}
-          {activeSection === 'recent' && "Son görüntülenen dosya yok"}
-          {activeSection === 'trash' && "Çöp kutusu boş"}
+          {activeSection === 'my-files' && t("dashboard.list.empty_desc_my_files")}
+          {activeSection === 'starred' && t("dashboard.list.empty_desc_starred")}
+          {activeSection === 'recent' && t("dashboard.list.empty_desc_recent")}
+          {activeSection === 'trash' && t("dashboard.list.empty_desc_trash")}
         </p>
       </div>
     );
@@ -332,7 +334,7 @@ export function FileList({
                     e.stopPropagation();
                     handleToggleStar(item);
                   }}
-                  title={item.isStarred ? "Yıldızı kaldır" : "Yıldızlı'ya ekle"}
+                  title={item.isStarred ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
                 >
                   <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
                 </button>
@@ -370,6 +372,7 @@ export function FileList({
                     onOpenRename={handleOpenRename}
                     onPreview={handlePreview}
                     onShare={handleOpenShare}
+                    t={t}
                   />
                 </div>
               </div>
@@ -383,6 +386,7 @@ export function FileList({
           onNewFileNameChange={setNewFileName}
           onSubmit={handleRenameSubmit}
           loading={actionLoading === renameFileId}
+          t={t}
         />
         {shareFileId && (
           <ShareModal
@@ -405,7 +409,7 @@ export function FileList({
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <span className="text-sm text-muted-foreground px-2">
-              Sayfa {currentPage} / {totalPages}
+              {t("dashboard.list.pagination.page", { current: currentPage, total: totalPages })}
             </span>
             <Button
               variant="outline"
@@ -428,11 +432,11 @@ export function FileList({
         <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs text-muted-foreground font-medium">
           <div className="col-span-6 flex items-center gap-3">
             <Checkbox className="h-4 w-4" />
-            <span>Ad</span>
+            <span>{t("dashboard.list.name")}</span>
           </div>
-          <div className="col-span-2">Sahip</div>
-          <div className="col-span-2">Son değiştirme</div>
-          <div className="col-span-1">Boyut</div>
+          <div className="col-span-2">{t("dashboard.list.owner")}</div>
+          <div className="col-span-2">{t("dashboard.list.last_modified")}</div>
+          <div className="col-span-1">{t("dashboard.list.size")}</div>
           <div className="col-span-1"></div>
         </div>
 
@@ -459,7 +463,7 @@ export function FileList({
                   e.stopPropagation();
                   handleToggleStar(item);
                 }}
-                title={item.isStarred ? "Yıldızı kaldır" : "Yıldızlı'ya ekle"}
+                title={item.isStarred ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
               >
                 <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
               </button>
@@ -495,6 +499,7 @@ export function FileList({
                 onOpenRename={handleOpenRename}
                 onPreview={handlePreview}
                 onShare={handleOpenShare}
+                t={t}
               />
             </div>
           </div>
@@ -507,6 +512,7 @@ export function FileList({
         onNewFileNameChange={setNewFileName}
         onSubmit={handleRenameSubmit}
         loading={actionLoading === renameFileId}
+        t={t}
       />
       {shareFileId && (
         <ShareModal
@@ -529,7 +535,7 @@ export function FileList({
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <span className="text-sm text-muted-foreground px-2">
-            Sayfa {currentPage} / {totalPages}
+            {t("dashboard.list.pagination.page", { current: currentPage, total: totalPages })}
           </span>
           <Button
             variant="outline"
@@ -558,6 +564,7 @@ interface FileActionsProps {
   onOpenRename: (item: FileItem) => void;
   onPreview: (item: FileItem) => void;
   onShare: (item: FileItem) => void;
+  t: (key: string) => string;
 }
 
 function FileActions({
@@ -572,6 +579,7 @@ function FileActions({
   onOpenRename,
   onPreview,
   onShare,
+  t,
 }: FileActionsProps) {
   const isLoading = actionLoading === item.id;
   const isTrash = activeSection === 'trash';
@@ -592,34 +600,34 @@ function FileActions({
         {isTrash ? (
           <>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onRestore(item)}>
-              <RotateCcw className="w-4 h-4" /> Geri Yükle
+              <RotateCcw className="w-4 h-4" /> {t("dashboard.list.actions.restore")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => onPermanentDelete(item)}>
-              <X className="w-4 h-4" /> Kalıcı Olarak Sil
+              <X className="w-4 h-4" /> {t("dashboard.list.actions.permanent_delete")}
             </DropdownMenuItem>
           </>
         ) : (
           <>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onPreview(item)}>
-              <Eye className="w-4 h-4" /> Önizle
+              <Eye className="w-4 h-4" /> {t("dashboard.list.actions.preview")}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onDownload(item)}>
-              <Download className="w-4 h-4" /> İndir
+              <Download className="w-4 h-4" /> {t("dashboard.list.actions.download")}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onShare(item)}>
-              <Share2 className="w-4 h-4" /> Paylaş
+              <Share2 className="w-4 h-4" /> {t("dashboard.list.actions.share")}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onToggleStar(item)}>
-              <Star className="w-4 h-4" /> {activeSection === 'starred' ? "Yıldızı Kaldır" : "Yıldızlı'ya ekle"}
+              <Star className="w-4 h-4" /> {activeSection === 'starred' ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onOpenRename(item)}>
-              <Pencil className="w-4 h-4" /> Yeniden adlandır
+              <Pencil className="w-4 h-4" /> {t("dashboard.list.actions.rename")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => onMoveToTrash(item)}>
-              <Trash2 className="w-4 h-4" /> Çöp kutusuna taşı
+              <Trash2 className="w-4 h-4" /> {t("dashboard.list.actions.move_to_trash")}
             </DropdownMenuItem>
           </>
         )}
@@ -636,19 +644,20 @@ interface RenameDialogProps {
   onNewFileNameChange: (name: string) => void;
   onSubmit: () => void;
   loading: boolean;
+  t: (key: string) => string;
 }
 
-function RenameDialog({ open, onOpenChange, newFileName, onNewFileNameChange, onSubmit, loading }: RenameDialogProps) {
+function RenameDialog({ open, onOpenChange, newFileName, onNewFileNameChange, onSubmit, loading, t }: RenameDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Dosyayı Yeniden Adlandır</DialogTitle>
+          <DialogTitle>{t("dashboard.rename.title")}</DialogTitle>
         </DialogHeader>
         <Input
           value={newFileName}
           onChange={(e) => onNewFileNameChange(e.target.value)}
-          placeholder="Yeni dosya adı"
+          placeholder={t("dashboard.rename.placeholder")}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               onSubmit();
@@ -657,11 +666,11 @@ function RenameDialog({ open, onOpenChange, newFileName, onNewFileNameChange, on
         />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            İptal
+            {t("dashboard.rename.cancel")}
           </Button>
           <Button onClick={onSubmit} disabled={loading || !newFileName.trim()}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Kaydet
+            {t("dashboard.rename.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
