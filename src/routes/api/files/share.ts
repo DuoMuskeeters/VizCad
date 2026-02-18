@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileShares, user } from "@/db/schema";
+import { files, fileShares, user, fileInvitations } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import { logActivity } from "@/lib/activity.server";
+import { sendInvitationEmail } from "@/lib/email.server";
 
 // Generate a random share token
 function generateShareToken(): string {
@@ -84,18 +85,30 @@ export const Route = createFileRoute("/api/files/share")({
             .leftJoin(user, eq(fileShares.sharedWithUserId, user.id))
             .where(eq(fileShares.fileId, fileId));
 
+          // Get all pending invitations for this file
+          const invitations = await db
+            .select({
+              id: fileInvitations.id,
+              email: fileInvitations.email,
+              permission: fileInvitations.permission,
+              createdAt: fileInvitations.createdAt,
+              expiresAt: fileInvitations.expiresAt,
+            })
+            .from(fileInvitations)
+            .where(eq(fileInvitations.fileId, fileId));
+
           // Log activity (every time the share modal is opened/shares are viewed)
           await logActivity({
             db,
             userId: session.user.id,
-            action: "file_share",
+            action: "file_share_view",
             entityId: fileId,
             entityType: "file",
-            details: { name: file[0].name, type: "view_share_link" },
+            details: { name: file[0].name, type: "view_share_panel" },
             request
           });
 
-          return new Response(JSON.stringify({ shares }), {
+          return new Response(JSON.stringify({ shares, invitations }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
@@ -188,8 +201,53 @@ export const Route = createFileRoute("/api/files/share")({
               .limit(1);
 
             if (!targetUser.length) {
-              return new Response(JSON.stringify({ error: "User not found with this email." }), {
-                status: 404,
+              // Create invitation for non-existent user
+              const invitationId = ulid();
+              const invitationToken = generateShareToken();
+              const now = new Date();
+
+              await db.insert(fileInvitations).values({
+                id: invitationId,
+                fileId,
+                invitedByUserId: session.user.id,
+                email,
+                permission,
+                token: invitationToken,
+                createdAt: now,
+              });
+
+              // Log activity
+              await logActivity({
+                db,
+                userId: session.user.id,
+                action: "file_share_invite_sent",
+                entityId: fileId,
+                entityType: "file",
+                details: { name: file[0].name, email, permission },
+                request
+              });
+
+              // Send email asynchronously (don't block the response)
+              const baseURL = new URL(request.url).origin;
+              try {
+                await sendInvitationEmail({
+                  resendApiKey: env.RESEND_API_KEY,
+                  to: email,
+                  fileName: file[0].name,
+                  invitedBy: session.user.name,
+                  token: invitationToken,
+                  baseURL,
+                });
+              } catch (err) {
+                console.error("Failed to send invitation email:", err);
+              }
+
+              return new Response(JSON.stringify({
+                success: true,
+                invitationId,
+                message: "Kullanıcı bulunamadı, davet e-postası gönderildi."
+              }), {
+                status: 201,
                 headers: { "Content-Type": "application/json" },
               });
             }
@@ -312,26 +370,8 @@ export const Route = createFileRoute("/api/files/share")({
             });
           }
 
-          // Get share and verify ownership
-          const share = await db
-            .select({
-              id: fileShares.id,
-              fileId: fileShares.fileId,
-              sharedByUserId: fileShares.sharedByUserId,
-            })
-            .from(fileShares)
-            .where(eq(fileShares.id, shareId))
-            .limit(1);
-
-          if (!share.length || share[0].sharedByUserId !== session.user.id) {
-            return new Response(JSON.stringify({ error: "Access denied." }), {
-              status: 403,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-
           // Build update object
-          const updateData: Record<string, unknown> = {
+          const updateData: Record<string, any> = {
             updatedAt: new Date(),
           };
 
@@ -340,18 +380,52 @@ export const Route = createFileRoute("/api/files/share")({
           if (isActive !== undefined) updateData.isActive = isActive;
           if (password !== undefined) updateData.password = password;
 
-          await db
-            .update(fileShares)
-            .set(updateData)
-            .where(eq(fileShares.id, shareId));
+          // Check fileShares
+          const existingShare = await db
+            .select({ id: fileShares.id })
+            .from(fileShares)
+            .where(and(eq(fileShares.id, shareId), eq(fileShares.sharedByUserId, session.user.id)))
+            .limit(1);
+
+          if (existingShare.length) {
+            await db
+              .update(fileShares)
+              .set(updateData)
+              .where(eq(fileShares.id, shareId));
+          } else {
+            // Check fileInvitations
+            const existingInvite = await db
+              .select({ id: fileInvitations.id })
+              .from(fileInvitations)
+              .where(and(eq(fileInvitations.id, shareId), eq(fileInvitations.invitedByUserId, session.user.id)))
+              .limit(1);
+
+            if (existingInvite.length) {
+              const inviteUpdate: Record<string, any> = {
+                createdAt: new Date(), // Using createdAt as a proxy for updatedAt since it doesn't have one
+              };
+              if (permission) inviteUpdate.permission = permission;
+              if (expiresAt !== undefined) inviteUpdate.expiresAt = expiresAt ? new Date(expiresAt) : null;
+
+              await db
+                .update(fileInvitations)
+                .set(inviteUpdate)
+                .where(eq(fileInvitations.id, shareId));
+            } else {
+              return new Response(JSON.stringify({ error: "Share or Invitation not found or access denied." }), {
+                status: 404,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+          }
 
           // Log activity
           await logActivity({
             db,
             userId: session.user.id,
-            action: "file_share", // using same action for update
-            entityId: share[0].fileId,
-            entityType: "file",
+            action: "file_share_update",
+            entityId: shareId,
+            entityType: "share",
             details: { type: "update_share", shareId, ...updateData },
             request
           });
@@ -405,33 +479,39 @@ export const Route = createFileRoute("/api/files/share")({
             });
           }
 
-          // Get share and verify ownership
-          const share = await db
-            .select({
-              id: fileShares.id,
-              fileId: fileShares.fileId,
-              sharedByUserId: fileShares.sharedByUserId,
-            })
+          // Check both tables and verify ownership
+          const existingShare = await db
+            .select({ id: fileShares.id, fileId: fileShares.fileId })
             .from(fileShares)
-            .where(eq(fileShares.id, shareId))
+            .where(and(eq(fileShares.id, shareId), eq(fileShares.sharedByUserId, session.user.id)))
             .limit(1);
 
-          if (!share.length || share[0].sharedByUserId !== session.user.id) {
-            return new Response(JSON.stringify({ error: "Access denied." }), {
-              status: 403,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
+          if (existingShare.length) {
+            await db.delete(fileShares).where(eq(fileShares.id, shareId));
+          } else {
+            const existingInvite = await db
+              .select({ id: fileInvitations.id, fileId: fileInvitations.fileId })
+              .from(fileInvitations)
+              .where(and(eq(fileInvitations.id, shareId), eq(fileInvitations.invitedByUserId, session.user.id)))
+              .limit(1);
 
-          await db.delete(fileShares).where(eq(fileShares.id, shareId));
+            if (existingInvite.length) {
+              await db.delete(fileInvitations).where(eq(fileInvitations.id, shareId));
+            } else {
+              return new Response(JSON.stringify({ error: "Share or Invitation not found or access denied." }), {
+                status: 404,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+          }
 
           // Log activity
           await logActivity({
             db,
             userId: session.user.id,
-            action: "file_share",
-            entityId: share[0].fileId,
-            entityType: "file",
+            action: "file_share_remove",
+            entityId: shareId,
+            entityType: "share",
             details: { type: "delete_share", shareId },
             request
           });

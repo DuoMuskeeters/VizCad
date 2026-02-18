@@ -84,6 +84,16 @@ export function getAuth(d1: D1Database, env: Cloudflare.Env, requestUrl?: string
         }
       },
     },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            const { convertInvitationsToShares } = await import("./share.server");
+            await convertInvitationsToShares(getDb(d1), user.email, user.id);
+          },
+        },
+      },
+    },
     plugins: [
       admin(), // Admin plugin for user management
     ],

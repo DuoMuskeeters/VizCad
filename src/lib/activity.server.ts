@@ -12,6 +12,10 @@ export type ActivityAction =
     | "file_delete"
     | "file_download"
     | "file_share"
+    | "file_share_view"
+    | "file_share_invite_sent"
+    | "file_share_update"
+    | "file_share_remove"
     | "file_rename"
     | "file_version"
     | "file_star"
@@ -22,7 +26,7 @@ interface LogActivityParams {
     userId: string;
     action: ActivityAction;
     entityId?: string;
-    entityType?: "file" | "user" | "comment" | "system";
+    entityType?: "file" | "user" | "comment" | "system" | "share";
     details?: any;
     request?: Request;
 }

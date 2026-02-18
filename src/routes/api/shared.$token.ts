@@ -38,6 +38,7 @@ export const Route = createFileRoute("/api/shared/$token")({
                             isActive: fileShares.isActive,
                             expiresAt: fileShares.expiresAt,
                             password: fileShares.password,
+                            permission: fileShares.permission,
                         })
                         .from(fileShares)
                         .where(and(
@@ -153,6 +154,7 @@ export const Route = createFileRoute("/api/shared/$token")({
                         },
                         downloadUrl: signedUrl.url,
                         thumbnailUrl: thumbnailSignedUrl?.url || null,
+                        permission: shareData.permission,
                     }), {
                         status: 200,
                         headers: { "Content-Type": "application/json" }

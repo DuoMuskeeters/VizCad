@@ -3,7 +3,7 @@ import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
 import { files, fileStars, user } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export const Route = createFileRoute("/api/files/starred")({
     server: {
@@ -47,6 +47,7 @@ export const Route = createFileRoute("/api/files/starred")({
                             thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
                             starredAt: fileStars.createdAt,
+                            permission: sql<string>`'admin'`,
                         })
                         .from(fileStars)
                         .innerJoin(files, eq(fileStars.fileId, files.id))

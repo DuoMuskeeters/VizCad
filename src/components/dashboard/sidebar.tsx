@@ -92,7 +92,13 @@ export function Sidebar({ activeSection, onSectionChange, onUploadClick, storage
 
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground rounded-lg h-10 px-3"
+          onClick={() => onSectionChange('settings')}
+          className={cn(
+            "w-full justify-start gap-3 rounded-lg h-10 px-3 font-normal transition-colors",
+            activeSection === 'settings'
+              ? "bg-primary/15 text-primary hover:bg-primary/20"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted font-normal",
+          )}
         >
           <Settings className="w-5 h-5 shrink-0" />
           <span>{t("dashboard.sidebar.settings")}</span>

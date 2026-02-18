@@ -45,6 +45,7 @@ export const Route = createFileRoute("/api/files/list")({
               updatedAt: files.updatedAt,
               thumbnailR2Key: files.thumbnailR2Key,
               userName: user.name,
+              permission: sql<string>`'admin'`,
             })
             .from(files)
             .leftJoin(user, eq(files.userId, user.id))

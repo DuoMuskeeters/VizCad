@@ -35,6 +35,7 @@ import { Route as ApiFilesThumbnailRouteImport } from './routes/api/files/thumbn
 import { Route as ApiFilesStarredRouteImport } from './routes/api/files/starred'
 import { Route as ApiFilesStarRouteImport } from './routes/api/files/star'
 import { Route as ApiFilesSharedWithMeRouteImport } from './routes/api/files/shared-with-me'
+import { Route as ApiFilesSharedByMeRouteImport } from './routes/api/files/shared-by-me'
 import { Route as ApiFilesShareRouteImport } from './routes/api/files/share'
 import { Route as ApiFilesRenameRouteImport } from './routes/api/files/rename'
 import { Route as ApiFilesRecentRouteImport } from './routes/api/files/recent'
@@ -188,6 +189,11 @@ const ApiFilesSharedWithMeRoute = ApiFilesSharedWithMeRouteImport.update({
   path: '/api/files/shared-with-me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesSharedByMeRoute = ApiFilesSharedByMeRouteImport.update({
+  id: '/api/files/shared-by-me',
+  path: '/api/files/shared-by-me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesShareRoute = ApiFilesShareRouteImport.update({
   id: '/api/files/share',
   path: '/api/files/share',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/api/files/recent': typeof ApiFilesRecentRoute
   '/api/files/rename': typeof ApiFilesRenameRoute
   '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-by-me': typeof ApiFilesSharedByMeRoute
   '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
   '/api/files/star': typeof ApiFilesStarRoute
   '/api/files/starred': typeof ApiFilesStarredRoute
@@ -387,6 +394,7 @@ export interface FileRoutesByTo {
   '/api/files/recent': typeof ApiFilesRecentRoute
   '/api/files/rename': typeof ApiFilesRenameRoute
   '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-by-me': typeof ApiFilesSharedByMeRoute
   '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
   '/api/files/star': typeof ApiFilesStarRoute
   '/api/files/starred': typeof ApiFilesStarredRoute
@@ -438,6 +446,7 @@ export interface FileRoutesById {
   '/api/files/recent': typeof ApiFilesRecentRoute
   '/api/files/rename': typeof ApiFilesRenameRoute
   '/api/files/share': typeof ApiFilesShareRoute
+  '/api/files/shared-by-me': typeof ApiFilesSharedByMeRoute
   '/api/files/shared-with-me': typeof ApiFilesSharedWithMeRoute
   '/api/files/star': typeof ApiFilesStarRoute
   '/api/files/starred': typeof ApiFilesStarredRoute
@@ -490,6 +499,7 @@ export interface FileRouteTypes {
     | '/api/files/recent'
     | '/api/files/rename'
     | '/api/files/share'
+    | '/api/files/shared-by-me'
     | '/api/files/shared-with-me'
     | '/api/files/star'
     | '/api/files/starred'
@@ -539,6 +549,7 @@ export interface FileRouteTypes {
     | '/api/files/recent'
     | '/api/files/rename'
     | '/api/files/share'
+    | '/api/files/shared-by-me'
     | '/api/files/shared-with-me'
     | '/api/files/star'
     | '/api/files/starred'
@@ -589,6 +600,7 @@ export interface FileRouteTypes {
     | '/api/files/recent'
     | '/api/files/rename'
     | '/api/files/share'
+    | '/api/files/shared-by-me'
     | '/api/files/shared-with-me'
     | '/api/files/star'
     | '/api/files/starred'
@@ -636,6 +648,7 @@ export interface RootRouteChildren {
   ApiFilesRecentRoute: typeof ApiFilesRecentRoute
   ApiFilesRenameRoute: typeof ApiFilesRenameRoute
   ApiFilesShareRoute: typeof ApiFilesShareRoute
+  ApiFilesSharedByMeRoute: typeof ApiFilesSharedByMeRoute
   ApiFilesSharedWithMeRoute: typeof ApiFilesSharedWithMeRoute
   ApiFilesStarRoute: typeof ApiFilesStarRoute
   ApiFilesStarredRoute: typeof ApiFilesStarredRoute
@@ -828,6 +841,13 @@ declare module '@tanstack/react-router' {
       path: '/api/files/shared-with-me'
       fullPath: '/api/files/shared-with-me'
       preLoaderRoute: typeof ApiFilesSharedWithMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/shared-by-me': {
+      id: '/api/files/shared-by-me'
+      path: '/api/files/shared-by-me'
+      fullPath: '/api/files/shared-by-me'
+      preLoaderRoute: typeof ApiFilesSharedByMeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/files/share': {
@@ -1051,6 +1071,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesRecentRoute: ApiFilesRecentRoute,
   ApiFilesRenameRoute: ApiFilesRenameRoute,
   ApiFilesShareRoute: ApiFilesShareRoute,
+  ApiFilesSharedByMeRoute: ApiFilesSharedByMeRoute,
   ApiFilesSharedWithMeRoute: ApiFilesSharedWithMeRoute,
   ApiFilesStarRoute: ApiFilesStarRoute,
   ApiFilesStarredRoute: ApiFilesStarredRoute,

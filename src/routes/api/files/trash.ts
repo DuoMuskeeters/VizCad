@@ -3,7 +3,7 @@ import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
 import { files, user } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { logActivity } from "@/lib/activity.server";
 
 export const Route = createFileRoute("/api/files/trash")({
@@ -47,6 +47,7 @@ export const Route = createFileRoute("/api/files/trash")({
                             updatedAt: files.updatedAt,
                             deletedAt: files.deletedAt,
                             userName: user.name,
+                            permission: sql<string>`'admin'`,
                         })
                         .from(files)
                         .leftJoin(user, eq(files.userId, user.id))

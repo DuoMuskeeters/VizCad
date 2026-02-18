@@ -2,17 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileActivities, user } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { files, fileShares, user, fileInvitations } from "@/db/schema";
+import { eq, and, desc, sql, or, exists } from "drizzle-orm";
 
-export const Route = createFileRoute("/api/files/recent")({
+export const Route = createFileRoute("/api/files/shared-by-me")({
     server: {
         handlers: {
-            // Get recently accessed files for current user
+            // Get all files shared BY the current user
             GET: async ({ request }) => {
                 try {
                     const d1 = env?.vizcad_auth;
-
                     if (!d1) {
                         return new Response(
                             JSON.stringify({ error: "Cloudflare D1 binding not configured." }),
@@ -31,9 +30,9 @@ export const Route = createFileRoute("/api/files/recent")({
                         });
                     }
 
-                    // Get recent file activities with file details
-                    // Using a subquery to get distinct files with their latest activity
-                    const recentFiles = await db
+                    // Get files where current user is the owner AND they have at least one active share
+                    // We'll return distinct files
+                    const sharedFiles = await db
                         .select({
                             id: files.id,
                             name: files.name,
@@ -47,35 +46,26 @@ export const Route = createFileRoute("/api/files/recent")({
                             updatedAt: files.updatedAt,
                             thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
-                            lastActivity: fileActivities.createdAt,
-                            lastAction: fileActivities.action,
                             permission: sql<string>`'admin'`,
                         })
-                        .from(fileActivities)
-                        .innerJoin(files, eq(fileActivities.fileId, files.id))
+                        .from(files)
                         .leftJoin(user, eq(files.userId, user.id))
                         .where(and(
-                            eq(fileActivities.userId, session.user.id),
+                            eq(files.userId, session.user.id),
                             eq(files.isDeleted, false),
-                            eq(files.status, 'uploaded')
+                            or(
+                                sql`EXISTS (SELECT 1 FROM ${fileShares} WHERE ${fileShares.fileId} = ${files.id} AND ${fileShares.isActive} = 1 AND ${fileShares.shareType} = 'user')`,
+                                sql`EXISTS (SELECT 1 FROM ${fileInvitations} WHERE ${fileInvitations.fileId} = ${files.id})`
+                            )
                         ))
-                        .orderBy(desc(fileActivities.createdAt))
-                        .limit(50);
+                        .orderBy(desc(files.updatedAt));
 
-                    // Remove duplicates (keep first occurrence which is the most recent)
-                    const uniqueFiles = recentFiles.reduce((acc, file) => {
-                        if (!acc.find(f => f.id === file.id)) {
-                            acc.push(file);
-                        }
-                        return acc;
-                    }, [] as typeof recentFiles);
-
-                    return new Response(JSON.stringify({ files: uniqueFiles }), {
+                    return new Response(JSON.stringify({ files: sharedFiles }), {
                         status: 200,
                         headers: { "Content-Type": "application/json" },
                     });
                 } catch (error) {
-                    console.error("Error fetching recent files:", error);
+                    console.error("Error fetching shared-by-me files:", error);
                     const message = error instanceof Error ? error.message : "Unknown error";
                     return new Response(JSON.stringify({ error: message }), {
                         status: 500,

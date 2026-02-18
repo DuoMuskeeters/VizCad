@@ -131,6 +131,25 @@ export const fileShares = sqliteTable("file_shares", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 
+// File invitations - pending invites for users without an account
+export const fileInvitations = sqliteTable("file_invitations", {
+  id: text("id").primaryKey(),
+  fileId: text("fileId")
+    .notNull()
+    .references(() => files.id, { onDelete: "cascade" }),
+  invitedByUserId: text("invitedByUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  permission: text("permission", { enum: ['view', 'edit', 'admin'] }).default('view').notNull(),
+  token: text("token").notNull().unique(), // Unique token for signup redirection
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+});
+
+export type FileInvitation = typeof fileInvitations.$inferSelect;
+export type NewFileInvitation = typeof fileInvitations.$inferInsert;
+
 // File versions - track version history
 export const fileVersions = sqliteTable("file_versions", {
   id: text("id").primaryKey(),

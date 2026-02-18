@@ -38,6 +38,7 @@ interface FileItem {
   isStarred?: boolean;
   deletedAt?: number;
   thumbnailR2Key?: string | null;
+  permission?: 'view' | 'edit' | 'admin';
 }
 
 interface FileListProps {
@@ -612,23 +613,40 @@ function FileActions({
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onPreview(item)}>
               <Eye className="w-4 h-4" /> {t("dashboard.list.actions.preview")}
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onDownload(item)}>
-              <Download className="w-4 h-4" /> {t("dashboard.list.actions.download")}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onShare(item)}>
-              <Share2 className="w-4 h-4" /> {t("dashboard.list.actions.share")}
-            </DropdownMenuItem>
+
+            {(item.permission === 'admin' || item.permission === 'edit') && (
+              <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onDownload(item)}>
+                <Download className="w-4 h-4" /> {t("dashboard.list.actions.download")}
+              </DropdownMenuItem>
+            )}
+
+            {item.permission === 'admin' && (
+              <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onShare(item)}>
+                <Share2 className="w-4 h-4" /> {t("dashboard.list.actions.share")}
+              </DropdownMenuItem>
+            )}
+
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onToggleStar(item)}>
               <Star className="w-4 h-4" /> {activeSection === 'starred' ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onOpenRename(item)}>
-              <Pencil className="w-4 h-4" /> {t("dashboard.list.actions.rename")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => onMoveToTrash(item)}>
-              <Trash2 className="w-4 h-4" /> {t("dashboard.list.actions.move_to_trash")}
-            </DropdownMenuItem>
+
+            {item.permission !== 'view' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onOpenRename(item)}>
+                  <Pencil className="w-4 h-4" /> {t("dashboard.list.actions.rename")}
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {item.permission === 'admin' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => onMoveToTrash(item)}>
+                  <Trash2 className="w-4 h-4" /> {t("dashboard.list.actions.move_to_trash")}
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
       </DropdownMenuContent>

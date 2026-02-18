@@ -4,6 +4,7 @@ import { Sidebar } from "./sidebar";
 import { FileToolbar } from "./file-toolbar";
 import { FileList } from "./file-list";
 import { UploadModal } from "./upload-modal";
+import { SettingsView } from "./settings-view";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
@@ -38,6 +39,7 @@ const sectionToEndpoint: Record<string, string> = {
   'recent': '/api/files/recent',
   'trash': '/api/files/trash',
   'shared': '/api/files/shared-with-me',
+  'settings': '/api/files/shared-by-me',
 };
 
 export function DashboardLayout() {
@@ -55,6 +57,7 @@ export function DashboardLayout() {
     'recent': 'dashboard.sidebar.recent',
     'trash': 'dashboard.sidebar.trash',
     'shared': 'dashboard.sidebar.shared',
+    'settings': 'dashboard.sidebar.settings',
   };
 
   const getSectionTitle = (section: string) => t(sectionToTitleKey[section] || 'dashboard.sidebar.my_files');
@@ -170,32 +173,45 @@ export function DashboardLayout() {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-foreground">
-              {getSectionTitle(activeSection)}
-            </h1>
+            {activeSection !== 'settings' && (
+              <>
+                <h1 className="text-lg font-semibold text-foreground">
+                  {getSectionTitle(activeSection)}
+                </h1>
+              </>
+            )}
           </div>
 
-          <FileToolbar
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            currentPath={currentPath}
-            onNavigate={handleNavigate}
-          />
-          <FileList
-            viewMode={viewMode}
-            searchQuery={searchQuery}
-            sortBy={sortBy}
-            onFolderClick={handleFolderClick}
-            files={files}
-            isLoading={isLoading}
-            error={error}
-            activeSection={activeSection}
-            onRefresh={handleRefresh}
-          />
+          {activeSection !== 'settings' && (
+            <FileToolbar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              currentPath={currentPath}
+              onNavigate={handleNavigate}
+            />
+          )}
+          {activeSection === 'settings' ? (
+            <SettingsView
+              files={files}
+              onRefresh={handleRefresh}
+            />
+          ) : (
+            <FileList
+              viewMode={viewMode}
+              searchQuery={searchQuery}
+              sortBy={sortBy}
+              onFolderClick={handleFolderClick}
+              files={files}
+              isLoading={isLoading}
+              error={error}
+              activeSection={activeSection}
+              onRefresh={handleRefresh}
+            />
+          )}
         </div>
       </main>
 

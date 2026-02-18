@@ -91,6 +91,11 @@ export const Route = createFileRoute("/api/auth/$")({
                       },
                       request
                     });
+
+                    if (isSignUp) {
+                      const { convertInvitationsToShares } = await import("@/lib/share.server");
+                      await convertInvitationsToShares(getDb(d1), session.user.email, session.user.id, request);
+                    }
                   }
                 }
               } catch (err) {
