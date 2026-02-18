@@ -112,17 +112,6 @@ export const Route = createFileRoute("/api/files/detail")({
             .from(fileComments)
             .where(eq(fileComments.fileId, fileId));
 
-          // Log activity
-          /* await */ logActivity({
-              db,
-              userId: session.user.id,
-              action: "file_view",
-              entityId: fileId,
-              entityType: "file",
-              details: { name: file.name },
-              request
-            });
-
           const versionCount = await db
             .select({ count: count() })
             .from(fileVersions)

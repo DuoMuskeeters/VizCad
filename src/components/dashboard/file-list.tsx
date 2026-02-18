@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, AlertTriangle, MoreVertical, Eye, Download, Pencil, Trash2, Star, Share2, Info, RotateCcw, X, Calendar, FileBox, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, AlertTriangle, MoreVertical, Eye, Download, Pencil, Trash2, Star, Share2, Info, RotateCcw, X, Calendar, FileBox, User, ChevronLeft, ChevronRight, MessageSquare, HardDrive } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +36,12 @@ interface FileItem {
   createdAt: number;
   updatedAt: number;
   userName?: string;
+  userImage?: string | null;
   isStarred?: boolean;
   deletedAt?: number;
   thumbnailR2Key?: string | null;
   permission?: 'view' | 'edit' | 'admin';
+  commentCount?: number;
 }
 
 interface FileListProps {
@@ -322,59 +325,94 @@ export function FileList({
           {paginatedFiles.map((item) => (
             <Card
               key={item.id}
-              className="group bg-card hover:bg-secondary/50 cursor-pointer transition-all border-transparent hover:border-border overflow-hidden"
+              className="group bg-card hover:bg-secondary/30 cursor-pointer transition-all duration-300 border-border/40 hover:border-primary/50 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1"
             >
               <div
-                className="aspect-[4/3] bg-secondary/50 relative cursor-pointer hover:opacity-90 transition-opacity"
+                className="aspect-[4/3] bg-muted/30 relative cursor-pointer overflow-hidden"
                 onClick={() => handlePreview(item)}
               >
-                {/* Yıldız toggle butonu */}
+                {/* Thumbnails with hover effect */}
+                <img
+                  src={item.thumbnailR2Key ? `/api/files/thumbnail?fileId=${item.id}` : "/placeholder.svg"}
+                  alt={item.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+
+                {/* Status Overlays */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Star Toggle - Top Right */}
                 <button
-                  className="absolute top-2 right-2 z-10 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
+                  className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-background transition-all shadow-sm opacity-0 group-hover:opacity-100 transform translate-y-[-10px] group-hover:translate-y-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleStar(item);
                   }}
-                  title={item.isStarred ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
                 >
-                  <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
+                  <Star className={`w-3.5 h-3.5 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
                 </button>
-                <img
-                  src={item.thumbnailR2Key ? `/api/files/thumbnail?fileId=${item.id}` : "/placeholder.svg"}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
+
+                {/* Owner Mini-Avatar - Bottom Right */}
+                <div className="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Avatar className="h-6 w-6 border-2 border-background shadow-sm">
+                    <AvatarImage src={item.userImage || ""} alt={item.userName || ""} />
+                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                      {item.userName?.[0]?.toUpperCase() || <User className="h-3 w-3" />}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                {/* File Extension Badge - Top Left */}
                 {item.extension && (
                   <Badge
                     variant="secondary"
-                    className="absolute bottom-2 left-2 bg-background/90 text-xs font-normal"
+                    className="absolute top-2 left-2 bg-background/90 backdrop-blur-sm text-[10px] font-semibold py-0 px-2 h-5 border-border/50"
                   >
                     {item.extension.toUpperCase()}
                   </Badge>
                 )}
               </div>
+
               <div className="p-3">
-                <div className="flex items-start justify-between gap-1">
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(item.updatedAt).toLocaleDateString()}
+                    <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors pr-1" title={item.name}>
+                      {item.name}
                     </p>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {/* Metadata row */}
+                      <div className="flex items-center text-[10.5px] text-muted-foreground whitespace-nowrap bg-secondary/40 px-1.5 py-0.5 rounded">
+                        <Calendar className="w-3 h-3 mr-1 opacity-70" />
+                        {new Date(item.updatedAt).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center text-[10.5px] text-muted-foreground whitespace-nowrap bg-secondary/40 px-1.5 py-0.5 rounded">
+                        <HardDrive className="w-3 h-3 mr-1 opacity-70" />
+                        {formatSize(item.size)}
+                      </div>
+                      {item.commentCount && item.commentCount > 0 ? (
+                        <div className="flex items-center text-[10.5px] text-primary whitespace-nowrap bg-primary/10 px-1.5 py-0.5 rounded animate-in fade-in zoom-in duration-300">
+                          <MessageSquare className="w-3 h-3 mr-1 fill-primary/20" />
+                          {item.commentCount}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  <FileActions
-                    item={item}
-                    activeSection={activeSection}
-                    actionLoading={actionLoading}
-                    onDownload={handleDownload}
-                    onToggleStar={handleToggleStar}
-                    onMoveToTrash={handleMoveToTrash}
-                    onRestore={handleRestore}
-                    onPermanentDelete={handlePermanentDelete}
-                    onOpenRename={handleOpenRename}
-                    onPreview={handlePreview}
-                    onShare={handleOpenShare}
-                    t={t}
-                  />
+                  <div className="shrink-0 -mr-1">
+                    <FileActions
+                      item={item}
+                      activeSection={activeSection}
+                      actionLoading={actionLoading}
+                      onDownload={handleDownload}
+                      onToggleStar={handleToggleStar}
+                      onMoveToTrash={handleMoveToTrash}
+                      onRestore={handleRestore}
+                      onPermanentDelete={handlePermanentDelete}
+                      onOpenRename={handleOpenRename}
+                      onPreview={handlePreview}
+                      onShare={handleOpenShare}
+                      t={t}
+                    />
+                  </div>
                 </div>
               </div>
             </Card>
@@ -445,48 +483,63 @@ export function FileList({
         {paginatedFiles.map((item) => (
           <div
             key={item.id}
-            className="group grid grid-cols-12 gap-2 px-3 py-4 md:gap-4 md:px-4 md:py-2.5 rounded-lg hover:bg-secondary/50 cursor-pointer items-center"
+            className="group grid grid-cols-12 gap-2 px-3 py-4 md:gap-4 md:px-4 md:py-2.5 rounded-xl hover:bg-secondary/40 cursor-pointer items-center border border-transparent hover:border-border/50 transition-all duration-200"
             onClick={() => handlePreview(item)}
           >
             <div className="col-span-10 md:col-span-6 flex items-center gap-3 min-w-0">
               <Checkbox className="hidden md:block h-4 w-4 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()} />
-              <div className="w-14 h-14 md:w-8 md:h-8 rounded bg-secondary overflow-hidden shrink-0 relative">
+              <div className="w-14 h-14 md:w-10 md:h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 relative border border-border/40 shadow-sm group-hover:scale-105 transition-transform duration-300">
                 <img
                   src={item.thumbnailR2Key ? `/api/files/thumbnail?fileId=${item.id}` : "/placeholder.svg"}
                   alt={item.name}
                   className="w-full h-full object-cover"
                 />
               </div>
-              {/* Yıldız toggle butonu */}
-              <button
-                className="shrink-0 p-1 rounded hover:bg-secondary transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleStar(item);
-                }}
-                title={item.isStarred ? t("dashboard.list.actions.unstar") : t("dashboard.list.actions.star")}
-              >
-                <Star className={`w-4 h-4 ${item.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground hover:text-yellow-500'}`} />
-              </button>
-              <div className="flex flex-col min-w-0">
-                <span className="text-base md:text-sm font-medium truncate">{item.name}</span>
-                <span className="text-sm md:text-xs text-muted-foreground md:hidden mt-0.5">
-                  {(item.size / 1024 / 1024).toFixed(2)} MB • {new Date(item.updatedAt).toLocaleDateString()}
-                </span>
+
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm md:text-[14px] font-semibold truncate group-hover:text-primary transition-colors">{item.name}</span>
+                  {item.isStarred && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 shrink-0" />}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 md:hidden">
+                  <span className="text-xs text-muted-foreground">{formatSize(item.size)}</span>
+                  <span className="text-xs text-muted-foreground opacity-40">•</span>
+                  <span className="text-xs text-muted-foreground">{new Date(item.updatedAt).toLocaleDateString()}</span>
+                </div>
               </div>
+
+              {item.commentCount && item.commentCount > 0 ? (
+                <div className="hidden md:flex items-center text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  {item.commentCount}
+                </div>
+              ) : null}
+
               {item.extension && (
-                <Badge variant="outline" className="text-xs font-normal shrink-0 hidden md:inline-flex">
+                <Badge variant="outline" className="text-[10px] font-bold shrink-0 hidden md:inline-flex bg-background h-5">
                   {item.extension.toUpperCase()}
                 </Badge>
               )}
             </div>
-            <div className="hidden md:block col-span-2 text-sm text-muted-foreground truncate">{item.userName || item.userId}</div>
-            <div className="hidden md:block col-span-2 text-sm text-muted-foreground">
+
+            <div className="hidden md:flex col-span-2 items-center gap-2 min-w-0">
+              <Avatar className="h-6 w-6 shrink-0 border border-border">
+                <AvatarImage src={item.userImage || ""} />
+                <AvatarFallback className="text-[10px] bg-secondary text-secondary-foreground font-medium">
+                  {item.userName?.[0]?.toUpperCase() || <User className="h-3 w-3" />}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs font-medium text-foreground/80 truncate">{item.userName || item.userId}</span>
+            </div>
+
+            <div className="hidden md:block col-span-2 text-xs text-muted-foreground font-medium">
               {new Date(item.updatedAt).toLocaleDateString()}
             </div>
-            <div className="hidden md:block col-span-1 text-sm text-muted-foreground">
-              {(item.size / 1024 / 1024).toFixed(2)} MB
+
+            <div className="hidden md:block col-span-1 text-xs text-muted-foreground font-medium">
+              {formatSize(item.size)}
             </div>
+
             <div className="col-span-2 md:col-span-1 flex justify-end">
               <FileActions
                 item={item}

@@ -16,7 +16,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Maximize
+  Maximize,
+  Info,
+  HardDrive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -303,9 +305,9 @@ function FileDetailPage() {
   const { file, permission, isOwner, stats } = fileData;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       {/* Header */}
-      <header className="border-b bg-card sticky top-0 z-10">
+      <header className="border-b bg-card sticky top-16 z-10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -315,7 +317,83 @@ function FileDetailPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-lg font-semibold truncate max-w-md">{file.name}</h1>
+                <div className="flex items-center gap-2 group">
+                  <h1 className="text-lg font-semibold truncate max-w-sm">{file.name}</h1>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10">
+                        <Info className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-80 p-0 overflow-hidden shadow-xl border-primary/20">
+                      <div className="bg-primary/5 p-4 border-b border-primary/10">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-bold text-sm text-primary">Dosya Detayları</h3>
+                          <Badge variant="outline" className="text-[10px] font-bold bg-background">
+                            {file.extension.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">{file.name}</p>
+                      </div>
+
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-tight">Sahibi</span>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="w-5 h-5 border">
+                                <AvatarImage src={file.ownerImage || undefined} />
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                  {file.ownerName?.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="truncate font-medium text-xs">{file.ownerName}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-tight">Boyut</span>
+                            <span className="text-xs font-semibold">{formatSize(file.size)}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 p-2.5 rounded-lg border border-border/40">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground text-[9px] font-medium uppercase tracking-wider flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-primary/60" /> Oluşturulma
+                            </span>
+                            <span className="text-[10px] font-medium">{formatDate(file.createdAt)}</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground text-[9px] font-medium uppercase tracking-wider flex items-center gap-1">
+                              <RotateCcw className="w-3 h-3 text-primary/60" /> Güncelleme
+                            </span>
+                            <span className="text-[10px] font-medium">{formatDate(file.updatedAt)}</span>
+                          </div>
+                        </div>
+
+                        {/* Stats Grid inside Item */}
+                        <div className="grid grid-cols-3 gap-2 pt-2">
+                          <div className="bg-background border rounded-lg p-2 text-center">
+                            <Users className="w-3 h-3 text-muted-foreground mx-auto mb-1" />
+                            <div className="text-xs font-bold">{stats.shareCount}</div>
+                            <div className="text-[8px] text-muted-foreground font-semibold uppercase">Paylaşım</div>
+                          </div>
+                          <div className="bg-background border rounded-lg p-2 text-center">
+                            <MessageSquare className="w-3 h-3 text-muted-foreground mx-auto mb-1" />
+                            <div className="text-xs font-bold">{stats.commentCount}</div>
+                            <div className="text-[8px] text-muted-foreground font-semibold uppercase">Yorum</div>
+                          </div>
+                          <div className="bg-background border rounded-lg p-2 text-center">
+                            <FileBox className="w-3 h-3 text-muted-foreground mx-auto mb-1" />
+                            <div className="text-xs font-bold">{stats.versionCount}</div>
+                            <div className="text-[8px] text-muted-foreground font-semibold uppercase">Versiyon</div>
+                          </div>
+                        </div>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="outline">{file.extension.toUpperCase()}</Badge>
                   <span>•</span>
@@ -424,134 +502,81 @@ function FileDetailPage() {
           </div>
 
           {/* Info Panel */}
-          <div className="space-y-4">
-            {/* File Info */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-4">Dosya Bilgileri</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sahip</span>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-5 h-5">
-                      <AvatarImage src={file.ownerImage || undefined} />
-                      <AvatarFallback>{file.ownerName?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span>{file.ownerName}</span>
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Oluşturulma</span>
-                  <span>{formatDate(file.createdAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Son Güncelleme</span>
-                  <span>{formatDate(file.updatedAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Boyut</span>
-                  <span>{formatSize(file.size)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Format</span>
-                  <Badge variant="secondary">{file.extension.toUpperCase()}</Badge>
+          {/* Right Sidebar: Details & Comments */}
+          {/* Right Sidebar: Comments matched with 3D Preview height */}
+          <div className="lg:col-span-1">
+            <Card className="flex flex-col p-0 overflow-hidden shadow-sm border-border/60 h-[450px] lg:h-[500px]">
+              <div className="p-4 border-b bg-muted/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Yorumlar</h3>
+                  <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px]">{comments.length}</Badge>
                 </div>
               </div>
-            </Card>
 
-            {/* Stats */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-4">İstatistikler</h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="flex items-center justify-center mb-1">
-                    <Users className="w-4 h-4 text-muted-foreground" />
+              {/* Comments List - Scrollable area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                {commentsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="text-lg font-semibold">{stats.shareCount}</div>
-                  <div className="text-xs text-muted-foreground">Paylaşım</div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-center mb-1">
-                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                ) : comments.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-2">
+                    <MessageSquare className="w-8 h-8 opacity-20" />
+                    <p className="text-xs">Henüz yorum yok.</p>
                   </div>
-                  <div className="text-lg font-semibold">{stats.commentCount}</div>
-                  <div className="text-xs text-muted-foreground">Yorum</div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-center mb-1">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <div className="space-y-4">
+                    {comments.filter(c => !c.parentId).map((comment) => (
+                      <CommentItem
+                        key={comment.id}
+                        comment={comment}
+                        replies={comments.filter(c => c.parentId === comment.id)}
+                        onReply={() => setReplyingTo(comment.id)}
+                        onDelete={handleDeleteComment}
+                      />
+                    ))}
                   </div>
-                  <div className="text-lg font-semibold">{stats.versionCount}</div>
-                  <div className="text-xs text-muted-foreground">Versiyon</div>
+                )}
+              </div>
+
+              {/* New Comment Input - Fixed at bottom of the card */}
+              <div className="p-4 border-t bg-card shrink-0">
+                {replyingTo && (
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-2 bg-secondary/50 px-2 py-1 rounded">
+                    <div className="flex items-center gap-1">
+                      <Reply className="w-3 h-3" />
+                      <span>Yanıtlanıyor...</span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="h-4 p-0 px-1 text-[10px] hover:bg-transparent hover:text-foreground">
+                      İptal
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <Textarea
+                    placeholder="Yorumunuzu yazın..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[60px] text-xs resize-none focus-visible:ring-primary/30"
+                  />
+                  <Button
+                    onClick={handleSubmitComment}
+                    disabled={submittingComment || !newComment.trim()}
+                    size="icon"
+                    className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg shadow-sm"
+                  >
+                    {submittingComment ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
               </div>
             </Card>
           </div>
         </div>
-
-        {/* Comments Section */}
-        <Card className="mt-6 p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="w-5 h-5" />
-            <h3 className="font-semibold">Yorumlar</h3>
-            <Badge variant="secondary">{comments.length}</Badge>
-          </div>
-
-          {/* New Comment */}
-          <div className="mb-6">
-            {replyingTo && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                <Reply className="w-4 h-4" />
-                <span>Yanıtlanıyor</span>
-                <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)}>
-                  İptal
-                </Button>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Yorum yazın..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[80px]"
-              />
-              <Button
-                onClick={handleSubmitComment}
-                disabled={submittingComment || !newComment.trim()}
-                size="icon"
-                className="h-auto"
-              >
-                {submittingComment ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Comments List */}
-          {commentsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Henüz yorum yok. İlk yorumu siz yapın!
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {comments.filter(c => !c.parentId).map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  replies={comments.filter(c => c.parentId === comment.id)}
-                  onReply={() => setReplyingTo(comment.id)}
-                  onDelete={handleDeleteComment}
-                />
-              ))}
-            </div>
-          )}
-        </Card>
       </div>
       {/* Share Modal */}
       <ShareModal

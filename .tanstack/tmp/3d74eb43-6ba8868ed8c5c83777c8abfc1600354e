@@ -1,0 +1,666 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next";
+import {
+  ArrowLeft,
+  Download,
+  Share2,
+  MessageSquare,
+  Clock,
+  Users,
+  FileBox,
+  Loader2,
+  Send,
+  MoreVertical,
+  Trash2,
+  Reply,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Maximize,
+  Info,
+  HardDrive,
+  User,
+  Calendar
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShareModal } from "@/components/dashboard/share-modal";
+import { VtkApp } from "@/components/VtkApp.client";
+
+interface FileDetail {
+  id: string;
+  name: string;
+  r2Key: string;
+  size: number;
+  mimeType: string;
+  extension: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+  ownerName: string;
+  ownerEmail: string;
+  ownerImage: string | null;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  parentId: string | null;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface FileDetailResponse {
+  file: FileDetail;
+  permission: string;
+  isOwner: boolean;
+  stats: {
+    shareCount: number;
+    commentCount: number;
+    versionCount: number;
+  };
+}
+
+export const Route = createFileRoute("/file/$fileId")({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
+  component: FileDetailPage,
+});
+
+function FileDetailPage() {
+  const { t } = useTranslation();
+  const { fileId } = Route.useParams();
+  const [fileData, setFileData] = useState<FileDetailResponse | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
+  // Camera controls ref
+  const cameraControlsRef = useRef<{
+    resetCamera: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    setView: (view: string) => void;
+  } | null>(null);
+
+  // Fetch file details
+  useEffect(() => {
+    const fetchFileDetail = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/files/detail?fileId=${fileId}`);
+        if (!response.ok) {
+          const data = await response.json() as { error?: string };
+          throw new Error(data.error || "Dosya yüklenemedi");
+        }
+        const data = await response.json() as FileDetailResponse;
+        setFileData(data);
+
+        // If file is supported 3D format, fetch content for preview using parallel download
+        const ext = data.file.extension.toLowerCase();
+        if (['stl', 'obj', 'ply', 'step', 'stp', 'iges', 'igs', 'brep'].includes(ext)) {
+          setIsPreviewLoading(true);
+          // Get presigned URL and download with parallel chunks for better performance
+          (async () => {
+            try {
+              const downloadRes = await fetch(`/api/files/download?fileId=${fileId}`);
+              const downloadData = await downloadRes.json() as { url: string; fileName: string; fileSize: number; mimeType: string };
+
+              const chunkSize = 10 * 1024 * 1024; // 10MB
+              const { url, fileSize, mimeType } = downloadData;
+
+              if (fileSize < chunkSize) {
+                // Small file: single request
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const file = new File([blob], data.file.name, { type: mimeType });
+                setPreviewFile(file);
+              } else {
+                // Large file: parallel chunk download
+                const numChunks = Math.ceil(fileSize / chunkSize);
+                const promises: Promise<{ index: number; data: ArrayBuffer }>[] = [];
+
+                for (let i = 0; i < numChunks; i++) {
+                  const start = i * chunkSize;
+                  const end = Math.min(start + chunkSize - 1, fileSize - 1);
+                  promises.push(
+                    fetch(url, { headers: { 'Range': `bytes=${start}-${end}` } })
+                      .then(res => res.arrayBuffer())
+                      .then(buffer => ({ index: i, data: buffer }))
+                  );
+                }
+
+                const results = await Promise.all(promises);
+                results.sort((a, b) => a.index - b.index);
+
+                const mergedBuffer = new Uint8Array(fileSize);
+                let offset = 0;
+                for (const result of results) {
+                  mergedBuffer.set(new Uint8Array(result.data), offset);
+                  offset += result.data.byteLength;
+                }
+
+                const blob = new Blob([mergedBuffer], { type: mimeType });
+                const file = new File([blob], data.file.name, { type: mimeType });
+                setPreviewFile(file);
+              }
+            } catch (err) {
+              console.error("Preview download failed", err);
+            } finally {
+              setIsPreviewLoading(false);
+            }
+          })();
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Bilinmeyen hata");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFileDetail();
+  }, [fileId]);
+
+  // Fetch comments
+  const fetchComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const response = await fetch(`/api/files/comments?fileId=${fileId}`);
+      if (response.ok) {
+        const data = await response.json() as { comments: Comment[] };
+        setComments(data.comments);
+      }
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [fileId]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  // Submit comment
+  const handleSubmitComment = async () => {
+    if (!newComment.trim()) return;
+
+    setSubmittingComment(true);
+    try {
+      const response = await fetch('/api/files/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileId,
+          content: newComment.trim(),
+          parentId: replyingTo,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Yorum eklenemedi");
+      }
+
+      setNewComment("");
+      setReplyingTo(null);
+      fetchComments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Yorum eklenemedi");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // Delete comment
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Bu yorumu silmek istediğinize emin misiniz?")) return;
+
+    try {
+      const response = await fetch(`/api/files/comments?commentId=${commentId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchComments();
+      }
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+    }
+  };
+
+  // Download file with parallel chunks for better performance
+  const handleDownload = async () => {
+    if (!fileData) return;
+    try {
+      const { downloadFileParallel } = await import('@/lib/parallel-download');
+      await downloadFileParallel(fileId, fileData.file.name, (progress) => {
+        console.log(`Download progress: ${progress.percent}%`);
+      });
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Dosya indirilemedi");
+    }
+  };
+
+  // Format file size
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
+  // Format date
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('tr-TR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !fileData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background">
+        <FileBox className="w-16 h-16 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Dosya Bulunamadı</h2>
+        <p className="text-muted-foreground mb-4">{error || "Dosya yüklenemedi"}</p>
+        <Link to="/dashboard">
+          <Button variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Dashboard'a Dön
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const { file, permission, isOwner, stats } = fileData;
+
+  return (
+    <div className="flex flex-col min-h-screen bg-background pb-10">
+      {/* Space for the global header if it's absolute/fixed */}
+      <div className="h-[64px] shrink-0" />
+
+      {/* Internal Sub-Header */}
+      <header className="border-b bg-card/50 backdrop-blur-xl sticky top-[64px] z-20">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 min-w-0">
+              <Link to="/dashboard">
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold truncate tracking-tight">{file.name}</h1>
+
+                  {/* Info Sheet Trigger */}
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-secondary/50 hover:bg-secondary">
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent>
+                      <SheetHeader>
+                        <SheetTitle className="text-xl font-bold">{t("dashboard.info.details") || "Dosya Detayları"}</SheetTitle>
+                        <SheetDescription>
+                          {file.name} dosyası hakkında teknik bilgiler.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="py-6 space-y-8">
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="bg-secondary/50 p-3 rounded-xl text-center">
+                            <Users className="w-4 h-4 mx-auto mb-1 text-primary" />
+                            <div className="text-lg font-bold">{stats.shareCount}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Paylaşım</div>
+                          </div>
+                          <div className="bg-secondary/50 p-3 rounded-xl text-center">
+                            <MessageSquare className="w-4 h-4 mx-auto mb-1 text-primary" />
+                            <div className="text-lg font-bold">{stats.commentCount}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Yorum</div>
+                          </div>
+                          <div className="bg-secondary/50 p-3 rounded-xl text-center">
+                            <Clock className="w-4 h-4 mx-auto mb-1 text-primary" />
+                            <div className="text-lg font-bold">{stats.versionCount}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Versiyon</div>
+                          </div>
+                        </div>
+
+                        {/* Detail List */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <User className="w-4 h-4" />
+                              </div>
+                              <span className="text-sm font-medium text-muted-foreground">Sahip</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="w-6 h-6 border border-border">
+                                <AvatarImage src={file.ownerImage || undefined} />
+                                <AvatarFallback className="text-[10px] bg-primary/5 text-primary">{file.ownerName?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-semibold">{file.ownerName}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Calendar className="w-4 h-4" />
+                              </div>
+                              <span className="text-sm font-medium text-muted-foreground">Oluşturulma</span>
+                            </div>
+                            <span className="text-sm font-semibold">{formatDate(file.createdAt)}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Clock className="w-4 h-4" />
+                              </div>
+                              <span className="text-sm font-medium text-muted-foreground">Güncelleme</span>
+                            </div>
+                            <span className="text-sm font-semibold">{formatDate(file.updatedAt)}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <HardDrive className="w-4 h-4" />
+                              </div>
+                              <span className="text-sm font-medium text-muted-foreground">Boyut</span>
+                            </div>
+                            <span className="text-sm font-semibold">{formatSize(file.size)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="h-5 text-[10px] font-bold px-2 bg-primary/10 text-primary border-primary/20">
+                    {file.extension.toUpperCase()}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground font-medium opacity-70">
+                    {formatSize(file.size)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownload} className="rounded-lg h-9 font-semibold">
+                <Download className="w-4 h-4 mr-2" />
+                İndir
+              </Button>
+              {(isOwner || permission === 'admin') && (
+                <Button variant="default" size="sm" onClick={() => setShareModalOpen(true)} className="rounded-lg h-9 font-semibold shadow-sm">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Paylaş
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+
+          {/* Main Viewer - Always first visually */}
+          <div className="lg:col-span-3 space-y-6">
+            <Card className="overflow-hidden h-[500px] lg:h-[650px] relative border-none shadow-2xl bg-muted/20 group">
+              <div className="w-full h-full relative cursor-crosshair">
+                {isPreviewLoading ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/40 backdrop-blur-sm z-30">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+                    <span className="text-sm font-bold text-muted-foreground tracking-widest uppercase">3D Model İşleniyor...</span>
+                  </div>
+                ) : previewFile ? (
+                  <>
+                    <Suspense fallback={
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                      </div>
+                    }>
+                      <VtkApp
+                        file={previewFile}
+                        displayState={{
+                          wireframe: false,
+                          grid: false,
+                          axes: true,
+                          smooth: true
+                        }}
+                        onCameraReady={(controls) => {
+                          cameraControlsRef.current = controls;
+                        }}
+                      />
+                    </Suspense>
+                    {/* Floating Controls with premium glassmorphism */}
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/60 backdrop-blur-md border border-white/20 p-1.5 rounded-2xl shadow-xl z-10 opacity-60 hover:opacity-100 transition-opacity duration-300">
+                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/20" onClick={() => cameraControlsRef.current?.zoomIn()}><ZoomIn className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/20" onClick={() => cameraControlsRef.current?.zoomOut()}><ZoomOut className="w-4 h-4" /></Button>
+                      <div className="w-px h-6 bg-white/20 mx-1" />
+                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/20" onClick={() => cameraControlsRef.current?.resetCamera()}><RotateCcw className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/20" onClick={() => cameraControlsRef.current?.setView('iso')}><Maximize className="w-4 h-4" /></Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground rounded-3xl overflow-hidden bg-muted/10">
+                    <FileBox className="w-20 h-20 opacity-20 mb-4" />
+                    <p className="font-bold tracking-tight text-lg">Bu formatın önizlemesi desteklenmiyor</p>
+                    <p className="text-sm opacity-60">Dosyayı indirerek yerel yazılımınızda açabilirsiniz</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Premium Comments Sidebar */}
+          <div className="lg:col-span-1 h-full lg:h-[650px] flex flex-col">
+            <Card className="flex-1 flex flex-col bg-card/40 border-border/40 shadow-sm overflow-hidden rounded-2xl">
+              <div className="p-5 border-b bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold tracking-tight">Yorumlar</h3>
+                  </div>
+                  <Badge variant="secondary" className="bg-primary/5 text-primary border-none font-bold">
+                    {comments.length}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Comment Input - Fixed at top of list */}
+              <div className="p-4 border-b bg-muted/5">
+                {replyingTo && (
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-2 px-2 py-1 bg-secondary/50 rounded-lg">
+                    <span className="flex items-center gap-1.5"><Reply className="w-3 h-3" /> Yanıtlanıyor</span>
+                    <button onClick={() => setReplyingTo(null)} className="font-bold hover:text-primary">İptal</button>
+                  </div>
+                )}
+                <div className="relative group">
+                  <Textarea
+                    placeholder="Bir yorum bırakın..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[100px] bg-background/50 border-border/60 focus:ring-primary/20 transition-all resize-none pr-10 rounded-xl text-sm"
+                  />
+                  <Button
+                    onClick={handleSubmitComment}
+                    disabled={submittingComment || !newComment.trim()}
+                    size="icon"
+                    className="absolute bottom-3 right-3 h-8 w-8 rounded-lg shadow-lg"
+                  >
+                    {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-6">
+                  {commentsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Yükleniyor</span>
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                      <FileBox className="w-12 h-12 mb-3" />
+                      <p className="text-xs font-bold uppercase tracking-wider">Henüz yorum yok</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {comments.filter(c => !c.parentId).map((comment) => (
+                        <CommentItem
+                          key={comment.id}
+                          comment={comment}
+                          replies={comments.filter(c => c.parentId === comment.id)}
+                          onReply={() => setReplyingTo(comment.id)}
+                          onDelete={handleDeleteComment}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </Card>
+          </div>
+        </div>
+      </main>
+
+      {/* Share Modal */}
+      <ShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        fileId={fileId}
+        fileName={file.name}
+      />
+    </div>
+  )
+}
+
+// Comment Item Component
+interface CommentItemProps {
+  comment: Comment;
+  replies: Comment[];
+  onReply: () => void;
+  onDelete: (id: string) => void;
+}
+
+function CommentItem({ comment, replies, onReply, onDelete }: CommentItemProps) {
+  return (
+    <div className="group/comment space-y-3">
+      <div className="flex gap-3">
+        <Avatar className="w-8 h-8 border border-border/50 shadow-sm shrink-0">
+          <AvatarImage src={comment.userImage || undefined} />
+          <AvatarFallback className="text-[10px] bg-secondary font-bold">{comment.userName?.charAt(0)}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between group">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[13px] tracking-tight">{comment.userName}</span>
+              <span className="text-[10px] text-muted-foreground font-medium opacity-60">
+                {new Date(comment.createdAt).toLocaleDateString('tr-TR')}
+              </span>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg">
+                    <MoreVertical className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  <DropdownMenuItem onClick={onReply} className="gap-2 cursor-pointer font-medium text-xs">
+                    <Reply className="w-3.5 h-3.5" /> Yanıtla
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive gap-2 cursor-pointer font-medium text-xs"
+                    onClick={() => onDelete(comment.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Sil
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <p className="text-[13px] mt-1 pr-2 leading-relaxed text-foreground/90">{comment.content}</p>
+          <button
+            onClick={onReply}
+            className="text-[10px] font-bold text-primary mt-2 opacity-0 group-hover/comment:opacity-100 transition-opacity uppercase tracking-widest"
+          >
+            Yanıtla
+          </button>
+        </div>
+      </div>
+
+      {/* Replies */}
+      {replies.length > 0 && (
+        <div className="ml-11 space-y-4 border-l-2 border-primary/10 pl-4 py-1">
+          {replies.map((reply) => (
+            <div key={reply.id} className="flex gap-3">
+              <Avatar className="w-6 h-6 border border-border/50 shrink-0">
+                <AvatarImage src={reply.userImage || undefined} />
+                <AvatarFallback className="text-[8px] bg-secondary font-bold">{reply.userName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[12px] tracking-tight">{reply.userName}</span>
+                  <span className="text-[9px] text-muted-foreground font-medium opacity-60">
+                    {new Date(reply.createdAt).toLocaleDateString('tr-TR')}
+                  </span>
+                </div>
+                <p className="text-[12px] mt-1 leading-relaxed text-foreground/80">{reply.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

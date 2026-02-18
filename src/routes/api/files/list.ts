@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, user } from "@/db/schema";
-import { eq, and, sql, sum } from "drizzle-orm"; // Import sum and sql
+import { files, user, fileComments } from "@/db/schema";
+import { eq, and, sql, sum, count } from "drizzle-orm"; // Import sum, sql, and count
 
 export const Route = createFileRoute("/api/files/list")({
   server: {
@@ -30,6 +30,16 @@ export const Route = createFileRoute("/api/files/list")({
             });
           }
 
+          // Subquery for comment counts
+          const commentCounts = db
+            .select({
+              fileId: fileComments.fileId,
+              count: count(fileComments.id).as('count'),
+            })
+            .from(fileComments)
+            .groupBy(fileComments.fileId)
+            .as('commentCounts');
+
           // Fetch user's files (excluding soft-deleted)
           const userFiles = await db
             .select({
@@ -45,10 +55,13 @@ export const Route = createFileRoute("/api/files/list")({
               updatedAt: files.updatedAt,
               thumbnailR2Key: files.thumbnailR2Key,
               userName: user.name,
+              userImage: user.image,
+              commentCount: sql<number>`COALESCE(${commentCounts.count}, 0)`,
               permission: sql<string>`'admin'`,
             })
             .from(files)
             .leftJoin(user, eq(files.userId, user.id))
+            .leftJoin(commentCounts, eq(files.id, commentCounts.fileId))
             .where(and(
               eq(files.userId, session.user.id),
               eq(files.status, 'uploaded'),

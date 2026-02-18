@@ -105,9 +105,17 @@ export function DashboardLayout() {
     fetchData();
   }, [activeSection, refreshFileListTrigger, t]);
 
-  // Update path when section changes
+  // Update path and handle sorting state when section changes
   useEffect(() => {
     setCurrentPath([getSectionTitle(activeSection)]);
+
+    // For 'recent', we use a custom sort (by activity)
+    if (activeSection === 'recent') {
+      setSortBy('custom');
+    } else if (sortBy === 'custom') {
+      // Revert from custom if we move to other sections
+      setSortBy('date');
+    }
   }, [activeSection, t]);
 
   const handleFolderClick = (folderName: string) => {

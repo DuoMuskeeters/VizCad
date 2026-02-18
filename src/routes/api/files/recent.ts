@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileActivities, user } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { files, activityLogs, user, fileComments } from "@/db/schema";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 
 export const Route = createFileRoute("/api/files/recent")({
     server: {
@@ -31,8 +31,17 @@ export const Route = createFileRoute("/api/files/recent")({
                         });
                     }
 
-                    // Get recent file activities with file details
-                    // Using a subquery to get distinct files with their latest activity
+                    // Subquery for comment counts
+                    const commentCounts = db
+                        .select({
+                            fileId: fileComments.fileId,
+                            count: count(fileComments.id).as('count'),
+                        })
+                        .from(fileComments)
+                        .groupBy(fileComments.fileId)
+                        .as('commentCounts');
+
+                    // Get recent file activities with file details from activityLogs
                     const recentFiles = await db
                         .select({
                             id: files.id,
@@ -47,19 +56,23 @@ export const Route = createFileRoute("/api/files/recent")({
                             updatedAt: files.updatedAt,
                             thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
-                            lastActivity: fileActivities.createdAt,
-                            lastAction: fileActivities.action,
+                            userImage: user.image,
+                            lastActivity: activityLogs.createdAt,
+                            lastAction: activityLogs.action,
+                            commentCount: sql<number>`COALESCE(${commentCounts.count}, 0)`,
                             permission: sql<string>`'admin'`,
                         })
-                        .from(fileActivities)
-                        .innerJoin(files, eq(fileActivities.fileId, files.id))
+                        .from(activityLogs)
+                        .innerJoin(files, eq(activityLogs.entityId, files.id))
                         .leftJoin(user, eq(files.userId, user.id))
+                        .leftJoin(commentCounts, eq(files.id, commentCounts.fileId))
                         .where(and(
-                            eq(fileActivities.userId, session.user.id),
+                            eq(activityLogs.userId, session.user.id),
                             eq(files.isDeleted, false),
-                            eq(files.status, 'uploaded')
+                            eq(files.status, 'uploaded'),
+                            eq(activityLogs.action, 'file_view')
                         ))
-                        .orderBy(desc(fileActivities.createdAt))
+                        .orderBy(desc(activityLogs.createdAt))
                         .limit(50);
 
                     // Remove duplicates (keep first occurrence which is the most recent)

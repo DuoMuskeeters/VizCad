@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileStars, user } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { files, fileStars, user, fileComments } from "@/db/schema";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 
 export const Route = createFileRoute("/api/files/starred")({
     server: {
@@ -31,6 +31,16 @@ export const Route = createFileRoute("/api/files/starred")({
                         });
                     }
 
+                    // Subquery for comment counts
+                    const commentCounts = db
+                        .select({
+                            fileId: fileComments.fileId,
+                            count: count(fileComments.id).as('count'),
+                        })
+                        .from(fileComments)
+                        .groupBy(fileComments.fileId)
+                        .as('commentCounts');
+
                     // Get starred files with file details
                     const starredFiles = await db
                         .select({
@@ -46,12 +56,15 @@ export const Route = createFileRoute("/api/files/starred")({
                             updatedAt: files.updatedAt,
                             thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
+                            userImage: user.image,
                             starredAt: fileStars.createdAt,
+                            commentCount: sql<number>`COALESCE(${commentCounts.count}, 0)`,
                             permission: sql<string>`'admin'`,
                         })
                         .from(fileStars)
                         .innerJoin(files, eq(fileStars.fileId, files.id))
                         .leftJoin(user, eq(files.userId, user.id))
+                        .leftJoin(commentCounts, eq(files.id, commentCounts.fileId))
                         .where(and(
                             eq(fileStars.userId, session.user.id),
                             eq(files.isDeleted, false),

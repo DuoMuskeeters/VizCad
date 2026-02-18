@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, user } from "@/db/schema";
+import { files, user, fileComments } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logActivity } from "@/lib/activity.server";
 
@@ -46,7 +46,10 @@ export const Route = createFileRoute("/api/files/trash")({
                             createdAt: files.createdAt,
                             updatedAt: files.updatedAt,
                             deletedAt: files.deletedAt,
+                            thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
+                            userImage: user.image,
+                            commentCount: sql<number>`COALESCE((SELECT COUNT(*) FROM ${fileComments} WHERE ${fileComments.fileId} = ${files.id}), 0)`,
                             permission: sql<string>`'admin'`,
                         })
                         .from(files)

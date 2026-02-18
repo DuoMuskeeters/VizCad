@@ -56,7 +56,10 @@ export function FileToolbar({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 h-9 rounded-lg">
               <span className="text-sm">
-                {sortBy === "date" ? t("dashboard.toolbar.date") : sortBy === "name" ? t("dashboard.toolbar.name") : t("dashboard.toolbar.size")}
+                {sortBy === "date" ? t("dashboard.toolbar.date") :
+                  sortBy === "name" ? t("dashboard.toolbar.name") :
+                    sortBy === "size" ? t("dashboard.toolbar.size") :
+                      t("dashboard.sidebar.recent")}
               </span>
               <ChevronRight className="w-4 h-4 rotate-90" />
             </Button>

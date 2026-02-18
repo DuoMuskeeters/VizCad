@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileShares, user } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { files, fileShares, user, fileComments } from "@/db/schema";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 
 export const Route = createFileRoute("/api/files/shared-with-me")({
     server: {
@@ -30,6 +30,16 @@ export const Route = createFileRoute("/api/files/shared-with-me")({
                         });
                     }
 
+                    // Subquery for comment counts
+                    const commentCounts = db
+                        .select({
+                            fileId: fileComments.fileId,
+                            count: count(fileComments.id).as('count'),
+                        })
+                        .from(fileComments)
+                        .groupBy(fileComments.fileId)
+                        .as('commentCounts');
+
                     // Get files shared with this user
                     const sharedFiles = await db
                         .select({
@@ -45,13 +55,16 @@ export const Route = createFileRoute("/api/files/shared-with-me")({
                             updatedAt: files.updatedAt,
                             thumbnailR2Key: files.thumbnailR2Key,
                             userName: user.name,
+                            userImage: user.image,
                             shareId: fileShares.id,
                             permission: fileShares.permission,
                             sharedAt: fileShares.createdAt,
+                            commentCount: sql<number>`COALESCE(${commentCounts.count}, 0)`,
                         })
                         .from(fileShares)
                         .innerJoin(files, eq(fileShares.fileId, files.id))
                         .leftJoin(user, eq(files.userId, user.id))
+                        .leftJoin(commentCounts, eq(files.id, commentCounts.fileId))
                         .where(and(
                             eq(fileShares.sharedWithUserId, session.user.id),
                             eq(fileShares.isActive, true),
