@@ -121,7 +121,7 @@ function FileDetailPage() {
           // Get presigned URL and download with parallel chunks for better performance
           (async () => {
             try {
-              const downloadRes = await fetch(`/api/files/download?fileId=${fileId}`);
+              const downloadRes = await fetch(`/api/files/download?fileId=${fileId}&purpose=preview`);
               const downloadData = await downloadRes.json() as { url: string; fileName: string; fileSize: number; mimeType: string };
 
               const chunkSize = 10 * 1024 * 1024; // 10MB
@@ -402,11 +402,13 @@ function FileDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="w-4 h-4 mr-2" />
-                İndir
-              </Button>
-              {(isOwner || permission === 'admin') && (
+              {(isOwner || permission === 'admin' || permission === 'edit') && (
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="w-4 h-4 mr-2" />
+                  İndir
+                </Button>
+              )}
+              {(isOwner || permission === 'admin' || permission === 'edit') && (
                 <Button variant="outline" size="sm" onClick={() => setShareModalOpen(true)}>
                   <Share2 className="w-4 h-4 mr-2" />
                   Paylaş

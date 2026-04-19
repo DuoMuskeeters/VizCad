@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/lib/auth";
 import { env } from "cloudflare:workers";
 import { getDb } from "@/db/client";
-import { files, fileActivities } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { files, fileActivities, fileShares } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { ulid } from "ulid";
 import { getR2Client } from "@/lib/s3";
 import { logActivity } from "@/lib/activity.server";
@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/files/download")({
 
                     const url = new URL(request.url);
                     const fileId = url.searchParams.get('fileId');
+                    const purpose = url.searchParams.get('purpose'); // 'preview' or null (manual)
 
                     if (!fileId) {
                         return new Response(JSON.stringify({ error: "fileId is required." }), {
@@ -53,7 +54,7 @@ export const Route = createFileRoute("/api/files/download")({
                     }
 
                     // Get file info
-                    const file = await db
+                    const fileResults = await db
                         .select({
                             id: files.id,
                             name: files.name,
@@ -67,21 +68,14 @@ export const Route = createFileRoute("/api/files/download")({
                         .where(eq(files.id, fileId))
                         .limit(1);
 
-                    if (!file.length) {
+                    if (!fileResults.length) {
                         return new Response(JSON.stringify({ error: "File not found." }), {
                             status: 404,
                             headers: { "Content-Type": "application/json" }
                         });
                     }
 
-                    const fileData = file[0];
-
-                    if (fileData.userId !== session.user.id) {
-                        return new Response(JSON.stringify({ error: "Access denied." }), {
-                            status: 403,
-                            headers: { "Content-Type": "application/json" }
-                        });
-                    }
+                    const fileData = fileResults[0];
 
                     if (fileData.isDeleted) {
                         return new Response(JSON.stringify({ error: "File is in trash." }), {
@@ -90,17 +84,59 @@ export const Route = createFileRoute("/api/files/download")({
                         });
                     }
 
-                    // Log activity
-                    // Log activity
-                    await logActivity({
-                        db,
-                        userId: session.user.id,
-                        action: "file_download",
-                        entityId: fileId,
-                        entityType: "file",
-                        details: { name: fileData.name, size: fileData.size },
-                        request
-                    });
+                    // Check Permissions
+                    let hasAccess = fileData.userId === session.user.id || session.user.role === 'admin';
+                    let permission = hasAccess ? 'admin' : null;
+
+                    if (!hasAccess) {
+                        const share = await db
+                            .select({ permission: fileShares.permission })
+                            .from(fileShares)
+                            .where(and(
+                                eq(fileShares.fileId, fileId),
+                                eq(fileShares.sharedWithUserId, session.user.id),
+                                eq(fileShares.isActive, true)
+                            ))
+                            .limit(1);
+
+                        if (share.length) {
+                            hasAccess = true;
+                            permission = share[0].permission;
+                        }
+                    }
+
+                    if (!hasAccess) {
+                        return new Response(JSON.stringify({ error: "Access denied." }), {
+                            status: 403,
+                            headers: { "Content-Type": "application/json" }
+                        });
+                    }
+
+                    // Purpose logic: 
+                    // - 'preview': allowed for all with access (view/edit/admin). NO LOG.
+                    // - manual download: allowed for owner/admin/edit. LOG.
+                    const isPreview = purpose === 'preview';
+
+                    if (!isPreview) {
+                        // Manual download requires more than just 'view' permission
+                        if (permission === 'view' && fileData.userId !== session.user.id && session.user.role !== 'admin') {
+                            return new Response(JSON.stringify({ error: "You don't have permission to download this file." }), {
+                                status: 403,
+                                headers: { "Content-Type": "application/json" }
+                            });
+                        }
+
+                        // Log activity only for manual downloads
+                        await logActivity({
+                            db,
+                            userId: session.user.id,
+                            action: "file_download",
+                            entityId: fileId,
+                            entityType: "file",
+                            details: { name: fileData.name, size: fileData.size },
+                            request
+                        });
+                    }
 
                     // Generate Presigned URL
                     const r2 = getR2Client(env);
