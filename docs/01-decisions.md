@@ -78,6 +78,12 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Faz 5'in sunucu türevi hazır olana kadar Görüntüleyebilir / Yorum yapabilir erişiminde **statik küçük resim** gösterilir; 3B döndürme İndirebilir ve üstünde. "Yalnızca görüntüleme" vaadi doğru kalır.
 - Tasarım taslaklarındaki kararlar onaylandı: misafir şifresiz giriş (Google ya da e-posta bağlantısı) · paylaşılan sayfanın üstünde paylaşan firma, VizCad alt bilgide · paylaşılan sayfada "link ile görünür" şeffaflık notu · telefonda 3B "3B modeli aç" ile yüklenir · tehlikeli işlemler yalnızca Sahip'e · tercihler anında kaydedilir.
 
+**D19. Faz 3 güvenlik incelemesinden çıkan kararlar (23 Kasım 2026).** Ayrıntı ve gerekçe: `reviews/08-security-review.md`.
+- Üyenin tabanı projesiz dosyada ve "Tüm ekip" projesinde **İndirebilir**; yükleyen kendi dosyasında Düzenleyebilir; sahip/yönetici her yerde Düzenleyebilir. Dış paylaşım, çöpe atma ve yeni sürüm yükleme Düzenleyebilir ister.
+- Kısıtlı projenin erişimini sahip, yönetici ve projeyi oluşturan üye yönetir; kısıtlı projedeki dosyada misafir/link yalnız onlarda.
+- Misafirler birbirini görmez; misafire iç ekibin ve kendi yorumları görünür.
+- Link token'ı özetle aranır, ayrıca şifreli saklanır; yetkili kişi linki sonradan kopyalayabilir.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
