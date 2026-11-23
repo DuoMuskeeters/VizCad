@@ -72,6 +72,12 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Q11 cevaplandı: bir kişi birden fazla workspace'e üye/misafir olabilir.
 - Bilgi mimarisi `06-product-model.md` §6'daki menüye geçer (03-design §1'in yerine).
 
+**D18. Çalışma düzeni ve tasarım onayları (23 Kasım 2026).**
+- Orkestratör `rewrite` ve `rewrite-*` branch'lerine sormadan push eder, PR'ları `rewrite`'a birleştirir. `main`'e dokunulmaz.
+- Staging (`vizcad-rewrite` Worker, D1 `vizcad-staging`, R2 `vizcad-files-staging`) her birleştirmeden sonra orkestratör tarafından elle yayınlanır. Workers Builds bağlanmadı.
+- Faz 5'in sunucu türevi hazır olana kadar Görüntüleyebilir / Yorum yapabilir erişiminde **statik küçük resim** gösterilir; 3B döndürme İndirebilir ve üstünde. "Yalnızca görüntüleme" vaadi doğru kalır.
+- Tasarım taslaklarındaki kararlar onaylandı: misafir şifresiz giriş (Google ya da e-posta bağlantısı) · paylaşılan sayfanın üstünde paylaşan firma, VizCad alt bilgide · paylaşılan sayfada "link ile görünür" şeffaflık notu · telefonda 3B "3B modeli aç" ile yüklenir · tehlikeli işlemler yalnızca Sahip'e · tercihler anında kaydedilir.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
