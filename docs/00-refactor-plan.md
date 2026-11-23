@@ -54,6 +54,8 @@ Katmanlar: **çekirdek** (dosya, görüntüleyici, paylaşım; `workspaceId` dı
 
 ## 4. Fazlar
 
+Öncelik (D8): **Faz 2 (tasarım) ilk iş.** Faz 1 iskeleti tasarım prototiplerini koyacak kadar paralel ilerler. Özellik durumu: `02-feature-audit.md`. Pazar: `05-market.md`.
+
 Her faz kendi PR'ı (`rewrite` branch'ine). Her PR'da `pnpm check` yeşil ve yeni her program için test var. Production'a hiçbir şey Faz 9'dan önce gitmez.
 
 ### Faz 0: Kararlar ve hazırlık

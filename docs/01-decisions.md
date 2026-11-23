@@ -34,6 +34,14 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 
 **D7. Ödeme altyapısı sağlayıcıdan bağımsız.** `Billing` Effect servisi (plan, abonelik, checkout, webhook) arayüzü önce yazılır; sağlayıcı ona takılır. Abonelik workspace'e bağlıdır, kullanıcıya değil. Sağlayıcı seçimi açık soru (aşağıda).
 
+## 23 Kasım 2026, ikinci tur
+
+**D8. Önce tasarım.** İlk iş tasarımın yenilenmesi. Görüntüleme motoru değişikliği (vtk.js → ?) Faz 5'e kadar ertelendi; bulgular `02-feature-audit.md`'de.
+
+**D9. Blog çevirileri acil değil.** Blog tek dilde (EN) başladı; şema çok dilli kurulur ama çeviriler ve dil başına blog sayfaları sonraya kalır.
+
+**D10. Q9–Q12 şimdilik açık.** Pazar notları `05-market.md`'de; yön kararı canlı veri ve müşteri görüşmelerinden sonra.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
