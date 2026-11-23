@@ -138,11 +138,11 @@ export interface MemoryD1 {
 }
 
 /** Applies drizzle/*.sql in journal order, exactly as Wrangler would for a new database. */
-const applyMigrations = (db: DatabaseSync) => {
+export const applyMigrations = (db: DatabaseSync, range: { from?: number; to?: number } = {}) => {
   const journal: { entries: ReadonlyArray<{ tag: string }> } = JSON.parse(
     readFileSync(new URL('meta/_journal.json', MIGRATIONS_DIR), 'utf8'),
   )
-  for (const { tag } of journal.entries) {
+  for (const { tag } of journal.entries.slice(range.from, range.to)) {
     const sql = readFileSync(new URL(`${tag}.sql`, MIGRATIONS_DIR), 'utf8')
     for (const statement of sql.split('--> statement-breakpoint')) {
       if (statement.trim()) db.exec(statement)
