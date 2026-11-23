@@ -267,3 +267,8 @@ Faz 3 testleri saf matrisi, bellek içi `Auth`/`Db`/`Email`/`RateLimit` katmanla
 
 1. Legacy linkler ve süresiz dosya davetleri için 30 günlük, süresiz kullanıcı paylaşımları ve taşınan davetlerin erişimi için 90 günlük geçiş pencereleri onaylanacak mı? Legacy linklerde 30 gün sert tavan, daha kısa pencere seçilebilir.
 2. Prod kopyası alma izni ve yazımların duracağı cutover penceresi ne zaman onaylanacak?
+
+## Uygulama notları · Faz 3a
+
+- `drizzle-kit`, `files.workspaceId`, `files.projectId` ve `session.activeOrganizationId` için satır içi yabancı anahtar üretti, ancak `ON DELETE` davranışlarını SQL’e yazmadı. `0012_workspace_access.sql` bu üç davranışı elle tanımlıyor. Trigger’lar da aynı migration’da elle tanımlandı.
+- `decidePermission` güncel üyelik, kaynak zinciri ve grant’leri program katmanından alır. Link satırı token özetiyle çözülür. Parola kanıtı ancak MAC doğrulandıktan sonra karara girer. Misafir workspace seçimi, en az bir aday proje veya dosya kapsamında izin gerektirir. Sahiplik devri ve kapsam değişikliğinin atomik yazımları program katmanında doğrulanır.
