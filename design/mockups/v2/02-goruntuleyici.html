@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flanş_DN100_rev3.step · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  /* Tuval her iki temada koyu/nötr (D12). Tuval üstündeki yüzeyler aynı koyu aileden. */
+  :root {
+    --canvas: #1c222b;
+    --on-canvas: #e6e9ee;      /* tuvalde 13:1 */
+    --on-canvas-2: #b3bcc8;    /* tuvalde 8:1, yüzeyde 6.9:1 */
+    --surface-dk: #262e39;
+    --line-dk: #3a4452;
+  }
+  textarea { font: inherit; color: inherit; }
+  body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 600px; }
+  .viewer { flex: 1; min-height: 0; display: grid; grid-template-rows: 56px minmax(0, 1fr); }
+
+  /* Üst çubuk */
+  .vtop { display: flex; align-items: center; gap: 8px; padding: 0 12px 0 8px; border-bottom: 1px solid var(--line); background: var(--bg); min-width: 0; }
+  .back { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 10px 0 6px; border-radius: var(--radius); color: var(--text-2); font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .back:hover { background: var(--hover); color: var(--text); }
+  .vsep { width: 1px; height: 24px; background: var(--line); flex: none; }
+  .fname { display: grid; min-width: 0; line-height: 1.25; padding-left: 6px; }
+  .fname b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fname span { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+  .ver { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px; font-weight: 500; white-space: nowrap; flex: none; }
+  .ver:hover { background: var(--hover); }
+  .ver small { font-size: 12px; color: var(--accent); font-weight: 500; }
+  .ver svg { width: 14px; height: 14px; color: var(--text-3); }
+  .vtop .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .m-only { display: none; }
+
+  .vbody { display: grid; grid-template-columns: minmax(0, 1fr) 368px; min-height: 0; }
+
+  /* Tuval */
+  .canvas { position: relative; background: var(--canvas); overflow: hidden; min-height: 0; color: var(--on-canvas); }
+  .model { position: absolute; inset: 16px 16px 76px; width: calc(100% - 32px); height: calc(100% - 92px); }
+  .model.blur { filter: blur(18px); opacity: .35; }
+  .cube { position: absolute; top: 16px; right: 16px; width: 76px; height: 76px; border-radius: 10px; }
+  .cube:hover { background: rgba(255, 255, 255, .04); }
+  .cube svg { width: 76px; height: 76px; }
+  .cube text { font: 600 9.5px var(--font); fill: #dfe4ea; }
+  .triad { position: absolute; left: 16px; bottom: 16px; width: 48px; height: 48px; opacity: .9; }
+  .triad text { font: 600 9px var(--font); }
+  .tools { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: var(--surface-dk); border: 1px solid var(--line-dk); box-shadow: 0 8px 24px rgba(0, 0, 0, .28); max-width: calc(100% - 24px); }
+  .tool { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-radius: 8px; color: var(--on-canvas); font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .tool:hover { background: rgba(255, 255, 255, .07); }
+  .tool[aria-pressed="true"] { background: rgba(8, 145, 178, .22); color: #fff; }
+  .tool svg.lucide { width: 17px; height: 17px; }
+  .tool .chev { width: 14px !important; height: 14px !important; color: var(--on-canvas-2); margin-left: -3px; }
+  .tools .sep { width: 1px; height: 20px; background: var(--line-dk); margin: 0 4px; }
+
+  .views-menu { position: absolute; left: calc(50% - 248px); bottom: 74px; min-width: 220px; padding: 6px; border-radius: 12px; background: var(--surface-dk); border: 1px solid var(--line-dk); box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
+  .views-menu button { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 14px; color: var(--on-canvas); }
+  .views-menu button:hover, .views-menu button[aria-checked="true"] { background: rgba(255, 255, 255, .07); }
+  .views-menu .k { font-size: 12px; color: var(--on-canvas-2); }
+
+  /* Tuval üstü durum kartı (yükleniyor, hata) */
+  .status { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; }
+  .scard { width: min(400px, 100%); padding: 22px 22px 20px; border-radius: 14px; background: var(--surface-dk); border: 1px solid var(--line-dk); box-shadow: 0 16px 40px rgba(0, 0, 0, .35); display: grid; gap: 14px; }
+  .scard h2 { font-size: 17px; font-weight: 650; color: #fff; }
+  .scard p { font-size: 14px; color: var(--on-canvas-2); line-height: 1.55; }
+  .steps { display: grid; gap: 8px; font-size: 14px; }
+  .steps li { display: flex; align-items: center; gap: 10px; color: var(--on-canvas-2); }
+  .steps li.done svg { color: #5fc4dc; }
+  .steps li.now { color: #fff; font-weight: 500; }
+  .steps li.now svg { color: #5fc4dc; animation: spin 1s linear infinite; }
+  .steps li.todo { color: #8d97a5; }
+  .steps .pct { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--on-canvas-2); font-weight: 400; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .steps li.now svg { animation: none; } }
+  .bar { height: 4px; border-radius: 2px; background: #3a4452; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--brand); }
+  .scard .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn--dk { background: #303946; border-color: #475262; color: var(--on-canvas); }
+  .btn--dk:hover { background: #38424f; }
+  .scard .err-ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: rgba(251, 191, 36, .12); color: #fbbf24; }
+  .scard .alt { display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line-dk); font-size: 14px; color: var(--on-canvas-2); }
+  .scard .alt a { color: #7dd3e6; font-weight: 500; margin-left: auto; white-space: nowrap; }
+  .scard .code { font-size: 12px; color: #8d97a5; }
+  .scard .code a { color: var(--on-canvas-2); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Sağ panel */
+  .panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid var(--line); min-height: 0; background: var(--bg); }
+  .handle { display: none; }
+  .panel .tabbar { margin: 0; padding: 0 20px; gap: 18px; }
+  .pbody { overflow: auto; padding: 20px; display: grid; gap: 22px; align-content: start; }
+  .desc { font-size: 14px; color: var(--text-2); line-height: 1.55; }
+  .ph { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .ph a { font-weight: 500; color: var(--accent); font-size: 14px; }
+  dl.kv { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px 12px; font-size: 14px; }
+  dl.kv dt { color: var(--text-3); }
+  dl.kv dd { min-width: 0; overflow-wrap: anywhere; }
+  dl.kv dd .avatar { width: 20px; height: 20px; font-size: 9px; vertical-align: -5px; margin-right: 6px; }
+  dl.kv dd a { color: var(--accent); font-weight: 500; }
+  .tag-now { font-size: 12px; color: var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 1px 8px; margin-left: 6px; font-weight: 500; }
+  .acc { display: grid; gap: 2px; }
+  .acc li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; font-size: 14px; }
+  .acc li > svg { color: var(--text-3); margin-top: 1px; }
+  .acc li span { display: block; font-size: 13px; color: var(--text-3); }
+
+  .cm { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 0 12px; }
+  .cm .avatar { width: 32px; height: 32px; font-size: 11px; }
+  .cm .who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+  .cm .who b { font-weight: 600; }
+  .cm .who time { font-size: 13px; color: var(--text-3); }
+  .cm p { font-size: 14px; line-height: 1.55; margin-top: 2px; }
+  .cm .v { font-size: 12px; color: var(--text-3); border: 1px solid var(--line); border-radius: 10px; padding: 0 7px; }
+  .cm .acts { display: flex; gap: 14px; margin-top: 4px; font-size: 13px; color: var(--text-3); font-weight: 500; }
+  .composer { border-top: 1px solid var(--line); padding: 12px 16px 14px; display: grid; gap: 8px; background: var(--bg); }
+  .composer .box { display: flex; gap: 8px; align-items: flex-end; border: 1px solid var(--line-strong); border-radius: 10px; padding: 6px 6px 6px 12px; }
+  .composer textarea { flex: 1; border: 0; outline: 0; resize: none; min-height: 40px; padding: 9px 0; font-size: 14px; background: transparent; }
+  .composer .btn { height: 36px; }
+  .composer .vis { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); }
+  .composer .vis svg { width: 14px; height: 14px; }
+
+  .ev { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 0 12px; align-items: start; padding: 8px 0; }
+  .ev .ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--hover); color: var(--text-2); }
+  .ev .ic svg { width: 16px; height: 16px; }
+  .ev .ic.dl { background: #fef3e2; color: #9a4a06; }
+  .ev p { font-size: 14px; line-height: 1.45; }
+  .ev p b { font-weight: 600; }
+  .ev time { display: block; font-size: 13px; color: var(--text-3); }
+  .day { font-size: 13px; font-weight: 600; color: var(--text-3); margin-bottom: -10px; }
+
+  .vers { display: grid; }
+  .vr { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 0 12px; padding-bottom: 18px; }
+  .vr::before { content: ""; position: absolute; left: 9px; top: 18px; bottom: 0; width: 2px; background: var(--line); }
+  .vr:last-child::before { display: none; }
+  .vr .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--bg); margin-top: 1px; }
+  .vr.cur .dot { border: 6px solid var(--brand); }
+  .vr b { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+  .vr .meta { font-size: 13px; color: var(--text-3); }
+  .vr p { font-size: 14px; color: var(--text-2); margin-top: 4px; }
+  .vr .va { display: flex; gap: 6px; margin-top: 8px; }
+  .vr .va .btn { height: 32px; padding: 0 10px; font-size: 13px; }
+  .help { display: flex; gap: 8px; font-size: 13px; color: var(--text-3); }
+  .help svg { width: 16px; height: 16px; margin-top: 1px; }
+
+  /* Paylaşım penceresi */
+  .share { width: min(560px, 100%); display: flex; flex-direction: column; }
+  .share header { padding-bottom: 8px; }
+  .share header .icon-btn { width: 36px; height: 36px; flex: none; }
+  .share header .backb { margin-left: -8px; margin-right: -4px; }
+  .share .body { gap: 20px; padding-top: 12px; }
+  .addp { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--text-3); font-size: 15px; }
+  .slabel { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+  .slabel a { margin-left: auto; font-weight: 500; color: var(--accent); }
+  .slabel svg { width: 15px; height: 15px; color: var(--text-3); }
+  .pr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; }
+  .pr .person .avatar { width: 32px; height: 32px; }
+  .pr.c { min-height: 36px; }
+  .pr .t b { min-width: 0; }
+  .pr .t b .badge { flex: none; }
+  .pr .t .m-guest { display: none; }
+  .pr .em { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr.c .person .avatar { width: 26px; height: 26px; font-size: 10px; }
+  .pr.c .person .t b { font-size: 14px; }
+  .pr .lv { font-size: 14px; color: var(--text-3); padding-right: 10px; white-space: nowrap; }
+  .grp { display: grid; gap: 0; padding: 6px 12px 8px; border-radius: var(--radius); background: var(--sidebar); }
+  .grp .slabel { color: var(--text); min-height: 32px; }
+  .linkbox { display: grid; gap: 14px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .lhead { display: flex; align-items: flex-start; gap: 12px; }
+  .lhead .lic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+  .lhead .lic svg { width: 16px; height: 16px; }
+  .lhead div { flex: 1; min-width: 0; }
+  .lhead b { font-weight: 600; font-size: 15px; }
+  .lhead p { font-size: 13px; color: var(--text-3); }
+  .sw { position: relative; width: 44px; height: 44px; display: grid; place-items: center; flex: none; margin: -6px -4px 0 0; }
+  .sw span { width: 40px; height: 24px; border-radius: 12px; background: var(--line-strong); position: relative; transition: background-color .15s; }
+  .sw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(20, 32, 51, .2); transition: transform .15s; }
+  .sw[aria-checked="true"] span { background: var(--accent); }
+  .sw[aria-checked="true"] span::after { transform: translateX(16px); }
+  .lopts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: var(--radius); background: var(--hover); }
+  .seg button { height: 34px; border-radius: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); white-space: nowrap; padding: 0 6px; }
+  .seg button[aria-pressed="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(20, 32, 51, .1); }
+  .selectish { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 14px; white-space: nowrap; }
+  .selectish svg { width: 16px; height: 16px; color: var(--text-3); }
+  .pwrow { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 500; }
+  .pwrow small { display: block; font-weight: 400; font-size: 13px; color: var(--text-3); }
+  .copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .copy .input { color: var(--text-2); font-size: 14px; }
+  .fld .hint { font-size: 13px; color: var(--text-3); }
+  .recog { display: grid; gap: 6px; }
+  .recog .r { display: flex; align-items: center; gap: 10px; font-size: 14px; min-width: 0; }
+  .recog .r .avatar { width: 26px; height: 26px; font-size: 10px; }
+  .recog .r .badge { margin-left: auto; flex: none; }
+  .recog .r .em { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lvls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lvls .opt { padding: 10px 12px; }
+  .opt[aria-disabled="true"] { opacity: 1; background: var(--sidebar); cursor: default; }
+  .opt[aria-disabled="true"] b { color: var(--text-3); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .share footer { border-top: 1px solid var(--line); padding-top: 14px; }
+  .share footer .grow { margin-right: auto; font-size: 13px; color: var(--text-3); align-self: center; }
+
+  @media (max-width: 1100px) {
+    .views-menu { left: calc(50% - 116px); }
+    .vbody { grid-template-columns: minmax(0, 1fr) 340px; }
+    .tool .lbl { display: none; }
+    .tool { padding: 0 10px; }
+  }
+
+  @media (max-width: 899px) {
+    body { display: block; height: auto; min-height: 0; }
+    .viewer { display: block; }
+    .vtop { position: sticky; top: 0; z-index: 6; height: 56px; padding: 0 4px; gap: 2px; }
+    .back { width: 44px; height: 44px; padding: 0; justify-content: center; }
+    .back .lbl, .vsep, .d-only { display: none; }
+    .m-only { display: inline-flex; }
+    .fname { padding-left: 2px; }
+    .fname b { font-size: 15px; }
+    .fname .verm { display: inline-flex; align-items: center; gap: 2px; height: 22px; font-size: 13px; color: var(--text-2); font-weight: 500; }
+    .fname .verm svg { width: 13px; height: 13px; }
+    .vtop .end { gap: 2px; }
+    .vtop .btn--primary.btn--icon { width: 44px; }
+    .vbody { display: block; }
+    .canvas { height: 58vh; min-height: 340px; max-height: 560px; }
+    .model { inset: 8px 8px 72px; width: calc(100% - 16px); height: calc(100% - 80px); }
+    .cube { top: 10px; right: 10px; width: 60px; height: 60px; }
+    .cube svg { width: 60px; height: 60px; }
+    .triad { display: none; }
+    .tools { bottom: 30px; padding: 3px; }
+    .tool { width: 44px; height: 44px; padding: 0; justify-content: center; }
+    .tool .lbl, .tool .chev { display: none; }
+    .views-menu { bottom: 86px; left: calc(50% - 94px); }
+    .panel { display: block; position: relative; z-index: 2; margin-top: -16px; border-left: 0; border-radius: 16px 16px 0 0; box-shadow: 0 -6px 20px rgba(0, 0, 0, .16); }
+    .handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 8px auto 2px; }
+    .panel .tabbar { padding: 0 16px; }
+    .pbody { padding: 18px 16px 28px; overflow: visible; }
+    .composer { padding: 10px 16px 20px; } /* üründe ekranın altına sabitlenir; taslakta akışta */
+    .scard { padding: 18px; }
+
+    /* Taslakta tam sayfa görüntü alınabilsin diye pencere akışa alınır; üründe alttan açılan tam yükseklik sayfa. */
+    body[data-durum^="paylas"] .viewer { display: none; }
+    .scrim.share-scrim { position: static; padding: 12px 0 0; display: block; min-height: calc(100dvh - 100px); }
+    .share { width: 100%; min-height: calc(100dvh - 12px); max-height: none; border-radius: 16px 16px 0 0; overflow: visible; }
+    .share .body { flex: 1; }
+    .share footer { flex-wrap: wrap; }
+    .share footer .grow { flex-basis: 100%; margin: 0 0 4px; }
+    .lopts, .lvls, .row2 { grid-template-columns: minmax(0, 1fr); }
+    .seg button { height: 40px; }
+    .pr .lv { padding-right: 0; font-size: 13px; }
+    .pr .em + .badge { display: none; }
+    /* Dokunmatik hedefler ≥ 44 px */
+    .fname .verm { position: relative; }
+    .fname .verm::before { content: ""; position: absolute; inset: -11px -10px; }
+    .composer .btn, .vr .va .btn, .share header .icon-btn, .pick { height: 44px; }
+    .share header .icon-btn { width: 44px; }
+    .views-menu button { height: 44px; }
+    .seg button { height: 44px; }
+    .ph a, .slabel a, .scard .alt a { display: inline-flex; align-items: center; min-height: 44px; }
+    .slabel a { margin-top: -6px; margin-bottom: -6px; }
+    .scard .code a, dl.kv dd a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+    .pr .t .m-guest { display: inline; }
+    .sw { margin-right: -2px; }
+  }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Görüntüleyici</strong>
+  <a href="?durum=ayrintilar">Ayrıntılar</a>
+  <a href="?durum=yorumlar">Yorumlar</a>
+  <a href="?durum=aktivite">Aktivite</a>
+  <a href="?durum=surumler">Sürümler</a>
+  <a href="?durum=gorunumler">Görünümler menüsü</a>
+  <a href="?durum=paylas">Paylaş</a>
+  <a href="?durum=paylas-davet">Paylaş: kişi ekle</a>
+  <a href="?durum=yukleniyor">Yükleniyor</a>
+  <a href="?durum=hata">Hata</a>
+  <a href="05-proje.html">← Proje</a>
+</nav>
+
+<div class="viewer">
+  <header class="vtop">
+    <a class="back" href="05-proje.html"><i data-lucide="chevron-left"></i><span class="lbl">Pompa revizyonu</span><span class="sr">Pompa revizyonu projesine dön</span></a>
+    <span class="vsep" aria-hidden="true"></span>
+    <div class="fname">
+      <b>Flanş_DN100_rev3.step</b>
+      <span class="d-only">STEP · 12,4 MB</span>
+      <button class="verm m-only" type="button">Sürüm 3<i data-lucide="chevron-down"></i></button>
+    </div>
+    <button class="ver d-only" type="button">Sürüm 3 <small>güncel</small><i data-lucide="chevron-down"></i></button>
+    <div class="end">
+      <button class="btn d-only" type="button"><i data-lucide="download"></i>İndir</button>
+      <a class="btn btn--primary d-only" href="?durum=paylas"><i data-lucide="share-2"></i>Paylaş</a>
+      <a class="btn btn--primary btn--icon m-only" href="?durum=paylas"><i data-lucide="share-2"></i><span class="sr">Paylaş</span></a>
+      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button>
+      <button class="btn btn--ghost btn--icon d-only" type="button" aria-pressed="true"><i data-lucide="panel-right"></i><span class="sr">Paneli gizle</span></button>
+    </div>
+  </header>
+
+  <div class="vbody">
+    <section class="canvas" aria-label="3B model: Flanş_DN100_rev3.step">
+      <svg class="model" viewBox="40 150 720 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Flanşın 3B görünümü"><!-- flans:start --><defs><filter id="flans-blur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="14"/></filter></defs>
+<g><ellipse cx="414.0" cy="382.0" rx="207.9" ry="96.2" fill="#05080c" opacity=".55" filter="url(#flans-blur)"/><path d="M592.5 360.0L591.6 369.4L591.6 336.1L592.5 326.7Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M591.6 369.4L588.8 378.8L588.8 345.4L591.6 336.1Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M588.8 378.8L584.2 387.9L584.2 354.6L588.8 345.4Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M584.2 387.9L577.8 396.8L577.8 363.5L584.2 354.6Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M577.8 396.8L569.8 405.4L569.8 372.0L577.8 363.5Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M569.8 405.4L560.1 413.5L560.1 380.1L569.8 372.0Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M560.1 413.5L548.8 421.1L548.8 387.7L560.1 380.1Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M548.8 421.1L536.1 428.1L536.1 394.7L548.8 387.7Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M536.1 428.1L522.1 434.4L522.1 401.1L536.1 394.7Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M522.1 434.4L506.9 440.0L506.9 406.7L522.1 401.1Z" fill="#36393d" stroke="#36393d" stroke-width=".6"/><path d="M506.9 440.0L490.7 444.9L490.7 411.5L506.9 406.7Z" fill="#3e4246" stroke="#3e4246" stroke-width=".6"/><path d="M490.7 444.9L473.7 448.9L473.7 415.6L490.7 411.5Z" fill="#464a4f" stroke="#464a4f" stroke-width=".6"/><path d="M473.7 448.9L455.9 452.1L455.9 418.8L473.7 415.6Z" fill="#4e5258" stroke="#4e5258" stroke-width=".6"/><path d="M455.9 452.1L437.6 454.4L437.6 421.1L455.9 418.8Z" fill="#555a60" stroke="#555a60" stroke-width=".6"/><path d="M437.6 454.4L418.9 455.8L418.9 422.4L437.6 421.1Z" fill="#5c6168" stroke="#5c6168" stroke-width=".6"/><path d="M418.9 455.8L400.0 456.3L400.0 422.9L418.9 422.4Z" fill="#62686f" stroke="#62686f" stroke-width=".6"/><path d="M400.0 456.3L381.1 455.8L381.1 422.4L400.0 422.9Z" fill="#696f76" stroke="#696f76" stroke-width=".6"/><path d="M381.1 455.8L362.4 454.4L362.4 421.1L381.1 422.4Z" fill="#6e757d" stroke="#6e757d" stroke-width=".6"/><path d="M362.4 454.4L344.1 452.1L344.1 418.8L362.4 421.1Z" fill="#737a82" stroke="#737a82" stroke-width=".6"/><path d="M344.1 452.1L326.3 448.9L326.3 415.6L344.1 418.8Z" fill="#787f87" stroke="#787f87" stroke-width=".6"/><path d="M326.3 448.9L309.3 444.9L309.3 411.5L326.3 415.6Z" fill="#7b838c" stroke="#7b838c" stroke-width=".6"/><path d="M309.3 444.9L293.1 440.0L293.1 406.7L309.3 411.5Z" fill="#7f868f" stroke="#7f868f" stroke-width=".6"/><path d="M293.1 440.0L277.9 434.4L277.9 401.1L293.1 406.7Z" fill="#818992" stroke="#818992" stroke-width=".6"/><path d="M277.9 434.4L263.9 428.1L263.9 394.7L277.9 401.1Z" fill="#828a93" stroke="#828a93" stroke-width=".6"/><path d="M263.9 428.1L251.2 421.1L251.2 387.7L263.9 394.7Z" fill="#838b94" stroke="#838b94" stroke-width=".6"/><path d="M251.2 421.1L239.9 413.5L239.9 380.1L251.2 387.7Z" fill="#838b94" stroke="#838b94" stroke-width=".6"/><path d="M239.9 413.5L230.2 405.4L230.2 372.0L239.9 380.1Z" fill="#828a94" stroke="#828a94" stroke-width=".6"/><path d="M230.2 405.4L222.2 396.8L222.2 363.5L230.2 372.0Z" fill="#818992" stroke="#818992" stroke-width=".6"/><path d="M222.2 396.8L215.8 387.9L215.8 354.6L222.2 363.5Z" fill="#7f868f" stroke="#7f868f" stroke-width=".6"/><path d="M215.8 387.9L211.2 378.8L211.2 345.4L215.8 354.6Z" fill="#7c838c" stroke="#7c838c" stroke-width=".6"/><path d="M211.2 378.8L208.4 369.4L208.4 336.1L211.2 345.4Z" fill="#787f88" stroke="#787f88" stroke-width=".6"/><path d="M208.4 369.4L207.5 360.0L207.5 326.7L208.4 336.1Z" fill="#737a83" stroke="#737a83" stroke-width=".6"/><ellipse cx="400.0" cy="326.7" rx="192.5" ry="96.2" fill="#88909a"/><ellipse cx="400.0" cy="326.7" rx="187.3" ry="93.6" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="1"/><clipPath id="fh0"><ellipse cx="545.5" cy="356.8" rx="15.8" ry="7.9"/></clipPath><ellipse cx="545.5" cy="356.8" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh0)" cx="545.5" cy="362.7" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="545.5" cy="356.8" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh1"><ellipse cx="460.3" cy="399.4" rx="15.8" ry="7.9"/></clipPath><ellipse cx="460.3" cy="399.4" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh1)" cx="460.3" cy="405.3" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="460.3" cy="399.4" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh2"><ellipse cx="339.7" cy="399.4" rx="15.8" ry="7.9"/></clipPath><ellipse cx="339.7" cy="399.4" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh2)" cx="339.7" cy="405.3" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="339.7" cy="399.4" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh3"><ellipse cx="254.5" cy="356.8" rx="15.8" ry="7.9"/></clipPath><ellipse cx="254.5" cy="356.8" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh3)" cx="254.5" cy="362.7" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="254.5" cy="356.8" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh4"><ellipse cx="254.5" cy="296.5" rx="15.8" ry="7.9"/></clipPath><ellipse cx="254.5" cy="296.5" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh4)" cx="254.5" cy="302.4" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="254.5" cy="296.5" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh5"><ellipse cx="339.7" cy="253.9" rx="15.8" ry="7.9"/></clipPath><ellipse cx="339.7" cy="253.9" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh5)" cx="339.7" cy="259.8" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="339.7" cy="253.9" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh6"><ellipse cx="460.3" cy="253.9" rx="15.8" ry="7.9"/></clipPath><ellipse cx="460.3" cy="253.9" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh6)" cx="460.3" cy="259.8" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="460.3" cy="253.9" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fh7"><ellipse cx="545.5" cy="296.5" rx="15.8" ry="7.9"/></clipPath><ellipse cx="545.5" cy="296.5" rx="15.8" ry="7.9" fill="#42454a"/><ellipse clip-path="url(#fh7)" cx="545.5" cy="302.4" rx="15.8" ry="7.9" fill="#1f252d"/><ellipse cx="545.5" cy="296.5" rx="15.8" ry="7.9" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><path d="M207.5 360.0A192.5 96.2 0 0 0 592.5 360.0" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><path d="M207.5 360.0L207.5 326.7M592.5 360.0L592.5 326.7" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><ellipse cx="400.0" cy="326.7" rx="192.5" ry="96.2" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><path d="M529.5 326.7L528.9 333.0L504.5 268.2L505.0 263.0Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M528.9 333.0L527.0 339.3L503.0 273.2L504.5 268.2Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M527.0 339.3L523.9 345.5L500.5 278.2L503.0 273.2Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M523.9 345.5L519.6 351.4L497.0 283.1L500.5 278.2Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M519.6 351.4L514.2 357.2L492.6 287.8L497.0 283.1Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M514.2 357.2L507.7 362.6L487.3 292.2L492.6 287.8Z" fill="#33363a" stroke="#33363a" stroke-width=".6"/><path d="M507.7 362.6L500.1 367.7L481.2 296.3L487.3 292.2Z" fill="#3b3e42" stroke="#3b3e42" stroke-width=".6"/><path d="M500.1 367.7L491.6 372.4L474.2 300.1L481.2 296.3Z" fill="#42464b" stroke="#42464b" stroke-width=".6"/><path d="M491.6 372.4L482.2 376.7L466.6 303.6L474.2 300.1Z" fill="#4a4e53" stroke="#4a4e53" stroke-width=".6"/><path d="M482.2 376.7L471.9 380.5L458.3 306.7L466.6 303.6Z" fill="#51565c" stroke="#51565c" stroke-width=".6"/><path d="M471.9 380.5L461.0 383.8L449.5 309.3L458.3 306.7Z" fill="#595e64" stroke="#595e64" stroke-width=".6"/><path d="M461.0 383.8L449.6 386.5L440.2 311.5L449.5 309.3Z" fill="#60666c" stroke="#60666c" stroke-width=".6"/><path d="M449.6 386.5L437.6 388.6L430.5 313.2L440.2 311.5Z" fill="#676d75" stroke="#676d75" stroke-width=".6"/><path d="M437.6 388.6L425.3 390.2L420.5 314.5L430.5 313.2Z" fill="#6e757d" stroke="#6e757d" stroke-width=".6"/><path d="M425.3 390.2L412.7 391.1L410.3 315.3L420.5 314.5Z" fill="#757c84" stroke="#757c84" stroke-width=".6"/><path d="M412.7 391.1L400.0 391.4L400.0 315.5L410.3 315.3Z" fill="#7c838c" stroke="#7c838c" stroke-width=".6"/><path d="M400.0 391.4L387.3 391.1L389.7 315.3L400.0 315.5Z" fill="#838a94" stroke="#838a94" stroke-width=".6"/><path d="M387.3 391.1L374.7 390.2L379.5 314.5L389.7 315.3Z" fill="#8a929b" stroke="#8a929b" stroke-width=".6"/><path d="M374.7 390.2L362.4 388.6L369.5 313.2L379.5 314.5Z" fill="#9199a3" stroke="#9199a3" stroke-width=".6"/><path d="M362.4 388.6L350.4 386.5L359.8 311.5L369.5 313.2Z" fill="#969fa9" stroke="#969fa9" stroke-width=".6"/><path d="M350.4 386.5L339.0 383.8L350.5 309.3L359.8 311.5Z" fill="#9aa3ad" stroke="#9aa3ad" stroke-width=".6"/><path d="M339.0 383.8L328.1 380.5L341.7 306.7L350.5 309.3Z" fill="#9ba4af" stroke="#9ba4af" stroke-width=".6"/><path d="M328.1 380.5L317.8 376.7L333.4 303.6L341.7 306.7Z" fill="#9ba4af" stroke="#9ba4af" stroke-width=".6"/><path d="M317.8 376.7L308.4 372.4L325.8 300.1L333.4 303.6Z" fill="#9ba4af" stroke="#9ba4af" stroke-width=".6"/><path d="M308.4 372.4L299.9 367.7L318.8 296.3L325.8 300.1Z" fill="#9ba4af" stroke="#9ba4af" stroke-width=".6"/><path d="M299.9 367.7L292.3 362.6L312.7 292.2L318.8 296.3Z" fill="#9aa3ae" stroke="#9aa3ae" stroke-width=".6"/><path d="M292.3 362.6L285.8 357.2L307.4 287.8L312.7 292.2Z" fill="#99a2ad" stroke="#99a2ad" stroke-width=".6"/><path d="M285.8 357.2L280.4 351.4L303.0 283.1L307.4 287.8Z" fill="#98a1ac" stroke="#98a1ac" stroke-width=".6"/><path d="M280.4 351.4L276.1 345.5L299.5 278.2L303.0 283.1Z" fill="#969fa9" stroke="#969fa9" stroke-width=".6"/><path d="M276.1 345.5L273.0 339.3L297.0 273.2L299.5 278.2Z" fill="#939ca6" stroke="#939ca6" stroke-width=".6"/><path d="M273.0 339.3L271.1 333.0L295.5 268.2L297.0 273.2Z" fill="#8f98a2" stroke="#8f98a2" stroke-width=".6"/><path d="M271.1 333.0L270.5 326.7L295.0 263.0L295.5 268.2Z" fill="#8b939d" stroke="#8b939d" stroke-width=".6"/><path d="M505.0 263.0L504.5 268.2L504.5 240.9L505.0 235.7Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M504.5 268.2L503.0 273.2L503.0 246.0L504.5 240.9Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M503.0 273.2L500.5 278.2L500.5 251.0L503.0 246.0Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M500.5 278.2L497.0 283.1L497.0 255.8L500.5 251.0Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M497.0 283.1L492.6 287.8L492.6 260.5L497.0 255.8Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M492.6 287.8L487.3 292.2L487.3 264.9L492.6 260.5Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M487.3 292.2L481.2 296.3L481.2 269.0L487.3 264.9Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M481.2 296.3L474.2 300.1L474.2 272.8L481.2 269.0Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M474.2 300.1L466.6 303.6L466.6 276.3L474.2 272.8Z" fill="#323539" stroke="#323539" stroke-width=".6"/><path d="M466.6 303.6L458.3 306.7L458.3 279.4L466.6 276.3Z" fill="#36393d" stroke="#36393d" stroke-width=".6"/><path d="M458.3 306.7L449.5 309.3L449.5 282.0L458.3 279.4Z" fill="#3e4246" stroke="#3e4246" stroke-width=".6"/><path d="M449.5 309.3L440.2 311.5L440.2 284.2L449.5 282.0Z" fill="#464a4f" stroke="#464a4f" stroke-width=".6"/><path d="M440.2 311.5L430.5 313.2L430.5 286.0L440.2 284.2Z" fill="#4e5258" stroke="#4e5258" stroke-width=".6"/><path d="M430.5 313.2L420.5 314.5L420.5 287.2L430.5 286.0Z" fill="#555a60" stroke="#555a60" stroke-width=".6"/><path d="M420.5 314.5L410.3 315.3L410.3 288.0L420.5 287.2Z" fill="#5c6168" stroke="#5c6168" stroke-width=".6"/><path d="M410.3 315.3L400.0 315.5L400.0 288.2L410.3 288.0Z" fill="#62686f" stroke="#62686f" stroke-width=".6"/><path d="M400.0 315.5L389.7 315.3L389.7 288.0L400.0 288.2Z" fill="#696f76" stroke="#696f76" stroke-width=".6"/><path d="M389.7 315.3L379.5 314.5L379.5 287.2L389.7 288.0Z" fill="#6e757d" stroke="#6e757d" stroke-width=".6"/><path d="M379.5 314.5L369.5 313.2L369.5 286.0L379.5 287.2Z" fill="#737a82" stroke="#737a82" stroke-width=".6"/><path d="M369.5 313.2L359.8 311.5L359.8 284.2L369.5 286.0Z" fill="#787f87" stroke="#787f87" stroke-width=".6"/><path d="M359.8 311.5L350.5 309.3L350.5 282.0L359.8 284.2Z" fill="#7b838c" stroke="#7b838c" stroke-width=".6"/><path d="M350.5 309.3L341.7 306.7L341.7 279.4L350.5 282.0Z" fill="#7f868f" stroke="#7f868f" stroke-width=".6"/><path d="M341.7 306.7L333.4 303.6L333.4 276.3L341.7 279.4Z" fill="#818992" stroke="#818992" stroke-width=".6"/><path d="M333.4 303.6L325.8 300.1L325.8 272.8L333.4 276.3Z" fill="#828a93" stroke="#828a93" stroke-width=".6"/><path d="M325.8 300.1L318.8 296.3L318.8 269.0L325.8 272.8Z" fill="#838b94" stroke="#838b94" stroke-width=".6"/><path d="M318.8 296.3L312.7 292.2L312.7 264.9L318.8 269.0Z" fill="#838b94" stroke="#838b94" stroke-width=".6"/><path d="M312.7 292.2L307.4 287.8L307.4 260.5L312.7 264.9Z" fill="#828a94" stroke="#828a94" stroke-width=".6"/><path d="M307.4 287.8L303.0 283.1L303.0 255.8L307.4 260.5Z" fill="#818992" stroke="#818992" stroke-width=".6"/><path d="M303.0 283.1L299.5 278.2L299.5 251.0L303.0 255.8Z" fill="#7f868f" stroke="#7f868f" stroke-width=".6"/><path d="M299.5 278.2L297.0 273.2L297.0 246.0L299.5 251.0Z" fill="#7c838c" stroke="#7c838c" stroke-width=".6"/><path d="M297.0 273.2L295.5 268.2L295.5 240.9L297.0 246.0Z" fill="#787f88" stroke="#787f88" stroke-width=".6"/><path d="M295.5 268.2L295.0 263.0L295.0 235.7L295.5 240.9Z" fill="#737a83" stroke="#737a83" stroke-width=".6"/><path d="M270.5 326.7A129.5 64.7 0 0 0 529.5 326.7" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><path d="M295.0 263.0A105.0 52.5 0 0 0 505.0 263.0" fill="none" stroke="#0b1017" stroke-opacity=".3" stroke-width="1"/><path d="M270.5 326.7L295.0 263.0L295.0 235.7M529.5 326.7L505.0 263.0L505.0 235.7" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><ellipse cx="400.0" cy="235.7" rx="105.0" ry="52.5" fill="#88909a"/><ellipse cx="400.0" cy="235.7" rx="100.6" ry="50.3" fill="none" stroke="#ffffff" stroke-opacity=".25" stroke-width="1"/><ellipse cx="400.0" cy="235.7" rx="105.0" ry="52.5" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/><clipPath id="fbore"><ellipse cx="400.0" cy="235.7" rx="94.5" ry="47.2"/></clipPath><ellipse cx="400.0" cy="235.7" rx="94.5" ry="47.2" fill="#45494e"/><ellipse clip-path="url(#fbore)" cx="400.0" cy="261.7" rx="94.5" ry="47.2" fill="#2c2e31"/><ellipse clip-path="url(#fbore)" cx="400.0" cy="285.3" rx="94.5" ry="47.2" fill="#1f252d"/><ellipse cx="400.0" cy="235.7" rx="94.5" ry="47.2" fill="none" stroke="#0b1017" stroke-opacity=".55" stroke-width="1.1"/></g><!-- flans:end --></svg>
+
+      <!-- Görünüm küpü: yüzüne basınca o görünüme döner -->
+      <button class="cube" type="button" data-durum-not="yukleniyor hata" aria-label="Görünüm küpü">
+        <svg viewBox="0 0 76 76" aria-hidden="true">
+          <path d="M38 12 64 26 38 40 12 26Z" fill="#3d4654" stroke="#5c6776" stroke-width="1"/>
+          <path d="M12 26 38 40V66L12 52Z" fill="#323a46" stroke="#5c6776" stroke-width="1"/>
+          <path d="M38 40 64 26V52L38 66Z" fill="#2a313c" stroke="#5c6776" stroke-width="1"/>
+          <text x="38" y="29.5" text-anchor="middle">Üst</text>
+          <text x="25" y="50" text-anchor="middle">Ön</text>
+          <text x="51" y="50" text-anchor="middle">Sağ</text>
+        </svg>
+      </button>
+
+      <svg class="triad" viewBox="0 0 48 48" data-durum-not="yukleniyor hata" aria-hidden="true">
+        <path d="M20 30 40 40" stroke="#f87171" stroke-width="2" stroke-linecap="round"/>
+        <path d="M20 30V8" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/>
+        <path d="M20 30 4 40" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+        <text x="44" y="46" fill="#f87171" text-anchor="middle">X</text>
+        <text x="27" y="9" fill="#4ade80" text-anchor="middle">Y</text>
+        <text x="4" y="47" fill="#60a5fa" text-anchor="middle">Z</text>
+      </svg>
+
+      <!-- Yüzen araç çubuğu. Faz 5 araçları (ölçüm, kesit, parçalar) ayırıcıdan sonra buraya eklenir; o zamana kadar gösterilmez. -->
+      <div class="tools" role="toolbar" aria-label="Görüntüleme araçları" data-durum-not="yukleniyor hata">
+        <button class="tool" type="button" aria-haspopup="menu"><i data-lucide="box"></i><span class="lbl">Görünümler</span><i class="chev" data-lucide="chevron-down"></i><span class="sr">Görünümler</span></button>
+        <button class="tool" type="button" aria-pressed="false"><i data-lucide="grid-3x3"></i><span class="lbl">Tel kafes</span><span class="sr">Tel kafes</span></button>
+        <button class="tool" type="button"><i data-lucide="rotate-ccw"></i><span class="lbl">Sıfırla</span><span class="sr">Görünümü sıfırla</span></button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="tool" type="button"><i data-lucide="camera"></i><span class="lbl">Ekran görüntüsü</span><span class="sr">Ekran görüntüsü al</span></button>
+      </div>
+
+      <div class="views-menu" role="menu" data-durum="gorunumler">
+        <button role="menuitemradio" aria-checked="true" type="button">İzometrik <span class="k">0</span></button>
+        <button role="menuitemradio" aria-checked="false" type="button">Ön <span class="k">1</span></button>
+        <button role="menuitemradio" aria-checked="false" type="button">Üst <span class="k">2</span></button>
+        <button role="menuitemradio" aria-checked="false" type="button">Sağ <span class="k">3</span></button>
+        <button role="menuitemradio" aria-checked="false" type="button">Arka <span class="k">4</span></button>
+      </div>
+
+      <div class="status" data-durum="yukleniyor" role="status">
+        <div class="scard">
+          <h2>Model hazırlanıyor</h2>
+          <ol class="steps">
+            <li class="done"><i data-lucide="circle-check"></i>İndirildi<span class="pct">12,4 MB</span></li>
+            <li class="now"><i data-lucide="loader-circle"></i>STEP dönüştürülüyor<span class="pct">%64</span></li>
+            <li class="todo"><i data-lucide="circle"></i>Görüntüleme hazırlanıyor</li>
+          </ol>
+          <div class="bar"><span style="width:54%"></span></div>
+          <div class="row"><button class="btn btn--dk" type="button">İptal</button></div>
+        </div>
+      </div>
+
+      <div class="status" data-durum="hata" role="alert">
+        <div class="scard">
+          <span class="err-ic"><i data-lucide="triangle-alert"></i></span>
+          <div>
+            <h2>Model dönüştürülemedi</h2>
+            <p>Dosya bozuk olabilir ya da bu STEP sürümü okunamıyor. CAD programında STEP AP214 ya da AP242 olarak yeniden dışa aktar, sonra yeni sürüm olarak yükle.</p>
+          </div>
+          <div class="row">
+            <button class="btn btn--primary" type="button"><i data-lucide="upload"></i>Yeni sürüm yükle</button>
+            <button class="btn btn--dk" type="button"><i data-lucide="refresh-cw"></i>Yeniden dene</button>
+          </div>
+          <div class="alt"><i data-lucide="history"></i>Sürüm 2 sorunsuz açılıyor.<a href="#">Sürüm 2'yi aç</a></div>
+          <p class="code">Hata kodu STEP-READ-12 · <a href="#">Sorunu bize bildir</a> · <a href="#">Dosyayı indir</a></p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Dosya paneli">
+      <div>
+        <span class="handle" aria-hidden="true"></span>
+        <nav class="tabbar" aria-label="Panel sekmeleri">
+          <a href="?durum=ayrintilar" data-tab="ayrintilar">Ayrıntılar</a>
+          <a href="?durum=yorumlar" data-tab="yorumlar">Yorumlar <span class="n">4</span></a>
+          <a href="?durum=aktivite" data-tab="aktivite">Aktivite</a>
+          <a href="?durum=surumler" data-tab="surumler">Sürümler <span class="n">3</span></a>
+        </nav>
+      </div>
+
+      <!-- Ayrıntılar -->
+      <div class="pbody" data-durum="ayrintilar gorunumler paylas paylas-davet yukleniyor hata">
+        <p class="desc">DN100 PN16 kaynak boyunlu flanş, Kaya Hidrolik pompa çıkışı için. Sürüm 3'te cıvata dairesi EN 1092-1'e göre düzeltildi.</p>
+        <dl class="kv">
+          <dt>Format</dt><dd>STEP (AP214)</dd>
+          <dt>Boyut</dt><dd>12,4 MB</dd>
+          <dt>Ölçüler</dt><dd>220 × 220 × 82 mm</dd>
+          <dt>Sürüm</dt><dd>3 <span class="tag-now">güncel</span></dd>
+          <dt>Yükleyen</dt><dd><span class="avatar a1">AY</span>Ayşe Yılmaz</dd>
+          <dt>Yüklendi</dt><dd>23 Kasım 2026, 14:20</dd>
+          <dt>Proje</dt><dd><a href="05-proje.html">Pompa revizyonu</a></dd>
+        </dl>
+        <section>
+          <div class="ph">Erişim<a href="?durum=paylas">Yönet</a></div>
+          <ul class="acc">
+            <li><i data-lucide="lock"></i><div>Yalnızca davetliler<span>Pompa revizyonu projesindeki 5 kişi, 1 misafir dahil</span></div></li>
+            <li><i data-lucide="user-plus"></i><div>Bu dosyaya 1 kişi eklendi<span>satinalma@yildiztorna.com · davet bekliyor</span></div></li>
+            <li><i data-lucide="link"></i><div>Link açık<span>Görüntüleyebilir · 30 Kasım'a kadar</span></div></li>
+          </ul>
+        </section>
+      </div>
+
+      <!-- Yorumlar -->
+      <div class="pbody" data-durum="yorumlar">
+        <div class="cm"><span class="avatar a2">MK</span><div><div class="who"><b>Mehmet Kaya</b><time>Dün 16:10</time><span class="v">Sürüm 2</span></div><p>Delik çapları DN100 için doğru mu? 18 mm görünüyor.</p></div></div>
+        <div class="cm"><span class="avatar a1">AY</span><div><div class="who"><b>Ayşe Yılmaz</b><time>Bugün 14:22</time></div><p>Evet, EN 1092-1'e göre 18 mm. Sürüm 3'te cıvata dairesini 180 mm'ye düzelttim.</p><div class="acts"><span>Yanıtla</span></div></div></div>
+        <div class="cm"><span class="avatar a4">ÖK</span><div><div class="who"><b>Ömer Koç</b><span class="badge badge--guest">Misafir</span><time>14:40</time></div><p>Kalıp tarafında sorun yok. Yüzey pürüzlülüğü için bir değer verebilir misiniz?</p><div class="acts"><span>Yanıtla</span></div></div></div>
+        <div class="cm"><span class="avatar a3">ZA</span><div><div class="who"><b>Zeynep Arslan</b><time>10 dk önce</time></div><p>Ra 3,2 yeterli. Teknik resme de ekledim.</p><div class="acts"><span>Yanıtla</span></div></div></div>
+      </div>
+      <form class="composer" data-durum="yorumlar" onsubmit="return false">
+        <div class="box"><label class="sr" for="yorum">Yorum</label><textarea id="yorum" rows="1" placeholder="Yorum yaz, @ ile birini an"></textarea><button class="btn btn--primary" type="submit">Gönder</button></div>
+        <span class="vis"><i data-lucide="eye"></i>Yorumları misafir Ömer Koç da görür.</span>
+      </form>
+
+      <!-- Aktivite -->
+      <div class="pbody" data-durum="aktivite">
+        <div class="day">Bugün</div>
+        <div>
+          <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> dosyayı indirdi.<time>14:45</time></p></div>
+          <div class="ev"><span class="ic"><i data-lucide="message-square"></i></span><p><b>Ömer Koç</b> yorum yazdı.<time>14:40</time></p></div>
+          <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p>Link ile <b>2 kez</b> açıldı.<time>14:31</time></p></div>
+          <div class="ev"><span class="ic"><i data-lucide="link"></i></span><p><b>Ayşe Yılmaz</b> link oluşturdu: Görüntüleyebilir, 30 Kasım'a kadar.<time>14:24</time></p></div>
+          <div class="ev"><span class="ic"><i data-lucide="upload"></i></span><p><b>Ayşe Yılmaz</b> sürüm 3'ü yükledi.<time>14:20</time></p></div>
+        </div>
+        <div class="day">Dün</div>
+        <div>
+          <div class="ev"><span class="ic"><i data-lucide="user-plus"></i></span><p><b>Mehmet Kaya</b>, satinalma@yildiztorna.com adresini misafir olarak ekledi: Yorum yapabilir.<time>16:30</time></p></div>
+          <div class="ev"><span class="ic"><i data-lucide="message-square"></i></span><p><b>Mehmet Kaya</b> sürüm 2'ye yorum yazdı.<time>16:10</time></p></div>
+        </div>
+      </div>
+
+      <!-- Sürümler -->
+      <div class="pbody" data-durum="surumler">
+        <button class="btn" type="button"><i data-lucide="upload"></i>Yeni sürüm yükle</button>
+        <div class="vers">
+          <div class="vr cur"><span class="dot"></span><div><b>Sürüm 3 <span class="tag-now">açık</span></b><span class="meta">Ayşe Yılmaz · Bugün 14:20 · 12,4 MB</span><p>Cıvata dairesi 180 mm'ye düzeltildi.</p></div></div>
+          <div class="vr"><span class="dot"></span><div><b>Sürüm 2</b><span class="meta">Ayşe Yılmaz · 19 Kas · 12,1 MB</span><p>Göbek yüksekliği 82 mm yapıldı.</p><div class="va"><button class="btn" type="button">Aç</button><button class="btn btn--ghost" type="button">Geri yükle</button></div></div></div>
+          <div class="vr"><span class="dot"></span><div><b>Sürüm 1</b><span class="meta">Mehmet Kaya · 12 Kas · 11,8 MB</span><p>İlk taslak.</p><div class="va"><button class="btn" type="button">Aç</button><button class="btn btn--ghost" type="button">Geri yükle</button></div></div></div>
+        </div>
+        <p class="help"><i data-lucide="info"></i>Geri yükleme eski sürümü silmez; onu sürüm 4 olarak ekler.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Paylaşım penceresi -->
+<div class="scrim share-scrim" data-durum="paylas">
+  <section class="dialog share" role="dialog" aria-modal="true" aria-labelledby="sh-t">
+    <header><div><h2 id="sh-t">Paylaş</h2><p>Flanş_DN100_rev3.step · Pompa revizyonu</p></div><a class="icon-btn" href="?durum=ayrintilar"><i data-lucide="x"></i><span class="sr">Kapat</span></a></header>
+    <div class="body">
+      <a class="addp" href="?durum=paylas-davet"><i data-lucide="user-plus"></i>Ad ya da e-posta ekle</a>
+
+      <div class="fld">
+        <div class="slabel">Bu dosyaya eklenenler</div>
+        <div class="pr"><span class="person"><span class="avatar" style="background:#64748b">YT</span><span class="t"><b><span class="em">satinalma@yildiztorna.com</span><span class="badge badge--guest">Misafir</span></b><span><span class="m-guest">Misafir · </span>Davet bekliyor · 7 Aralık'a kadar</span></span></span><button class="pick" type="button">Yorum yapabilir<i data-lucide="chevron-down"></i></button></div>
+      </div>
+
+      <div class="grp">
+        <div class="slabel"><i data-lucide="folder-kanban"></i>Pompa revizyonu projesinden<a href="05-proje.html?durum=erisim">Proje erişimi</a></div>
+        <div class="pr c"><span class="person"><span class="avatar a1">AY</span><span class="t"><b>Ayşe Yılmaz (sen)</b></span></span><span class="lv">Düzenleyebilir</span></div>
+        <div class="pr c"><span class="person"><span class="avatar a2">MK</span><span class="t"><b>Mehmet Kaya</b></span></span><span class="lv">Düzenleyebilir</span></div>
+        <div class="pr c"><span class="person"><span class="avatar a3">ZA</span><span class="t"><b>Zeynep Arslan</b></span></span><span class="lv">Düzenleyebilir</span></div>
+        <div class="pr c"><span class="person"><span class="avatar a5">SE</span><span class="t"><b>Selin Er</b></span></span><span class="lv">Yorum yapabilir</span></div>
+        <div class="pr c"><span class="person"><span class="avatar a4">ÖK</span><span class="t"><b>Ömer Koç <span class="badge badge--guest">Misafir</span></b></span></span><span class="lv">İndirebilir</span></div>
+      </div>
+
+      <div class="linkbox">
+        <div class="lhead">
+          <span class="lic"><i data-lucide="link"></i></span>
+          <div><b>Link ile erişim</b><p>Linki alan herkes hesap açmadan görür. Linkle açan yorum yapamaz.</p></div>
+          <button class="sw" type="button" role="switch" aria-checked="true" aria-label="Link ile erişim"><span></span></button>
+        </div>
+        <div class="lopts">
+          <div class="fld"><span>Linkle açan</span><div class="seg" role="group" aria-label="Link erişimi"><button type="button" aria-pressed="true">Görüntüleyebilir</button><button type="button" aria-pressed="false">İndirebilir</button></div></div>
+          <div class="fld"><span>Son kullanma</span><div class="selectish">30 Kasım 2026<i data-lucide="calendar"></i></div></div>
+        </div>
+        <div class="pwrow"><div>Parola iste</div><button class="sw" type="button" role="switch" aria-checked="false" aria-label="Parola iste"><span></span></button></div>
+        <div class="copy"><label class="sr" for="lnk">Link</label><input id="lnk" class="input" value="viz-cad.com/s/k8F2mQ" readonly><button class="btn" type="button"><i data-lucide="copy"></i>Linki kopyala</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim share-scrim" data-durum="paylas-davet">
+  <section class="dialog share" role="dialog" aria-modal="true" aria-labelledby="sd-t">
+    <header><a class="icon-btn backb" href="?durum=paylas"><i data-lucide="arrow-left"></i><span class="sr">Geri</span></a><div><h2 id="sd-t">Kişi ekle</h2><p>Flanş_DN100_rev3.step</p></div><a class="icon-btn" href="?durum=ayrintilar"><i data-lucide="x"></i><span class="sr">Kapat</span></a></header>
+    <div class="body">
+      <div class="fld">
+        <span>Kime</span>
+        <div class="chips-in"><span class="chip">Can Demir<i data-lucide="x"></i></span><span class="chip">teklif@ozdokum.com.tr<i data-lucide="x"></i></span><input aria-label="E-posta ekle" placeholder="Ekle"></div>
+        <div class="recog">
+          <div class="r"><span class="avatar a4">CD</span>Can Demir<span class="badge">Üye</span></div>
+          <div class="r"><span class="avatar" style="background:#64748b">ÖD</span><span class="em">teklif@ozdokum.com.tr</span><span class="badge badge--guest">Misafir olarak eklenecek</span></div>
+        </div>
+      </div>
+      <div class="fld">
+        <span>Erişim</span>
+        <div class="lvls" role="radiogroup" aria-label="Erişim düzeyi">
+          <div class="opt" role="radio" aria-checked="false"><span class="dot"></span><b>Görüntüleyebilir</b><span>Modeli açar ve inceler</span></div>
+          <div class="opt" role="radio" aria-checked="true"><span class="dot"></span><b>Yorum yapabilir</b><span>Ayrıca yorum yazar</span></div>
+          <div class="opt" role="radio" aria-checked="false"><span class="dot"></span><b>İndirebilir</b><span>Ayrıca dosyayı indirir</span></div>
+          <div class="opt" role="radio" aria-checked="false" aria-disabled="true"><span class="dot"></span><b>Düzenleyebilir</b><span>Misafirlere verilemez</span></div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fld"><span>Misafir erişim süresi</span><div class="selectish">7 Aralık 2026<i data-lucide="calendar"></i></div></div>
+        <div class="fld"><span>Bildirim</span><div class="selectish">E-posta gönder<i data-lucide="chevron-down"></i></div></div>
+      </div>
+      <label class="fld"><span>Mesaj <small>(isteğe bağlı)</small></span><textarea class="input">Merhaba, flanşın son sürümü burada. Teklifinizi 28 Kasım Cuma'ya kadar bekliyoruz.</textarea></label>
+    </div>
+    <footer><span class="grow">Misafir yalnızca bu dosyayı görür, koltuk kullanmaz.</span><a class="btn" href="?durum=paylas">Vazgeç</a><button class="btn btn--primary" type="button"><i data-lucide="send"></i>Davet gönder</button></footer>
+  </section>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  const d = document.body.dataset.durum;
+  const tab = ['yorumlar', 'aktivite', 'surumler'].includes(d) ? d : 'ayrintilar';
+  document.querySelector(`[data-tab="${tab}"]`).setAttribute('aria-current', 'page');
+  if (d === 'yukleniyor' || d === 'hata') document.querySelector('.model').classList.add('blur');
+  if (d === 'gorunumler') document.querySelector('[aria-haspopup="menu"]').setAttribute('aria-pressed', 'true');
+</script>
+</body>
+</html>
