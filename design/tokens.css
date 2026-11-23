@@ -1,0 +1,130 @@
+/* VizCad tasarım token'ları (taslak 1, 23 Kasım 2026).
+   Kaynak: design/mockups/v2 (onaylanan görsel dil) + koyu tema. Uygulamada Tailwind v4 @theme'e taşınır.
+   Kontrastlar ölçüldü (WCAG 2.x): metin çiftlerinin hepsi ≥ 4.5:1, ayrıntı docs/03-design.md §5. */
+
+:root {
+  /* Yüzeyler */
+  --color-bg: #ffffff;            /* içerik */
+  --color-surface: #f7f8fa;       /* kenar menü, ikincil alan */
+  --color-hover: #f1f3f6;
+  --color-line: #e6e8ec;
+  --color-line-strong: #d5d9e0;
+  --color-scrim: rgb(20 32 51 / .32);
+
+  /* Metin (logodaki lacivertten) */
+  --color-text: #142033;          /* 16.4:1 */
+  --color-text-2: #5a6475;        /* 6.0:1 */
+  --color-text-3: #636c7b;        /* 5.3:1 beyaz, 5.0:1 surface */
+
+  /* Marka ve etkileşim */
+  --color-brand: #0891b2;         /* logo camgöbeği: seçili gösterge, ilerleme, odak halkası (metin değil) */
+  --color-accent: #0e7490;        /* düğme, link: 5.4:1 */
+  --color-accent-hover: #155e75;
+  --color-accent-soft: #e8f5f8;   /* seçili satır, rozet zemini */
+  --color-on-accent: #ffffff;
+
+  /* Durum */
+  --color-warn: #b45309;          /* 5.0:1 */
+  --color-warn-soft: #fef3e2;
+  --color-warn-text: #9a4a06;     /* soft zeminde 5.7:1 */
+  --color-danger: #b91c1c;        /* 6.5:1 */
+  --color-danger-soft: #fdf6f6;
+  --color-success: #15803d;       /* 5.0:1 */
+  --color-guest: #9a4a06;         /* misafir rozeti = warn ailesi */
+  --color-guest-soft: #fef3e2;
+
+  /* Görüntüleyici: iki temada da koyu/nötr (D12) */
+  --color-canvas: #1b222c;
+  --color-canvas-grid: #232c38;
+  --color-canvas-text: #e7ecf3;   /* 13.5:1 */
+
+  /* Tipografi: Figtree (Google Fonts, wght 300..900, latin-ext) */
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-xs: 12px;    --leading-xs: 16px;
+  --text-sm: 13px;    --leading-sm: 18px;
+  --text-base: 14px;  --leading-base: 20px;   /* uygulama gövde, tablo */
+  --text-md: 15px;    --leading-md: 22px;     /* uygulama paragraf */
+  --text-lg: 17px;    --leading-lg: 26px;     /* pazarlama ve blog gövde */
+  --text-xl: 20px;    --leading-xl: 28px;     /* bölüm başlığı, pencere başlığı */
+  --text-2xl: 26px;   --leading-2xl: 32px;    /* sayfa başlığı (uygulama) */
+  --text-3xl: 34px;   --leading-3xl: 40px;
+  --text-4xl: 48px;   --leading-4xl: 54px;    /* landing başlığı */
+  --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-heading: 650;
+  --tracking-heading: -0.01em;
+
+  /* Boşluk: 4 px taban */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
+
+  /* Yarıçap: hiyerarşiye göre, tek değer değil */
+  --radius-sm: 6px;    /* ikon düğmesi, küçük kontrol */
+  --radius-md: 8px;    /* düğme, alan, menü öğesi */
+  --radius-lg: 12px;   /* kart, panel, açılır menü */
+  --radius-xl: 16px;   /* pencere, alttan sayfa */
+  --radius-full: 999px;
+
+  /* Gölge: yalnızca üstte duran katmanlar (menü, pencere, seçim çubuğu, yükleme kartı) */
+  --shadow-pop: 0 12px 32px rgb(20 32 51 / .12), 0 2px 6px rgb(20 32 51 / .06);
+
+  /* Hareket: yalnızca kullanıcı eylemine yanıt */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --dur-fast: 120ms;   /* hover, basma */
+  --dur-base: 180ms;   /* menü, sekme */
+  --dur-slow: 240ms;   /* pencere, alttan sayfa */
+
+  /* Yerleşim */
+  --sidebar-w: 248px;
+  --content-max: 1200px;
+  --tap-min: 44px;     /* dokunmatik */
+}
+
+/* Koyu tema: kullanıcı seçimi ya da sistem tercihi */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #0e141c;
+    --color-surface: #131b25;
+    --color-hover: #1b2533;
+    --color-line: #243041;
+    --color-line-strong: #314054;
+    --color-scrim: rgb(0 0 0 / .55);
+    --color-text: #e7ecf3;        /* 15.6:1 */
+    --color-text-2: #a8b3c2;      /* 8.7:1 */
+    --color-text-3: #8794a6;      /* 6.0:1 */
+    --color-brand: #22c3e0;
+    --color-accent: #22c3e0;      /* koyu temada düğme açık camgöbeği, üstünde koyu metin */
+    --color-accent-hover: #5fcfe6;
+    --color-accent-soft: #0f2a33;
+    --color-on-accent: #05262e;   /* 7.5:1 */
+    --color-warn: #f0a35c;  --color-warn-soft: #2e2113; --color-warn-text: #f0a35c;
+    --color-danger: #f38b8b; --color-danger-soft: #2d1616;
+    --color-success: #5fd08a;
+    --color-guest: #f0a35c; --color-guest-soft: #2e2113;
+    --shadow-pop: 0 12px 32px rgb(0 0 0 / .45), 0 0 0 1px rgb(255 255 255 / .04);
+  }
+}
+:root[data-theme="dark"] {
+  --color-bg: #0e141c;
+  --color-surface: #131b25;
+  --color-hover: #1b2533;
+  --color-line: #243041;
+  --color-line-strong: #314054;
+  --color-scrim: rgb(0 0 0 / .55);
+  --color-text: #e7ecf3;
+  --color-text-2: #a8b3c2;
+  --color-text-3: #8794a6;
+  --color-brand: #22c3e0;
+  --color-accent: #22c3e0;
+  --color-accent-hover: #5fcfe6;
+  --color-accent-soft: #0f2a33;
+  --color-on-accent: #05262e;
+  --color-warn: #f0a35c;  --color-warn-soft: #2e2113; --color-warn-text: #f0a35c;
+  --color-danger: #f38b8b; --color-danger-soft: #2d1616;
+  --color-success: #5fd08a;
+  --color-guest: #f0a35c; --color-guest-soft: #2e2113;
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / .45), 0 0 0 1px rgb(255 255 255 / .04);
+}

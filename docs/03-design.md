@@ -250,8 +250,22 @@ Gri tel kafes yerleşimi tartışmak için fazla soyut bulundu ("modern, sade" b
 
 ## 5. Token'lar
 
-_(tel kafesler onaylandıktan sonra)_
+Kaynak dosya: `design/tokens.css` (taslak 1). Uygulamada Tailwind v4 `@theme`'e taşınır; bileşenler ham hex kullanmaz.
+
+- **Renk.** Açık tema: beyaz içerik, `#f7f8fa` kenar menü, metin `#142033` (logonun laciverti). Marka `#0891b2` beyazda 3.7:1 olduğu için yalnızca seçili gösterge, ilerleme ve odak halkasında; düğme ve linkte `#0e7490` (5.4:1). Koyu tema: zemin `#0e141c`, düğme açık camgöbeği `#22c3e0` üstünde koyu metin (7.5:1). Misafir rozeti turuncu ailesi (uyarı ile aynı aile, "dışarıdan" anlamı).
+- **Görüntüleyici tuvali** iki temada da `#1b222c` (D12).
+- **Ölçülen kontrastlar** (hepsi ≥ 4.5:1): açık metin 16.4 / 6.0 / 5.3, accent 5.4, uyarı 5.0, hata 6.5, başarı 5.0; koyu metin 15.6 / 8.7 / 6.0, accent metni 10.2, accent düğme 7.5.
+- **Tipografi.** Figtree, tek aile. Uygulama gövdesi 14–15 px, pazarlama/blog gövdesi 17 px, sayfa başlığı 26 px (650, -0.01em), landing başlığı 48 px. Satır uzunluğu ≤ 75 karakter.
+- **Boşluk** 4 px taban. **Yarıçap** hiyerarşiye göre: 6 (küçük kontrol), 8 (düğme, alan), 12 (kart, menü), 16 (pencere).
+- **Gölge** yalnızca üstte duran katmanda. **Hareket** yalnızca kullanıcı eylemine yanıt: 120 / 180 / 240 ms, `prefers-reduced-motion`'da kapalı.
+- **Tema seçimi:** `data-theme="light|dark"` kullanıcı tercihi, yoksa sistem.
 
 ## 6. Yasaklar
 
-`CLAUDE.md` UI kurallarına ek olarak, referans incelemesinden sonra burada kesinleşecek.
+`CLAUDE.md` UI kurallarına ek olarak:
+- Varsayılan shadcn görünümü, gradyan, emoji, tamamı büyük harf etiket, her bölümde giriş animasyonu, aynı kartlardan oluşan sayfa.
+- Ham hex ya da token dışı renk; marka camgöbeğini (`#0891b2`) açık zeminde metin rengi olarak kullanmak.
+- İçeriği kapatan sabit katman (sohbet balonu, anket balonu, büyük çerez penceresi).
+- Olmayan ya da sunucuda uygulanmayan özelliği vaat eden metin ("ölçüm", "yalnızca görüntüleme" korunmadan).
+- "Yakında" düğmeleri; henüz olmayan araç gösterilmez.
+- İzinsiz eylemi sessizce gizlemek: devre dışı + nedeni yazılır.
