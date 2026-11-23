@@ -40,7 +40,7 @@ Effect 4 API: services are `class X extends Context.Service<X, Shape>()('vizcad/
 - Schema changes must be backward compatible until the cutover; never rename R2 keys.
 
 ## UI non-negotiables
-- Mobile first: design and test at 320–430px before desktop. No horizontal scroll, tap targets ≥ 44px, never disable zoom, contrast ≥ 4.5:1.
+- Screen priority (D14): the app (`/app`, `/dashboard`, `/file/*`, team, billing, `/admin/*`) is desktop first but must fully work on mobile; the shared file page (`/shared/$token`), landing, marketing, blog and auth pages are mobile first (design at 320–430px before desktop). Everywhere: no horizontal scroll at 320px, tap targets ≥ 44px on touch, never disable zoom, contrast ≥ 4.5:1.
 - Design follows `docs/03-design.md` once it exists. No default shadcn look, no gradients, no emoji headings, no per-section entrance animations. No `any`, no inline styles except for vtk canvas sizing.
 - Before finishing any UI change: check 390px wide in light and dark, and run Lighthouse on changed marketing routes.
 

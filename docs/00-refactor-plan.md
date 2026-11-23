@@ -79,8 +79,8 @@ Her faz kendi PR'ı (`rewrite` branch'ine). Her PR'da `pnpm check` yeşil ve yen
 
 ### Faz 2: Tasarım sistemi (ilk iş, D8)
 Yön: genel ton, açık tema varsayılan, mevcut marka (D11–D13). Süreç sırası: ekran envanteri → referans panosu → gri tel kafes → token'lar → 3 ana ekran (dosya listesi, görüntüleyici + paylaşım penceresi, paylaşılan dosya sayfası) → bileşen seti + `/dev/ui` → 5 kullanıcıyla görev testi → landing en son (gerçek ekranlarla).
-- [ ] Ekran envanteri (`02-feature-audit.md`'den ~15 ekran; her biri için ana iş, boş/yükleniyor/hata durumları) → `docs/03-design.md`
-- [ ] Referans panosu: 8–10 ürün, 390 ve 1280 px ekran görüntüsü (`design/references/`), "ne alıyoruz / ne almıyoruz" tablosu. Adaylar: Linear, Vercel, Google Drive, Frame.io, Notion, Onshape, Dropbox Transfer, Bild, CAD ROOMS
+- [x] Ekran envanteri (`02-feature-audit.md`'den ~15 ekran; her biri için ana iş, boş/yükleniyor/hata durumları) → `docs/03-design.md` (19 ekran, gözden geçirme bekliyor)
+- [x] Referans panosu: 8–10 ürün, 390 ve 1280 px ekran görüntüsü (`design/references/`), "ne alıyoruz / ne almıyoruz" tablosu. Çekilenler: Linear, Vercel, Google Drive, Frame.io, Notion, Onshape, Dropbox Transfer, Bild, CAD ROOMS, CoLab, Sketchfab model sayfası, bugünkü VizCad (gözden geçirme bekliyor)
 - [ ] `docs/03-design.md`: referanslar, token'lar, yasaklar
 - [ ] Bilgi mimarisi: workspace değiştirici, sol menü (Dosyalar, Paylaşılanlar, Ekip, Faturalandırma, Ayarlar), boş durumlar, rol bazlı görünürlük
 - [ ] Marka: logo, renk, tipografi, açık + koyu tema

@@ -50,7 +50,7 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 
 **D13. Marka korunur.** Mevcut logo (`public/vizcad-logo*.png`) ve marka rengi (camgöbeği, `#0891b2`) kalır; token'lar bunun etrafında kurulur.
 
-**Öneri, ilk tasarım oturumunda onaylanacak:** Uygulama masaüstü öncelikli + mobilde tam çalışır; paylaşılan dosya sayfası ve landing mobil öncelikli. Onaylanırsa `CLAUDE.md`'deki "Mobile first" kuralı buna göre güncellenir.
+**D14. Ekran önceliği (23 Kasım 2026, onaylandı).** Uygulama (dashboard, görüntüleyici, ekip, faturalandırma, admin) masaüstü öncelikli tasarlanır ama mobilde tam çalışır. Paylaşılan dosya sayfası (`/shared/$token`), landing, pazarlama, blog ve giriş/kayıt mobil öncelikli. Gerekçe: panel işi çoğunlukla masaüstünde yapılır; paylaşılan link ve landing ise çoğunlukla telefonda (e-posta, mesajlaşma) açılır. Her yerde: 320 px'te yatay kaydırma yok, dokunmatikte ≥ 44 px hedef, zoom kapatılmaz, kontrast ≥ 4.5:1. `CLAUDE.md` güncellendi.
 
 ## Açık sorular
 
