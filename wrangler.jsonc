@@ -2,8 +2,8 @@
  * Cloudflare Worker config for the rewrite. Hosting plan: docs/07-execution-plan.md.
  *
  * TOP LEVEL = STAGING. The rewrite deploys to its own Worker (`vizcad-rewrite`, workers.dev) with its own
- * D1 and R2 holding fake data. A plain `wrangler deploy` / `pnpm db:migrate:remote` can only reach staging.
- * The staging D1 id below is a placeholder until the resources are created (needs Cloudflare login).
+ * D1 and R2 holding fake data. A plain `wrangler deploy` / `pnpm db:migrate:staging` can only reach staging.
+ * Staging resources were created on 2026-11-23 (D1 `vizcad-staging` in EEUR, R2 `vizcad-files-staging`).
  *
  * `env.production` = the live site (Worker `vizcad`, D1 `vizcad_auth`, R2 `vizcad-files-bucket`, live user
  * data). Used only at cutover (Faz 9), always explicitly: `--env production` / `CLOUDFLARE_ENV=production`.
@@ -26,8 +26,7 @@
 	"upload_source_maps": true,
 	"workers_dev": true,
 	"vars": {
-		// Real URL is vizcad-rewrite.<account-subdomain>.workers.dev; fixed when staging is created.
-		"SITE_URL": "https://vizcad-rewrite.workers.dev",
+		"SITE_URL": "https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev",
 		"EMAIL_FROM": "noreply@viz-cad.com",
 		"EMAIL_FROM_NAME": "VizCad"
 	},
@@ -38,7 +37,7 @@
 		{
 			"binding": "vizcad_auth",
 			"database_name": "vizcad-staging",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "6c619234-393b-4ef0-b02c-18d7bd814178",
 			"migrations_dir": "drizzle"
 		}
 	],
