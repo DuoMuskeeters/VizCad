@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tel kafes · Görüntüleyici</title>
+<link rel="stylesheet" href="_wire.css">
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; }
+  .viewer { flex: 1; display: grid; grid-template-rows: 56px minmax(0, 1fr); min-height: 560px; }
+  .vtop { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+  .vtop .title { display: grid; min-width: 0; line-height: 1.25; }
+  .vtop .title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vtop .end { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .vbody { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+
+  .canvas { position: relative; background: var(--canvas); overflow: hidden; min-height: 0; }
+  .model { position: absolute; inset: 18% 30% 22%; border-radius: 50% 50% 12px 12px; background: #b3b3b3; }
+  .model::after { content: ""; position: absolute; inset: 35%; border-radius: 50%; background: var(--canvas); }
+  .cube { position: absolute; top: 16px; right: 16px; width: 64px; height: 64px; border: 1.5px solid #e9e9e9; border-radius: 6px; display: grid; place-items: center; color: #f4f4f4; font-size: 11px; }
+  .toolbar { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); max-width: calc(100% - 24px); overflow-x: auto; }
+  .toolbar .sep { width: 1px; align-self: stretch; margin: 6px 4px; background: var(--line); flex: none; }
+  .tool { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; white-space: nowrap; font-size: 14px; }
+  .tool[aria-pressed="true"] { background: var(--fill-2); font-weight: 600; }
+  .tool--later { border: 1px dashed var(--ink-3); color: var(--ink-2); }
+  .status { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; }
+  .status .card { width: min(380px, 100%); background: var(--bg); border-radius: 8px; padding: 20px; display: grid; gap: 12px; }
+  .steps li { display: flex; gap: 10px; align-items: center; min-height: 28px; }
+  .steps .done { color: var(--ink-2); }
+  .steps .now { font-weight: 600; }
+  .steps .todo { color: var(--ink-3); }
+
+  .panel { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid var(--line); min-height: 0; background: var(--bg); }
+  .handle { display: none; }
+  .tabs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tab { min-height: 44px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; white-space: nowrap; color: var(--ink-2); text-decoration: none; display: inline-flex; align-items: center; }
+  .tab[aria-selected="true"] { border-bottom-color: var(--ink); color: var(--ink); font-weight: 600; }
+  .pbody { overflow: auto; padding: 16px; display: grid; gap: 16px; align-content: start; }
+  dl.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; font-size: 14px; }
+  dl.kv dt { color: var(--ink-2); }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .comment { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 4px 10px; }
+  .comment .who { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .composer { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; min-height: 44px; resize: none; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; }
+  .version { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .version .acts { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 4px; align-items: center; }
+
+  /* Paylaşım penceresi */
+  .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: grid; place-items: center; padding: 24px; z-index: 10; }
+  .dialog { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow: auto; background: var(--bg); border-radius: 10px; display: grid; }
+  .dialog > header { display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px 20px; }
+  .dialog > header h2 { font-size: 18px; line-height: 1.3; min-width: 0; }
+  .dialog > header .btn { margin-left: auto; }
+  .dsec { padding: 12px 20px 16px; display: grid; gap: 10px; border-top: 1px solid var(--line); }
+  .invite { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+  .person { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 0 10px; align-items: center; min-height: 48px; }
+  .person .who { min-width: 0; line-height: 1.3; }
+  .person .who span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .row .grow { flex: 1; min-width: 0; }
+  .linkopts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  .linkopts label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
+  .copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .dialog > footer { padding: 12px 20px 20px; display: flex; justify-content: flex-end; border-top: 1px solid var(--line); }
+
+  .notes { position: fixed; left: 16px; top: 116px; max-width: 360px; display: grid; gap: 6px; background: rgba(255, 255, 255, .94); padding: 10px; border-radius: 8px; z-index: 5; }
+
+  @media (max-width: 899px) {
+    body { display: block; height: auto; }
+    .viewer { min-height: 0; grid-template-rows: 56px auto; }
+    .vtop { padding: 0 4px; gap: 2px; }
+    .vbody { grid-template-columns: minmax(0, 1fr); }
+    .canvas { height: 58vh; min-height: 320px; }
+    .model { inset: 20% 18% 26%; }
+    .cube { width: 52px; height: 52px; top: 12px; right: 12px; }
+    .toolbar { bottom: 12px; }
+    .panel { border-left: 0; border-top: 1px solid var(--line); border-radius: 12px 12px 0 0; margin-top: -12px; position: relative; }
+    .handle { display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 0; }
+    .scrim { position: absolute; top: 0; left: 0; right: 0; bottom: auto; min-height: 100%; display: block; padding: 0; }
+    .dialog { width: 100%; max-height: none; min-height: 100vh; border-radius: 0; align-content: start; }
+    .invite { grid-template-columns: minmax(0, 1fr) auto; }
+    .invite .btn--primary { grid-column: 1 / -1; }
+    .linkopts { grid-template-columns: minmax(0, 1fr); }
+    .notes { display: none; }
+    .toolbar .only-desktop { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="wire-bar" aria-label="Tel kafes durumları">
+  <strong>Görüntüleyici</strong>
+  <a href="?durum=ayrintilar">Ayrıntılar</a>
+  <a href="?durum=yorumlar">Yorumlar</a>
+  <a href="?durum=surumler">Sürümler</a>
+  <a href="?durum=paylas">Paylaşım penceresi</a>
+  <a href="?durum=yukleniyor">Yükleniyor</a>
+  <a href="?durum=hata">Hata</a>
+  <a href="index.html">Tüm tel kafesler</a>
+</nav>
+
+<div class="viewer">
+  <header class="vtop">
+    <a class="btn btn--quiet" href="01-dosyalar.html"><span class="ico"></span><span class="only-desktop">Dosyalar</span><span class="sr">Dosyalara dön</span></a>
+    <div class="title"><strong>Flanş_DN100_rev3.step</strong><span class="muted small only-desktop">Demir Makina · STEP · 12,4 MB</span></div>
+    <span class="select only-desktop">Sürüm 3</span>
+    <div class="end">
+      <button class="btn btn--primary" type="button"><span class="ico"></span><span class="only-desktop">Paylaş</span><span class="sr">Paylaş</span></button>
+      <button class="btn only-desktop" type="button"><span class="ico"></span>İndir</button>
+      <button class="btn btn--quiet btn--icon" type="button">⋯<span class="sr">Diğer eylemler</span></button>
+    </div>
+  </header>
+
+  <div class="vbody">
+    <section class="canvas" aria-label="3B model">
+      <div class="model" data-durum-not="yukleniyor hata" aria-hidden="true"></div>
+      <div class="cube" data-durum-not="yukleniyor hata">Görünüm küpü</div>
+      <div class="toolbar" role="toolbar" aria-label="Görüntüleme araçları" data-durum-not="yukleniyor hata">
+        <button class="tool only-desktop" type="button" aria-pressed="true"><span class="ico"></span>Döndür</button>
+        <button class="tool only-desktop" type="button" aria-pressed="false"><span class="ico"></span>Kaydır</button>
+        <span class="sep only-desktop"></span>
+        <button class="tool" type="button"><span class="ico"></span>Görünümler ▾</button>
+        <button class="tool" type="button" aria-pressed="false"><span class="ico"></span>Tel kafes</button>
+        <button class="tool" type="button"><span class="ico"></span>Sıfırla</button>
+        <span class="sep"></span>
+        <button class="tool tool--later" type="button" disabled>Ölçüm</button>
+        <button class="tool tool--later" type="button" disabled>Kesit</button>
+        <button class="tool tool--later only-desktop" type="button" disabled>Parçalar</button>
+      </div>
+
+      <div class="status" data-durum="yukleniyor" role="status">
+        <div class="card">
+          <strong>Model hazırlanıyor</strong>
+          <ol class="steps">
+            <li class="done"><span class="ico ico--round"></span>İndirildi · 12,4 MB</li>
+            <li class="now"><span class="ico ico--round"></span>STEP dönüştürülüyor</li>
+            <li class="todo"><span class="ico ico--round"></span>Görüntüleme hazırlanıyor</li>
+          </ol>
+          <div class="bar"><span style="width:55%"></span></div>
+          <button class="btn" type="button">İptal</button>
+        </div>
+      </div>
+
+      <div class="status" data-durum="hata" role="alert">
+        <div class="card">
+          <strong>Model dönüştürülemedi</strong>
+          <p class="muted">Dosya bozuk olabilir ya da bu STEP sürümü desteklenmiyor. Dosyayı CAD programından yeniden dışa aktarıp yeni sürüm olarak yükleyebilirsin.</p>
+          <div class="row"><button class="btn btn--primary" type="button">Yeniden dene</button><button class="btn" type="button">Dosyayı indir</button></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Dosya paneli">
+      <div>
+        <span class="handle" aria-hidden="true"></span>
+        <div class="tabs" role="tablist">
+          <a class="tab" role="tab" href="?durum=ayrintilar" aria-selected="false" data-tab="ayrintilar">Ayrıntılar</a>
+          <a class="tab" role="tab" href="?durum=yorumlar" aria-selected="false" data-tab="yorumlar">Yorumlar 3</a>
+          <a class="tab" role="tab" href="#" aria-selected="false">Aktivite</a>
+          <a class="tab" role="tab" href="?durum=surumler" aria-selected="false" data-tab="surumler">Sürümler 3</a>
+        </div>
+      </div>
+
+      <div class="pbody" data-durum="ayrintilar paylas yukleniyor hata">
+        <dl class="kv">
+          <dt>Format</dt><dd>STEP (AP214)</dd>
+          <dt>Boyut</dt><dd>12,4 MB</dd>
+          <dt>Sürüm</dt><dd>3 (güncel)</dd>
+          <dt>Yükleyen</dt><dd>Ayşe Yılmaz</dd>
+          <dt>Yüklendi</dt><dd>23 Kasım 2026, 14:20</dd>
+        </dl>
+        <div class="section-title">Erişim</div>
+        <p>Demir Makina ekibi, 2 kişi ve 1 link<br><a href="?durum=paylas" class="small">Erişimi yönet</a></p>
+        <p class="note">Montaj ağacı (parça listesi) Faz 5'te motor kararıyla gelir; buraya ya da sol panele yerleşir.</p>
+      </div>
+
+      <div class="pbody" data-durum="yorumlar">
+        <div class="comment"><span class="avatar">MK</span><div><div class="who"><strong>Mehmet Kaya</strong><span class="muted small">2 sa önce</span></div><p>Delik çapları DN100 standardına uyuyor mu? 18 mm görünüyor.</p></div></div>
+        <div class="comment"><span class="avatar">AY</span><div><div class="who"><strong>Ayşe Yılmaz</strong><span class="muted small">1 sa önce</span></div><p>Evet, EN 1092-1'e göre 18 mm. Sürüm 3'te cıvata dairesini düzelttim.</p></div></div>
+        <div class="comment"><span class="avatar">ZA</span><div><div class="who"><strong>Zeynep Arslan</strong><span class="muted small">10 dk önce</span></div><p>Tamam, tedarikçiye bu sürümle gönderiyorum.</p></div></div>
+        <p class="note">Faz 5: yorum modeldeki bir noktaya iğnelenir; iğne tuvalde, metin burada.</p>
+      </div>
+      <form class="composer" data-durum="yorumlar" onsubmit="return false">
+        <label class="sr" for="c">Yorum</label><textarea id="c" rows="1" placeholder="Yorum yaz"></textarea>
+        <button class="btn btn--primary" type="submit">Gönder</button>
+      </form>
+
+      <div class="pbody" data-durum="surumler">
+        <button class="btn" type="button"><span class="ico"></span>Yeni sürüm yükle</button>
+        <div>
+          <div class="version"><strong>Sürüm 3 · güncel</strong><span class="muted small">Ayşe Yılmaz · Bugün 14:20 · 12,4 MB</span><div class="acts"><span class="tag">Açık</span></div></div>
+          <div class="version"><strong>Sürüm 2</strong><span class="muted small">Ayşe Yılmaz · 19 Kas · 12,1 MB</span><div class="acts"><button class="btn btn--quiet" type="button">Aç</button><button class="btn btn--quiet" type="button">Geri yükle</button></div></div>
+          <div class="version"><strong>Sürüm 1</strong><span class="muted small">Mehmet Kaya · 12 Kas · 11,8 MB</span><div class="acts"><button class="btn btn--quiet" type="button">Aç</button><button class="btn btn--quiet" type="button">Geri yükle</button></div></div>
+        </div>
+        <p class="note">Geri yükleme eski sürümü silmez; onu yeni bir sürüm (4) olarak ekler.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="notes only-desktop" data-durum-not="paylas">
+  <p class="note">Tuval her iki temada koyu/nötr (D12). Araç çubuğu modelin altında yüzer; kesikli olanlar Faz 5 yerleri, ürün bunları "yakında" diye göstermez.</p>
+  <p class="note">İndir yalnızca izin varsa görünür; izin yoksa ⋯ menüsünde devre dışı + "İndirme izni yok".</p>
+</div>
+
+<div class="scrim" data-durum="paylas">
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="share-title">
+    <header>
+      <h2 id="share-title">Flanş_DN100_rev3.step dosyasını paylaş</h2>
+      <a class="btn btn--quiet btn--icon" href="?durum=ayrintilar">×<span class="sr">Kapat</span></a>
+    </header>
+
+    <div class="dsec">
+      <div class="invite">
+        <label class="field"><span class="sr">E-posta</span><input placeholder="E-posta adresi ekle"></label>
+        <span class="select">Görüntüleyebilir</span>
+        <button class="btn btn--primary" type="button">Davet et</button>
+      </div>
+      <label class="field"><span class="sr">Mesaj</span><input placeholder="Mesaj (isteğe bağlı)"></label>
+    </div>
+
+    <div class="dsec">
+      <div class="section-title">Erişimi olanlar</div>
+      <div class="person"><span class="avatar">AY</span><div class="who"><span>Ayşe Yılmaz (sen)</span><span class="muted small">ayse@demirmakina.com</span></div><span class="muted small">Sahip</span></div>
+      <div class="person"><span class="avatar">DM</span><div class="who"><span>Demir Makina ekibi</span><span class="muted small">12 üye</span></div><span class="select">Düzenleyebilir</span></div>
+      <div class="person"><span class="avatar">YT</span><div class="who"><span>satinalma@yildiztorna.com</span><span class="muted small">Davet bekliyor</span></div><span class="select">Görüntüleyip indirebilir</span></div>
+      <div class="person"><span class="avatar">ÖK</span><div class="who"><span>Ömer Koç</span><span class="muted small">omer@koc-kalip.com.tr</span></div><span class="select">Görüntüleyebilir</span></div>
+    </div>
+
+    <div class="dsec">
+      <div class="row">
+        <div class="grow"><strong>Link ile erişim</strong><p class="muted small">Linke sahip olan herkes, hesabı olmasa da açabilir.</p></div>
+        <span class="toggle" role="switch" aria-checked="true" aria-label="Link ile erişim"></span>
+      </div>
+      <div class="linkopts">
+        <label>İzin<span class="select">Görüntüleyebilir</span></label>
+        <label>Son kullanma<span class="select">30 Kasım 2026</span></label>
+      </div>
+      <div class="row"><div class="grow">Parola iste</div><span class="toggle" role="switch" aria-checked="false" aria-label="Parola iste"></span></div>
+      <div class="copy">
+        <label class="field"><span class="sr">Link</span><input value="viz-cad.com/s/k8F2mQ" readonly></label>
+        <button class="btn" type="button"><span class="ico"></span>Linki kopyala</button>
+      </div>
+      <p class="note">"Görüntüleyebilir" ham dosyayı gerçekten korumadan (audit 🔒) bu etiket kullanılmaz; Faz 4/5'e kadar metin teknik gerçeğe göre yazılır.</p>
+    </div>
+
+    <footer><a class="btn btn--primary" href="?durum=ayrintilar">Bitti</a></footer>
+  </section>
+</div>
+
+<script src="_wire.js"></script>
+<script>
+  const d = document.body.dataset.durum;
+  const tab = ['yorumlar', 'surumler'].includes(d) ? d : 'ayrintilar';
+  document.querySelector(`[data-tab="${tab}"]`).setAttribute('aria-selected', 'true');
+</script>
+</body>
+</html>

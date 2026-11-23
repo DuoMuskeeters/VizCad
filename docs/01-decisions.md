@@ -52,6 +52,13 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 
 **D14. Ekran önceliği (23 Kasım 2026, onaylandı).** Uygulama (dashboard, görüntüleyici, ekip, faturalandırma, admin) masaüstü öncelikli tasarlanır ama mobilde tam çalışır. Paylaşılan dosya sayfası (`/shared/$token`), landing, pazarlama, blog ve giriş/kayıt mobil öncelikli. Gerekçe: panel işi çoğunlukla masaüstünde yapılır; paylaşılan link ve landing ise çoğunlukla telefonda (e-posta, mesajlaşma) açılır. Her yerde: 320 px'te yatay kaydırma yok, dokunmatikte ≥ 44 px hedef, zoom kapatılmaz, kontrast ≥ 4.5:1. `CLAUDE.md` güncellendi.
 
+**D15. Ekran envanteri gözden geçirmesi (23 Kasım 2026).**
+- Klasörler ilk sürümde yok, ileride gelebilir. Dosyalar ekranı ve veri modeli klasöre yer bırakır (başlık alanı yol/breadcrumb'a dönüşebilir, şemada sonradan `parentId` eklenebilir).
+- Route'lar: `/files`, `/files/$id`, `/s/$token` vb. Eski URL'ler (`/dashboard`, `/app`, `/file/$id`, `/shared/$token`) yönlendirmeyle korunur.
+- Eski stüdyo sekmeleri (Görünüm, Işıklar, Çıktı) taşınmaz; amatör bulundu. Görüntüleyici araçları Faz 5'te baştan tasarlanır.
+- Desteklenmeyen dosya türleri yüklemeden önce reddedilir; hata mesajı desteklenen türleri sayar.
+- Faturalandırma ekranı ve admin rolünün faturalandırma yetkisi sonraya bırakıldı (Faz 8, Q9–Q10 ile).
+
 ## Açık sorular
 
 | # | Soru | Notlar |

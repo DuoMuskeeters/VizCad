@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tel kafes · Paylaşılan dosya</title>
+<link rel="stylesheet" href="_wire.css">
+<style>
+  /* Mobil öncelikli (D14): taban stil 320–430 px, masaüstü 960 px'ten sonra eklenir */
+  .s-top { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; min-height: 56px; border-bottom: 1px solid var(--line); }
+  .s-main { display: grid; gap: 20px; padding: 16px 16px 32px; }
+  .sender { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0 12px; align-items: center; }
+  .sender p { line-height: 1.35; }
+  .message { padding: 12px 14px; border-left: 3px solid var(--line); background: var(--fill); border-radius: 0 6px 6px 0; }
+  .file h1 { font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
+  .file p { margin-top: 4px; }
+  .stage { position: relative; aspect-ratio: 4 / 3; background: var(--canvas); border-radius: 8px; overflow: hidden; display: grid; place-items: center; }
+  .stage .thumb-big { position: absolute; inset: 16% 26% 20%; border-radius: 50% 50% 10px 10px; background: #b3b3b3; }
+  .stage .btn { position: relative; }
+  .stage .full { position: absolute; right: 8px; bottom: 8px; }
+  .actions { display: grid; gap: 8px; }
+  .viewonly { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+  dl.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; font-size: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+  dl.kv dt { color: var(--ink-2); }
+  .s-foot { padding: 20px 16px 32px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+  .gate { max-width: 420px; margin: 0 auto; padding: 32px 16px 48px; display: grid; gap: 16px; }
+  .gate h1 { font-size: 22px; line-height: 1.25; }
+  .gate .err { font-size: 13px; color: var(--ink); }
+  .pw { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .notes { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; display: grid; gap: 6px; }
+
+  @media (min-width: 960px) {
+    .s-top { padding: 0 32px; }
+    .s-main { grid-template-columns: minmax(0, 1fr) 380px; grid-template-areas: "stage sender" "stage msg" "stage file" "stage actions" "stage details"; align-content: start; gap: 16px 32px; padding: 24px 32px 40px; }
+    .s-main > * { align-self: start; }
+    .stage { align-self: stretch; }
+    .sender { grid-area: sender; }
+    .message { grid-area: msg; }
+    .file { grid-area: file; }
+    .stage { grid-area: stage; aspect-ratio: auto; min-height: 72vh; }
+    .actions { grid-area: actions; }
+    dl.kv { grid-area: details; align-self: start; }
+    .s-foot { padding: 20px 32px; }
+    .gate { padding-top: 72px; }
+  }
+</style>
+</head>
+<body>
+<nav class="wire-bar" aria-label="Tel kafes durumları">
+  <strong>Paylaşılan dosya</strong>
+  <a href="?durum=indir">İndirilebilir</a>
+  <a href="?durum=goruntule">Yalnızca görüntüleme</a>
+  <a href="?durum=parola">Parola</a>
+  <a href="?durum=suresi-doldu">Süresi doldu</a>
+  <a href="?durum=gecersiz">Geçersiz link</a>
+  <a href="index.html">Tüm tel kafesler</a>
+</nav>
+
+<header class="s-top">
+  <span class="logo"><span class="ico"></span>VizCad</span>
+  <span class="select small">Türkçe</span>
+</header>
+
+<main class="s-main" data-durum="indir goruntule">
+  <div class="sender">
+    <span class="avatar avatar--lg">AY</span>
+    <p><strong>Ayşe Yılmaz</strong>, Demir Makina<br><span class="muted small">seninle bir dosya paylaştı · 23 Kasım</span></p>
+  </div>
+
+  <blockquote class="message">Merhaba, flanşın son sürümü ekte. Teklifinizi 28 Kasım Cuma'ya kadar bekliyoruz.</blockquote>
+
+  <div class="file">
+    <h1>Flanş_DN100_rev3.step</h1>
+    <p class="muted small">STEP · 12,4 MB · Sürüm 3 · Link 30 Kasım'a kadar açık</p>
+  </div>
+
+  <section class="stage" aria-label="3B önizleme">
+    <span class="thumb-big" aria-hidden="true"></span>
+    <button class="btn btn--primary" type="button"><span class="ico"></span>3B modeli aç</button>
+    <button class="btn btn--icon full" type="button"><span class="ico"></span><span class="sr">Tam ekran</span></button>
+  </section>
+
+  <div class="actions">
+    <button class="btn btn--primary btn--block" type="button" data-durum="indir"><span class="ico"></span>İndir · 12,4 MB</button>
+    <div class="viewonly" data-durum="goruntule"><span class="ico"></span><p>Bu dosya yalnızca görüntülenebilir. İndirmek için Ayşe Yılmaz'dan izin iste.</p></div>
+  </div>
+
+  <dl class="kv">
+    <dt>Format</dt><dd>STEP (AP214)</dd>
+    <dt>Boyut</dt><dd>12,4 MB</dd>
+    <dt>Sürüm</dt><dd>3</dd>
+    <dt>Paylaşıldı</dt><dd>23 Kasım 2026</dd>
+    <dt>Erişim</dt><dd>30 Kasım 2026'ya kadar</dd>
+  </dl>
+</main>
+
+<section class="gate" data-durum="parola">
+  <div class="sender">
+    <span class="avatar avatar--lg">AY</span>
+    <p><strong>Ayşe Yılmaz</strong>, Demir Makina<br><span class="muted small">seninle bir dosya paylaştı</span></p>
+  </div>
+  <h1>Bu dosyayı açmak için parola gerekiyor</h1>
+  <form class="pw" onsubmit="return false">
+    <label class="field"><span class="sr">Parola</span><input type="password" value="hatali" aria-describedby="pw-err"><button class="btn btn--quiet" type="button">Göster</button></label>
+    <button class="btn btn--primary" type="submit">Aç</button>
+  </form>
+  <p class="err" id="pw-err">Parola yanlış. 4 deneme hakkın kaldı.</p>
+  <p class="muted small">Parolayı bilmiyorsan dosyayı paylaşan kişiye sor.</p>
+</section>
+
+<section class="gate" data-durum="suresi-doldu">
+  <h1>Bu linkin süresi doldu</h1>
+  <p class="muted">Link 12 Kasım 2026'da kapandı. Dosyayı yeniden görmek için Ayşe Yılmaz'dan (Demir Makina) yeni bir link iste.</p>
+</section>
+
+<section class="gate" data-durum="gecersiz">
+  <h1>Bu link geçerli değil</h1>
+  <p class="muted">Paylaşan kişi erişimi kaldırmış ya da link eksik kopyalanmış olabilir. Linki gönderen kişiyle iletişime geç.</p>
+</section>
+
+<footer class="s-foot">
+  <span>VizCad ile paylaşıldı.</span><a href="#">Kendi dosyalarını paylaş</a>
+</footer>
+
+<div class="notes">
+  <p class="note">Mobilde 3B otomatik yüklenmez: önce küçük resim (SSR), "3B modeli aç" ile görüntüleyici gelir. Veri ve pil için; masaüstünde otomatik açılabilir.</p>
+  <p class="note">Paylaşanın adı ve firması görünür, e-postası görünmez. Mesaj, paylaşım penceresindeki isteğe bağlı alandan gelir.</p>
+  <p class="note">Parola formu body ile gider, URL'de değil (audit düzeltmesi 1). Deneme sınırı aşılınca bekleme süresi gösterilir.</p>
+</div>
+
+<script src="_wire.js"></script>
+</body>
+</html>

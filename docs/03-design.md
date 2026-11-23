@@ -29,7 +29,7 @@ Rol bazlı görünürlük (workspace rolü: owner / admin / member / viewer):
 | Dosya yükleme, ad değiştirme, silme | ✓ | ✓ | ✓ (kendi dosyaları + editör izni olanlar) | – |
 | Paylaşım linki oluşturma | ✓ | ✓ | ✓ | – |
 | Ekip: üye davet, rol değiştirme | ✓ | ✓ | görüntüler | görüntüler |
-| Faturalandırma | ✓ | ✓ (değiştiremez, açık soru) | – | – |
+| Faturalandırma | ✓ | ertelendi (D15) | – | – |
 | Workspace silme / sahiplik devri | ✓ | – | – | – |
 
 Dosya düzeyi izinler (sahip / düzenleyici / önizleme / indirme) workspace rolünden ayrıdır; tek karar fonksiyonu `permissions.ts`'te (D2). Tasarımda izinsiz eylem **gizlenmez, devre dışı + neden** gösterilir ("İndirme izni yok, sahibinden iste"), çünkü satın alma/tedarikçi kullanıcısı neyi neden yapamadığını bilmeli.
@@ -60,14 +60,14 @@ Kaynak: `02-feature-audit.md`, `00-refactor-plan.md` Faz 2–8, eski kod (`vizca
 | 18 | Fiyatlandırma, SSS, iletişim, yasal | `/pricing`, `/faq`, `/contact`, `/legal/*` | **Mobil** | Ziyaretçi | Son |
 | 19 | Sistem sayfaları: 404, erişim yok, sunucu hatası | – | Mobil | Herkes | 2 |
 
-Route adları öneridir; eski URL'ler (`/dashboard`, `/app`, `/file/$id`, `/shared/$token`) canlıda kullanıldığı için yönlendirme ile korunur (paylaşılmış linkler kırılmamalı).
+Route adları onaylandı (D15); eski URL'ler (`/dashboard`, `/app`, `/file/$id`, `/shared/$token`) canlıda kullanıldığı için yönlendirme ile korunur (paylaşılmış linkler kırılmamalı).
 
 Durum yazımı ilkesi: boş ekran bir eylem çağrısıdır; hata ne olduğunu ve nasıl düzeleceğini söyler, özür dilemez; yükleniyor durumu iskeletle (skeleton) gösterilir, 300 ms'den kısa yüklemelerde hiçbir şey gösterilmez. Metinler aşağıda taslak; son hali i18n anahtarlarına gider.
 
 ### 2.1 Dosyalar (dashboard) ★
 - **Ana iş:** Bir dosyayı bulmak ve açmak. İkincil: yüklemek, düzenlemek (ad, yıldız, taşı, sil).
 - **İçerik:** Liste ve ızgara görünümü (küçük resimli); sütunlar: ad, tür, boyut, sahip, son değişiklik, paylaşım durumu. Filtreler: tümü / son açılanlar / yıldızlı / benim yüklediklerim. Arama. Çoklu seçim + toplu eylem. Sürükle-bırak yükleme alanı tüm sayfa.
-- **Açık soru:** Klasörler (eski kodda yok, 🔴). Öneri: ilk sürümde klasör değil, etiket/proje; tel kafeste iki seçenek çizilir.
+- **Klasörler (D15):** İlk sürümde yok, ileride gelebilir. Başlık alanı ("Dosyalar") ileride yol/breadcrumb'a dönüşecek şekilde çizilir; satır yapısı klasör satırını kaldırabilir.
 - **Boş:**
   - Yeni workspace: "Henüz dosya yok. Bir STEP, STL veya OBJ dosyasını buraya sürükle ya da yükle." + desteklenen formatlar + örnek modeli aç linki.
   - Filtre sonucu boş: "Yıldızlı dosya yok. Bir dosyanın yanındaki yıldıza bas, burada görünsün."
@@ -79,7 +79,7 @@ Durum yazımı ilkesi: boş ekran bir eylem çağrısıdır; hata ne olduğunu v
 ### 2.2 Görüntüleyici ★
 - **Ana iş:** Modeli anlamak: döndürmek, yakınlaştırmak, parçalara bakmak; sonra yorum yazmak veya paylaşmak.
 - **İçerik:** Tam yükseklik tuval (koyu/nötr zemin, her iki temada, D12). Üst çubuk: geri, dosya adı, sürüm seçici, Paylaş, İndir (izne göre), ⋯. Araç çubuğu: görünüm küpü / standart görünümler, tel kafes, sıfırla. Faz 5 araçları (ölçüm, kesit, montaj ağacı, işaretleme) için yer ayrılır ama "yakında" düğmesi olarak gösterilmez. Sağ panel: Ayrıntılar / Yorumlar / Aktivite / Sürümler (ekran 5).
-- **Eski "stüdyo" sekmeleri** (Görünüm, Işıklar, Çıktı): yalnızca geliştiricilere açıktı. Öneri: genel kullanıcıdan gizli bir "Sunum" modu olarak ⋯ menüsüne; D11 teknik ayrıntıyı görüntüleyiciyle sınırlıyor, onu da varsayılanda sade tutuyoruz.
+- **Eski "stüdyo" sekmeleri** (Görünüm, Işıklar, Çıktı) taşınmaz (D15). Görüntüleyici araçları Faz 5'te baştan tasarlanır.
 - **Boş:** Görüntüleyicinin boş hali yok; dosyasız açılırsa Dosyalar'a yönlendirir. Yorum paneli boş: "Henüz yorum yok. Modelde bir noktayı işaretleyip yorum bırakabilirsin" (işaretleme gelene kadar: "İlk yorumu yaz").
 - **Yükleniyor:** Aşamalı ilerleme: "İndiriliyor %42" → "Dönüştürülüyor (STEP)" → "Hazırlanıyor". Küçük resim varsa bulanık arka plan olarak gösterilir. İptal düğmesi.
 - **Hata:**
@@ -121,7 +121,7 @@ Durum yazımı ilkesi: boş ekran bir eylem çağrısıdır; hata ne olduğunu v
 - **İçerik:** Sürükle-bırak veya dosya seçici; sağ altta kalıcı ilerleme kartı (dosya başına ilerleme, iptal, tamamlananı aç). Sayfadan ayrılınca uyarı.
 - **Boş:** Seçilmemiş hali yükleme alanının kendisi.
 - **Yükleniyor:** Dosya başına çubuk + kalan süre; küçük resim üretimi "Küçük resim hazırlanıyor" olarak ayrı satır.
-- **Hata:** Boyut sınırı (Entitlements): "rotor.step 240 MB; bu planda dosya başına sınır 100 MB." Depolama dolu: "Depolama dolu (5 / 5 GB). Yer aç ya da planı yükselt." Format desteklenmiyor: dosya yine yüklenir mi? (öneri: evet, depolanır ama görüntülenemez olarak işaretlenir). Ağ kesildi: "Yükleme durdu. Bağlantı gelince devam edecek." + yeniden dene.
+- **Hata:** Boyut sınırı (Entitlements): "rotor.step 240 MB; bu planda dosya başına sınır 100 MB." Depolama dolu: "Depolama dolu (5 / 5 GB). Yer aç ya da planı yükselt." Format desteklenmiyor (D15: reddedilir, yükleme başlamaz): "rotor.dwg yüklenmedi: bu dosya türü desteklenmiyor. Desteklenenler: STEP, IGES, STL, OBJ, PLY, 3MF." Ağ kesildi: "Yükleme durdu. Bağlantı gelince devam edecek." + yeniden dene.
 
 ### 2.7 Paylaşılanlar
 - **Ana iş:** Bana açılan dosyaları bulmak; benim kime ne açtığımı denetlemek.
@@ -154,6 +154,7 @@ Durum yazımı ilkesi: boş ekran bir eylem çağrısıdır; hata ne olduğunu v
 - **Hata:** Koltuk dolu: "5 koltuğun hepsi dolu. Bir üyeyi çıkar ya da plan yükselt." Davet süresi dolmuş: "Bu davetin süresi dolmuş. Mehmet'ten yeni davet iste." Son owner'ı düşürme: devre dışı + neden.
 
 ### 2.12 Faturalandırma ve kullanım
+- **Ertelendi (D15):** Faz 8'de Q9–Q10 ile birlikte tasarlanır. Aşağıdaki not taslak olarak kalır.
 - **Ana iş:** Ne kadar kullandığımı ve ne ödediğimi görmek; planı değiştirmek.
 - **İçerik:** Mevcut plan, kullanım çubukları (depolama, koltuk, dosya boyutu sınırı; hepsi Entitlements), plan karşılaştırma, ödeme yöntemi ve faturalar (sağlayıcının portalına link, Q9). Ödeme yokken (Faz 8 öncesi) yalnızca kullanım ve "Ücretsiz plan".
 - **Boş:** Fatura yok: "Henüz fatura yok."
@@ -219,10 +220,27 @@ Görüntüler: `design/references/<ad>-390.jpg` (iPhone 14, DPR 2, ilk 1690 px) 
 5. **Kaplayan katman yok.** Sohbet/anket balonu, çerez penceresi ve banner yığını referanslarda en sık bozulan şey; landing'de sabit katman kullanmıyoruz (çerez bildirimi gerekiyorsa alt şerit, içerik kapatmadan).
 6. **Tek vurgu rengi.** Vercel ve Notion'da olduğu gibi nötr zemin + tek renk; camgöbeği yalnızca birincil eylem, seçili durum ve odak için.
 
-## 4. Token'lar
+## 4. Tel kafesler
+
+Gri, düşük ayrıntılı HTML: yerleşim, hiyerarşi ve gerçek metin; renk, yazı tipi ve gölge yok. Her sayfanın üstündeki çubuktan durumlar açılır (`?durum=`). Görüntüler `design/mockups/shots/` (390 ve 1280 px, `node design/mockups/_shoot.cjs`; script yatay taşmayı da kontrol eder).
+
+| Dosya | Ekran | Durumlar |
+|---|---|---|
+| `design/mockups/01-dosyalar.html` | 1. Dosyalar | dolu, seçim, yükleme (reddedilen .dwg dahil), boş, yükleniyor, hata |
+| `design/mockups/02-goruntuleyici.html` | 2–3. Görüntüleyici + paylaşım penceresi | ayrıntılar, yorumlar, sürümler, paylaşım, yükleniyor, hata |
+| `design/mockups/03-paylasilan.html` | 4. Paylaşılan dosya sayfası | indirilebilir, yalnızca görüntüleme, parola, süresi doldu, geçersiz link |
+
+Tel kafeslerde verilen ve onay bekleyen kararlar:
+- Dosya listesinde "Erişim" sütunu düz dille ("Yalnızca ekip", "2 kişi", "Link · süresi doldu").
+- Görüntüleyicide araç çubuğu modelin altında yüzer; sağ panel sekmeleri Ayrıntılar / Yorumlar / Aktivite / Sürümler. Mobilde panel alttan açılan sayfa.
+- Sürüm geri yükleme eskiyi silmez, yeni sürüm olarak ekler.
+- Paylaşım penceresi: kişi daveti + isteğe bağlı mesaj, erişimi olanlar, link (izin, son kullanma, parola). İzin adları: Görüntüleyebilir / Görüntüleyip indirebilir / Düzenleyebilir.
+- Paylaşılan sayfa: paylaşan + firma + mesaj üstte; mobilde 3B, "3B modeli aç" ile yüklenir (önce küçük resim). Masaüstünde model solda büyük, bilgi sağda.
+
+## 5. Token'lar
 
 _(tel kafesler onaylandıktan sonra)_
 
-## 5. Yasaklar
+## 6. Yasaklar
 
 `CLAUDE.md` UI kurallarına ek olarak, referans incelemesinden sonra burada kesinleşecek.
