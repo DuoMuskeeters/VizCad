@@ -8,7 +8,9 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       // Never disable zoom (CLAUDE.md, UI non-negotiables).
       { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-      { name: 'theme-color', content: '#ffffff' },
+      // Match --color-bg in design/tokens.css (light / dark).
+      { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
+      { name: 'theme-color', content: '#0e141c', media: '(prefers-color-scheme: dark)' },
       { title: 'VizCad' },
     ],
     links: [

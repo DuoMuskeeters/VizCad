@@ -1,38 +1,106 @@
 @import '@fontsource-variable/figtree';
+/* Single source of design values (light + dark): design/tokens.css, owned by the design track. */
+@import '../design/tokens.css';
 /* Scan only src/: legacy/ is reference code and must not add classes to the bundle. */
 @import 'tailwindcss' source('.');
 
-/*
- * PLACEHOLDER tokens, copied from the v2 visual draft (design/mockups/v2/_ui.css). The design is not
- * approved yet; docs/03-design.md will own the final values (light default D12, brand cyan D13).
- * Tailwind's default palette is cleared so UI code can only use these tokens.
- * #0891b2 (brand) is 3.7:1 on white: large surfaces, focus ring and selection only. Text and filled
- * buttons use accent #0e7490 (5.4:1). Dark theme values come with the design track.
- */
+/* Only design tokens exist as utilities: Tailwind's default palette, type scale, radii and shadows are cleared. */
 @theme {
-  --font-*: initial;
-  --font-sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-
   --color-*: initial;
-  --color-white: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-sidebar: #f7f8fa;
-  --color-surface-hover: #f1f3f6;
-  --color-line: #e6e8ec;
-  --color-line-strong: #d5d9e0;
-  --color-fg: #142033; /* from the logo navy */
-  --color-fg-muted: #5a6475; /* 6.1:1 on white */
-  --color-fg-subtle: #6b7484; /* 4.8:1 on white */
-  --color-brand: #0891b2;
-  --color-accent: #0e7490;
-  --color-accent-hover: #155e75;
-  --color-accent-soft: #e8f5f8;
-  --color-warn: #b45309;
-  --color-danger: #b91c1c;
+  --font-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --ease-*: initial;
+}
 
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --shadow-pop: 0 12px 32px rgb(20 32 51 / 0.12), 0 2px 6px rgb(20 32 51 / 0.06);
+/*
+ * Registers token NAMES for utilities; values stay in tokens.css. `reference` emits no variables of its own,
+ * `inline` writes var(--token) into each utility, so light/dark switching in tokens.css applies everywhere.
+ * src/styles.test.ts keeps this list in sync with tokens.css.
+ */
+@theme inline reference {
+  --color-white: #ffffff;
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-hover: var(--color-hover);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-scrim: var(--color-scrim);
+  --color-text: var(--color-text);
+  --color-text-2: var(--color-text-2);
+  --color-text-3: var(--color-text-3);
+  --color-brand: var(--color-brand);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-on-accent: var(--color-on-accent);
+  --color-warn: var(--color-warn);
+  --color-warn-soft: var(--color-warn-soft);
+  --color-warn-text: var(--color-warn-text);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-success: var(--color-success);
+  --color-guest: var(--color-guest);
+  --color-guest-soft: var(--color-guest-soft);
+  --color-canvas: var(--color-canvas);
+  --color-canvas-grid: var(--color-canvas-grid);
+  --color-canvas-text: var(--color-canvas-text);
+
+  /* tokens.css names "Figtree" (Google Fonts); it is self-hosted here, where the family is "Figtree Variable". */
+  --font-sans: 'Figtree Variable', var(--font-sans);
+
+  --text-xs: var(--text-xs);
+  --text-xs--line-height: var(--leading-xs);
+  --text-sm: var(--text-sm);
+  --text-sm--line-height: var(--leading-sm);
+  --text-base: var(--text-base);
+  --text-base--line-height: var(--leading-base);
+  --text-md: var(--text-md);
+  --text-md--line-height: var(--leading-md);
+  --text-lg: var(--text-lg);
+  --text-lg--line-height: var(--leading-lg);
+  --text-xl: var(--text-xl);
+  --text-xl--line-height: var(--leading-xl);
+  --text-2xl: var(--text-2xl);
+  --text-2xl--line-height: var(--leading-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-3xl--line-height: var(--leading-3xl);
+  --text-4xl: var(--text-4xl);
+  --text-4xl--line-height: var(--leading-4xl);
+
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-heading: var(--weight-heading);
+  --tracking-heading: var(--tracking-heading);
+
+  --spacing: var(--space-1);
+  --spacing-tap: var(--tap-min);
+  --spacing-sidebar: var(--sidebar-w);
+  --container-content: var(--content-max);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+  --shadow-pop: var(--shadow-pop);
+  --ease-out: var(--ease-out);
+}
+
+/* `dark:` follows the same rule as tokens.css: explicit data-theme wins, otherwise the system preference. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) & {
+      @slot;
+    }
+  }
+  :root[data-theme='dark'] & {
+    @slot;
+  }
 }
 
 @layer base {
@@ -41,9 +109,7 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-surface font-sans text-fg antialiased;
-    font-size: 15px;
-    line-height: 1.5;
+    @apply bg-bg font-sans text-base text-text antialiased;
   }
   :focus-visible {
     outline: 2px solid var(--color-brand);

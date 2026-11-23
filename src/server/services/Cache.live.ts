@@ -63,6 +63,8 @@ export const make = (cache: CacheBinding, fetchFn: typeof fetch) =>
             yield* Effect.forEach(urls, (url) => Effect.tryPromise(() => cache.delete(new Request(url))).pipe(Effect.ignore), {
               discard: true,
             })
+            // TODO(Faz 6, before CMS publish is wired): when purge config is missing this returns success
+            // after a local-only delete. Publishing must require a zone-wide purge (fail without config).
             if (Option.isNone(cachePurge) || urls.length === 0) return
             const { zoneId, token } = cachePurge.value
             for (let i = 0; i < urls.length; i += PURGE_BATCH) {
