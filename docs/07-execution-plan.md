@@ -32,9 +32,10 @@ Tarih: 23 Kasım 2026. Bu dosya "şu an ne oluyor, sırada ne var, kim yapıyor"
 
 ### Dalga 1: temel (şimdi)
 - [ ] Faz 1 bitişi (thread), inceleme, `rewrite`'a birleştirme. *Opus inceleme*
-- [ ] Tasarım A: onboarding / firma oluşturma, davet kabulü (üye, misafir), workspace aktivitesi, ayarlar. *Sonnet high*
-- [ ] Tasarım B: görüntüleyici + paylaşım penceresi, paylaşılan dosya sayfası, giriş/kayıt. *Opus high*
-- [ ] Token'lar: açık + koyu tema, tipografi ölçeği, boşluk; `docs/03-design.md` §5. *orkestratör*
+- [x] Tasarım A: onboarding / firma oluşturma, davet kabulü (üye, misafir), workspace aktivitesi, ayarlar. *Sonnet high*
+- [x] Tasarım B: görüntüleyici + paylaşım penceresi, paylaşılan dosya sayfası, giriş/kayıt. *Opus high*
+- [x] Token'lar: açık + koyu tema, tipografi ölçeği, boşluk; `docs/03-design.md` §5. *orkestratör*
+- [ ] Faz 3 teknik tasarımı (`docs/08-auth-org-design.md`): better-auth organization, şema, geçiş, `permissions.ts` test matrisi. *Codex high, Opus inceleme*
 - [ ] Staging kurulumu ve ilk yayın (boş iskelet). **Kullanıcı: Cloudflare girişi**
 
 ### Dalga 2: tasarım sistemi ve kimlik
