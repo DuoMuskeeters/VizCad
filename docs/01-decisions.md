@@ -59,6 +59,11 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Desteklenmeyen dosya türleri yüklemeden önce reddedilir; hata mesajı desteklenen türleri sayar.
 - Faturalandırma ekranı ve admin rolünün faturalandırma yetkisi sonraya bırakıldı (Faz 8, Q9–Q10 ile).
 
+**D16. Tasarım ve geliştirme paralel (23 Kasım 2026).** D8'deki "önce tasarım" sırası gevşetildi: iki iz birlikte ilerler.
+- Tasarım izi: sıradaki ekranlar organizasyon ekranları (workspace değiştirici, workspace oluşturma/onboarding, ekip ve davetler, davet kabulü, workspace ayarları), sonra görüntüleyici + paylaşım penceresi, paylaşılan sayfa, giriş/kayıt. Token'lar ve bileşen seti bu ekranlarla birlikte çıkar.
+- Geliştirme izi: Faz 1 iskeleti ve servisler (UI kararı gerektirmez), ardından Faz 3 kimlik + organizasyon altyapısı. Ekranın tasarımı onaylandıkça arayüzü yapılır.
+- Gerekçe: eski uygulamada organizasyon yoktu (audit 🔴), kullanıcı akışı belirsiz; ekranları görmek altyapı kararlarını (rol adları, davet akışı, kişisel/firma ayrımı) netleştirir.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
