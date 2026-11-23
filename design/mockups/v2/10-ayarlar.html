@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ayarlar · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  .layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 0 56px; align-items: start; }
+  .subnav { position: sticky; top: 24px; display: grid; gap: 1px; }
+  .subnav .grp { padding: 14px 10px 6px; font-size: 12px; font-weight: 500; color: var(--text-3); }
+  .subnav .grp:first-child { padding-top: 0; }
+  .subnav a { display: flex; align-items: center; height: 36px; padding: 0 10px; border-radius: var(--radius); font-size: 14px; font-weight: 500; color: var(--text-2); }
+  .subnav a:hover { background: var(--hover); color: var(--text); }
+  .subnav a[aria-current="page"] { background: var(--hover); color: var(--text); }
+  .subnav a.danger[aria-current="page"] { color: var(--danger); }
+  .panel { max-width: 720px; min-width: 0; }
+  .panel > h2 { font-size: 20px; font-weight: 650; line-height: 1.3; }
+  .panel > .lead { color: var(--text-2); font-size: 14px; margin-top: 4px; }
+  .rows { margin-top: 16px; }
+  .srow { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 6px 32px; padding: 20px 0; border-top: 1px solid var(--line); align-items: start; }
+  .srow > .l b { display: block; font-weight: 600; font-size: 14px; }
+  .srow > .l span { display: block; font-size: 13px; color: var(--text-3); margin-top: 2px; }
+  .srow .c { display: grid; gap: 10px; min-width: 0; justify-items: start; }
+  .srow .c .input, .srow .c .select-wrap { max-width: 360px; width: 100%; }
+  .srow .c small { font-size: 13px; color: var(--text-3); }
+  .inline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+  .inline .t { min-width: 0; line-height: 1.35; font-size: 14px; }
+  .inline .t span { display: block; font-size: 13px; color: var(--text-3); }
+  .big-avatar { width: 64px; height: 64px; font-size: 22px; }
+  .logo-box { width: 56px; height: 56px; border-radius: 14px; background: var(--text); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px; flex: none; }
+  .savebar { display: flex; align-items: center; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .btn.sm { height: 34px; font-size: 14px; padding: 0 12px; }
+  .ok { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #15803d; font-weight: 500; }
+  .ok svg { width: 14px; height: 14px; }
+
+  .select-wrap { position: relative; }
+  .select-wrap select { appearance: none; -webkit-appearance: none; width: 100%; height: 40px; padding: 0 36px 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--bg); font: inherit; color: var(--text); cursor: pointer; }
+  .select-wrap select:focus-visible { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
+  .select-wrap svg { position: absolute; right: 12px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--text-3); pointer-events: none; }
+
+  .seg { display: inline-grid; grid-template-columns: repeat(3, auto); padding: 3px; border-radius: 10px; background: var(--hover); gap: 2px; max-width: 100%; }
+  .seg button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+  .seg button svg { width: 16px; height: 16px; }
+  .seg button[aria-checked="true"] { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(20,32,51,.06); }
+
+  .sw { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; width: 100%; min-height: 56px; padding: 6px 0; text-align: left; }
+  .sw + .sw { border-top: 1px solid var(--line); }
+  .sw .t b { display: block; font-weight: 500; font-size: 14px; }
+  .sw .t span { display: block; font-size: 13px; color: var(--text-3); }
+  .sw i { position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background-color .15s; }
+  .sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(20,32,51,.25); transition: translate .15s; }
+  .sw[aria-checked="true"] i { background: var(--accent); }
+  .sw[aria-checked="true"] i::after { translate: 16px 0; }
+  .switches { width: 100%; }
+
+  .danger-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; padding: 20px 0; border-top: 1px solid var(--line); }
+  .danger-row b { display: block; font-weight: 600; }
+  .danger-row p { font-size: 14px; color: var(--text-2); margin-top: 2px; max-width: 480px; }
+  .btn--danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn--danger:hover { background: #991b1b; border-color: #991b1b; }
+  .btn--danger-o { color: var(--danger); border-color: #e9b3b3; }
+  .btn--danger-o:hover { background: #fef2f2; }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+  .btn[disabled]:hover { background: var(--danger); }
+  .delete-key { font-weight: 600; user-select: all; }
+  .impact { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--radius); background: #fef2f2; font-size: 14px; color: #7f1d1d; }
+  .impact li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }
+  .impact svg { width: 16px; height: 16px; margin-top: 2px; }
+
+  @media (max-width: 899px) {
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .subnav { position: static; display: flex; gap: 20px; border-bottom: 1px solid var(--line); margin: 0 -16px 20px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+    .subnav .grp { display: none; }
+    .subnav a { position: relative; height: 44px; padding: 0; border-radius: 0; white-space: nowrap; background: none !important; }
+    .subnav a[aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--brand); border-radius: 2px; }
+    .btn.sm { height: 44px; }
+    .srow { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 18px 0; }
+    .srow .c .input, .srow .c .select-wrap { max-width: none; }
+    .input, .select-wrap select { height: 44px; font-size: 16px; }
+    .seg { display: grid; width: 100%; }
+    .seg button { height: 44px; padding: 0 8px; }
+    .sw { min-height: 60px; }
+    .danger-row { grid-template-columns: minmax(0, 1fr); }
+    .danger-row .btn { width: 100%; }
+    .savebar .btn { flex: 1; }
+  }
+</style>
+</head>
+<body data-page="10-ayarlar">
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Ayarlar</strong>
+  <a href="?durum=profil">Profil</a>
+  <a href="?durum=tercihler">Tercihler</a>
+  <a href="?durum=workspace">Workspace</a>
+  <a href="?durum=tehlikeli">Tehlikeli işlemler (Sahip)</a>
+  <a href="?durum=sil-onay">Silme penceresi (Sahip)</a>
+  <a href="06-ekip.html">← Ekip</a>
+</nav>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <div>
+    <header class="mobile-top"></header>
+    <main class="content">
+      <div class="page-head"><div><h1>Ayarlar</h1><p class="sub">Hesabın ve Demir Makina için tercihler</p></div></div>
+
+      <div class="layout">
+        <nav class="subnav" aria-label="Ayar bölümleri">
+          <div class="grp">Hesabın</div>
+          <a href="?durum=profil" data-tab="profil">Profil</a>
+          <a href="?durum=tercihler" data-tab="tercihler">Tercihler</a>
+          <div class="grp">Demir Makina</div>
+          <a href="?durum=workspace" data-tab="workspace">Workspace</a>
+          <a href="?durum=tehlikeli" data-tab="tehlikeli" class="danger" data-owner>Tehlikeli işlemler</a>
+        </nav>
+
+        <div>
+          <!-- Profil -->
+          <section class="panel" data-durum="profil" aria-labelledby="h-profil">
+            <h2 id="h-profil">Profil</h2>
+            <p class="lead">Ekip arkadaşların ve misafirler seni bu bilgilerle görür.</p>
+            <div class="rows">
+              <div class="srow"><div class="l"><b>Fotoğraf</b></div>
+                <div class="c"><div class="inline"><span class="avatar a1 big-avatar">AY</span><button class="btn sm" type="button">Fotoğraf değiştir</button><button class="btn btn--ghost sm" type="button">Kaldır</button></div></div></div>
+              <div class="srow"><div class="l"><b>Ad soyad</b></div>
+                <div class="c"><input class="input" aria-label="Ad soyad" value="Ayşe Yılmaz" autocomplete="name"></div></div>
+              <div class="srow"><div class="l"><b>E-posta</b><span>Giriş ve bildirimler bu adrese gelir.</span></div>
+                <div class="c"><div class="inline"><span class="t">ayse@demirmakina.com</span><span class="badge badge--accent"><i data-lucide="check"></i>Doğrulandı</span></div><button class="btn sm" type="button">E-postayı değiştir</button></div></div>
+              <div class="srow"><div class="l"><b>Şifre</b></div>
+                <div class="c"><span class="dim">Son değişiklik: 3 ay önce</span><button class="btn sm" type="button">Şifreyi değiştir</button></div></div>
+              <div class="srow"><div class="l"><b>Bağlı hesaplar</b><span>Google ile giriş yapabilirsin.</span></div>
+                <div class="c"><div class="inline"><span class="t"><b style="font-weight:500">Google</b><span>ayse@demirmakina.com</span></span><span class="badge">Bağlı</span><button class="btn btn--ghost sm" type="button">Bağlantıyı kes</button></div></div></div>
+              <div class="srow"><div class="l"><b>Hesabı sil</b></div>
+                <div class="c"><span class="dim" style="max-width:420px">Hesabın ve kişisel workspace'in kalıcı olarak silinir. Bir workspace'in sahibiysen önce sahipliği devretmelisin.</span><button class="btn btn--danger-o sm" type="button">Hesabı sil…</button></div></div>
+            </div>
+            <div class="savebar"><button class="btn btn--primary" type="button">Kaydet</button></div>
+          </section>
+
+          <!-- Tercihler -->
+          <section class="panel" data-durum="tercihler" aria-labelledby="h-terc">
+            <h2 id="h-terc">Tercihler</h2>
+            <p class="lead">Bu seçimler yalnızca senin hesabın için geçerli ve hemen kaydedilir.</p>
+            <div class="rows">
+              <div class="srow"><div class="l"><b>Dil</b><span>Arayüz ve e-postalar bu dilde gelir.</span></div>
+                <div class="c"><label class="select-wrap"><span class="sr">Dil</span><select><option>English</option><option selected>Türkçe</option><option>Deutsch</option><option>Español</option><option>Français</option></select><i data-lucide="chevron-down"></i></label></div></div>
+              <div class="srow"><div class="l"><b>Tema</b></div>
+                <div class="c"><div class="seg" role="radiogroup" aria-label="Tema">
+                  <button type="button" role="radio" aria-checked="true"><i data-lucide="sun"></i>Açık</button>
+                  <button type="button" role="radio" aria-checked="false"><i data-lucide="moon"></i>Koyu</button>
+                  <button type="button" role="radio" aria-checked="false"><i data-lucide="monitor"></i>Sistem</button>
+                </div><small>Sistem, cihazının ayarını izler.</small></div></div>
+              <div class="srow"><div class="l"><b>E-posta bildirimleri</b><span>ayse@demirmakina.com adresine gelir.</span></div>
+                <div class="c switches">
+                  <button class="sw" type="button" role="switch" aria-checked="true"><span class="t"><b>Yorumlar</b><span>Dosyana ya da seni anan bir yoruma cevap geldiğinde</span></span><i></i></button>
+                  <button class="sw" type="button" role="switch" aria-checked="true"><span class="t"><b>Paylaşım ve davetler</b><span>Biri seninle dosya ya da proje paylaştığında</span></span><i></i></button>
+                  <button class="sw" type="button" role="switch" aria-checked="false"><span class="t"><b>Haftalık özet</b><span>Her pazartesi sabahı, workspace'indeki hareketin özeti</span></span><i></i></button>
+                </div></div>
+            </div>
+          </section>
+
+          <!-- Workspace -->
+          <section class="panel" data-durum="workspace" aria-labelledby="h-ws">
+            <h2 id="h-ws">Workspace</h2>
+            <p class="lead">Demir Makina'daki herkes için geçerli. Sahip ve yöneticiler değiştirebilir.</p>
+            <div class="rows">
+              <div class="srow"><div class="l"><b>Ad</b></div>
+                <div class="c"><input class="input" aria-label="Workspace adı" value="Demir Makina" autocomplete="organization"></div></div>
+              <div class="srow"><div class="l"><b>Logo</b><span>Kenar menüde ve davet e-postalarında görünür.</span></div>
+                <div class="c"><div class="inline"><span class="logo-box">DM</span><button class="btn sm" type="button">Logo yükle</button><button class="btn btn--ghost sm" type="button">Kaldır</button></div><small>PNG veya SVG, kare, en çok 2 MB.</small></div></div>
+              <div class="srow"><div class="l"><b>Yeni projelerin erişimi</b><span>Proje açılırken ilk seçilen budur; her projede değiştirilebilir.</span></div>
+                <div class="c" style="justify-items:stretch"><div class="choice" role="radiogroup" aria-label="Varsayılan proje erişimi">
+                  <div class="opt" role="radio" aria-checked="true" tabindex="0"><span class="dot"></span><b><i data-lucide="users"></i>Tüm ekip</b><span>Workspace'teki herkes görür.</span></div>
+                  <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b><i data-lucide="lock"></i>Yalnızca davetliler</b><span>Proje gizli başlar; kişileri sen eklersin.</span></div>
+                </div></div></div>
+              <div class="srow"><div class="l"><b>Misafir erişim süresi</b><span>Misafir eklerken önerilen süre.</span></div>
+                <div class="c"><label class="select-wrap"><span class="sr">Misafir erişim süresi</span><select><option selected>7 gün</option><option>30 gün</option><option>90 gün</option><option>Süresiz</option></select><i data-lucide="chevron-down"></i></label><small>Her misafir için ayrıca değiştirebilirsin. Süre dolunca erişim kendiliğinden kapanır.</small></div></div>
+            </div>
+            <div class="savebar"><button class="btn btn--primary" type="button">Kaydet</button></div>
+          </section>
+
+          <!-- Tehlikeli işlemler (yalnızca Sahip) -->
+          <section class="panel" data-durum="tehlikeli sil-onay" aria-labelledby="h-teh">
+            <h2 id="h-teh">Tehlikeli işlemler</h2>
+            <p class="lead">Bu bölümü yalnızca Demir Makina'nın sahibi görür.</p>
+            <div class="rows">
+              <div class="danger-row"><div><b>Sahipliği devret</b><p>Fatura, workspace silme ve sahiplik yetkisini başka bir üyeye verirsin. Sen Yönetici olarak kalırsın.</p></div><button class="btn" type="button"><i data-lucide="arrow-right-left"></i>Sahipliği devret…</button></div>
+              <div class="danger-row"><div><b>Workspace'i sil</b><p>Demir Makina, projeleri, dosyaları ve yorumları kalıcı olarak silinir. Bu işlem geri alınamaz.</p></div><a class="btn btn--danger-o" href="?durum=sil-onay"><i data-lucide="trash-2"></i>Workspace'i sil…</a></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="scrim" data-durum="sil-onay">
+  <section class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="del-t" aria-describedby="del-d">
+    <header><div><h2 id="del-t">Demir Makina silinsin mi?</h2><p id="del-d">Bu işlem geri alınamaz.</p></div><a class="icon-btn" href="?durum=tehlikeli"><i data-lucide="x"></i><span class="sr">Kapat</span></a></header>
+    <div class="body">
+      <ul class="impact">
+        <li><i data-lucide="folder-x"></i>6 proje, 48 dosya ve tüm yorumlar silinir.</li>
+        <li><i data-lucide="users"></i>12 üye ve 5 misafir erişimi kaybeder; paylaşım linkleri çalışmaz.</li>
+        <li><i data-lucide="receipt"></i>Aboneliğin sona erer.</li>
+      </ul>
+      <label class="fld"><span>Onaylamak için workspace adını yaz: <span class="delete-key">Demir Makina</span></span>
+        <input class="input" id="confirm" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Demir Makina">
+      </label>
+    </div>
+    <footer><a class="btn" href="?durum=tehlikeli">Vazgeç</a><button class="btn btn--danger" id="del-btn" type="button" disabled><i data-lucide="trash-2"></i>Workspace'i sil</button></footer>
+  </section>
+</div>
+
+<script src="_shell.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  const d = document.body.dataset.durum;
+  const tab = d === 'sil-onay' ? 'tehlikeli' : d;
+  const owner = d === 'tehlikeli' || d === 'sil-onay';
+  document.querySelector(`[data-tab="${tab}"]`)?.setAttribute('aria-current', 'page');
+  // Tehlikeli işlemler yalnızca Sahip'e görünür; diğer rollerde menüde hiç yok.
+  if (!owner) document.querySelector('[data-owner]').remove();
+  else {
+    document.querySelectorAll('.ws .name').forEach((n) => { n.innerHTML = n.classList.contains('name') && n.querySelector('small') ? 'Demir Makina<small>Sahip · 12 üye</small>' : 'Demir Makina'; });
+    document.querySelectorAll('.me').forEach((m) => { m.innerHTML = '<span class="avatar a5">HD</span><span class="who">Hakan Demir<span>hakan@demirmakina.com</span></span>'; });
+    document.querySelectorAll('.mobile-top .avatar').forEach((a) => { a.className = 'avatar a5'; a.textContent = 'HD'; });
+  }
+  lucide.createIcons();
+  document.querySelectorAll('[role=radio]').forEach((r) => r.addEventListener('click', () => {
+    r.parentElement.querySelectorAll('[role=radio]').forEach((o) => o.setAttribute('aria-checked', o === r));
+  }));
+  document.querySelectorAll('[role=switch]').forEach((s) => s.addEventListener('click', () => {
+    s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true');
+  }));
+  const c = document.getElementById('confirm'), b = document.getElementById('del-btn');
+  c?.addEventListener('input', () => { b.disabled = c.value.trim() !== 'Demir Makina'; });
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Davet · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  /* Mobil öncelikli: tek kolon, kenar menü yok. Masaüstünde ortada dar kart. (07-onboarding ile aynı kabuk) */
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 16px; min-height: 64px; }
+  .brand img { display: block; width: 176px; height: 56px; object-fit: cover; margin-left: -20px; }
+  .top .who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-3); min-width: 0; }
+  .top .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stage { flex: 1; display: grid; justify-items: center; align-content: start; padding: 8px 16px 48px; }
+  .card { width: min(480px, 100%); display: grid; gap: 24px; padding: 8px 0 0; }
+  .card > * { min-width: 0; }
+
+  .from { display: flex; align-items: center; gap: 12px; }
+  .from .mark { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--text); color: #fff; font-weight: 700; font-size: 17px; flex: none; }
+  .from .t { line-height: 1.3; min-width: 0; }
+  .from .t b { font-weight: 600; display: block; }
+  .from .t span { font-size: 13px; color: var(--text-3); }
+  .head h1 { font-size: 26px; line-height: 1.25; font-weight: 650; letter-spacing: -.01em; }
+  .head h1 em { font-style: normal; color: var(--accent); }
+  .head p { margin-top: 8px; color: var(--text-2); }
+
+  .what { display: grid; gap: 10px; padding: 16px; border-radius: var(--radius-lg); background: var(--sidebar); }
+  .what h2 { font-size: 14px; font-weight: 600; }
+  .what li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; font-size: 14px; color: var(--text-2); }
+  .what li svg { width: 18px; height: 18px; color: var(--accent); margin-top: 1px; }
+  .what ul { display: grid; gap: 8px; }
+
+  .facts { display: grid; border-top: 1px solid var(--line); }
+  .facts div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .facts dt { color: var(--text-3); }
+  .facts dd { font-weight: 500; }
+  .facts dd small { display: block; font-weight: 400; color: var(--text-2); font-size: 13px; margin-top: 2px; }
+  .msg { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .msg .avatar { width: 34px; height: 34px; font-size: 12px; }
+  .msg .bubble { padding: 12px 14px; border-radius: 4px 14px 14px 14px; background: var(--sidebar); font-size: 14px; line-height: 1.5; }
+  .msg .bubble b { display: block; font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .seat { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--radius); background: var(--accent-soft); font-size: 14px; color: var(--text); }
+  .seat svg { color: var(--accent); margin-top: 2px; }
+
+  .auth { display: grid; gap: 12px; }
+  .btn.big { width: 100%; height: 48px; font-size: 16px; }
+  .btn.google svg { width: 20px; height: 20px; stroke-width: 0; }
+  .or { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-3); }
+  .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .input[readonly] { background: var(--sidebar); color: var(--text-2); }
+  .lock { position: relative; }
+  .lock svg { position: absolute; right: 12px; top: 50%; translate: 0 -50%; color: var(--text-3); width: 16px; height: 16px; }
+  .lock .input { padding-right: 36px; }
+  .small { font-size: 14px; color: var(--text-2); text-align: center; }
+  .small a { color: var(--accent); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+  .meta { font-size: 13px; color: var(--text-3); text-align: center; }
+
+  .state { display: grid; justify-items: start; gap: 12px; }
+  .state .ring { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #fef3e2; color: #9a4a06; }
+  .state .ring svg { width: 24px; height: 24px; }
+  .state h1 { font-size: 26px; line-height: 1.25; font-weight: 650; letter-spacing: -.01em; }
+  .state p { color: var(--text-2); }
+  .acct { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); }
+  .acct .r { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-width: 0; }
+  .acct .r + .r { border-top: 1px solid var(--line); }
+  .acct .r .t { min-width: 0; line-height: 1.35; font-size: 14px; }
+  .acct .r .t span { display: block; font-size: 12px; color: var(--text-3); }
+  .acct .r .t b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .acct .ico { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+  .acct .ico.n { background: var(--hover); color: var(--text-2); }
+  .stack-btn { display: grid; gap: 8px; width: 100%; }
+
+  @media (max-width: 899px) { .input { height: 44px; font-size: 16px; } }
+  @media (min-width: 600px) {
+    .top { padding: 8px 32px; min-height: 72px; }
+    .stage { padding-top: 16px; }
+    .card { padding: 36px 36px 32px; border: 1px solid var(--line); border-radius: 16px; gap: 24px; }
+    .head h1, .state h1 { font-size: 28px; }
+    .btn.big { height: 44px; font-size: 15px; }
+    .facts div { grid-template-columns: 120px minmax(0, 1fr); }
+  }
+  @media (max-width: 359px) {
+    .top .who span:last-child { display: none; }
+    .facts div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Davet kabulü</strong>
+  <a href="?durum=uye">Üye (hesap yok)</a>
+  <a href="?durum=uye-giris">Üye (giriş yapmış)</a>
+  <a href="?durum=misafir">Misafir</a>
+  <a href="?durum=suresi-doldu">Süresi doldu</a>
+  <a href="?durum=baska-hesap">Başka hesap</a>
+</nav>
+
+<header class="top">
+  <a class="brand" href="#" aria-label="VizCad"><img src="../../../public/vizcad-logo-512.png" alt="VizCad"></a>
+  <div class="who" data-durum="uye-giris"><span class="avatar a3">EÇ</span><span>elif@demirmakina.com</span></div>
+  <div class="who" data-durum="baska-hesap"><span class="avatar a5">EÇ</span><span>elif.celik@gmail.com</span></div>
+</header>
+
+<main class="stage">
+  <div class="card">
+
+    <!-- Üye daveti -->
+    <section data-durum="uye uye-giris" class="card" style="padding:0;border:0;width:100%" aria-labelledby="h-uye">
+      <div class="from"><span class="mark">DM</span><span class="t"><b>Demir Makina</b><span>12 üye</span></span></div>
+      <div class="head">
+        <h1 id="h-uye">Mehmet Kaya seni Demir Makina'ya <em>Üye</em> olarak davet etti</h1>
+      </div>
+      <div class="what">
+        <h2>Üye olarak</h2>
+        <ul>
+          <li><i data-lucide="check"></i>Dosya yükler ve 3B açarsın</li>
+          <li><i data-lucide="check"></i>Proje açar, ekibe ve dışarıya paylaşırsın</li>
+          <li><i data-lucide="check"></i>Ekibe açık tüm projeleri görürsün; "Yalnızca davetliler" projeleri sana eklenmedikçe görünmez</li>
+        </ul>
+      </div>
+
+      <div class="auth" data-durum="uye">
+        <a class="btn big google" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Google ile devam et</a>
+        <div class="or">ya da e-posta ile</div>
+        <label class="fld"><span>E-posta</span><span class="lock"><input class="input" value="elif@demirmakina.com" readonly aria-describedby="why"><i data-lucide="lock"></i></span><small id="why">Davet bu adrese gönderildi.</small></label>
+        <label class="fld"><span>Şifre belirle</span><input class="input" type="password" autocomplete="new-password" placeholder="En az 8 karakter"></label>
+        <button class="btn btn--primary big" type="button">Hesap oluştur ve katıl</button>
+        <p class="small">Zaten hesabın var mı? <a href="#">Giriş yap</a></p>
+      </div>
+
+      <div class="auth" data-durum="uye-giris">
+        <button class="btn btn--primary big" type="button">Katıl</button>
+        <p class="small">Elif Çelik olarak katılıyorsun. <a href="#">Başka hesapla gir</a></p>
+      </div>
+      <p class="meta">Davet 5 gün daha geçerli.</p>
+    </section>
+
+    <!-- Misafir daveti -->
+    <section data-durum="misafir" class="card" style="padding:0;border:0;width:100%" aria-labelledby="h-mis">
+      <div class="from"><span class="mark" style="background:#7c3aed">DM</span><span class="t"><b>Demir Makina</b><span>seni misafir olarak ekliyor</span></span></div>
+      <div class="head">
+        <h1 id="h-mis">Ayşe Yılmaz seni Pompa revizyonu projesine misafir olarak davet etti</h1>
+      </div>
+      <div class="msg"><span class="avatar a1">AY</span><div class="bubble"><b>Ayşe Yılmaz</b>Ömer Bey merhaba, Flanş DN100 revizyon 3 modelini inceleyip kalıp ölçülerini onaylar mısınız? Sorularınızı doğrudan dosyaya yorum olarak yazabilirsiniz.</div></div>
+      <dl class="facts">
+        <div><dt>Proje</dt><dd>Pompa revizyonu<small>Demir Makina · 6 dosya</small></dd></div>
+        <div><dt>Erişimin</dt><dd>İndirebilir<small>Dosyaları görür, yorum yazar ve indirebilirsin. Yükleme ve düzenleme yapamazsın.</small></dd></div>
+        <div><dt>Süre</dt><dd>30 Kasım 2026'ya kadar<small>7 gün</small></dd></div>
+      </dl>
+      <div class="seat"><i data-lucide="info"></i><span><b style="font-weight:600">Koltuk kullanmaz, yalnızca bu projeyi görürsün.</b> Demir Makina'nın diğer projelerini, ekibini ve ayarlarını görmezsin.</span></div>
+      <div class="auth">
+        <a class="btn big google" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Google ile devam et</a>
+        <div class="or">ya da e-posta ile</div>
+        <label class="fld"><span>E-posta</span><span class="lock"><input class="input" value="omer@koc-kalip.com.tr" readonly aria-describedby="why2"><i data-lucide="lock"></i></span><small id="why2">Davet bu adrese gönderildi. Şifre gerekmez; sana giriş bağlantısı göndeririz.</small></label>
+        <button class="btn btn--primary big" type="button"><i data-lucide="mail"></i>Giriş bağlantısı gönder</button>
+      </div>
+      <p class="meta">Davet 5 gün daha geçerli.</p>
+    </section>
+
+    <!-- Süresi doldu -->
+    <section data-durum="suresi-doldu" class="state" aria-labelledby="h-sd">
+      <span class="ring"><i data-lucide="clock"></i></span>
+      <h1 id="h-sd">Bu davetin süresi dolmuş</h1>
+      <p>Mehmet Kaya'nın seni Demir Makina'ya davet eden bağlantısı 16 Kasım'da geçersiz oldu. Davetler 7 gün geçerlidir.</p>
+      <div class="stack-btn" style="margin-top:12px">
+        <button class="btn btn--primary big" type="button"><i data-lucide="send"></i>Mehmet Kaya'dan yeni davet iste</button>
+        <a class="btn big" href="#">Giriş yap</a>
+      </div>
+      <p class="meta" style="text-align:left">İstek Mehmet Kaya'ya e-posta ile gider; yeni bağlantı aynı adrese gelir.</p>
+    </section>
+
+    <!-- Başka hesap -->
+    <section data-durum="baska-hesap" class="state" aria-labelledby="h-bh">
+      <span class="ring"><i data-lucide="user-round-x"></i></span>
+      <h1 id="h-bh">Bu davet başka bir e-postaya gönderilmiş</h1>
+      <p>Demir Makina daveti elif@demirmakina.com adresine gitti, ama şu an başka bir hesapla giriş yaptın. Davet yalnızca gönderildiği adresle kabul edilir.</p>
+      <div class="acct" style="width:100%">
+        <div class="r"><span class="ico n"><i data-lucide="user"></i></span><span class="t"><span>Şu an giriş yaptığın hesap</span><b>elif.celik@gmail.com</b></span></div>
+        <div class="r"><span class="ico"><i data-lucide="mail"></i></span><span class="t"><span>Davetin gönderildiği adres</span><b>elif@demirmakina.com</b></span></div>
+      </div>
+      <div class="stack-btn" style="margin-top:12px">
+        <button class="btn btn--primary big" type="button"><i data-lucide="log-out"></i>Çıkış yap, doğru hesapla gir</button>
+        <button class="btn big" type="button">Bu adres için yeni davet iste</button>
+      </div>
+      <p class="meta" style="text-align:left">İkinci seçenek, Mehmet Kaya'dan elif.celik@gmail.com adresine yeni davet göndermesini ister.</p>
+    </section>
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

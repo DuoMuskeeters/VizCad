@@ -15,7 +15,7 @@ const vps = [
       await p.goto(`file://${__dirname}/${name}.html?durum=${s}`, { waitUntil: 'networkidle' });
       await p.evaluate(() => document.fonts.ready);
       const o = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      await p.screenshot({ path: `${out}/${name}-${s}-${v.tag}.png`, fullPage: v.tag === '390' });
+      await p.screenshot({ path: `${out}/${name}-${s}-${v.tag}.png`, fullPage: true });
       console.log(name, s, v.tag, o > 0 ? `YATAY TAŞMA ${o}px` : 'ok');
     }
     await ctx.close();

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoş geldin · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  /* Mobil öncelikli: tek kolon, kenar menü yok. Masaüstünde ortada dar kart. */
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 16px; min-height: 64px; }
+  .brand img { display: block; width: 176px; height: 56px; object-fit: cover; margin-left: -20px; }
+  .top .who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-3); min-width: 0; }
+  .top .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stage { flex: 1; display: grid; justify-items: center; align-content: start; padding: 8px 16px 48px; }
+  .card { width: min(480px, 100%); display: grid; gap: 24px; padding: 8px 0 0; }
+  .card > * { min-width: 0; }
+
+  .progress { display: grid; gap: 8px; }
+  .segs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .segs i { height: 4px; border-radius: 2px; background: var(--line); }
+  .segs i.on { background: var(--brand); }
+  .progress p { font-size: 13px; color: var(--text-3); }
+  .progress p b { font-weight: 600; color: var(--text-2); }
+
+  .head h1 { font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+  .head p { margin-top: 8px; color: var(--text-2); }
+
+  .card .opt { padding: 16px; min-height: 64px; }
+  .card .opt b { font-size: 16px; }
+  .card .opt b svg { width: 18px; height: 18px; color: var(--accent); }
+  .card .opt span { font-size: 14px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .grid2 .opt { grid-template-columns: 20px minmax(0, 1fr); align-items: center; min-height: 52px; padding: 10px 14px; }
+  .grid2 .opt .dot { grid-row: auto; margin-top: 0; }
+  .grid2 .opt b { font-size: 15px; grid-column: 2; }
+  /* Çoklu seçim: kare işaret */
+  .opt.chk .dot { border-radius: 5px; }
+  .opt.chk[aria-checked="true"] .dot { border: 0; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 9.5l3 3 6-7'/%3E%3C/svg%3E") center/100% no-repeat; }
+  .card .opt:not(:has(span:not(.dot))) { align-items: center; }
+  .card .opt:not(:has(span:not(.dot))) .dot { grid-row: auto; margin-top: 0; }
+  .group { display: grid; gap: 10px; }
+  .group > h2 { font-size: 15px; font-weight: 600; }
+  .group > h2 small { font-weight: 400; font-size: 13px; color: var(--text-3); margin-left: 6px; }
+
+  .logo-up { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .logo-up .box { width: 56px; height: 56px; border-radius: 12px; border: 1px dashed var(--line-strong); display: grid; place-items: center; color: var(--text-3); background: var(--sidebar); }
+  .logo-up .box svg { width: 22px; height: 22px; }
+  .logo-up .t { display: grid; gap: 2px; min-width: 0; }
+  .logo-up small { font-size: 13px; color: var(--text-3); }
+
+  .input.err { border-color: var(--danger); }
+  .err-msg { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; color: var(--danger); }
+  .err-msg svg { width: 16px; height: 16px; margin-top: 1px; }
+
+  .actions { display: grid; gap: 8px; }
+  .actions .btn { width: 100%; height: 48px; font-size: 16px; }
+  .actions.pair { grid-template-columns: 1fr 2fr; }
+  .actions.pair-skip { grid-template-columns: 1fr 2fr; }
+
+  .go { display: grid; gap: 8px; }
+  .go a { display: grid; grid-template-columns: 40px minmax(0, 1fr) 20px; align-items: center; gap: 0 14px; padding: 14px 16px; min-height: 72px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); transition: border-color .15s, background-color .15s; }
+  .go a:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .go .ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+  .go b { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; line-height: 1.3; flex-wrap: wrap; }
+  .go small { display: block; font-size: 14px; color: var(--text-2); line-height: 1.4; }
+  .go .chev { color: var(--text-3); }
+  .go a.main { border-color: var(--accent); }
+  .exit { display: flex; justify-content: center; }
+  .exit .btn { height: 48px; }
+
+  @media (max-width: 899px) { .input { height: 44px; font-size: 16px; } }
+  @media (min-width: 600px) {
+    .top { padding: 8px 32px; min-height: 72px; }
+    .stage { padding-top: 16px; }
+    .card { padding: 36px 36px 32px; border: 1px solid var(--line); border-radius: 16px; gap: 28px; }
+    .head h1 { font-size: 28px; }
+    .actions .btn { height: 44px; font-size: 15px; }
+    .exit .btn { height: 44px; }
+  }
+  @media (max-width: 359px) {
+    .grid2 { grid-template-columns: minmax(0, 1fr); }
+    .top .who span:last-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Onboarding</strong>
+  <a href="?durum=tur">1 Tür</a>
+  <a href="?durum=firma">2 Firma</a>
+  <a href="?durum=firma-hata">2 Firma (hata)</a>
+  <a href="?durum=ekip">3 Ekip</a>
+  <a href="?durum=kaynak">4 Kaynak</a>
+  <a href="?durum=ilk-adim">5 İlk adım</a>
+  <a href="04-projeler.html">→ Projeler</a>
+</nav>
+
+<header class="top">
+  <a class="brand" href="#" aria-label="VizCad"><img src="../../../public/vizcad-logo-512.png" alt="VizCad"></a>
+  <div class="who"><span class="avatar a1">AY</span><span>ayse@demirmakina.com</span></div>
+</header>
+
+<main class="stage">
+  <div class="card">
+    <div class="progress" aria-label="İlerleme">
+      <div class="segs" id="segs"><i></i><i></i><i></i><i></i><i></i></div>
+      <p id="stepText"></p>
+    </div>
+
+    <!-- 1 · Tür -->
+    <section class="step" data-durum="tur" aria-labelledby="h-tur">
+      <div class="head"><h1 id="h-tur">VizCad'i nasıl kullanacaksın?</h1><p>Hoş geldin Ayşe. İkisini de sonradan ekleyebilirsin; şimdi yalnızca başlangıç noktasını seç.</p></div>
+      <div class="choice" role="radiogroup" aria-label="Kullanım türü" style="margin-top:24px">
+        <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b><i data-lucide="user"></i>Kendim için</b><span>Kişisel workspace. Dosyalarını yükle, 3B aç, link ile paylaş.</span></div>
+        <div class="opt" role="radio" aria-checked="true" tabindex="0"><span class="dot"></span><b><i data-lucide="building-2"></i>Firmam için</b><span>Ekibinle projeler ve dosyalar üzerinde çalış; üye ve dışarıdan misafir ekle.</span></div>
+      </div>
+      <div class="actions" style="margin-top:24px"><a class="btn btn--primary" href="?durum=firma">Devam</a></div>
+    </section>
+
+    <!-- 2 · Firma -->
+    <section class="step" data-durum="firma firma-hata" aria-labelledby="h-firma">
+      <div class="head"><h1 id="h-firma">Firmanın adı nedir?</h1><p>Ekibin bu adı görür. Ayarlar'dan istediğin zaman değiştirebilirsin.</p></div>
+      <div class="group" style="margin-top:24px">
+        <label class="fld"><span>Firma adı</span>
+          <input class="input" id="firma" autocomplete="organization" value="Demir Makina" data-durum="firma">
+          <input class="input err" id="firma2" autocomplete="organization" value="" placeholder="Örn. Demir Makina" aria-invalid="true" aria-describedby="firma-err" data-durum="firma-hata">
+          <small data-durum="firma">Ad benzersiz olmak zorunda değil; başka firmalar da aynı adı kullanabilir.</small>
+          <span class="err-msg" id="firma-err" data-durum="firma-hata"><i data-lucide="circle-alert"></i>Firma adını yaz. En az 2 karakter olmalı.</span>
+        </label>
+        <div class="fld"><span>Logo <small style="margin-left:4px">İsteğe bağlı</small></span>
+          <div class="logo-up">
+            <span class="box"><i data-lucide="image-plus"></i></span>
+            <div class="t"><button class="btn" type="button"><i data-lucide="upload"></i>Logo yükle</button></div>
+          </div>
+          <small>PNG veya SVG, en çok 2 MB. Kenar menüde ve davet e-postalarında görünür; yüklemezsen adın baş harfleri kullanılır.</small>
+        </div>
+      </div>
+      <div class="actions pair" style="margin-top:24px"><a class="btn" href="?durum=tur">Geri</a><a class="btn btn--primary" href="?durum=ekip">Devam</a></div>
+    </section>
+
+    <!-- 3 · Ekip -->
+    <section class="step" data-durum="ekip" aria-labelledby="h-ekip">
+      <div class="head"><h1 id="h-ekip">Ekibin nasıl çalışıyor?</h1><p>İki cevap, VizCad'i sana göre hazırlamamıza yardım eder.</p></div>
+      <div class="group" style="margin-top:24px">
+        <h2 id="g-size">Kaç kişilik bir ekipsiniz?</h2>
+        <div class="grid2" role="radiogroup" aria-labelledby="g-size">
+          <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>Yalnızca ben</b></div>
+          <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>2–5 kişi</b></div>
+          <div class="opt" role="radio" aria-checked="true" tabindex="0"><span class="dot"></span><b>6–20 kişi</b></div>
+          <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>21–100 kişi</b></div>
+          <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>100'den fazla</b></div>
+        </div>
+      </div>
+      <div class="group" style="margin-top:28px">
+        <h2 id="g-use">Ne için kullanacaksın? <small>Birden fazla seçebilirsin</small></h2>
+        <div class="choice" role="group" aria-labelledby="g-use">
+          <div class="opt chk" role="checkbox" aria-checked="true" tabindex="0"><span class="dot"></span><b>Tedarikçi ve müşteriyle model paylaşmak</b></div>
+          <div class="opt chk" role="checkbox" aria-checked="true" tabindex="0"><span class="dot"></span><b>Ekipte dosya ve revizyonları düzenli tutmak</b></div>
+          <div class="opt chk" role="checkbox" aria-checked="false" tabindex="0"><span class="dot"></span><b>Teklif ve satın alma için modelleri incelemek</b></div>
+          <div class="opt chk" role="checkbox" aria-checked="false" tabindex="0"><span class="dot"></span><b>Kendi dosyalarımı arşivlemek</b></div>
+          <div class="opt chk" role="checkbox" aria-checked="false" tabindex="0"><span class="dot"></span><b>Başka</b></div>
+        </div>
+      </div>
+      <div class="actions pair" style="margin-top:24px"><a class="btn" href="?durum=firma">Geri</a><a class="btn btn--primary" href="?durum=kaynak">Devam</a></div>
+    </section>
+
+    <!-- 4 · Kaynak -->
+    <section class="step" data-durum="kaynak" aria-labelledby="h-kaynak">
+      <div class="head"><h1 id="h-kaynak">Bizi nereden duydunuz?</h1><p>Zorunlu değil. Hangi yolların işe yaradığını anlamamıza yardım eder.</p></div>
+      <div class="choice" role="radiogroup" aria-label="Kaynak" style="margin-top:24px">
+        <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>Arama motoru</b></div>
+        <div class="opt" role="radio" aria-checked="true" tabindex="0"><span class="dot"></span><b>Bir tanıdık ya da iş arkadaşı önerdi</b></div>
+        <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>LinkedIn</b></div>
+        <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>Bir tedarikçi ya da müşteri bana model gönderdi</b></div>
+        <div class="opt" role="radio" aria-checked="false" tabindex="0"><span class="dot"></span><b>Başka bir yer</b></div>
+      </div>
+      <div class="actions pair-skip" style="margin-top:24px"><a class="btn btn--ghost" href="?durum=ilk-adim">Atla</a><a class="btn btn--primary" href="?durum=ilk-adim">Workspace'i oluştur</a></div>
+    </section>
+
+    <!-- 5 · İlk adım -->
+    <section class="step" data-durum="ilk-adim" aria-labelledby="h-ilk">
+      <div class="head"><h1 id="h-ilk">Demir Makina hazır</h1><p>İlk adım olarak birini seç. Hepsine sonradan da ulaşırsın.</p></div>
+      <div class="go" style="margin-top:24px">
+        <a class="main" href="04-projeler.html?durum=yeni"><span class="ic"><i data-lucide="folder-plus"></i></span><span><b>İlk projeni oluştur <span class="badge badge--accent">Önerilen</span></b><small>Bir müşteri işi ya da ürün için dosyalarını ve ekibi bir arada tut.</small></span><i data-lucide="chevron-right" class="chev"></i></a>
+        <a href="01-dosyalar.html?durum=yukleme"><span class="ic"><i data-lucide="upload"></i></span><span><b>Dosya yükle</b><small>CAD dosyanı yükle ve tarayıcıda 3B aç.</small></span><i data-lucide="chevron-right" class="chev"></i></a>
+        <a href="06-ekip.html?durum=davet"><span class="ic"><i data-lucide="user-plus"></i></span><span><b>Ekibini davet et</b><small>E-posta ile üye ekle; rolleri sonradan değiştirebilirsin.</small></span><i data-lucide="chevron-right" class="chev"></i></a>
+      </div>
+      <div class="exit" style="margin-top:20px"><a class="btn btn--ghost" href="04-projeler.html">Projeler sayfasına git<i data-lucide="arrow-right"></i></a></div>
+    </section>
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  const order = ['tur', 'firma', 'ekip', 'kaynak', 'ilk-adim'];
+  const d = document.body.dataset.durum === 'firma-hata' ? 'firma' : document.body.dataset.durum;
+  const i = order.indexOf(d);
+  document.querySelectorAll('#segs i').forEach((s, n) => s.classList.toggle('on', n <= i));
+  document.getElementById('stepText').innerHTML = `<b>Adım ${i + 1} / ${order.length}</b>`;
+  document.querySelectorAll('[role=radio]').forEach((r) => r.addEventListener('click', () => {
+    r.parentElement.querySelectorAll('[role=radio]').forEach((o) => o.setAttribute('aria-checked', o === r));
+  }));
+  document.querySelectorAll('[role=checkbox]').forEach((r) => r.addEventListener('click', () => {
+    r.setAttribute('aria-checked', r.getAttribute('aria-checked') !== 'true');
+  }));
+</script>
+</body>
+</html>

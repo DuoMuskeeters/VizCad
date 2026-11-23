@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aktivite · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  .filters { display: grid; gap: 12px; margin-bottom: 8px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fchip { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid var(--line); font-size: 14px; color: var(--text-2); }
+  .fchip:hover { border-color: var(--line-strong); color: var(--text); }
+  .fchip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
+  .sels { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sel { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--bg); font-size: 14px; white-space: nowrap; min-width: 0; }
+  .sel:hover { background: var(--hover); }
+  .sel .k { color: var(--text-3); }
+  .sel .v { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+  .sel svg { width: 14px; height: 14px; color: var(--text-3); margin-left: auto; }
+  .sel.on { border-color: var(--accent); background: var(--accent-soft); }
+  .sel.on .k { color: var(--accent); }
+  .sel.on svg { color: var(--accent); }
+  .summary { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin: 16px 0 4px; font-size: 14px; color: var(--text-2); }
+  .summary b { font-weight: 600; color: var(--text); }
+  .summary .clear { color: var(--accent); font-weight: 500; min-height: 32px; display: inline-flex; align-items: center; }
+
+  .feed { display: grid; }
+  .day { font-size: 13px; font-weight: 600; color: var(--text-3); margin: 24px 0 4px; }
+  .day:first-child { margin-top: 12px; }
+  .ev { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 0 14px; align-items: start; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+  .ev .ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--hover); color: var(--text-2); }
+  .ev .ic svg { width: 16px; height: 16px; }
+  .ev .ic.dl { background: #fef3e2; color: #9a4a06; }
+  .ev .ic.warn { background: #fef3e2; color: #9a4a06; }
+  .ev p { font-size: 14px; line-height: 1.5; padding-top: 4px; }
+  .ev p b { font-weight: 600; }
+  .ev p .badge { vertical-align: 1px; margin: 0 2px; }
+  .ev q { display: block; margin-top: 4px; color: var(--text-2); quotes: none; }
+  .ev .meta { display: flex; align-items: center; gap: 16px; padding-top: 6px; font-size: 13px; color: var(--text-3); white-space: nowrap; }
+  .ev .meta .pr { display: inline-flex; align-items: center; gap: 6px; width: 190px; overflow: hidden; text-overflow: ellipsis; }
+  .ev .meta .pr svg { width: 14px; height: 14px; flex: none; }
+  .ev .meta time { width: 44px; text-align: right; }
+  .more { display: flex; justify-content: center; padding: 20px 0 0; }
+
+  .note { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text-3); margin-top: 8px; }
+  .note svg { width: 16px; height: 16px; margin-top: 1px; }
+
+  .empty { max-width: 460px; margin: 56px auto; text-align: center; display: grid; justify-items: center; gap: 10px; }
+  .empty .ring { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 8px; }
+  .empty .ring svg { width: 26px; height: 26px; }
+  .empty h2 { font-size: 20px; font-weight: 650; }
+  .empty p { color: var(--text-2); }
+  .empty .acts2 { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+  @media (max-width: 899px) {
+    .page-head { position: relative; }
+    .page-head .sub { margin-top: 10px; }
+    .page-head .actions { position: absolute; top: -8px; right: 0; margin: 0; }
+    .page-head .actions .lbl { display: none; }
+    .page-head .actions .btn { width: 44px; padding: 0; }
+    .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; }
+    .fchip { height: 44px; flex: none; }
+    .sels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sel { height: 44px; }
+    .sel.wide { grid-column: span 2; }
+    .ev { grid-template-columns: 32px minmax(0, 1fr); padding: 14px 0; }
+    .ev .meta { grid-column: 2; padding-top: 4px; gap: 0; white-space: normal; }
+    .ev .meta .pr { width: auto; }
+    .ev .meta time { width: auto; text-align: left; }
+    .ev .meta time::before { content: "·"; margin: 0 6px; }
+    .empty { margin: 32px auto; }
+  }
+</style>
+</head>
+<body data-page="09-aktivite">
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Aktivite</strong>
+  <a href="?durum=dolu">Dolu</a>
+  <a href="?durum=filtreli">Filtreli (misafir indirmeleri)</a>
+  <a href="?durum=sonuc-yok">Filtre sonucu yok</a>
+  <a href="?durum=bos">Boş</a>
+  <a href="06-ekip.html">← Ekip</a>
+</nav>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <div>
+    <header class="mobile-top"></header>
+    <main class="content">
+      <div class="page-head">
+        <div><h1>Aktivite</h1><p class="sub">Demir Makina'da kimin neyi açtığı, indirdiği ve paylaştığı. Yalnızca sahip ve yöneticiler görür.</p></div>
+        <div class="actions" data-durum-not="bos"><button class="btn" type="button"><i data-lucide="file-down"></i><span class="lbl" data-durum="dolu">CSV indir</span><span class="lbl" data-durum="filtreli">CSV indir (4 kayıt)</span><span class="lbl" data-durum="sonuc-yok">CSV indir</span><span class="sr">CSV indir</span></button></div>
+      </div>
+
+      <!-- Filtreler -->
+      <div class="filters" data-durum-not="bos">
+        <div class="chips" role="group" aria-label="Eylem türü">
+          <button class="fchip" type="button" aria-pressed="true" data-durum="dolu">Tümü</button>
+          <button class="fchip" type="button" aria-pressed="false" data-durum="filtreli sonuc-yok">Tümü</button>
+          <button class="fchip" type="button" aria-pressed="false" data-durum="dolu">Açma ve indirme</button>
+          <button class="fchip" type="button" aria-pressed="true" data-durum="filtreli sonuc-yok">Açma ve indirme</button>
+          <button class="fchip" type="button" aria-pressed="false">Yükleme</button>
+          <button class="fchip" type="button" aria-pressed="false">Paylaşım</button>
+          <button class="fchip" type="button" aria-pressed="false">Üyelik</button>
+          <button class="fchip" type="button" aria-pressed="false">Yorumlar</button>
+        </div>
+        <div class="sels">
+          <button class="sel" type="button" data-durum="dolu"><span class="k">Kişi</span><span class="v">Herkes</span><i data-lucide="chevron-down"></i></button>
+          <button class="sel on" type="button" data-durum="filtreli sonuc-yok"><span class="k">Kişi</span><span class="v">Misafirler</span><i data-lucide="chevron-down"></i></button>
+          <button class="sel" type="button" data-durum="dolu filtreli"><span class="k">Proje</span><span class="v">Tüm projeler</span><i data-lucide="chevron-down"></i></button>
+          <button class="sel on" type="button" data-durum="sonuc-yok"><span class="k">Proje</span><span class="v">Konveyör hattı yenileme</span><i data-lucide="chevron-down"></i></button>
+          <button class="sel on wide" type="button" data-durum="filtreli sonuc-yok"><i data-lucide="calendar" style="margin:0"></i><span class="v" data-durum="filtreli">17 – 23 Kasım</span><span class="v" data-durum="sonuc-yok">1 – 7 Kasım</span><i data-lucide="chevron-down"></i></button>
+          <button class="sel wide" type="button" data-durum="dolu"><i data-lucide="calendar" style="margin:0"></i><span class="v">Son 7 gün</span><i data-lucide="chevron-down"></i></button>
+        </div>
+      </div>
+
+      <p class="summary" data-durum="filtreli"><span><b>4 kayıt:</b> misafirlerin açma ve indirme eylemleri, 17 – 23 Kasım</span><a class="clear" href="?durum=dolu">Filtreleri temizle</a></p>
+
+      <!-- Dolu -->
+      <div class="feed" data-durum="dolu">
+        <div class="day">Bugün · 23 Kasım</div>
+        <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> Flanş_DN100_rev3.step dosyasını indirdi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>14:32</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> Flanş_DN100_rev3.step dosyasını açtı.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>14:30</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="upload"></i></span><p><b>Ayşe Yılmaz</b> Flanş_DN100_rev3.step için sürüm 3'ü yükledi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>14:20</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="link"></i></span><p><b>Mehmet Kaya</b> Mil_Ø25x300.step için link oluşturdu: Görüntüleyebilir, 7 gün.</p><div class="meta"><span class="pr"><i data-lucide="files"></i>Projesiz dosyalar</span><time>13:15</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="user-plus"></i></span><p><b>Ayşe Yılmaz</b>, Ömer Koç'u misafir olarak ekledi: İndirebilir, 30 Kasım'a kadar.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>11:05</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="message-square"></i></span><p><b>Selin Er</b> Pompa_kapak.step dosyasına yorum yazdı.<q>Tedarikçiye gidecek kapak bu sürüm mü, teyit eder misiniz?</q></p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>10:42</time></div></div>
+
+        <div class="day">Dün · 22 Kasım</div>
+        <div class="ev"><span class="ic"><i data-lucide="mail"></i></span><p><b>Ayşe Yılmaz</b>, elif@demirmakina.com adresine Üye daveti gönderdi.</p><div class="meta"><span class="pr"><i data-lucide="users"></i>Ekip</span><time>17:20</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="message-square"></i></span><p><b>Mehmet Kaya</b> Pompa_kapak.step dosyasına yorum yazdı.<q>Conta kanalı derinliği 3,5 mm olmalı, 3 mm görünüyor.</q></p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>16:48</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p>Mil_Ø25x300.step dosyası paylaşım linkiyle açıldı.</p><div class="meta"><span class="pr"><i data-lucide="files"></i>Projesiz dosyalar</span><time>11:03</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="upload"></i></span><p><b>Zeynep Arslan</b> Pompa_kapak.step dosyasını yükledi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>10:12</time></div></div>
+
+        <div class="day">21 Kasım</div>
+        <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Derya Kaya</b> <span class="badge badge--guest">Misafir</span> Konveyör_şase.step dosyasını indirdi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Konveyör hattı yenileme</span><time>16:10</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="user-plus"></i></span><p><b>Can Demir</b> Üye olarak katıldı.</p><div class="meta"><span class="pr"><i data-lucide="users"></i>Ekip</span><time>09:02</time></div></div>
+
+        <div class="day">20 Kasım</div>
+        <div class="ev"><span class="ic warn"><i data-lucide="user-x"></i></span><p><b>Ali Tunç</b> <span class="badge badge--guest">Misafir</span> erişimi süresi dolduğu için sona erdi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Konveyör hattı yenileme</span><time>00:00</time></div></div>
+        <div class="more"><button class="btn" type="button">Daha eski kayıtları göster</button></div>
+      </div>
+
+      <!-- Filtreli: yalnızca misafirlerin açma/indirme kayıtları -->
+      <div class="feed" data-durum="filtreli">
+        <div class="day">Bugün · 23 Kasım</div>
+        <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> Flanş_DN100_rev3.step dosyasını indirdi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>14:32</time></div></div>
+        <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> Flanş_DN100_rev3.step dosyasını açtı.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Pompa revizyonu</span><time>14:30</time></div></div>
+        <div class="day">21 Kasım</div>
+        <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Derya Kaya</b> <span class="badge badge--guest">Misafir</span> Konveyör_şase.step dosyasını indirdi.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Konveyör hattı yenileme</span><time>16:10</time></div></div>
+        <div class="day">18 Kasım</div>
+        <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p><b>satinalma@yildiztorna.com</b> <span class="badge badge--guest">Misafir</span> Teklif_flanş.step dosyasını açtı.</p><div class="meta"><span class="pr"><i data-lucide="folder-kanban"></i>Teklif: Yıldız Torna</span><time>09:48</time></div></div>
+        <p class="note"><i data-lucide="info"></i>CSV dosyası ekrandaki filtrelere göre iner.</p>
+      </div>
+
+      <!-- Filtre sonucu yok -->
+      <section class="empty" data-durum="sonuc-yok">
+        <span class="ring"><i data-lucide="search-x"></i></span>
+        <h2>Bu filtrelerle kayıt yok</h2>
+        <p>1 – 7 Kasım arasında, Konveyör hattı yenileme projesinde misafirlerin açma ya da indirme kaydı bulunmuyor. Tarih aralığını genişlet ya da filtreleri temizle.</p>
+        <div class="acts2"><a class="btn btn--primary" href="?durum=dolu">Filtreleri temizle</a></div>
+      </section>
+
+      <!-- Boş -->
+      <section class="empty" data-durum="bos">
+        <span class="ring"><i data-lucide="activity"></i></span>
+        <h2>Henüz bir kayıt yok</h2>
+        <p>Dosya yüklendiğinde, biri bir dosyayı açtığında ya da indirdiğinde, paylaşım ve davet yapıldığında burada görünür. Misafirlerin ve linkle açanların erişimi de bu kayda geçer.</p>
+        <div class="acts2"><a class="btn btn--primary" href="01-dosyalar.html?durum=yukleme"><i data-lucide="upload"></i>Dosya yükle</a><a class="btn" href="06-ekip.html?durum=davet"><i data-lucide="user-plus"></i>Ekibi davet et</a></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="_shell.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  document.querySelectorAll('.fchip').forEach((c) => c.addEventListener('click', () => {
+    c.parentElement.querySelectorAll('.fchip').forEach((o) => o.setAttribute('aria-pressed', o === c));
+  }));
+</script>
+</body>
+</html>

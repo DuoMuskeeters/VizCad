@@ -14,8 +14,8 @@
         item('01-dosyalar', 'files', 'Tüm dosyalar'),
         item('paylasilanlar', 'share-2', 'Paylaşılanlar'),
         item('06-ekip', 'users', 'Ekip'),
-        item('aktivite', 'activity', 'Aktivite'),
-        item('ayarlar', 'settings', 'Ayarlar'),
+        item('09-aktivite', 'activity', 'Aktivite'),
+        item('10-ayarlar', 'settings', 'Ayarlar'),
       ].join('');
   const side = document.querySelector('aside.sidebar');
   if (side) side.innerHTML = `

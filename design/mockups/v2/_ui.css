@@ -177,3 +177,9 @@ textarea.input { height: 76px; padding: 10px 12px; resize: vertical; }
   .dialog footer .btn { flex: 1; }
   .li { gap: 0 10px; }
 }
+
+/* Mobilde alanlar 44 px ve 16 px yazı (iOS odakta yakınlaştırmayı önler) */
+@media (max-width: 899px) {
+  .input { height: 44px; font-size: 16px; }
+  textarea.input { height: 88px; }
+}
