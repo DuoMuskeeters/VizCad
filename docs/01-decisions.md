@@ -42,6 +42,16 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 
 **D10. Q9–Q12 şimdilik açık.** Pazar notları `05-market.md`'de; yön kararı canlı veri ve müşteri görüşmelerinden sonra.
 
+## 23 Kasım 2026, tasarım yönü
+
+**D11. Ton: genel, herkesin kullanabileceği.** Mühendis olmayanlar (satın alma, tedarikçi, yönetici) da rahat kullanabilmeli: ferah uygulama kabuğu, sade dil, teknik ayrıntı yalnızca görüntüleyicide.
+
+**D12. Varsayılan tema açık.** Koyu tema destekli; görüntüleyici zemini her iki temada da modele uygun koyu/nötr kalabilir.
+
+**D13. Marka korunur.** Mevcut logo (`public/vizcad-logo*.png`) ve marka rengi (camgöbeği, `#0891b2`) kalır; token'lar bunun etrafında kurulur.
+
+**Öneri, ilk tasarım oturumunda onaylanacak:** Uygulama masaüstü öncelikli + mobilde tam çalışır; paylaşılan dosya sayfası ve landing mobil öncelikli. Onaylanırsa `CLAUDE.md`'deki "Mobile first" kuralı buna göre güncellenir.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
