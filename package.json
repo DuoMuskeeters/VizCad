@@ -15,7 +15,7 @@
 		"check": "pnpm typecheck && pnpm test",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply vizcad_auth --local",
-		"db:migrate:remote": "wrangler d1 migrations apply vizcad_auth --remote",
+		"db:migrate:staging": "wrangler d1 migrations apply vizcad_auth --remote",
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {

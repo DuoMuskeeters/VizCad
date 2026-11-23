@@ -1,28 +1,33 @@
 /**
- * Cloudflare Worker config for the rewrite. See docs/00-refactor-plan.md §2–3.
+ * Cloudflare Worker config for the rewrite. Hosting plan: docs/07-execution-plan.md.
  *
- * DATA SAFETY: `vizcad_auth` (D1) and `vizcad-files-bucket` (R2) are the PRODUCTION resources with live
- * user data. Binding names are kept from the old app on purpose (cutover reuses them). Never run
- * `--remote` migrations, `d1 execute --remote` or R2 writes/deletes without asking (CLAUDE.md).
- * `pnpm dev` uses local Miniflare state under .wrangler/, not production.
+ * TOP LEVEL = STAGING. The rewrite deploys to its own Worker (`vizcad-rewrite`, workers.dev) with its own
+ * D1 and R2 holding fake data. A plain `wrangler deploy` / `pnpm db:migrate:remote` can only reach staging.
+ * The staging D1 id below is a placeholder until the resources are created (needs Cloudflare login).
  *
- * Production secrets (wrangler secret put / dashboard), names kept from the old app:
- *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (presigned URLs, aws4fetch),
- *   optional R2_BUCKET_NAME, R2_ENDPOINT; BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
- *   GOOGLE_CLIENT_SECRET, RESEND_API_KEY (Faz 3).
- * New in the rewrite: TURNSTILE_SECRET, optional CF_ZONE_ID + CF_PURGE_TOKEN (edge cache purge, D4).
+ * `env.production` = the live site (Worker `vizcad`, D1 `vizcad_auth`, R2 `vizcad-files-bucket`, live user
+ * data). Used only at cutover (Faz 9), always explicitly: `--env production` / `CLOUDFLARE_ENV=production`.
+ * Never run remote migrations, `d1 execute --remote` or R2 writes/deletes against it without asking (CLAUDE.md).
+ * Binding names are the old app's in both environments, so code is identical.
+ *
+ * Production secrets (names kept from the old app): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+ * optional R2_BUCKET_NAME, R2_ENDPOINT; BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
+ * GOOGLE_CLIENT_SECRET, RESEND_API_KEY. New: TURNSTILE_SECRET, optional TURNSTILE_HOSTNAMES,
+ * CF_ZONE_ID + CF_PURGE_TOKEN (edge cache purge, D4).
  * Do not add any of the old secret names under `vars`: a var that collides with a secret fails the deploy.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "vizcad",
+	"name": "vizcad-rewrite",
 	"compatibility_date": "2026-11-19",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "@tanstack/react-start/server-entry",
 	"observability": { "enabled": true },
 	"upload_source_maps": true,
+	"workers_dev": true,
 	"vars": {
-		"SITE_URL": "https://viz-cad.com",
+		// Real URL is vizcad-rewrite.<account-subdomain>.workers.dev; fixed when staging is created.
+		"SITE_URL": "https://vizcad-rewrite.workers.dev",
 		"EMAIL_FROM": "noreply@viz-cad.com",
 		"EMAIL_FROM_NAME": "VizCad"
 	},
@@ -32,15 +37,41 @@
 	"d1_databases": [
 		{
 			"binding": "vizcad_auth",
-			"database_name": "vizcad_auth",
-			"database_id": "9f3e6552-67bb-4dfa-a657-36907390a595",
+			"database_name": "vizcad-staging",
+			"database_id": "00000000-0000-0000-0000-000000000000",
 			"migrations_dir": "drizzle"
 		}
 	],
 	"r2_buckets": [
 		{
 			"binding": "R2_FILES_BUCKET",
-			"bucket_name": "vizcad-files-bucket"
+			"bucket_name": "vizcad-files-staging"
 		}
-	]
+	],
+	"env": {
+		"production": {
+			"name": "vizcad",
+			"workers_dev": false,
+			"vars": {
+				"SITE_URL": "https://viz-cad.com",
+				"EMAIL_FROM": "noreply@viz-cad.com",
+				"EMAIL_FROM_NAME": "VizCad"
+			},
+			"send_email": [{ "name": "EMAIL" }],
+			"d1_databases": [
+				{
+					"binding": "vizcad_auth",
+					"database_name": "vizcad_auth",
+					"database_id": "9f3e6552-67bb-4dfa-a657-36907390a595",
+					"migrations_dir": "drizzle"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "R2_FILES_BUCKET",
+					"bucket_name": "vizcad-files-bucket"
+				}
+			]
+		}
+	}
 }

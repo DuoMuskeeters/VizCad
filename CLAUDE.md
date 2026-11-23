@@ -8,7 +8,7 @@ During the rewrite the old code is reference only. Port features into the new st
 TanStack Start 1.169 + Router 1.170 on Cloudflare Workers · React 19.2 · TypeScript 6 strict · Vite 8 · Effect 4.1.5 · D1 + Drizzle 0.45 · R2 · Turnstile · Tailwind v4 · pnpm 10 · Vitest 5 + `@effect/vitest`. App-specific: `@kitware/vtk.js`, `occt-import-js` (in a Web Worker), `better-auth` (behind an Effect service), `aws4fetch` (R2 presigned URLs).
 
 ## Commands (target)
-`pnpm dev` (port 3000) · `pnpm check` (tsc + vitest) · `pnpm build` · `pnpm db:generate` / `pnpm db:migrate:local` / `pnpm db:migrate:remote` · `pnpm cf-typegen`. Deploys happen on push to `main` (Workers Builds).
+`pnpm dev` (port 3000) · `pnpm check` (tsc + vitest) · `pnpm build` · `pnpm db:generate` / `pnpm db:migrate:local` / `pnpm db:migrate:staging` · `pnpm cf-typegen`. Deploys happen on push to `main` (Workers Builds). In `wrangler.jsonc` the top level is staging (`vizcad-rewrite`, staging D1/R2); production is `env.production` and is only ever targeted explicitly (`--env production`), with the user's approval.
 
 ## Learning more about Effect
 Before writing any Effect code, first read `node_modules/effect/AGENTS.md` **completely**, and follow the links in the file when required. For APIs the guide doesn't cover, search `node_modules/effect/src`. Check module stability (`@since`/`@experimental`) before using Effect 4 modules.
