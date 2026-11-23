@@ -26,21 +26,21 @@ Tarih: 23 Kasım 2026. Bu dosya "şu an ne oluyor, sırada ne var, kim yapıyor"
 | Kararlar | D1–D17 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
 | Geliştirme | Faz 1 (iskelet + Effect servisleri) `rewrite-faz1` branch'inde ayrı thread'de sürüyor |
-| Hosting | Yok; Cloudflare girişi gerekiyor |
+| Hosting | Staging yayında (Faz 1) |
 
 ## Dalgalar
 
 ### Dalga 1: temel (şimdi)
-- [ ] Faz 1 bitişi (thread), inceleme, `rewrite`'a birleştirme. *Opus inceleme*
+- [x] Faz 1 bitişi, Codex incelemesi (9 bulgu düzeltildi), `rewrite`'a birleştirme (PR #5)
 - [x] Tasarım A: onboarding / firma oluşturma, davet kabulü (üye, misafir), workspace aktivitesi, ayarlar. *Sonnet high*
 - [x] Tasarım B: görüntüleyici + paylaşım penceresi, paylaşılan dosya sayfası, giriş/kayıt. *Opus high*
 - [x] Token'lar: açık + koyu tema, tipografi ölçeği, boşluk; `docs/03-design.md` §5. *orkestratör*
-- [ ] Faz 3 teknik tasarımı (`docs/08-auth-org-design.md`): better-auth organization, şema, geçiş, `permissions.ts` test matrisi. *Codex high, Opus inceleme*
-- [ ] Staging kurulumu ve ilk yayın (boş iskelet). **Kullanıcı: Cloudflare girişi**
+- [x] Faz 3 teknik tasarımı (`docs/08-auth-org-design.md`): better-auth organization, şema, geçiş, `permissions.ts` test matrisi. *Codex high, Opus inceleme*
+- [x] Staging kurulumu ve yayın: https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev (`pnpm deploy:staging`)
 
 ### Dalga 2: tasarım sistemi ve kimlik
-- [ ] Bileşen seti + `/dev/ui` (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
-- [ ] Faz 3 backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
+- [ ] (sürüyor) Bileşen seti + `/dev/ui` (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
+- [ ] (sürüyor: 3a şema + migration güvenliği + `permissions.ts`; sonra 3b) Faz 3 backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
 - [ ] Mevcut kullanıcılar için kişisel workspace migration'ı; staging'de sahte veriyle test. Production kopyasında prova Dalga 6'da.
 - [ ] Faz 3 UI: giriş, kayıt, doğrulama, onboarding, ekip, davet kabulü, workspace değiştirici. *Sonnet high*
 
