@@ -12,11 +12,12 @@
  * Never run remote migrations, `d1 execute --remote` or R2 writes/deletes against it without asking (CLAUDE.md).
  * Binding names are the old app's in both environments, so code is identical.
  *
- * Production secrets (names kept from the old app): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
- * optional R2_BUCKET_NAME, R2_ENDPOINT; BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
+ * Production secrets (names kept from the old app, checked 2026-11-23): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+ * R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME; BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
  * GOOGLE_CLIENT_SECRET, RESEND_API_KEY. New: TURNSTILE_SECRET, optional TURNSTILE_HOSTNAMES,
  * CF_ZONE_ID + CF_PURGE_TOKEN (edge cache purge, D4).
- * Do not add any of the old secret names under `vars`: a var that collides with a secret fails the deploy.
+ * Do not add any of the old secret names under `env.production.vars`: a var that collides with a secret fails
+ * the deploy. Staging presign credentials (when added) must be an R2 token scoped to vizcad-files-staging only.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
@@ -30,7 +31,9 @@
 	"vars": {
 		"SITE_URL": "https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev",
 		"EMAIL_FROM": "noreply@viz-cad.com",
-		"EMAIL_FROM_NAME": "VizCad"
+		"EMAIL_FROM_NAME": "VizCad",
+		// Must match r2_buckets below; presigned URLs are signed for this bucket (AppConfig requires it).
+		"R2_BUCKET_NAME": "vizcad-files-staging"
 	},
 	// Cloudflare Email Service (replaces Resend in Faz 3). Not restricted to one destination:
 	// verification, password reset and invites go to arbitrary users.
@@ -57,6 +60,7 @@
 				"SITE_URL": "https://viz-cad.com",
 				"EMAIL_FROM": "noreply@viz-cad.com",
 				"EMAIL_FROM_NAME": "VizCad"
+				// R2_BUCKET_NAME comes from the existing production secret; a var with that name would fail the deploy.
 			},
 			"send_email": [{ "name": "EMAIL" }],
 			"d1_databases": [

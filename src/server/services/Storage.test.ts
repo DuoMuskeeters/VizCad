@@ -115,7 +115,7 @@ describe('Storage.live', () => {
     Effect.gen(function* () {
       const storage = yield* Storage
       const url = yield* storage.presignDownload('u/f/a b.stl', { expiresInSeconds: 60, downloadFilename: 'a b.stl' })
-      assert.strictEqual(url.pathname, '/vizcad-files-bucket/u/f/a%20b.stl')
+      assert.strictEqual(url.pathname, '/vizcad-files-test/u/f/a%20b.stl')
       assert.isTrue(url.searchParams.has('response-content-disposition'))
     }).pipe(Effect.provide(StorageLive.layer(bucket).pipe(Layer.provide(AppConfig.test())))),
   )

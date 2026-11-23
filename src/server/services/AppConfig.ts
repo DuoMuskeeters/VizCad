@@ -42,7 +42,7 @@ export const testConfig: AppConfig['Service'] = {
   turnstile: { secret: Redacted.make('test-turnstile-secret'), hostnames: new Set(['vizcad.test']) },
   r2Presign: Option.some({
     endpoint: new URL('https://account.r2.cloudflarestorage.com'),
-    bucketName: 'vizcad-files-bucket',
+    bucketName: 'vizcad-files-test',
     accessKeyId: 'AKIDEXAMPLE',
     secretAccessKey: Redacted.make('wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'),
   }),
