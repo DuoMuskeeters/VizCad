@@ -69,11 +69,11 @@ Her faz kendi PR'ı (`rewrite` branch'ine). Her PR'da `pnpm check` yeşil ve yen
 - [ ] Canlı verinin boyutu: kullanıcı, dosya, toplam depolama, blog yazısı sayısı
 
 ### Faz 1: Temiz iskelet ve Effect temeli
-- [ ] Eski kod `legacy/` altına (build ve tsconfig dışında); port edilen parça oradan silinir
-- [ ] Portfolyo iskeleti: `package.json`, `vite.config.ts`, `tsconfig.json`, `vitest.config.ts`, `wrangler.jsonc`, `.node-version`, `.npmrc`, `pnpm-workspace.yaml`
+- [x] Eski kod `legacy/` altına (build ve tsconfig dışında); port edilen parça oradan silinir
+- [x] Portfolyo iskeleti: `package.json`, `vite.config.ts`, `tsconfig.json`, `vitest.config.ts`, `wrangler.jsonc`, `.node-version`, `.npmrc`, `pnpm-workspace.yaml`
 - [ ] Gereksiz paket ve dosyaları at; `video.mp4` ve demo STL'leri R2'ye
-- [ ] Servisler: `AppConfig`, `Db`, `Storage` (R2 + presign), `Email`, `Turnstile`, `Cache` + test Layer'ları
-- [ ] Drizzle şeması yeni yapıya; migration geçmişi korunur, yeni migration'lar yalnızca ekleme yapar
+- [x] Servisler: `AppConfig`, `Db`, `Storage` (R2 + presign), `Email`, `Turnstile`, `Cache` + test Layer'ları
+- [x] Drizzle şeması yeni yapıya; migration geçmişi korunur, yeni migration'lar yalnızca ekleme yapar
 - [ ] Yerelde production kopyasıyla çalışma: `wrangler d1 export` → local D1
 - [ ] Workers Builds: `rewrite` branch'i önizleme URL'sine
 

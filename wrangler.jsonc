@@ -1,23 +1,82 @@
+/**
+ * Cloudflare Worker config for the rewrite. Hosting plan: docs/07-execution-plan.md.
+ *
+ * TOP LEVEL = STAGING. The rewrite deploys to its own Worker (`vizcad-rewrite`, workers.dev) with its own
+ * D1 and R2 holding fake data. Remote commands for staging go through scripts/staging.ts
+ * (`pnpm db:migrate:staging`, `pnpm deploy:staging`), which checks the config Wrangler will read first.
+ * Staging resources were created on 2026-11-23 (D1 `vizcad-staging` in EEUR, R2 `vizcad-files-staging`).
+ *
+ * `env.production` = the live site (Worker `vizcad`, D1 `vizcad_auth`, R2 `vizcad-files-bucket`, live user
+ * data). Used only at cutover (Faz 9), always explicitly: `CLOUDFLARE_ENV=production` builds into dist-production/
+ * and removes the deploy redirect (vite.config.ts), so a later bare `wrangler deploy` cannot pick it up.
+ * Never run remote migrations, `d1 execute --remote` or R2 writes/deletes against it without asking (CLAUDE.md).
+ * Binding names are the old app's in both environments, so code is identical.
+ *
+ * Production secrets (names kept from the old app, checked 2026-11-23): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+ * R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME; BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
+ * GOOGLE_CLIENT_SECRET, RESEND_API_KEY. New: TURNSTILE_SECRET, optional TURNSTILE_HOSTNAMES,
+ * CF_ZONE_ID + CF_PURGE_TOKEN (edge cache purge, D4).
+ * Do not add any of the old secret names under `env.production.vars`: a var that collides with a secret fails
+ * the deploy. Staging presign credentials (when added) must be an R2 token scoped to vizcad-files-staging only.
+ */
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vizcad",
-  "compatibility_date": "2025-09-02",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
-  "main": "@tanstack/react-start/server-entry",
-  "d1_databases": [
-    {
-      "binding": "vizcad_auth",
-      "database_name": "vizcad_auth",
-      "database_id": "9f3e6552-67bb-4dfa-a657-36907390a595",
-      "migrations_dir": "drizzle"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "R2_FILES_BUCKET",
-      "bucket_name": "vizcad-files-bucket"
-    }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "vizcad-rewrite",
+	"compatibility_date": "2026-11-19",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "@tanstack/react-start/server-entry",
+	"observability": { "enabled": true },
+	"upload_source_maps": true,
+	"workers_dev": true,
+	"vars": {
+		"SITE_URL": "https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev",
+		"EMAIL_FROM": "noreply@viz-cad.com",
+		"EMAIL_FROM_NAME": "VizCad",
+		// Must match r2_buckets below; presigned URLs are signed for this bucket (AppConfig requires it).
+		"R2_BUCKET_NAME": "vizcad-files-staging"
+	},
+	// Cloudflare Email Service (replaces Resend in Faz 3). Not restricted to one destination:
+	// verification, password reset and invites go to arbitrary users.
+	"send_email": [{ "name": "EMAIL" }],
+	"d1_databases": [
+		{
+			"binding": "vizcad_auth",
+			"database_name": "vizcad-staging",
+			"database_id": "6c619234-393b-4ef0-b02c-18d7bd814178",
+			"migrations_dir": "drizzle"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2_FILES_BUCKET",
+			"bucket_name": "vizcad-files-staging"
+		}
+	],
+	"env": {
+		"production": {
+			"name": "vizcad",
+			"workers_dev": false,
+			"vars": {
+				"SITE_URL": "https://viz-cad.com",
+				"EMAIL_FROM": "noreply@viz-cad.com",
+				"EMAIL_FROM_NAME": "VizCad"
+				// R2_BUCKET_NAME comes from the existing production secret; a var with that name would fail the deploy.
+			},
+			"send_email": [{ "name": "EMAIL" }],
+			"d1_databases": [
+				{
+					"binding": "vizcad_auth",
+					"database_name": "vizcad_auth",
+					"database_id": "9f3e6552-67bb-4dfa-a657-36907390a595",
+					"migrations_dir": "drizzle"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "R2_FILES_BUCKET",
+					"bucket_name": "vizcad-files-bucket"
+				}
+			]
+		}
+	}
 }

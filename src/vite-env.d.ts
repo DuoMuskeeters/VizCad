@@ -1,2 +1,4 @@
 /// <reference types="vite/client" />
-declare module '@uiw/react-md-editor';
+interface ImportMetaEnv {
+  readonly VITE_TURNSTILE_SITE_KEY?: string
+}

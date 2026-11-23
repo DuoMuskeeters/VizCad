@@ -1,13 +1,9 @@
-import { defineConfig } from "drizzle-kit";
+import { defineConfig } from 'drizzle-kit'
 
+// Generates SQL into drizzle/ only. Apply with `pnpm db:migrate:local` (Wrangler); never push to
+// production from here. The migration history in drizzle/ is the production history: keep it intact.
 export default defineConfig({
-  schema: "./src/db/schema.ts",
-  out: "./drizzle",
-  dialect: "sqlite",
-  driver: 'd1-http',
-  dbCredentials: {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    databaseId: process.env.CLOUDFLARE_DATABASE_ID!,
-    token: process.env.CLOUDFLARE_D1_TOKEN!,
-  },
-});
+  dialect: 'sqlite',
+  schema: './src/server/db/schema.ts',
+  out: './drizzle',
+})

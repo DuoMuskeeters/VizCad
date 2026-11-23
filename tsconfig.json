@@ -1,44 +1,31 @@
 {
-  "include": [
-    "src",
-    "src/@types/**/*.d.ts",
-    "vite.config.ts",
-    "worker-configuration.d.ts"
-  ],
+  // legacy/ is reference only and stays out of type checking (CLAUDE.md).
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "*.ts", "worker-configuration.d.ts"],
+  "exclude": ["node_modules", "legacy", "dist", "design"],
   "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": [
-      "ES2020",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "target": "ES2022",
+    "jsx": "react-jsx",
     "module": "ESNext",
-    "skipLibCheck": true,
+    "paths": {
+      "#/*": ["./src/*"]
+    },
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["./worker-configuration.d.ts", "node", "vite/client"],
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "noEmit": true,
-    "jsx": "react-jsx",
+
+    /* Linting */
+    "skipLibCheck": true,
     "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
-    "types": [],
-    "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@cloudflare",
-      "./src/@types"
-    ],
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
   }
 }

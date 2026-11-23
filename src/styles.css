@@ -1,168 +1,118 @@
-@import "tailwindcss";
-@plugin "tailwindcss-animate";
+@import '@fontsource-variable/figtree';
+/* Single source of design values (light + dark): design/tokens.css, owned by the design track. */
+@import '../design/tokens.css';
+/* Scan only src/: legacy/ is reference code and must not add classes to the bundle. */
+@import 'tailwindcss' source('.');
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
-    "Droid Sans", "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Only design tokens exist as utilities: Tailwind's default palette, type scale, radii and shadows are cleared. */
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --ease-*: initial;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+/*
+ * Registers token NAMES for utilities; values stay in tokens.css. `reference` emits no variables of its own,
+ * `inline` writes var(--token) into each utility, so light/dark switching in tokens.css applies everywhere.
+ * src/styles.test.ts keeps this list in sync with tokens.css.
+ */
+@theme inline reference {
+  --color-white: #ffffff;
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-hover: var(--color-hover);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-scrim: var(--color-scrim);
+  --color-text: var(--color-text);
+  --color-text-2: var(--color-text-2);
+  --color-text-3: var(--color-text-3);
+  --color-brand: var(--color-brand);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-on-accent: var(--color-on-accent);
+  --color-warn: var(--color-warn);
+  --color-warn-soft: var(--color-warn-soft);
+  --color-warn-text: var(--color-warn-text);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-success: var(--color-success);
+  --color-guest: var(--color-guest);
+  --color-guest-soft: var(--color-guest-soft);
+  --color-canvas: var(--color-canvas);
+  --color-canvas-grid: var(--color-canvas-grid);
+  --color-canvas-text: var(--color-canvas-text);
+
+  /* tokens.css names "Figtree" (Google Fonts); it is self-hosted here, where the family is "Figtree Variable". */
+  --font-sans: 'Figtree Variable', var(--font-sans);
+
+  --text-xs: var(--text-xs);
+  --text-xs--line-height: var(--leading-xs);
+  --text-sm: var(--text-sm);
+  --text-sm--line-height: var(--leading-sm);
+  --text-base: var(--text-base);
+  --text-base--line-height: var(--leading-base);
+  --text-md: var(--text-md);
+  --text-md--line-height: var(--leading-md);
+  --text-lg: var(--text-lg);
+  --text-lg--line-height: var(--leading-lg);
+  --text-xl: var(--text-xl);
+  --text-xl--line-height: var(--leading-xl);
+  --text-2xl: var(--text-2xl);
+  --text-2xl--line-height: var(--leading-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-3xl--line-height: var(--leading-3xl);
+  --text-4xl: var(--text-4xl);
+  --text-4xl--line-height: var(--leading-4xl);
+
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-heading: var(--weight-heading);
+  --tracking-heading: var(--tracking-heading);
+
+  --spacing: var(--space-1);
+  --spacing-tap: var(--tap-min);
+  --spacing-sidebar: var(--sidebar-w);
+  --container-content: var(--content-max);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+  --shadow-pop: var(--shadow-pop);
+  --ease-out: var(--ease-out);
 }
 
-:root {
-  /* Base theme colors - will be overridden by palette system */
-  --background: 255 255 255;
-  --foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
-  --popover: 255 255 255;
-  --popover-foreground: 15 23 42;
-  --secondary: 241 245 249;
-  --secondary-foreground: 15 23 42;
-  --muted: 248 250 252;
-  --muted-foreground: 100 116 139;
-  --accent-foreground: 255 255 255;
-  --destructive: 239 68 68;
-  --destructive-foreground: 255 255 255;
-  --border: 226 232 240;
-  --input: 226 232 240;
-  --radius: 0.5rem;
-
-  /* Dynamic palette variables - set by PaletteProvider */
-  --primary: 14 165 233; /* Default turquoise */
-  --primary-hover: 2 132 199;
-  --primary-foreground: 255 255 255;
-  --accent: 34 197 94;
-  --ring: var(--primary);
-}
-
-.dark {
-  /* Dark mode base colors */
-  --background: 2 6 23;
-  --foreground: 248 250 252;
-  --card: 15 23 42;
-  --card-foreground: 248 250 252;
-  --popover: 15 23 42;
-  --popover-foreground: 248 250 252;
-  --secondary: 30 41 59;
-  --secondary-foreground: 203 213 225;
-  --muted: 30 41 59;
-  --muted-foreground: 148 163 184;
-  --accent-foreground: 2 6 23;
-  --destructive: 248 113 113;
-  --destructive-foreground: 248 250 252;
-  --border: 51 65 85;
-  --input: 51 65 85;
-
-  /* Primary colors remain dynamic in dark mode */
-  --ring: var(--primary);
+/* `dark:` follows the same rule as tokens.css: explicit data-theme wins, otherwise the system preference. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) & {
+      @slot;
+    }
+  }
+  :root[data-theme='dark'] & {
+    @slot;
+  }
 }
 
 @layer base {
-  * {
-    /* Removed border-border and used standard Tailwind border class */
-    border-color: rgb(var(--border));
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
   }
   body {
-    /* Used standard Tailwind classes instead of semantic ones */
-    background-color: rgb(var(--background));
-    color: rgb(var(--foreground));
+    @apply bg-bg font-sans text-base text-text antialiased;
   }
-}
-
-/* Custom utility classes for dynamic palette colors */
-@layer utilities {
-  .text-primary {
-    color: rgb(var(--primary));
-  }
-  .bg-primary {
-    background-color: rgb(var(--primary));
-  }
-  .bg-primary-hover {
-    background-color: rgb(var(--primary-hover));
-  }
-  .border-primary {
-    border-color: rgb(var(--primary));
-  }
-  .text-accent {
-    color: rgb(var(--accent));
-  }
-  .bg-accent {
-    background-color: rgb(var(--accent));
-  }
-  /* Added missing semantic utility classes */
-  .bg-background {
-    background-color: rgb(var(--background));
-  }
-  .text-foreground {
-    color: rgb(var(--foreground));
-  }
-  .bg-card {
-    background-color: rgb(var(--card));
-  }
-  .text-muted-foreground {
-    color: rgb(var(--muted-foreground));
-  }
-  .bg-muted {
-    background-color: rgb(var(--muted));
-  }
-  .border-border {
-    border-color: rgb(var(--border));
-  }
-  /* Hide scrollbar for horizontal scroll elements */
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-/* High Quality Image Rendering - Optimized for 1080x1080 */
-.high-quality-image {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
-  image-rendering: high-quality;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  /* Enhanced for high-res square thumbnails */
-  object-fit: cover;
-  object-position: center;
-  transition: transform 0.2s ease-in-out;
-}
-
-/* Square Thumbnail Container */
-.thumbnail-container {
-  contain: layout style paint;
-  will-change: transform;
-  aspect-ratio: 1;
-  overflow: hidden;
-}
-
-/* High DPI optimizations for 1080x1080 */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .high-quality-image {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    /* Better scaling for retina displays */
-    filter: contrast(1.05) saturate(1.1);
-  }
-}
-
-/* Ultra high DPI optimizations for 1080x1080 */
-@media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 300dpi) {
-  .high-quality-image {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: auto;
-    /* Maintain quality at 3x scaling */
-    filter: contrast(1.02) saturate(1.05) brightness(1.02);
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
   }
 }

@@ -8,7 +8,7 @@ During the rewrite the old code is reference only. Port features into the new st
 TanStack Start 1.169 + Router 1.170 on Cloudflare Workers · React 19.2 · TypeScript 6 strict · Vite 8 · Effect 4.1.5 · D1 + Drizzle 0.45 · R2 · Turnstile · Tailwind v4 · pnpm 10 · Vitest 5 + `@effect/vitest`. App-specific: `@kitware/vtk.js`, `occt-import-js` (in a Web Worker), `better-auth` (behind an Effect service), `aws4fetch` (R2 presigned URLs).
 
 ## Commands (target)
-`pnpm dev` (port 3000) · `pnpm check` (tsc + vitest) · `pnpm build` · `pnpm db:generate` / `pnpm db:migrate:local` / `pnpm db:migrate:remote` · `pnpm cf-typegen`. Deploys happen on push to `main` (Workers Builds).
+`pnpm dev` (port 3000) · `pnpm check` (tsc + vitest) · `pnpm build` · `pnpm db:generate` / `pnpm db:migrate:local` / `pnpm db:migrate:staging` · `pnpm cf-typegen`. Deploys happen on push to `main` (Workers Builds). In `wrangler.jsonc` the top level is staging (`vizcad-rewrite`, staging D1/R2); production is `env.production` and is only ever targeted explicitly (`--env production`), with the user's approval.
 
 ## Learning more about Effect
 Before writing any Effect code, first read `node_modules/effect/AGENTS.md` **completely**, and follow the links in the file when required. For APIs the guide doesn't cover, search `node_modules/effect/src`. Check module stability (`@since`/`@experimental`) before using Effect 4 modules.
@@ -17,6 +17,9 @@ Effect 4 API: services are `class X extends Context.Service<X, Shape>()('vizcad/
 ## Layout (target)
 - `src/routes/`: thin. Decode input, run a program, map errors to HTTP status. Marketing and blog routes are SSR + edge cached (texts come from the admin CMS, so no prerender); purge affected URLs on publish. App routes (`/app`, `/dashboard`, `/file/*`, `/admin/*`) are `noindex`.
 - `src/server/`: `errors.ts` (tagged errors), `services/` (Db, Storage, Email, Auth, Turnstile, AppConfig, Cache, Billing, Entitlements; live layers in separate files so tests never import Worker APIs), `programs/` (business logic + `*.test.ts`), `permissions.ts`, `db/schema.ts`.
+  - Service files: `X.ts` = `Context.Service` + in-memory/test layer; `X.live.ts` = live layer (bindings, network; `fetch` injectable so it is tested too); `Db.memory.ts` = SQLite in memory via node:sqlite with every migration applied (Node only, never import from Worker code). `services/live.ts` builds live layers from the Worker env; handlers merge only the layers their program needs.
+  - `http/`: per-endpoint handlers that take layers (testable with memory layers); `http/entry.ts` wires live layers from the Worker env; `http/respond.ts` maps every `AppError` to a status (`STATUS` record, exhaustive) and logs only tag, operation and request id (`logFields`), never error payloads. Routes load `#/server/http/entry` with dynamic `import()` so server code never reaches the client; never `import('effect')` in a route (pulls the whole library into the Worker).
+  - D1 has no interactive transactions: group writes with `db.batch([...])`, never `db.transaction`.
 - `src/viewer/`: vtk.js and occt code, client only (`.client.tsx`, lazy loaded, conversions in a Web Worker).
 - `src/components/`: plain React. `src/i18n/`: 5 locales (`en`, `tr`, `de`, `es`, `fr`); typed text keys with English defaults in code, admin overrides per locale in D1, fallback to English.
 
