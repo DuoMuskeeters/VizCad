@@ -1,0 +1,76 @@
+# Yürütme planı
+
+Tarih: 23 Kasım 2026. Bu dosya "şu an ne oluyor, sırada ne var, kim yapıyor" sorusunun cevabı. Fazların içeriği `00-refactor-plan.md`'de, kararlar `01-decisions.md`'de.
+
+## Nasıl çalışıyoruz
+
+- **Orkestratör** (bu thread, Claude Opus): plan, tasarım kararları, işleri dağıtma, inceleme, birleştirme, staging'e yayın. Kullanıcıya yalnızca karar gerektiğinde soru gelir.
+- **Alt ajanlar** işin ağırlığına göre seçilir:
+
+| İş türü | Model | Efor |
+|---|---|---|
+| Mimari, güvenlik kritik kod (`permissions.ts`, migration, auth) incelemesi | Claude Opus 5.5 | xhigh |
+| Görsel tasarım, en görünür ekranlar (görüntüleyici, landing) | Claude Opus 5.5 | high |
+| Kalıbı belli ekranlar ve UI bileşenleri | Claude Sonnet 5.5 | high |
+| Effect programları, servisler, testler (kalıbı belli backend) | Codex GPT-6.2 Sol | high |
+| Mekanik işler (ekran görüntüsü, i18n anahtar çıkarma, taşıma) | Claude Haiku 5.5 | medium |
+
+- **Branch'ler:** `main` = canlı site (dokunulmaz, Faz 9'a kadar). `rewrite` = yeniden yazımın ana branch'i; dokümanlar ve tasarım burada. Her faz kendi branch'inde ve worktree'sinde (`rewrite-faz1`, `rewrite-faz3` …), bitince incelenip `rewrite`'a birleşir.
+- **Hosting:** `rewrite` branch'i ayrı bir Worker'a (`vizcad-rewrite`, workers.dev adresi) ve **ayrı staging kaynaklarına** (D1 `vizcad-staging`, R2 `vizcad-files-staging`) yayınlanır. Production D1/R2'ye dokunulmaz; staging'de sahte veri.
+- **Kalite kapısı:** her birleştirmeden önce `pnpm check` + `pnpm build` yeşil, yeni her program için test, ekranlarda 390/1280 px ve açık/koyu kontrol.
+
+## Şu an (23 Kasım 2026)
+
+| İz | Durum |
+|---|---|
+| Kararlar | D1–D17 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
+| Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
+| Geliştirme | Faz 1 (iskelet + Effect servisleri) `rewrite-faz1` branch'inde ayrı thread'de sürüyor |
+| Hosting | Yok; Cloudflare girişi gerekiyor |
+
+## Dalgalar
+
+### Dalga 1: temel (şimdi)
+- [ ] Faz 1 bitişi (thread), inceleme, `rewrite`'a birleştirme. *Opus inceleme*
+- [ ] Tasarım A: onboarding / firma oluşturma, davet kabulü (üye, misafir), workspace aktivitesi, ayarlar. *Sonnet high*
+- [ ] Tasarım B: görüntüleyici + paylaşım penceresi, paylaşılan dosya sayfası, giriş/kayıt. *Opus high*
+- [ ] Token'lar: açık + koyu tema, tipografi ölçeği, boşluk; `docs/03-design.md` §5. *orkestratör*
+- [ ] Staging kurulumu ve ilk yayın (boş iskelet). **Kullanıcı: Cloudflare girişi**
+
+### Dalga 2: tasarım sistemi ve kimlik
+- [ ] Bileşen seti + `/dev/ui` (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
+- [ ] Faz 3 backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
+- [ ] Mevcut kullanıcılar için kişisel workspace migration'ı; staging'de sahte veriyle test. Production kopyasında prova Dalga 6'da.
+- [ ] Faz 3 UI: giriş, kayıt, doğrulama, onboarding, ekip, davet kabulü, workspace değiştirici. *Sonnet high*
+
+### Dalga 3: çekirdek (dosyalar ve paylaşım)
+- [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
+- [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*
+- [ ] UI: Tüm dosyalar, Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, paylaşılan sayfa. *Sonnet high*
+
+### Dalga 4: görüntüleyici
+- [ ] Motor araştırması: three.js + `occt-import-js` (ağaç, renk korunur) vs mevcut vtk.js; 50 MB STEP ile ölçüm. *Opus high, araştırma*
+- [ ] Faz 5: görüntüleyici, Web Worker dönüşüm, küçük resim, mobil dokunma. *Opus high*
+- **Kullanıcı kararı:** motor seçimi (rapor sonrası)
+
+### Dalga 5: içerik, admin, ödeme
+- [ ] Faz 6: CMS (yazılar, yazarlar, site metinleri, SEO), blog, pazarlama sayfaları SSR + edge cache. *Codex + Sonnet*
+- [ ] Faz 7: platform admin. *Sonnet*
+- [ ] Landing tasarımı ve yapımı (gerçek ekranlarla). *Opus high*
+- [ ] Faz 8: `Billing` + gerçek planlar. **Kullanıcı: Q9 ödeme sağlayıcısı ve şirket, Q10 fiyatlandırma**
+
+### Dalga 6: geçiş
+- [ ] Production D1'in salt-okunur kopyasıyla migration provası, veri doğrulama scripti. **Kullanıcı onayı: `wrangler d1 export --remote`**
+- [ ] Mobil QA, Lighthouse, erişilebilirlik.
+- [ ] `rewrite` → `main`, viz-cad.com geçişi, duyuru. **Kullanıcı onayı: tarih ve geçiş**
+
+## Kullanıcıya sorulacaklar (yalnızca bunlar)
+
+| Ne zaman | Soru |
+|---|---|
+| Dalga 1 | Cloudflare girişi (staging için `wrangler login` ya da kısıtlı API token) |
+| Dalga 1–2 | Tasarım taslaklarının onayı (ekran grupları bitince toplu) |
+| Dalga 4 | Görüntüleyici motoru |
+| Dalga 5 | Q9 ödeme sağlayıcısı/şirket, Q10 fiyatlandırma, landing metni |
+| Dalga 6 | Production kopyası alma, geçiş tarihi |
+| Her zaman | GitHub'a push |
