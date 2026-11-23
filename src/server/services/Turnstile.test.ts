@@ -7,17 +7,17 @@ import * as TurnstileLive from './Turnstile.live'
 const ok = { success: true, action: 'signup', hostname: 'vizcad.test' }
 
 /** Fake siteverify: answers with `reply` (or rejects when it is an Error) and records each form body. */
-const siteverify = (reply: unknown) => {
+const siteverify = (reply: unknown, status = 200) => {
   const calls: Array<FormData> = []
   const fetchFn: typeof fetch = (_input, init) => {
     if (init?.body instanceof FormData) calls.push(init.body)
-    return reply instanceof Error ? Promise.reject(reply) : Promise.resolve(Response.json(reply))
+    return reply instanceof Error ? Promise.reject(reply) : Promise.resolve(Response.json(reply, { status }))
   }
   return { calls, fetchFn }
 }
 
-const verify = (reply: unknown, request: VerifyRequest = { token: 'tok', action: 'signup', ip: '203.0.113.7' }) => {
-  const fake = siteverify(reply)
+const verify = (reply: unknown, request: VerifyRequest = { token: 'tok', action: 'signup', ip: '203.0.113.7' }, status = 200) => {
+  const fake = siteverify(reply, status)
   return Turnstile.use((t) => t.verify(request)).pipe(
     Effect.provide(TurnstileLive.make(fake.fetchFn).pipe(Layer.provide(AppConfig.test()))),
     Effect.result,
@@ -48,6 +48,26 @@ describe('Turnstile.live', () => {
       assert.strictEqual(yield* reasonOf({ success: true, action: 'signup' }), 'hostname-mismatch')
       assert.strictEqual(yield* reasonOf({ nope: 1 }), 'malformed-response')
       assert.strictEqual(yield* reasonOf(new Error('network down')), 'unreachable')
+    }),
+  )
+
+  it.effect('a non-2xx siteverify response fails even when its body looks like success', () =>
+    Effect.gen(function* () {
+      for (const status of [500, 503, 429]) {
+        const { result } = yield* verify(ok, undefined, status)
+        assert.strictEqual(result._tag === 'Failure' && result.failure.reason, `siteverify-http-${status}`)
+      }
+    }),
+  )
+
+  it.effect('a non-JSON body fails as malformed', () =>
+    Effect.gen(function* () {
+      const fetchFn: typeof fetch = () => Promise.resolve(new Response('<html>oops</html>', { status: 200 }))
+      const error = yield* Turnstile.use((t) => t.verify({ token: 'tok', action: 'signup', ip: null })).pipe(
+        Effect.provide(TurnstileLive.make(fetchFn).pipe(Layer.provide(AppConfig.test()))),
+        Effect.flip,
+      )
+      assert.strictEqual(error.reason, 'malformed-response')
     }),
   )
 

@@ -29,9 +29,15 @@ export const make = (fetchFn: typeof fetch) =>
             body.set('response', token)
             if (ip) body.set('remoteip', ip)
 
-            const json = yield* Effect.tryPromise({
-              try: (signal) => fetchFn(VERIFY_URL, { method: 'POST', body, signal }).then((r) => r.json()),
+            const response = yield* Effect.tryPromise({
+              try: (signal) => fetchFn(VERIFY_URL, { method: 'POST', body, signal }),
               catch: () => new CaptchaFailed({ reason: 'unreachable' }),
+            })
+            // A 5xx/4xx body is not a verdict, even if it happens to parse as one.
+            if (!response.ok) return yield* new CaptchaFailed({ reason: `siteverify-http-${response.status}` })
+            const json = yield* Effect.tryPromise({
+              try: () => response.json(),
+              catch: () => new CaptchaFailed({ reason: 'malformed-response' }),
             })
             const result = yield* Schema.decodeUnknownEffect(SiteverifyResponse)(json).pipe(
               Effect.mapError(() => new CaptchaFailed({ reason: 'malformed-response' })),
