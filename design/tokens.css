@@ -38,8 +38,9 @@
   --color-canvas-grid: #232c38;
   --color-canvas-text: #e7ecf3;   /* 13.5:1 */
 
-  /* Tipografi: Figtree (Google Fonts, wght 300..900, latin-ext) */
-  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Tipografi: Figtree (wght 300..900, latin-ext). "Figtree Variable" uygulamanın kendi barındırdığı
+     (@fontsource-variable) aile adı; "Figtree" Google Fonts kullanan taslaklar için. */
+  --font-sans: "Figtree Variable", "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
   --text-xs: 12px;    --leading-xs: 16px;
   --text-sm: 13px;    --leading-sm: 18px;
   --text-base: 14px;  --leading-base: 20px;   /* uygulama gövde, tablo */

@@ -4,7 +4,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
-    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
+    // Component tests (*.test.tsx) opt into jsdom with a `// @vitest-environment jsdom` docblock.
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
     environment: 'node',
   },
 })
