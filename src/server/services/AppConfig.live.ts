@@ -11,6 +11,8 @@ const EnvSchema = Schema.Struct({
   EMAIL_FROM: Schema.String.check(Schema.isPattern(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/)),
   EMAIL_FROM_NAME: Text,
   TURNSTILE_SECRET: Text,
+  /** Comma-separated; defaults to the SITE_URL hostname. */
+  TURNSTILE_HOSTNAMES: Schema.optional(Schema.String),
   R2_ACCOUNT_ID: optionalText,
   R2_ACCESS_KEY_ID: optionalText,
   R2_SECRET_ACCESS_KEY: optionalText,
@@ -63,7 +65,15 @@ export const decodeEnv = Effect.fnUntraced(function* (env: Record<string, unknow
   return AppConfig.of({
     siteUrl: e.SITE_URL,
     email: { from: e.EMAIL_FROM, fromName: e.EMAIL_FROM_NAME },
-    turnstileSecret: Redacted.make(e.TURNSTILE_SECRET),
+    turnstile: {
+      secret: Redacted.make(e.TURNSTILE_SECRET),
+      hostnames: new Set(
+        (e.TURNSTILE_HOSTNAMES?.trim() || e.SITE_URL.hostname)
+          .split(',')
+          .map((h) => h.trim().toLowerCase())
+          .filter((h) => h.length > 0),
+      ),
+    },
     r2Presign: yield* r2Presign(e),
     cachePurge: yield* cachePurge(e),
   })

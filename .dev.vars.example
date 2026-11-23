@@ -1,6 +1,10 @@
 # Copy to .dev.vars for `pnpm dev` (local Miniflare; never production resources).
 # Cloudflare's documented always-pass Turnstile test secret:
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+SITE_URL=http://localhost:3000
+# Hostnames siteverify may report (default: SITE_URL's). Test keys may report a placeholder hostname;
+# if local verification fails with "hostname-mismatch", add the reported one here. Never in production.
+TURNSTILE_HOSTNAMES=localhost,127.0.0.1
 # R2 S3 API credentials, only needed for presigned URLs. Use a token scoped to a dev bucket, not production.
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
@@ -8,7 +12,6 @@ R2_SECRET_ACCESS_KEY=
 # Optional overrides
 # R2_BUCKET_NAME=vizcad-files-bucket
 # R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
-# SITE_URL=http://localhost:3000
 # Edge cache purge across the zone (D4). Without these, purge only clears the local data center.
 # CF_ZONE_ID=
 # CF_PURGE_TOKEN=

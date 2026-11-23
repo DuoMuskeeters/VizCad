@@ -23,7 +23,11 @@ export class AppConfig extends Context.Service<
   {
     readonly siteUrl: URL
     readonly email: { readonly from: string; readonly fromName: string }
-    readonly turnstileSecret: Redacted.Redacted<string>
+    readonly turnstile: {
+      readonly secret: Redacted.Redacted<string>
+      /** Frontend hostnames siteverify may report. Production must not include localhost. */
+      readonly hostnames: ReadonlySet<string>
+    }
     /** None when R2 S3 credentials are not configured (e.g. local dev): presigning fails with ConfigError. */
     readonly r2Presign: Option.Option<R2Presign>
     /** None when not configured: purge only clears the local data center's cache. */
@@ -35,7 +39,7 @@ export class AppConfig extends Context.Service<
 export const testConfig: AppConfig['Service'] = {
   siteUrl: new URL('https://vizcad.test'),
   email: { from: 'noreply@vizcad.test', fromName: 'VizCad' },
-  turnstileSecret: Redacted.make('test-turnstile-secret'),
+  turnstile: { secret: Redacted.make('test-turnstile-secret'), hostnames: new Set(['vizcad.test']) },
   r2Presign: Option.some({
     endpoint: new URL('https://account.r2.cloudflarestorage.com'),
     bucketName: 'vizcad-files-bucket',
