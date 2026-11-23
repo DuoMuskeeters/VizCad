@@ -113,6 +113,24 @@ const executeAll = (statements: ReadonlyArray<MemoryStatement>) => {
   return results
 }
 
+/**
+ * Synchronous all-or-nothing batch. `finally` (no catch) rolls back on a returned Error or on an error
+ * thrown by node:sqlite, which then rejects the surrounding `settle` Promise.
+ */
+const runBatch = (sqlite: DatabaseSync, statements: ReadonlyArray<MemoryStatement>) => {
+  sqlite.exec('BEGIN')
+  let committed = false
+  try {
+    const results = executeAll(statements)
+    if (results instanceof Error) return results
+    sqlite.exec('COMMIT')
+    committed = true
+    return results
+  } finally {
+    if (!committed) sqlite.exec('ROLLBACK')
+  }
+}
+
 export interface MemoryD1 {
   readonly binding: D1Database
   readonly sqlite: DatabaseSync
@@ -139,20 +157,9 @@ export const openMemoryD1 = (options: { migrate?: boolean } = {}): MemoryD1 => {
 
   const binding = {
     prepare: (sql: string) => new MemoryStatement(sqlite, sql),
-    // D1 runs a batch as one SQL transaction: any failure rolls back every statement.
-    batch: (statements: ReadonlyArray<MemoryStatement>) => {
-      sqlite.exec('BEGIN')
-      return settle(() => executeAll(statements)).then(
-        (results) => {
-          sqlite.exec('COMMIT')
-          return results
-        },
-        (error: unknown) => {
-          sqlite.exec('ROLLBACK')
-          return Promise.reject(error)
-        },
-      )
-    },
+    // D1 runs a batch as one SQL transaction: any failure rolls back every statement. BEGIN..COMMIT runs in
+    // one synchronous call, so no other query can interleave and be swept into (or rolled back with) it.
+    batch: (statements: ReadonlyArray<MemoryStatement>) => settle(() => runBatch(sqlite, statements)),
     exec: (sql: string) =>
       settle(() => {
         sqlite.exec(sql)

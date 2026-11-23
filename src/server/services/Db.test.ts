@@ -79,6 +79,26 @@ layer(DbMemory.memory)('Db (in-memory D1)', (it) => {
     }),
   )
 
+  it.effect('a failing batch never rolls back an independent concurrent write', () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const failingBatch = db
+        .use((d) =>
+          d.batch([
+            d.insert(schema.user).values(newUser('b1', 'b1@example.com')),
+            d.insert(schema.user).values(newUser('b2', 'ada@example.com')), // duplicate email
+          ]),
+        )
+        .pipe(Effect.flip)
+      const independent = db.use((d) => d.insert(schema.user).values(newUser('solo', 'solo@example.com')))
+      yield* Effect.all([failingBatch, independent, failingBatch, independent.pipe(Effect.ignore)], { concurrency: 'unbounded' })
+
+      const rows = yield* db.use((d) => d.query.user.findMany())
+      assert.isTrue(rows.some((r) => r.id === 'solo'), 'independent write survived')
+      assert.isFalse(rows.some((r) => r.id === 'b1'), 'failed batch rolled back')
+    }),
+  )
+
   it.effect('rejects interactive transactions, which D1 does not support', () =>
     Effect.gen(function* () {
       const db = yield* Db
