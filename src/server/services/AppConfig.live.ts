@@ -57,8 +57,8 @@ const cachePurge = (e: Env) => {
   return partial('Cache purge (CF_ZONE_ID, CF_PURGE_TOKEN)')
 }
 
-/** Decodes a raw env record (the Worker `env`, or a plain object in tests) into AppConfig. */
-export const decodeEnv = Effect.fnUntraced(function* (env: Record<string, unknown>) {
+/** Decodes the Worker `env` (or a plain object in tests) into AppConfig; bindings in it are ignored. */
+export const decodeEnv = Effect.fnUntraced(function* (env: object) {
   const e = yield* Schema.decodeUnknownEffect(EnvSchema)(env).pipe(
     Effect.mapError((issue) => new ConfigError({ message: String(issue) })),
   )
@@ -79,4 +79,4 @@ export const decodeEnv = Effect.fnUntraced(function* (env: Record<string, unknow
   })
 })
 
-export const fromEnv = (env: Record<string, unknown>) => Layer.effect(AppConfig, decodeEnv(env))
+export const fromEnv = (env: object) => Layer.effect(AppConfig, decodeEnv(env))
