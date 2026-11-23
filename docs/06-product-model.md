@@ -1,6 +1,6 @@
 # Ürün modeli: organizasyon, proje, kişi
 
-Tarih: 23 Kasım 2026. Durum: **öneri, onay bekliyor.** Onaylanan maddeler `01-decisions.md`'ye karar olarak geçer. Pazar bağlamı: `05-market.md`.
+Tarih: 23 Kasım 2026. Durum: **onaylandı (D17)**, erişim düzeyleri ve roller kullanıcı cevabına göre güncellendi. Pazar bağlamı: `05-market.md`.
 
 ## 1. Soru
 
@@ -31,7 +31,7 @@ Kaynaklar vendor yardım sayfaları; bazıları eski sürüm olabilir, ayrıntı
 
 ```
 Workspace (firma ya da kişisel)
-├── Üyeler ........ Sahip · Yönetici · Üye        (koltuk)
+├── Üyeler ........ Sahip · Yönetici · Üye · Yorumcu
 ├── Misafirler .... dış kişiler                    (koltuk değil)
 ├── Projeler
 │   ├── Erişim: "Tüm ekip" (varsayılan) ya da "Yalnızca davetliler"
@@ -41,7 +41,9 @@ Workspace (firma ya da kişisel)
 └── Aktivite kaydı (kim, neyi, ne zaman açtı/indirdi/paylaştı)
 ```
 
-**Tek erişim dili.** Dosya, proje, link ve misafir için aynı üç düzey: **Görüntüleyebilir · Görüntüleyip indirebilir · Düzenleyebilir.** Satın almacı ya da tedarikçi her yerde aynı kelimeleri görür (D11). "Görüntüleyebilir" sunucuda gerçekten uygulanana kadar (audit 🔒) arayüzde vaat edilmez.
+**Tek erişim dili.** Dosya, proje, link ve misafir için aynı dört düzey, her biri öncekini kapsar: **Görüntüleyebilir · Yorum yapabilir · İndirebilir · Düzenleyebilir.** Satın almacı ya da tedarikçi her yerde aynı kelimeleri görür (D11). Hesapsız link kimlik taşımadığı için yorum yapamaz; linkte yalnızca Görüntüleyebilir ve İndirebilir seçilir.
+
+**Workspace rolleri.** Sahip (fatura, silme, sahiplik devri) · Yönetici (üyeler, misafirler, projeler, aktivite) · Üye (yükler, proje açar, paylaşır) · Yorumcu (firmadaki "Tüm ekip" projelerini görür ve yorum yapar, yükleyemez; yönetici, fiyatlandırmada light kullanıcı). "Görüntüleyebilir" sunucuda gerçekten uygulanana kadar (audit 🔒) arayüzde vaat edilmez.
 
 **Proje neden var.** Drive kullanıcısı klasörle düşünür, ama bir firmada işin doğal birimi müşteri işi, ürün ya da ihaledir. Proje hem gruplama hem **erişim sınırı**: "Pompa revizyonu" projesine tedarikçiyi misafir olarak ekleyince yalnızca o projeyi görür. Bu, `05-market.md`'deki 1 numaralı ayrışma yönünün (tedarikçi ve teklif işbirliği) çekirdeği. Klasörler ileride projenin içine gelir (D15 ile uyumlu).
 
@@ -54,12 +56,12 @@ Workspace (firma ya da kişisel)
 | Kapsam | Tek dosya | Proje ya da dosya |
 | Kimlik ve kayıt | "Link ile açıldı" | "Ömer Koç (Koç Kalıp) açtı, indirdi" |
 | Süre | Son kullanma tarihi | Son kullanma tarihi + elle kaldırma |
-| Yorum | Hayır | Evet |
+| Yorum | Hayır | Varsayılan düzey "Yorum yapabilir" |
 | Koltuk | Hayır | Hayır |
 
 **Aktivite kaydı.** Sahip ve yöneticiler workspace'teki tüm erişimleri görür (dosya açıldı, indirildi, paylaşıldı, misafir eklendi). Güvenli paylaşım iddiasının kanıtı bu; rakiplerde kurumsal planlarda var, bizde temel olabilir.
 
-**Ücret (Q10 için girdi).** Koltuk = Sahip, Yönetici, Üye. Misafir ve link izleyicisi ücretsiz. Limitler `Entitlements`'tan (D2): koltuk, depolama, dosya boyutu, misafir sayısı, kısıtlı proje sayısı.
+**Ücret (Q10 için girdi).** Tam koltuk = Sahip, Yönetici, Üye. Yorumcu ucuz ya da ücretsiz (light). Misafir ve link izleyicisi ücretsiz. Limitler `Entitlements`'tan (D2): koltuk, depolama, dosya boyutu, misafir sayısı, kısıtlı proje sayısı.
 
 ## 4. Kapsam
 
@@ -71,7 +73,7 @@ Workspace (firma ya da kişisel)
 
 ## 5. Altyapıya etkisi
 
-- better-auth `organization` plugin'i: workspace = organization, üye ve davet tabloları hazır. Roller: `owner`, `admin`, `member`, `guest`. Misafir teknik olarak `guest` rollü üyelik olarak tutulabilir; böylece oturumda aktif workspace mantığı aynı kalır, ama arayüz ve faturalama onu üye saymaz.
+- better-auth `organization` plugin'i: workspace = organization, üye ve davet tabloları hazır. Roller: `owner`, `admin`, `member`, `commenter`, `guest` (better-auth özel rol tanımıyla). Misafir teknik olarak `guest` rollü üyelik olarak tutulabilir; böylece oturumda aktif workspace mantığı aynı kalır, ama arayüz ve faturalama onu üye saymaz.
 - Projeler bizim tablomuz: `projects` (workspaceId, ad, erişim modu), `project_access` (projectId, userId, düzey). better-auth'un "teams" özelliği proje için kullanılmaz; erişim düzeyi kavramı orada yok.
 - Bir tedarikçi birden fazla üreticinin misafiri olabilir, artı kendi kişisel workspace'i olur. Bu yüzden **Q11 (birden fazla organizasyona üyelik) "evet" olmak zorunda.**
 - `permissions.ts` tek karar fonksiyonu: workspace rolü + proje erişimi + dosya paylaşımı + link → sonuç (D2). Çekirdek yine yalnızca `workspaceId` ve yetki sonucunu bilir.
@@ -98,13 +100,9 @@ Misafirin gördüğü menü: yalnızca kendisine açılan projeler ve dosyalar; 
 
 Tasarlanacak organizasyon ekranları: workspace değiştirici · workspace oluşturma (onboarding) · projeler listesi + proje oluşturma · proje sayfası (dosyalar + erişim) · ekip (üyeler, misafirler, davetler) · davet kabulü (üye ve misafir için ayrı metin) · aktivite kaydı · workspace ayarları.
 
-## 7. Onay bekleyen kararlar
+## 7. Kararlar
 
-1. Projeler ilk sürümde var mı (klasör yerine birincil gruplama ve erişim sınırı)?
-2. Misafir modeli: dış kişi koltuk tüketmez, yalnızca kendisine açılanı görür, yorum yapabilir, yükleyemez (şimdilik)?
-3. Tek erişim dili: Görüntüleyebilir · Görüntüleyip indirebilir · Düzenleyebilir?
-4. Workspace rolleri üç tane mi (Sahip, Yönetici, Üye), yoksa ayrıca "İzleyici" üye rolü de olsun mu? Öneri: üç; içeride yalnızca bakacak kişiye proje/dosya düzeyinde "Görüntüleyebilir" verilir.
-5. Q11: birden fazla workspace'e üyelik evet (misafir modeli bunu gerektirir).
+Kullanıcı cevapları (23 Kasım 2026): projeler evet · misafir modeli evet · erişime "Yorum yapabilir" düzeyi eklendi · rollerde yorum seçeneği olmalı → Yorumcu rolü · Q11 evet. Hepsi D17'de.
 
 ## Kaynaklar
 - Frame.io V4 hiyerarşi ve roller: https://next.developer.frame.io/platform/docs/guides/accounts-projects-and-workspaces · https://next.developer.frame.io/platform/docs/guides/managing-user-permissions · https://help.frame.io/en/articles/9875389-user-roles-and-permissions

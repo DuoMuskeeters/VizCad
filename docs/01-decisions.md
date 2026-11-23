@@ -64,11 +64,19 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Geliştirme izi: Faz 1 iskeleti ve servisler (UI kararı gerektirmez), ardından Faz 3 kimlik + organizasyon altyapısı. Ekranın tasarımı onaylandıkça arayüzü yapılır.
 - Gerekçe: eski uygulamada organizasyon yoktu (audit 🔴), kullanıcı akışı belirsiz; ekranları görmek altyapı kararlarını (rol adları, davet akışı, kişisel/firma ayrımı) netleştirir.
 
+**D17. Ürün modeli (23 Kasım 2026).** Ayrıntı `06-product-model.md`.
+- Hiyerarşi: Workspace → **Projeler** → Dosyalar → Sürümler. Proje hem gruplama hem erişim sınırı; erişim "Tüm ekip" ya da "Yalnızca davetliler". Dosya projesiz de durabilir. Klasörler ileride projenin içine (D15).
+- Erişim düzeyleri (dosya, proje, misafir, link için aynı, her biri öncekini kapsar): **Görüntüleyebilir · Yorum yapabilir · İndirebilir · Düzenleyebilir.** Hesapsız link yorum yapamaz; linkte yalnızca Görüntüleyebilir / İndirebilir.
+- Workspace rolleri: **Sahip · Yönetici · Üye · Yorumcu.** Yorumcu firma içinde görür ve yorum yapar, yükleyemez (kullanıcının "yorum seçeneği olmalı" isteğinden yorumlandı; fiyatı Q10'da, Onshape'teki light kullanıcı gibi ucuz/ücretsiz olabilir).
+- **Misafir:** dış kişi (tedarikçi, müşteri); üye sayılmaz, koltuk tüketmez, yalnızca kendisine açılan proje/dosyayı görür, varsayılan düzey Yorum yapabilir, şimdilik yükleyemez. Tüm erişimler aktivite kaydına geçer.
+- Q11 cevaplandı: bir kişi birden fazla workspace'e üye/misafir olabilir.
+- Bilgi mimarisi `06-product-model.md` §6'daki menüye geçer (03-design §1'in yerine).
+
 ## Açık sorular
 
 | # | Soru | Notlar |
 |---|---|---|
 | Q9 | Ödemeyi hangi şirket alacak, şirket nerede kurulu? | Stripe Türkiye'de kurulu şirketleri kabul etmiyor. Seçenekler: Paddle veya Lemon Squeezy gibi "merchant of record" (global KDV/fatura onlarda), Türkiye için iyzico. Seçimden önce şartları güncel olarak doğrulayacağım. |
 | Q10 | Fiyatlandırma modeli: koltuk başına mı, depolama kademesi mi, ikisi mi? Ücretsiz plan olacak mı? | `Entitlements` servisi hepsini destekler; tasarım ve landing için gerekli. |
-| Q11 | B2B'de bir kullanıcı birden fazla organizasyona üye olabilsin mi (ajans, tedarikçi senaryosu)? | Önerim evet; workspace değiştirici üst menüde. |
+| ~~Q11~~ | ~~Birden fazla organizasyona üyelik~~ | Cevaplandı: evet (D17). |
 | Q12 | Pivot adayları neler? | Tasarımda nelerin genel kalması gerektiğini belirler. |
