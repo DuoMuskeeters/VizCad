@@ -237,6 +237,15 @@ Tel kafeslerde verilen ve onay bekleyen kararlar:
 - Paylaşım penceresi: kişi daveti + isteğe bağlı mesaj, erişimi olanlar, link (izin, son kullanma, parola). İzin adları: Görüntüleyebilir / Görüntüleyip indirebilir / Düzenleyebilir.
 - Paylaşılan sayfa: paylaşan + firma + mesaj üstte; mobilde 3B, "3B modeli aç" ile yüklenir (önce küçük resim). Masaüstünde model solda büyük, bilgi sağda.
 
+### 4.1 Görsel taslak (v2, onay bekliyor)
+
+Gri tel kafes yerleşimi tartışmak için fazla soyut bulundu ("modern, sade" beklentisi). Aynı yerleşim görsel tasarımla çizildi: `design/mockups/v2/01-dosyalar.html` (görüntüler `design/mockups/v2/shots/`, `node design/mockups/v2/_shoot.cjs <sayfa> <durumlar>`).
+
+- Yazı tipi: Figtree (tek aile; Türkçe karakter desteği, mühendis olmayan kullanıcıya sıcak ama ciddi).
+- Renk: beyaz içerik, `#f7f8fa` kenar menü, metin `#142033` (logodaki lacivert), ikincil metin `#5a6475`. Marka `#0891b2` beyazda 3.7:1 olduğu için metin ve dolu düğmelerde `#0e7490` (5.4:1); `#0891b2` seçili gösterge, ilerleme çubuğu ve odak halkasında.
+- Kabuk: workspace değiştirici, arama (⌘K), menü, depolama ve hesap kenar menüde; üst çubuk yok. Mobilde üst çubuk + alttaki "Yükle" düğmesi.
+- Gölge yalnızca üstte duran katmanlarda (seçim çubuğu, yükleme kartı, menüler).
+
 ## 5. Token'lar
 
 _(tel kafesler onaylandıktan sonra)_

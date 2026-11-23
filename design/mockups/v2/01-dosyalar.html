@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dosyalar · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  .page-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px; }
+  .page-head h1 { font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+  .page-head p { color: var(--text-3); font-size: 14px; margin-top: 2px; }
+  .page-head .actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  .tabs { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; }
+  .tabs a { position: relative; display: inline-flex; align-items: center; height: 44px; font-size: 14px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+  .tabs a:hover { color: var(--text); }
+  .tabs a[aria-current="page"] { color: var(--text); }
+  .tabs a[aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--brand); }
+  .toolbar .end { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+  .sort { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border-radius: var(--radius); font-size: 14px; color: var(--text-2); }
+  .sort:hover { background: var(--hover); color: var(--text); }
+  .view { display: inline-flex; padding: 2px; border-radius: var(--radius); background: var(--hover); }
+  .view button { display: grid; place-items: center; width: 32px; height: 30px; border-radius: 6px; color: var(--text-3); }
+  .view button[aria-pressed="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(20, 32, 51, .08); }
+
+  .table { width: 100%; }
+  .tr { display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px 110px 76px 168px 36px; align-items: center; gap: 0 16px; padding: 0 8px; min-height: 60px; border-radius: var(--radius); }
+  .th { min-height: 40px; font-size: 13px; color: var(--text-3); font-weight: 500; }
+  .tbody .tr { border-bottom: 1px solid var(--line); border-radius: 0; }
+  .tbody .tr:hover { background: #fafbfc; }
+  .tbody .tr[aria-selected="true"] { background: var(--accent-soft); border-bottom-color: #cfe9ef; }
+  .cb { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; background: var(--bg); opacity: 0; transition: opacity .1s; }
+  .th .cb, .tr:hover .cb, .tr[aria-selected="true"] .cb { opacity: 1; }
+  .tr[aria-selected="true"] .cb { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tr[aria-selected="true"] .cb svg { width: 12px; height: 12px; stroke-width: 3; }
+  .tr:not([aria-selected="true"]) .cb svg { display: none; }
+  .file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tile { flex: none; width: 40px; height: 40px; border-radius: 8px; background: var(--sidebar); border: 1px solid var(--line); display: grid; place-items: center; font-size: 10px; font-weight: 700; letter-spacing: .02em; color: var(--text-2); }
+  .file .n { min-width: 0; }
+  .file .n b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .n span { display: none; font-size: 13px; color: var(--text-3); }
+  .star { color: #d97706; fill: #f59e0b; width: 14px !important; height: 14px !important; }
+  .owner { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); min-width: 0; }
+  .owner .avatar { width: 22px; height: 22px; font-size: 10px; }
+  .cell { font-size: 14px; color: var(--text-2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .access { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-2); }
+  .access svg { width: 15px; height: 15px; color: var(--text-3); }
+  .access.warn, .access.warn svg { color: var(--warn); }
+  .more { color: var(--text-3); width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; }
+  .more:hover { background: var(--hover); color: var(--text); }
+
+  .bulk { position: fixed; left: calc(248px + (100vw - 248px) / 2); transform: translateX(-50%); bottom: 24px; display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 16px; border-radius: 12px; background: var(--text); color: #fff; box-shadow: var(--shadow-pop); white-space: nowrap; }
+  .bulk .info { font-size: 14px; margin-right: 12px; }
+  .bulk .info span { color: #a9b3c2; margin-left: 6px; }
+  .bulk button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #fff; }
+  .bulk button:hover { background: rgba(255, 255, 255, .1); }
+  .bulk .sep { width: 1px; height: 20px; background: rgba(255, 255, 255, .18); margin: 0 4px; }
+
+  .empty { max-width: 440px; margin: 72px auto; text-align: center; display: grid; justify-items: center; gap: 10px; }
+  .empty .ring { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 8px; }
+  .empty .ring svg { width: 26px; height: 26px; }
+  .empty h2 { font-size: 20px; font-weight: 650; }
+  .empty p { color: var(--text-2); }
+  .empty .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .empty small { color: var(--text-3); font-size: 13px; margin-top: 6px; }
+
+  .skel { height: 10px; border-radius: 5px; background: #eceef2; animation: sh 1.2s ease-in-out infinite alternate; }
+  @keyframes sh { to { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+  .alert { max-width: 520px; margin: 56px auto; display: flex; gap: 14px; padding: 18px 20px; border: 1px solid #f3d2d2; background: #fdf6f6; border-radius: var(--radius-lg); }
+  .alert svg { color: var(--danger); margin-top: 2px; }
+  .alert h2 { font-size: 16px; font-weight: 600; }
+  .alert p { color: var(--text-2); margin: 2px 0 12px; }
+
+  .uploads { position: fixed; right: 24px; bottom: 24px; width: 360px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .uploads header { display: flex; align-items: center; gap: 8px; padding: 12px 8px 12px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid var(--line); }
+  .uploads header .end { margin-left: auto; display: flex; }
+  .uploads header .end button { width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; color: var(--text-3); }
+  .up { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 12px 16px; }
+  .up + .up { border-top: 1px solid var(--line); }
+  .up .tile { width: 32px; height: 32px; font-size: 9px; grid-row: span 2; }
+  .up b { font-weight: 500; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .up .s { font-size: 13px; color: var(--text-3); }
+  .up .meter { grid-column: 2 / -1; margin-top: 6px; }
+  .up .ok { color: #15803d; }
+  .up .no { color: var(--danger); }
+  .up .msg { grid-column: 2 / -1; font-size: 13px; color: var(--text-2); }
+  .up a { font-size: 14px; font-weight: 500; color: var(--accent); }
+
+  .fab { display: none; }
+
+  @media (max-width: 899px) {
+    .page-head { align-items: center; }
+    .page-head h1 { font-size: 24px; }
+    .page-head .actions .btn--primary { display: none; }
+    .toolbar { margin: 0 -16px 4px; padding: 0 16px; }
+    .toolbar .end { display: none; }
+    .th { display: none; }
+    .tr { grid-template-columns: minmax(0, 1fr) 40px; padding: 0; min-height: 68px; }
+    .tbody .tr:hover { background: transparent; }
+    .tr > .cbx, .tr > .owner, .tr > .cell, .tr > .acc { display: none; }
+    .file .n span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .more { width: 44px; height: 44px; }
+    .bulk { left: 8px; right: 8px; transform: none; bottom: 8px; justify-content: space-between; }
+    .bulk button .lbl { display: none; }
+    .bulk .sep { display: none; }
+    .uploads { left: 8px; right: 8px; bottom: 8px; width: auto; }
+    .fab { display: inline-flex; position: fixed; right: 16px; bottom: 16px; height: 52px; padding: 0 20px; border-radius: 26px; box-shadow: var(--shadow-pop); }
+  }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Dosyalar</strong>
+  <a href="?durum=dolu">Dolu</a>
+  <a href="?durum=secim">Seçim</a>
+  <a href="?durum=yukleme">Yükleme</a>
+  <a href="?durum=bos">Boş</a>
+  <a href="?durum=yukleniyor">Yükleniyor</a>
+  <a href="?durum=hata">Hata</a>
+</nav>
+
+<div class="shell">
+  <aside class="sidebar">
+    <button class="ws" type="button"><span class="mark">DM</span><span class="name">Demir Makina<small>Ekip · 12 üye</small></span><i data-lucide="chevrons-up-down"></i></button>
+    <button class="search-btn" type="button"><i data-lucide="search"></i>Ara<span class="kbd">⌘K</span></button>
+    <nav class="nav" aria-label="Ana menü">
+      <a href="#" aria-current="page"><i data-lucide="folder"></i>Dosyalar</a>
+      <a href="#"><i data-lucide="share-2"></i>Paylaşılanlar<span class="count">4</span></a>
+      <a href="#"><i data-lucide="users"></i>Ekip</a>
+      <a href="#"><i data-lucide="settings"></i>Ayarlar</a>
+    </nav>
+    <div class="spacer"></div>
+    <nav class="nav" aria-label="Diğer">
+      <a href="#"><i data-lucide="trash-2"></i>Çöp kutusu</a>
+    </nav>
+    <div class="storage">
+      <div class="row"><span>Depolama</span><span>153 MB / 5 GB</span></div>
+      <div class="meter"><span style="width:3%"></span></div>
+    </div>
+    <div class="me"><span class="avatar a1">AY</span><span class="who">Ayşe Yılmaz<span>ayse@demirmakina.com</span></span></div>
+  </aside>
+
+  <div>
+    <header class="mobile-top">
+      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="menu"></i><span class="sr">Menü</span></button>
+      <button class="ws" type="button"><span class="mark">DM</span><span class="name">Demir Makina</span><i data-lucide="chevron-down"></i></button>
+      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="search"></i><span class="sr">Ara</span></button>
+      <span class="avatar a1">AY</span>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Dosyalar</h1>
+          <p data-durum-not="bos yukleniyor hata">8 dosya · 153 MB</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn--primary" type="button"><i data-lucide="upload"></i>Yükle</button>
+        </div>
+      </div>
+
+      <div class="toolbar" data-durum-not="bos">
+        <nav class="tabs" aria-label="Filtre">
+          <a href="#" aria-current="page">Tümü</a>
+          <a href="#">Son açılanlar</a>
+          <a href="#">Yıldızlı</a>
+          <a href="#">Benim yüklediklerim</a>
+        </nav>
+        <div class="end">
+          <button class="sort" type="button"><i data-lucide="arrow-down-wide-narrow"></i><span>Son değişiklik</span></button>
+          <div class="view" role="group" aria-label="Görünüm">
+            <button type="button" aria-pressed="true"><i data-lucide="list"></i><span class="sr">Liste</span></button>
+            <button type="button" aria-pressed="false"><i data-lucide="layout-grid"></i><span class="sr">Izgara</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table" data-durum="dolu secim yukleme">
+        <div class="tr th">
+          <span class="cbx"><span class="cb"></span></span><span>Ad</span><span>Sahip</span><span>Değiştirildi</span><span class="num">Boyut</span><span>Erişim</span><span></span>
+        </div>
+        <div class="tbody">
+          <div class="tr" data-sel><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">STEP</span><span class="n"><b>Flanş_DN100_rev3.step</b><span>Ayşe Yılmaz · Bugün 14:20 · 12,4 MB</span></span><i data-lucide="star" class="star" aria-label="Yıldızlı"></i></a>
+            <span class="owner"><span class="avatar a1">AY</span>Ayşe Yılmaz</span><span class="cell">Bugün 14:20</span><span class="cell num">12,4 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="link"></i>Link · 7 gün kaldı</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr" data-sel><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">STEP</span><span class="n"><b>Pompa_gövdesi_montaj.step</b><span>Mehmet Kaya · Bugün 09:05 · 86,2 MB</span></span></a>
+            <span class="owner"><span class="avatar a2">MK</span>Mehmet Kaya</span><span class="cell">Bugün 09:05</span><span class="cell num">86,2 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="user-round"></i>2 kişi</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">IGES</span><span class="n"><b>Konveyör_şase.iges</b><span>Ayşe Yılmaz · Dün · 41,0 MB</span></span></a>
+            <span class="owner"><span class="avatar a1">AY</span>Ayşe Yılmaz</span><span class="cell">Dün</span><span class="cell num">41,0 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="lock"></i>Yalnızca ekip</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">STL</span><span class="n"><b>Rulman_yuvası_6205.stl</b><span>Zeynep Arslan · 19 Kas · 3,8 MB</span></span></a>
+            <span class="owner"><span class="avatar a3">ZA</span>Zeynep Arslan</span><span class="cell">19 Kas</span><span class="cell num">3,8 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="lock"></i>Yalnızca ekip</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">STEP</span><span class="n"><b>Mil_Ø25x300.step</b><span>Mehmet Kaya · 18 Kas · 1,2 MB</span></span></a>
+            <span class="owner"><span class="avatar a2">MK</span>Mehmet Kaya</span><span class="cell">18 Kas</span><span class="cell num">1,2 MB</span>
+            <span class="acc"><span class="access warn"><i data-lucide="link-2-off"></i>Linkin süresi doldu</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">OBJ</span><span class="n"><b>Kapak_plakası_t5.obj</b><span>Ayşe Yılmaz · 14 Kas · 640 KB</span></span></a>
+            <span class="owner"><span class="avatar a1">AY</span>Ayşe Yılmaz</span><span class="cell">14 Kas</span><span class="cell num">640 KB</span>
+            <span class="acc"><span class="access"><i data-lucide="lock"></i>Yalnızca ekip</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">3MF</span><span class="n"><b>Braket_sol_v2.3mf</b><span>Zeynep Arslan · 10 Kas · 2,1 MB</span></span></a>
+            <span class="owner"><span class="avatar a3">ZA</span>Zeynep Arslan</span><span class="cell">10 Kas</span><span class="cell num">2,1 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="user-round"></i>1 kişi</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+          <div class="tr"><span class="cbx"><span class="cb"><i data-lucide="check"></i></span></span>
+            <a class="file" href="#"><span class="tile">STL</span><span class="n"><b>Dişli_z32_m2.stl</b><span>Can Demir · 2 Kas · 5,6 MB</span></span></a>
+            <span class="owner"><span class="avatar a4">CD</span>Can Demir</span><span class="cell">2 Kas</span><span class="cell num">5,6 MB</span>
+            <span class="acc"><span class="access"><i data-lucide="lock"></i>Yalnızca ekip</span></span>
+            <button class="more" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button></div>
+        </div>
+      </div>
+
+      <section class="empty" data-durum="bos">
+        <span class="ring"><i data-lucide="upload"></i></span>
+        <h2>İlk dosyanı yükle</h2>
+        <p>Bir CAD dosyasını bu sayfaya sürükle ya da seç. Ekibindeki herkes burada görecek.</p>
+        <div class="acts">
+          <button class="btn btn--primary" type="button"><i data-lucide="upload"></i>Dosya seç</button>
+          <button class="btn" type="button">Örnek modeli aç</button>
+        </div>
+        <small>STEP, IGES, STL, OBJ, PLY ve 3MF · dosya başına 100 MB'a kadar</small>
+      </section>
+
+      <div class="tbody" data-durum="yukleniyor" aria-busy="true">
+        <div class="tr"><span></span><span class="file"><span class="tile"></span><span class="skel" style="width:55%"></span></span><span class="skel" style="width:70%"></span><span class="skel" style="width:60%"></span><span class="skel"></span><span class="skel" style="width:65%"></span><span></span></div>
+        <div class="tr"><span></span><span class="file"><span class="tile"></span><span class="skel" style="width:40%"></span></span><span class="skel" style="width:60%"></span><span class="skel" style="width:50%"></span><span class="skel"></span><span class="skel" style="width:50%"></span><span></span></div>
+        <div class="tr"><span></span><span class="file"><span class="tile"></span><span class="skel" style="width:65%"></span></span><span class="skel" style="width:75%"></span><span class="skel" style="width:55%"></span><span class="skel"></span><span class="skel" style="width:70%"></span><span></span></div>
+        <div class="tr"><span></span><span class="file"><span class="tile"></span><span class="skel" style="width:48%"></span></span><span class="skel" style="width:65%"></span><span class="skel" style="width:45%"></span><span class="skel"></span><span class="skel" style="width:55%"></span><span></span></div>
+      </div>
+
+      <section class="alert" data-durum="hata" role="alert">
+        <i data-lucide="circle-alert"></i>
+        <div>
+          <h2>Dosyalar yüklenemedi</h2>
+          <p>Sunucuya ulaşılamadı. Bağlantını kontrol edip yeniden dene.</p>
+          <button class="btn" type="button"><i data-lucide="rotate-cw"></i>Yeniden dene</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="bulk" data-durum="secim" role="region" aria-label="Seçili dosyalar">
+  <span class="info">2 dosya seçildi<span>98,6 MB</span></span>
+  <button type="button"><i data-lucide="share-2"></i><span class="lbl">Paylaş</span></button>
+  <button type="button"><i data-lucide="download"></i><span class="lbl">İndir</span></button>
+  <button type="button"><i data-lucide="trash-2"></i><span class="lbl">Çöpe taşı</span></button>
+  <span class="sep"></span>
+  <button type="button"><i data-lucide="x"></i><span class="sr">Seçimi kaldır</span></button>
+</div>
+
+<section class="uploads" data-durum="yukleme" aria-label="Yüklemeler">
+  <header>2 dosyadan 1'i yüklendi<div class="end"><button type="button"><i data-lucide="chevron-down"></i><span class="sr">Küçült</span></button><button type="button"><i data-lucide="x"></i><span class="sr">Kapat</span></button></div></header>
+  <div class="up"><span class="tile">STEP</span><b>Pompa_kapak.step</b><span class="s">%64</span><div class="meter"><span style="width:64%"></span></div></div>
+  <div class="up"><span class="tile">STEP</span><b>Flanş_DN150.step</b><a href="#">Aç</a><span class="s ok">Yüklendi · 9,8 MB</span></div>
+  <div class="up"><span class="tile">DWG</span><b>rotor.dwg</b><span class="s no">Yüklenmedi</span><span class="msg">Bu dosya türü desteklenmiyor. STEP, IGES, STL, OBJ, PLY veya 3MF yükleyebilirsin.</span></div>
+</section>
+
+<button class="btn btn--primary fab" type="button" data-durum-not="secim yukleme"><i data-lucide="upload"></i>Yükle</button>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  if (document.body.dataset.durum === 'secim') document.querySelectorAll('[data-sel]').forEach((r) => r.setAttribute('aria-selected', 'true'));
+</script>
+</body>
+</html>
