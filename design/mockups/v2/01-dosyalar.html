@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dosyalar · VizCad</title>
+<title>Tüm dosyalar · VizCad</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -115,9 +115,9 @@
   }
 </style>
 </head>
-<body>
+<body data-page="01-dosyalar">
 <nav class="review wire-bar" aria-label="Taslak durumları">
-  <strong>Dosyalar</strong>
+  <strong>Tüm dosyalar</strong>
   <a href="?durum=dolu">Dolu</a>
   <a href="?durum=secim">Seçim</a>
   <a href="?durum=yukleme">Yükleme</a>
@@ -127,38 +127,15 @@
 </nav>
 
 <div class="shell">
-  <aside class="sidebar">
-    <button class="ws" type="button"><span class="mark">DM</span><span class="name">Demir Makina<small>Ekip · 12 üye</small></span><i data-lucide="chevrons-up-down"></i></button>
-    <button class="search-btn" type="button"><i data-lucide="search"></i>Ara<span class="kbd">⌘K</span></button>
-    <nav class="nav" aria-label="Ana menü">
-      <a href="#" aria-current="page"><i data-lucide="folder"></i>Dosyalar</a>
-      <a href="#"><i data-lucide="share-2"></i>Paylaşılanlar<span class="count">4</span></a>
-      <a href="#"><i data-lucide="users"></i>Ekip</a>
-      <a href="#"><i data-lucide="settings"></i>Ayarlar</a>
-    </nav>
-    <div class="spacer"></div>
-    <nav class="nav" aria-label="Diğer">
-      <a href="#"><i data-lucide="trash-2"></i>Çöp kutusu</a>
-    </nav>
-    <div class="storage">
-      <div class="row"><span>Depolama</span><span>153 MB / 5 GB</span></div>
-      <div class="meter"><span style="width:3%"></span></div>
-    </div>
-    <div class="me"><span class="avatar a1">AY</span><span class="who">Ayşe Yılmaz<span>ayse@demirmakina.com</span></span></div>
-  </aside>
+  <aside class="sidebar"></aside>
 
   <div>
-    <header class="mobile-top">
-      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="menu"></i><span class="sr">Menü</span></button>
-      <button class="ws" type="button"><span class="mark">DM</span><span class="name">Demir Makina</span><i data-lucide="chevron-down"></i></button>
-      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="search"></i><span class="sr">Ara</span></button>
-      <span class="avatar a1">AY</span>
-    </header>
+    <header class="mobile-top"></header>
 
     <main class="content">
       <div class="page-head">
         <div>
-          <h1>Dosyalar</h1>
+          <h1>Tüm dosyalar</h1>
           <p data-durum-not="bos yukleniyor hata">8 dosya · 153 MB</p>
         </div>
         <div class="actions">
@@ -278,6 +255,7 @@
 
 <button class="btn btn--primary fab" type="button" data-durum-not="secim yukleme"><i data-lucide="upload"></i>Yükle</button>
 
+<script src="_shell.js"></script>
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script src="../_wire.js"></script>
 <script>

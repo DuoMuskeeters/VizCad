@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ekip · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  .seats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); margin-bottom: 24px; font-size: 14px; }
+  .seats .s { display: grid; gap: 6px; min-width: 180px; }
+  .seats .s b { font-weight: 600; }
+  .seats .s .meter { width: 180px; }
+  .seats .s span { color: var(--text-3); }
+  .seats a { margin-left: auto; color: var(--accent); font-weight: 500; }
+  .members .li { grid-template-columns: minmax(0, 1fr) 150px 140px 36px; }
+  .guests .li { grid-template-columns: minmax(0, 1fr) 190px 120px 120px 36px; }
+  .invites .li { grid-template-columns: minmax(0, 1fr) 210px 150px auto; }
+  .th { min-height: 36px; font-size: 13px; color: var(--text-3); font-weight: 500; border-bottom: 1px solid var(--line); }
+  .list.withhead { border-top: 0; }
+  .warn { color: var(--warn); }
+  .acts { display: flex; gap: 4px; justify-content: flex-end; }
+  .acts .btn { height: 32px; font-size: 13px; padding: 0 10px; }
+  .more-row { padding: 14px 4px; font-size: 14px; color: var(--accent); font-weight: 500; }
+  .seat-warn { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--radius); background: #fef8ee; border: 1px solid #f6e0bd; font-size: 14px; }
+  .seat-warn svg { color: #9a4a06; margin-top: 2px; }
+  .empty { max-width: 480px; margin: 48px auto; text-align: center; display: grid; justify-items: center; gap: 10px; }
+  .empty .ring { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 8px; }
+  .empty .ring svg { width: 26px; height: 26px; }
+  .empty h2 { font-size: 20px; font-weight: 650; }
+  .empty p { color: var(--text-2); }
+  .empty .acts2 { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+  @media (max-width: 899px) {
+    .page-head .actions .lbl { display: none; }
+    .seats a { margin-left: 0; }
+    .th { display: none; }
+    .members .li, .guests .li { grid-template-columns: minmax(0, 1fr) auto; }
+    .members .li > .c, .guests .li > .c { display: none; }
+    .members .li > .icon-btn, .guests .li > .icon-btn { display: none; }
+    .invites .li { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; }
+    .invites .li > .c { display: none; }
+    .acts { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body data-page="06-ekip">
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Ekip</strong>
+  <a href="?durum=uyeler">Üyeler</a>
+  <a href="?durum=misafirler">Misafirler</a>
+  <a href="?durum=davetler">Bekleyen davetler</a>
+  <a href="?durum=davet">Üye davet et</a>
+  <a href="?durum=kisisel">Kişisel workspace</a>
+  <a href="04-projeler.html">← Projeler</a>
+</nav>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <div>
+    <header class="mobile-top"></header>
+    <main class="content">
+      <div class="page-head">
+        <div><h1>Ekip</h1><p class="sub" data-durum-not="kisisel">Demir Makina'daki kişiler ve dışarıdan eklenen misafirler</p></div>
+        <div class="actions" data-durum-not="kisisel"><a class="btn btn--primary" href="?durum=davet"><i data-lucide="user-plus"></i><span class="lbl">Üye davet et</span></a></div>
+      </div>
+
+      <div data-durum-not="kisisel">
+        <div class="seats">
+          <div class="s"><b>9 / 10 koltuk</b><div class="meter"><span style="width:90%"></span></div><span>Sahip, yönetici ve üyeler</span></div>
+          <div class="s"><b>3 yorumcu</b><span>Görür ve yorum yazar</span></div>
+          <div class="s"><b>5 misafir</b><span>Koltuk kullanmaz</span></div>
+          <a href="#">Planı gör</a>
+        </div>
+
+        <nav class="tabbar" aria-label="Ekip bölümleri">
+          <a href="?durum=uyeler" data-tab="uyeler">Üyeler <span class="n">12</span></a>
+          <a href="?durum=misafirler" data-tab="misafirler">Misafirler <span class="n">5</span></a>
+          <a href="?durum=davetler" data-tab="davetler">Bekleyen davetler <span class="n">2</span></a>
+        </nav>
+      </div>
+
+      <!-- Üyeler -->
+      <div class="members" data-durum="uyeler davet">
+        <div class="li th"><span>Kişi</span><span>Rol</span><span>Son etkinlik</span><span></span></div>
+        <div class="list withhead">
+          <div class="li"><span class="person"><span class="avatar a5">HD</span><span class="t"><b>Hakan Demir</b><span>hakan@demirmakina.com</span></span></span><span class="fixed dim">Sahip</span><span class="dim c">3 gün önce</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a1">AY</span><span class="t"><b>Ayşe Yılmaz (sen)</b><span>ayse@demirmakina.com</span></span></span><span class="fixed dim">Yönetici</span><span class="dim c">Şimdi</span><span></span></div>
+          <div class="li"><span class="person"><span class="avatar a2">MK</span><span class="t"><b>Mehmet Kaya</b><span>mehmet@demirmakina.com</span></span></span><button class="pick" type="button">Üye<i data-lucide="chevron-down"></i></button><span class="dim c">Bugün</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a3">ZA</span><span class="t"><b>Zeynep Arslan</b><span>zeynep@demirmakina.com</span></span></span><button class="pick" type="button">Üye<i data-lucide="chevron-down"></i></button><span class="dim c">Bugün</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a4">CD</span><span class="t"><b>Can Demir</b><span>can@demirmakina.com</span></span></span><button class="pick" type="button">Üye<i data-lucide="chevron-down"></i></button><span class="dim c">Dün</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a5">SE</span><span class="t"><b>Selin Er</b><span>selin@demirmakina.com · Satın alma</span></span></span><button class="pick" type="button">Yorumcu<i data-lucide="chevron-down"></i></button><span class="dim c">20 Kas</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a2">BŞ</span><span class="t"><b>Burak Şahin</b><span>burak@demirmakina.com · Üretim müdürü</span></span></span><button class="pick" type="button">Yorumcu<i data-lucide="chevron-down"></i></button><span class="dim c">17 Kas</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+        </div>
+        <a class="more-row" href="#" style="display:block">5 üye daha göster</a>
+      </div>
+
+      <!-- Misafirler -->
+      <div class="guests" data-durum="misafirler">
+        <div class="li th"><span>Misafir</span><span>Projeler</span><span>Erişim bitişi</span><span>Son erişim</span><span></span></div>
+        <div class="list withhead">
+          <div class="li"><span class="person"><span class="avatar a4">ÖK</span><span class="t"><b>Ömer Koç</b><span>Koç Kalıp · omer@koc-kalip.com.tr</span></span></span><span class="dim c">Pompa revizyonu</span><span class="dim c">30 Kas</span><span class="dim c">Bugün 14:32</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a3">DK</span><span class="t"><b>Derya Kaya</b><span>Kaya Hidrolik · derya@kayahidrolik.com</span></span></span><span class="dim c">2 proje</span><span class="dim c">Süresiz</span><span class="dim c">21 Kas</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar" style="background:#94a3b8">YT</span><span class="t"><b>satinalma@yildiztorna.com</b><span>Yıldız Torna</span></span></span><span class="dim c">Teklif: Yıldız Torna</span><span class="dim c">28 Kas</span><span class="dim c">18 Kas</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a2">AT</span><span class="t"><b>Ali Tunç</b><span>Tunç Döküm · ali@tuncdokum.com</span></span></span><span class="dim c">Konveyör hattı yenileme</span><span class="c warn" style="font-size:14px">Süresi doldu</span><span class="dim c">2 Kas</span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+        </div>
+      </div>
+
+      <!-- Davetler -->
+      <div class="invites" data-durum="davetler">
+        <div class="list">
+          <div class="li"><span class="person"><span class="avatar" style="background:#94a3b8">EA</span><span class="t"><b>elif@demirmakina.com</b><span>Üye olarak · Ayşe Yılmaz, 2 gün önce</span></span></span><span class="dim c">Üye</span><span class="dim c">7 gün içinde geçersiz</span><span class="acts"><button class="btn" type="button">Yeniden gönder</button><button class="btn btn--ghost" type="button">İptal et</button></span></div>
+          <div class="li"><span class="person"><span class="avatar" style="background:#94a3b8">SK</span><span class="t"><b>satinalma@kayahidrolik.com</b><span>Misafir olarak · Pompa revizyonu · Ayşe Yılmaz, 2 gün önce</span></span></span><span class="dim c"><span class="badge badge--guest">Misafir</span></span><span class="dim c">7 gün içinde geçersiz</span><span class="acts"><button class="btn" type="button">Yeniden gönder</button><button class="btn btn--ghost" type="button">İptal et</button></span></div>
+        </div>
+      </div>
+
+      <!-- Kişisel workspace -->
+      <section class="empty" data-durum="kisisel">
+        <span class="ring"><i data-lucide="users"></i></span>
+        <h2>Bu workspace yalnızca senin</h2>
+        <p>Ekiple çalışmak için bir firma workspace'i oluştur; dosyalarını ve projelerini oraya taşıyabilirsin.</p>
+        <div class="acts2"><button class="btn btn--primary" type="button"><i data-lucide="building-2"></i>Firma workspace'i oluştur</button></div>
+        <p class="dim" style="margin-top:12px">Dışarıdan biriyle paylaşmak için ekip gerekmez: bir projeye misafir ekleyebilir ya da link oluşturabilirsin.</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="scrim" data-durum="davet">
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="inv">
+    <header><div><h2 id="inv">Demir Makina'ya üye davet et</h2><p>Dışarıdan biriyle yalnızca bir projeyi paylaşacaksan onu projeye misafir olarak ekle.</p></div><a class="icon-btn" href="?durum=uyeler"><i data-lucide="x"></i><span class="sr">Kapat</span></a></header>
+    <div class="body">
+      <div class="fld"><span>E-posta adresleri</span>
+        <div class="chips-in"><span class="chip">elif@demirmakina.com<i data-lucide="x"></i></span><span class="chip">kerem@demirmakina.com<i data-lucide="x"></i></span><input aria-label="E-posta ekle" placeholder="Ekle"></div>
+      </div>
+      <div class="fld"><span>Rol</span>
+        <div class="choice" role="radiogroup">
+          <div class="opt" role="radio" aria-checked="false"><span class="dot"></span><b>Yönetici</b><span>Üyeleri, misafirleri ve projeleri yönetir; aktiviteyi görür.</span></div>
+          <div class="opt" role="radio" aria-checked="true"><span class="dot"></span><b>Üye</b><span>Dosya yükler, proje açar, paylaşır.</span></div>
+          <div class="opt" role="radio" aria-checked="false"><span class="dot"></span><b>Yorumcu</b><span>Ekibe açık projeleri görür ve yorum yazar; yükleyemez. Satın alma ve yönetim için.</span></div>
+        </div>
+      </div>
+      <div class="seat-warn"><i data-lucide="triangle-alert"></i><span>2 üye davet ediyorsun ama 1 boş koltuk var. Birini yorumcu olarak davet et ya da <a href="#" style="color:var(--accent);font-weight:500">planı yükselt</a>.</span></div>
+    </div>
+    <footer><a class="btn" href="?durum=uyeler">Vazgeç</a><button class="btn btn--primary" type="button" disabled style="opacity:.5;cursor:not-allowed"><i data-lucide="send"></i>Davet gönder</button></footer>
+  </section>
+</div>
+
+<script src="_shell.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  const d = document.body.dataset.durum;
+  document.querySelector(`[data-tab="${d === 'davet' ? 'uyeler' : d}"]`)?.setAttribute('aria-current', 'page');
+  if (d === 'kisisel') document.querySelectorAll('.ws .name').forEach((n) => { n.innerHTML = 'Ayşe Yılmaz<small>Kişisel</small>'; });
+</script>
+</body>
+</html>

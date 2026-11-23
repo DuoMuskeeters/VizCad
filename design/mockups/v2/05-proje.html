@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pompa revizyonu · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<style>
+  .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .files .li { grid-template-columns: minmax(0, 1fr) 170px 110px 80px 36px; }
+  .file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tile { flex: none; width: 40px; height: 40px; border-radius: 8px; background: var(--sidebar); border: 1px solid var(--line); display: grid; place-items: center; font-size: 10px; font-weight: 700; color: var(--text-2); }
+  .file b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .file .m { display: none; font-size: 13px; color: var(--text-3); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .sec { display: flex; align-items: center; gap: 8px; margin: 24px 0 4px; font-size: 14px; font-weight: 600; }
+  .sec:first-of-type { margin-top: 8px; }
+  .sec .dim { font-weight: 400; }
+  .access .li { grid-template-columns: minmax(0, 1fr) 200px 36px; }
+  .access .lvl { display: flex; flex-direction: column; align-items: flex-end; gap: 0; position: relative; }
+  .access .lvl small { font-size: 12px; color: var(--text-3); padding-right: 10px; }
+  .fixed { font-size: 14px; color: var(--text-3); padding-right: 10px; }
+  .lvl-menu { bottom: 44px; right: 0; width: 300px; }
+  .lvl-menu .opt-i { display: grid; grid-template-columns: minmax(0, 1fr) 18px; gap: 0 10px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+  .lvl-menu .opt-i:hover { background: var(--hover); }
+  .lvl-menu .opt-i span { font-size: 12px; color: var(--text-3); grid-column: 1; }
+  .lvl-menu .opt-i svg { grid-row: 1 / 3; grid-column: 2; align-self: center; color: var(--accent); }
+  .lvl-menu .opt-i[aria-disabled="true"] { color: var(--text-3); }
+  .lvl-menu .danger { color: var(--danger); }
+
+  .feed { display: grid; }
+  .day { font-size: 13px; font-weight: 600; color: var(--text-3); margin: 20px 0 6px; }
+  .day:first-child { margin-top: 0; }
+  .ev { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 0 12px; align-items: start; padding: 10px 0; }
+  .ev .ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--hover); color: var(--text-2); }
+  .ev .ic svg { width: 16px; height: 16px; }
+  .ev .ic.dl { background: #fef3e2; color: #9a4a06; }
+  .ev p { font-size: 14px; line-height: 1.45; }
+  .ev p b { font-weight: 600; }
+  .ev q { display: block; margin-top: 4px; color: var(--text-2); quotes: none; }
+  .ev time { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+  .feed-tools { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .fchip { height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--line); font-size: 13px; color: var(--text-2); }
+  .fchip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
+  .feed-tools .btn { margin-left: auto; height: 32px; font-size: 13px; }
+
+  .guest-note { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--radius-lg); background: #fef8ee; border: 1px solid #f6e0bd; margin-bottom: 20px; font-size: 14px; }
+  .guest-note svg { color: #9a4a06; margin-top: 2px; }
+  .guest-note b { font-weight: 600; }
+  .dl-btn { height: 32px; padding: 0 10px; font-size: 13px; }
+  .recog { display: grid; gap: 6px; }
+  .recog .r { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .recog .r .avatar { width: 26px; height: 26px; font-size: 10px; }
+  .recog .r .badge { margin-left: auto; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .selectish { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 14px; }
+  .selectish svg { width: 16px; height: 16px; color: var(--text-3); }
+
+  @media (max-width: 899px) {
+    .page-head .actions .lbl { display: none; }
+    .files .li { grid-template-columns: minmax(0, 1fr) 44px; }
+    .files .li > .c { display: none; }
+    .file .m { display: block; }
+    .access .li { grid-template-columns: minmax(0, 1fr) auto; }
+    .access .li > .icon-btn { display: none; }
+    .access .lvl small { display: none; }
+    .lvl-menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; }
+    .ev { grid-template-columns: 32px minmax(0, 1fr); }
+    .ev time { grid-column: 2; }
+    .row2 { grid-template-columns: 1fr; }
+  }
+</style>
+<script>
+  // Misafir görünümünde kenar menü misafir haliyle çizilir
+  if (new URLSearchParams(location.search).get('durum') === 'misafir') document.documentElement.dataset.guest = '1';
+</script>
+</head>
+<body data-page="05-proje">
+<script>if (document.documentElement.dataset.guest) document.body.dataset.viewer = 'guest';</script>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>Proje</strong>
+  <a href="?durum=dosyalar">Dosyalar</a>
+  <a href="?durum=erisim">Erişim</a>
+  <a href="?durum=ekle">Kişi ekle</a>
+  <a href="?durum=aktivite">Aktivite</a>
+  <a href="?durum=misafir">Misafirin gördüğü</a>
+  <a href="04-projeler.html">← Projeler</a>
+</nav>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <div>
+    <header class="mobile-top"></header>
+    <main class="content">
+      <div class="crumbs" data-durum-not="misafir"><a href="04-projeler.html">Projeler</a><i data-lucide="chevron-right"></i><span>Pompa revizyonu</span></div>
+      <div class="page-head">
+        <div>
+          <div class="title-row"><h1>Pompa revizyonu</h1><span class="badge" data-durum-not="misafir"><i data-lucide="lock"></i>Yalnızca davetliler</span></div>
+          <p class="sub">Kaya Hidrolik için gövde ve kapak · Demir Makina</p>
+        </div>
+        <div class="actions" data-durum-not="misafir">
+          <span class="stack"><span class="avatar a1">AY</span><span class="avatar a2">MK</span><span class="avatar a3">ZA</span><span class="avatar a4">ÖK</span><span class="avatar more-n">+2</span></span>
+          <a class="btn" href="?durum=ekle"><i data-lucide="user-plus"></i><span class="lbl">Kişi ekle</span></a>
+          <button class="btn btn--primary" type="button"><i data-lucide="upload"></i><span class="lbl">Yükle</span></button>
+        </div>
+      </div>
+
+      <div class="guest-note" data-durum="misafir">
+        <i data-lucide="info"></i>
+        <div><b>Demir Makina seni bu projeye misafir olarak ekledi.</b><br>Dosyaları görebilir, yorum yazabilir ve indirebilirsin. Erişimin 30 Kasım 2026'ya kadar. Açtığın ve indirdiğin dosyalar proje sahiplerine görünür.</div>
+      </div>
+
+      <nav class="tabbar" aria-label="Proje bölümleri" data-durum-not="misafir">
+        <a href="?durum=dosyalar" data-tab="dosyalar">Dosyalar <span class="n">6</span></a>
+        <a href="?durum=erisim" data-tab="erisim">Erişim <span class="n">6</span></a>
+        <a href="?durum=aktivite" data-tab="aktivite">Aktivite</a>
+      </nav>
+
+      <!-- Dosyalar -->
+      <div class="list files" data-durum="dosyalar misafir">
+        <div class="li"><a class="file" href="#"><span class="tile">STEP</span><span><b>Flanş_DN100_rev3.step</b><span class="m">Ayşe Yılmaz · Bugün 14:20 · 12,4 MB</span></span></a><span class="dim c">Ayşe Yılmaz</span><span class="dim c">Bugün 14:20</span><span class="dim c num">12,4 MB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+        <div class="li"><a class="file" href="#"><span class="tile">STEP</span><span><b>Pompa_gövdesi_montaj.step</b><span class="m">Mehmet Kaya · Bugün 09:05 · 86,2 MB</span></span></a><span class="dim c">Mehmet Kaya</span><span class="dim c">Bugün 09:05</span><span class="dim c num">86,2 MB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+        <div class="li"><a class="file" href="#"><span class="tile">STEP</span><span><b>Pompa_kapak.step</b><span class="m">Zeynep Arslan · Dün · 9,1 MB</span></span></a><span class="dim c">Zeynep Arslan</span><span class="dim c">Dün</span><span class="dim c num">9,1 MB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+        <div class="li"><a class="file" href="#"><span class="tile">STL</span><span><b>Conta_yuvası.stl</b><span class="m">Zeynep Arslan · 20 Kas · 2,2 MB</span></span></a><span class="dim c">Zeynep Arslan</span><span class="dim c">20 Kas</span><span class="dim c num">2,2 MB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+        <div class="li"><a class="file" href="#"><span class="tile">STEP</span><span><b>Mil_Ø25x300.step</b><span class="m">Mehmet Kaya · 18 Kas · 1,2 MB</span></span></a><span class="dim c">Mehmet Kaya</span><span class="dim c">18 Kas</span><span class="dim c num">1,2 MB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+        <div class="li"><a class="file" href="#"><span class="tile">OBJ</span><span><b>Kapak_plakası_t5.obj</b><span class="m">Ayşe Yılmaz · 14 Kas · 640 KB</span></span></a><span class="dim c">Ayşe Yılmaz</span><span class="dim c">14 Kas</span><span class="dim c num">640 KB</span><span data-durum-not="misafir" class="icon-btn"><i data-lucide="ellipsis"></i></span><button class="icon-btn" data-durum="misafir" type="button"><i data-lucide="download"></i><span class="sr">İndir</span></button></div>
+      </div>
+
+      <!-- Erişim -->
+      <div class="access" data-durum="erisim ekle">
+        <div class="notice"><i data-lucide="lock"></i><span>Bu proje yalnızca davetlilere açık. Demir Makina yöneticileri her zaman görür. <a href="#" style="color:var(--accent);font-weight:500">Tüm ekibe aç</a></span></div>
+
+        <div class="sec">Üyeler <span class="dim">4</span></div>
+        <div class="list">
+          <div class="li"><span class="person"><span class="avatar a1">AY</span><span class="t"><b>Ayşe Yılmaz (sen)</b><span>Yönetici · ayse@demirmakina.com</span></span></span><span class="lvl"><span class="fixed">Düzenleyebilir</span></span><span></span></div>
+          <div class="li"><span class="person"><span class="avatar a2">MK</span><span class="t"><b>Mehmet Kaya</b><span>Üye · mehmet@demirmakina.com</span></span></span><span class="lvl"><button class="pick" type="button">Düzenleyebilir<i data-lucide="chevron-down"></i></button></span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a3">ZA</span><span class="t"><b>Zeynep Arslan</b><span>Üye · zeynep@demirmakina.com</span></span></span><span class="lvl"><button class="pick" type="button">Düzenleyebilir<i data-lucide="chevron-down"></i></button></span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar a5">SE</span><span class="t"><b>Selin Er</b><span>Yorumcu · selin@demirmakina.com</span></span></span><span class="lvl"><button class="pick" type="button">Yorum yapabilir<i data-lucide="chevron-down"></i></button></span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+        </div>
+
+        <div class="sec">Misafirler <span class="dim">2</span><span class="badge badge--guest">Koltuk kullanmaz</span></div>
+        <div class="list">
+          <div class="li"><span class="person"><span class="avatar a4">ÖK</span><span class="t"><b>Ömer Koç</b><span>Koç Kalıp · omer@koc-kalip.com.tr</span></span></span>
+            <span class="lvl"><button class="pick" type="button" aria-expanded="true">İndirebilir<i data-lucide="chevron-down"></i></button><small>30 Kas'a kadar</small>
+              <div class="menu lvl-menu" data-durum="erisim" role="menu">
+                <div class="opt-i" role="menuitemradio" aria-checked="false">Görüntüleyebilir<span>Modeli açar ve inceler</span></div>
+                <div class="opt-i" role="menuitemradio" aria-checked="false">Yorum yapabilir<span>Ayrıca yorum yazar</span></div>
+                <div class="opt-i" role="menuitemradio" aria-checked="true">İndirebilir<span>Ayrıca dosyayı indirir</span><i data-lucide="check"></i></div>
+                <div class="opt-i" role="menuitemradio" aria-disabled="true">Düzenleyebilir<span>Misafirler yükleyemez ve düzenleyemez</span></div>
+                <hr>
+                <button type="button"><i data-lucide="calendar"></i>Erişim süresini değiştir</button>
+                <button type="button" class="danger"><i data-lucide="user-minus"></i>Projeden çıkar</button>
+              </div>
+            </span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+          <div class="li"><span class="person"><span class="avatar" style="background:#94a3b8">SK</span><span class="t"><b>satinalma@kayahidrolik.com</b><span>Davet bekliyor · 2 gün önce gönderildi</span></span></span><span class="lvl"><button class="pick" type="button">Yorum yapabilir<i data-lucide="chevron-down"></i></button></span><span class="icon-btn"><i data-lucide="ellipsis"></i></span></div>
+        </div>
+      </div>
+
+      <!-- Aktivite -->
+      <div data-durum="aktivite">
+        <div class="feed-tools">
+          <button class="fchip" type="button" aria-pressed="true">Tümü</button>
+          <button class="fchip" type="button" aria-pressed="false">Açma ve indirme</button>
+          <button class="fchip" type="button" aria-pressed="false">Paylaşım</button>
+          <button class="fchip" type="button" aria-pressed="false">Yorumlar</button>
+          <button class="btn" type="button"><i data-lucide="file-down"></i>CSV indir</button>
+        </div>
+        <div class="feed">
+          <div class="day">Bugün</div>
+          <div class="ev"><span class="ic dl"><i data-lucide="download"></i></span><p><b>Ömer Koç</b> <span class="badge badge--guest">Misafir</span> Flanş_DN100_rev3.step dosyasını indirdi.</p><time>14:32</time></div>
+          <div class="ev"><span class="ic"><i data-lucide="eye"></i></span><p><b>Ömer Koç</b> Flanş_DN100_rev3.step dosyasını açtı.</p><time>14:30</time></div>
+          <div class="ev"><span class="ic"><i data-lucide="upload"></i></span><p><b>Ayşe Yılmaz</b> Flanş_DN100_rev3.step için sürüm 3'ü yükledi.</p><time>14:20</time></div>
+          <div class="ev"><span class="ic"><i data-lucide="user-plus"></i></span><p><b>Ayşe Yılmaz</b>, Ömer Koç'u misafir olarak ekledi: İndirebilir, 30 Kasım'a kadar.</p><time>11:05</time></div>
+          <div class="day">Dün</div>
+          <div class="ev"><span class="ic"><i data-lucide="message-square"></i></span><p><b>Mehmet Kaya</b> Pompa_kapak.step dosyasına yorum yazdı.<q>Conta kanalı derinliği 3,5 mm olmalı, 3 mm görünüyor.</q></p><time>16:48</time></div>
+          <div class="ev"><span class="ic"><i data-lucide="upload"></i></span><p><b>Zeynep Arslan</b> Pompa_kapak.step dosyasını yükledi.</p><time>10:12</time></div>
+          <div class="ev"><span class="ic"><i data-lucide="link"></i></span><p><b>Mehmet Kaya</b> Mil_Ø25x300.step için link oluşturdu: Görüntüleyebilir, 7 gün.</p><time>09:40</time></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="scrim" data-durum="ekle">
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="add">
+    <header><div><h2 id="add">Pompa revizyonu projesine kişi ekle</h2><p>Ekip üyelerini ya da dışarıdan bir tedarikçiyi, müşteriyi davet et.</p></div><a class="icon-btn" href="?durum=erisim"><i data-lucide="x"></i><span class="sr">Kapat</span></a></header>
+    <div class="body">
+      <div class="fld">
+        <span>E-posta ya da ad</span>
+        <div class="chips-in"><span class="chip">Can Demir<i data-lucide="x"></i></span><span class="chip">satinalma@yildiztorna.com<i data-lucide="x"></i></span><input aria-label="E-posta ekle" placeholder="Ekle"></div>
+        <div class="recog">
+          <div class="r"><span class="avatar a4">CD</span>Can Demir<span class="badge">Üye</span></div>
+          <div class="r"><span class="avatar" style="background:#94a3b8">YT</span>satinalma@yildiztorna.com<span class="badge badge--guest">Misafir olarak eklenecek</span></div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fld"><span>Erişim</span><div class="selectish">Yorum yapabilir<i data-lucide="chevron-down"></i></div></div>
+        <div class="fld"><span>Misafir erişim süresi</span><div class="selectish">30 Kasım 2026<i data-lucide="calendar"></i></div></div>
+      </div>
+      <label class="fld"><span>Mesaj <small>(isteğe bağlı)</small></span><textarea class="input">Merhaba, pompa gövdesinin son sürümü projede. Teklifinizi 28 Kasım'a kadar bekliyoruz.</textarea></label>
+      <div class="notice"><i data-lucide="info"></i><span>Misafirler koltuk kullanmaz ve yalnızca bu projeyi görür. Açtıkları ve indirdikleri dosyalar Aktivite'ye kaydedilir.</span></div>
+    </div>
+    <footer><a class="btn" href="?durum=erisim">Vazgeç</a><button class="btn btn--primary" type="button"><i data-lucide="send"></i>Davet gönder</button></footer>
+  </section>
+</div>
+
+<script src="_shell.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../_wire.js"></script>
+<script>
+  lucide.createIcons();
+  const d = document.body.dataset.durum;
+  const t = d === 'ekle' ? 'erisim' : d;
+  document.querySelector(`[data-tab="${t}"]`)?.setAttribute('aria-current', 'page');
+</script>
+</body>
+</html>

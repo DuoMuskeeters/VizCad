@@ -245,6 +245,8 @@ Gri tel kafes yerleşimi tartışmak için fazla soyut bulundu ("modern, sade" b
 - Renk: beyaz içerik, `#f7f8fa` kenar menü, metin `#142033` (logodaki lacivert), ikincil metin `#5a6475`. Marka `#0891b2` beyazda 3.7:1 olduğu için metin ve dolu düğmelerde `#0e7490` (5.4:1); `#0891b2` seçili gösterge, ilerleme çubuğu ve odak halkasında.
 - Kabuk: workspace değiştirici, arama (⌘K), menü, depolama ve hesap kenar menüde; üst çubuk yok. Mobilde üst çubuk + alttaki "Yükle" düğmesi.
 - Gölge yalnızca üstte duran katmanlarda (seçim çubuğu, yükleme kartı, menüler).
+- Organizasyon ekranları (D17 modeline göre): `04-projeler.html` (liste, workspace menüsü, yeni proje, boş), `05-proje.html` (dosyalar, erişim + düzey menüsü, kişi ekle, aktivite, misafirin gördüğü), `06-ekip.html` (üyeler, misafirler, bekleyen davetler, üye davet + koltuk uyarısı, kişisel workspace). Kenar menü `_shell.js`'ten ortak; `01-dosyalar.html` "Tüm dosyalar" oldu.
+- Bu ekranlarda verilen ve onay bekleyen kararlar: kişisel workspace'e üye eklenmez (ekip için firma workspace'i açılır, dosyalar taşınabilir; misafir ve link kişiselde de var) · koltuk yetmezse davet gönderilemez, yorumcu önerilir · misafirde "Düzenleyebilir" devre dışı ve nedeni yazılı · aktivite kaydı CSV olarak indirilebilir.
 
 ## 5. Token'lar
 
