@@ -2,11 +2,13 @@
  * Cloudflare Worker config for the rewrite. Hosting plan: docs/07-execution-plan.md.
  *
  * TOP LEVEL = STAGING. The rewrite deploys to its own Worker (`vizcad-rewrite`, workers.dev) with its own
- * D1 and R2 holding fake data. A plain `wrangler deploy` / `pnpm db:migrate:staging` can only reach staging.
+ * D1 and R2 holding fake data. Remote commands for staging go through scripts/staging.ts
+ * (`pnpm db:migrate:staging`, `pnpm deploy:staging`), which checks the config Wrangler will read first.
  * Staging resources were created on 2026-11-23 (D1 `vizcad-staging` in EEUR, R2 `vizcad-files-staging`).
  *
  * `env.production` = the live site (Worker `vizcad`, D1 `vizcad_auth`, R2 `vizcad-files-bucket`, live user
- * data). Used only at cutover (Faz 9), always explicitly: `--env production` / `CLOUDFLARE_ENV=production`.
+ * data). Used only at cutover (Faz 9), always explicitly: `CLOUDFLARE_ENV=production` builds into dist-production/
+ * and removes the deploy redirect (vite.config.ts), so a later bare `wrangler deploy` cannot pick it up.
  * Never run remote migrations, `d1 execute --remote` or R2 writes/deletes against it without asking (CLAUDE.md).
  * Binding names are the old app's in both environments, so code is identical.
  *

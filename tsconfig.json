@@ -1,6 +1,6 @@
 {
   // legacy/ is reference only and stays out of type checking (CLAUDE.md).
-  "include": ["src/**/*.ts", "src/**/*.tsx", "*.ts", "worker-configuration.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "*.ts", "worker-configuration.d.ts"],
   "exclude": ["node_modules", "legacy", "dist", "design"],
   "compilerOptions": {
     "target": "ES2022",
