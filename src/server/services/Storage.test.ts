@@ -99,6 +99,32 @@ describe('r2Presign', () => {
     }),
   )
 
+  it.effect.each([
+    { name: 'empty', key: '' },
+    { name: 'a lone "." segment', key: 'u/f/./a.stl' },
+    { name: 'a ".." segment', key: 'u/f/../other/a.stl' },
+    { name: 'a key that is ".."', key: '..' },
+    { name: 'a trailing ".." segment', key: 'u/..' },
+    { name: 'a lone surrogate', key: 'u/f/\uD83D.stl' },
+    { name: 'a key over 1024 bytes', key: `u/${'ç'.repeat(512)}` },
+  ])('rejects a key with $name before signing', ({ key }) =>
+    Effect.gen(function* () {
+      const error = yield* presign(r2, { method: 'PUT', key, expiresInSeconds: 60 }).pipe(Effect.flip)
+      assert.strictEqual(error._tag, 'StorageError')
+      assert.strictEqual(error.operation, 'presign')
+    }),
+  )
+
+  it.effect('still signs keys that only look odd: dots inside names, empty segments, emoji', () =>
+    Effect.gen(function* () {
+      for (const key of ['u/f/.hidden', 'u/f/a..b.stl', 'u/f/...', 'u//f/a.stl', 'u/f/🚀 rocket.stl']) {
+        const url = yield* presign(r2, { method: 'PUT', key, expiresInSeconds: 60 })
+        assert.strictEqual(decodeURIComponent(url.pathname), `/${r2.bucketName}/${key}`)
+        assert.isTrue(yield* Effect.promise(() => serverAccepts(url, 'PUT', key)))
+      }
+    }),
+  )
+
   it.effect.each([0, -1, 1.5, 7 * 24 * 3600 + 1])('rejects expiry %s', (expiresInSeconds) =>
     Effect.gen(function* () {
       const error = yield* presign(r2, { method: 'GET', key: 'k', expiresInSeconds }).pipe(Effect.flip)
@@ -158,6 +184,8 @@ layer(StorageMemory.memory)('Storage (in-memory)', (it) => {
       assert.strictEqual(up.searchParams.get('contentType'), 'model/stl')
       const error = yield* storage.presignDownload('u/f/a.stl', { expiresInSeconds: 0 }).pipe(Effect.flip)
       assert.strictEqual(error._tag, 'StorageError')
+      const badKey = yield* storage.presignUpload('u/../a.stl', { expiresInSeconds: 60 }).pipe(Effect.flip)
+      assert.strictEqual(badKey._tag, 'StorageError')
     }),
   )
 })

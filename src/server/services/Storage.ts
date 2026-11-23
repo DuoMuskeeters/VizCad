@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { type ConfigError, StorageError } from '../errors'
-import { attachmentDisposition, checkExpiry } from './r2Presign'
+import { attachmentDisposition, checkExpiry, checkKey } from './r2Presign'
 
 export interface ObjectInfo {
   readonly key: string
@@ -109,7 +109,8 @@ export const memory = Layer.effect(
           return next
         }),
       presignUpload: (key, options) =>
-        checkExpiry(key, options.expiresInSeconds).pipe(
+        checkKey(key).pipe(
+          Effect.andThen(checkExpiry(key, options.expiresInSeconds)),
           Effect.as(
             fakeUrl(key, {
               method: 'PUT',
@@ -119,7 +120,8 @@ export const memory = Layer.effect(
           ),
         ),
       presignDownload: (key, options) =>
-        checkExpiry(key, options.expiresInSeconds).pipe(
+        checkKey(key).pipe(
+          Effect.andThen(checkExpiry(key, options.expiresInSeconds)),
           Effect.as(
             fakeUrl(key, {
               method: 'GET',

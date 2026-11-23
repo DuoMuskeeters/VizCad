@@ -19,6 +19,26 @@ export const objectUrl = (config: R2Presign, key: string) => {
   return new URL(`${base}/${encodeSegment(config.bucketName)}/${key.split('/').map(encodeSegment).join('/')}`)
 }
 
+/** S3/R2 limit for an object key. */
+export const MAX_KEY_BYTES = 1024
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
+
+/**
+ * Fails for keys a presigned URL cannot address byte-for-byte: empty, over 1024 bytes, `.`/`..` segments
+ * (URL parsing resolves them, even percent-encoded) and lone surrogates (not encodable). Only checked when
+ * signing; stored keys are never rewritten.
+ */
+export const checkKey = (key: string) => {
+  const fail = (cause: string) => Effect.fail(new StorageError({ operation: 'presign', key, cause }))
+  if (key.length === 0) return fail('key is empty')
+  if (LONE_SURROGATE.test(key)) return fail('key is not well-formed Unicode')
+  if (new TextEncoder().encode(key).byteLength > MAX_KEY_BYTES) return fail(`key exceeds ${MAX_KEY_BYTES} bytes`)
+  if (key.split('/').some((segment) => segment === '.' || segment === '..')) {
+    return fail('key has "." or ".." segments, which a URL cannot carry')
+  }
+  return Effect.void
+}
+
 /** Fails unless the expiry is a whole number of seconds S3 accepts. */
 export const checkExpiry = (key: string, seconds: number) =>
   Number.isInteger(seconds) && seconds >= 1 && seconds <= MAX_EXPIRES_SECONDS
@@ -42,9 +62,13 @@ export interface PresignRequest {
 
 /** Signs a URL with SigV4 query parameters. Pure apart from Clock: no network call is made. */
 export const presign = Effect.fnUntraced(function* (config: R2Presign, request: PresignRequest) {
+  yield* checkKey(request.key)
   yield* checkExpiry(request.key, request.expiresInSeconds)
   const now = yield* Clock.currentTimeMillis
-  const url = objectUrl(config, request.key)
+  const url = yield* Effect.try({
+    try: () => objectUrl(config, request.key),
+    catch: (cause) => new StorageError({ operation: 'presign', key: request.key, cause }),
+  })
   url.searchParams.set('X-Amz-Expires', String(request.expiresInSeconds))
   for (const [name, value] of Object.entries(request.query ?? {})) url.searchParams.set(name, value)
 
