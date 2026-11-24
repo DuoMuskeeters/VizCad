@@ -173,6 +173,21 @@ describe('inviteGuest / acceptGuestInvitation', () => {
       assert.include(['GuestLimitReached', 'WriteConflict'], failure?._tag === 'Failure' ? failure.failure._tag : '')
     }), { ...defaultPlan, guests: 1 }))
 
+  it.effect('a guest resend racing a revoke sends no email without its activity row and never reopens the revoked row', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      const first = yield* inviteEve('ada', { fileId: 'f1' })
+      yield* Effect.all([
+        Effect.result(inviteEve('ada', { fileId: 'f1' }, 'view')),
+        Effect.result(revokeGuestInvitation(caller('ada'), { workspaceId: 'acme', invitationId: first.invitationId })),
+      ], { concurrency: 'unbounded' })
+      const log = (yield* rows('accessLog')).map((l) => l.action)
+      const sent = (yield* Ref.get(yield* EmailOutbox)).length
+      assert.strictEqual(sent, log.filter((a) => a === 'guest.invited' || a === 'guest.invite_resent').length)
+      const original = (yield* rows('resourceInvitations')).find((i) => i.id === first.invitationId)
+      if (original?.status === 'canceled') assert.notInclude(log, 'guest.invite_resent')
+    })))
+
   it.effect('a member may cancel only the guest invitations they sent', () =>
     run(Effect.gen(function* () {
       yield* acme

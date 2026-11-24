@@ -110,7 +110,7 @@ export const inviteGuest = Effect.fn('inviteGuest')(function* (
   const targetId = 'fileId' in input.target ? input.target.fileId : input.target.projectId
   yield* runBatch(
     (d) => [
-      guard(d, still),
+      guard(d, pending[0] === undefined ? still : sql`${still} AND EXISTS (SELECT 1 FROM resource_invitations WHERE id = ${id} AND status = 'pending')`),
       d.update(schema.resourceInvitations).set({ status: 'canceled' })
         .where(and(sameTarget(input.target), eq(schema.resourceInvitations.email, address), eq(schema.resourceInvitations.status, 'pending'), lte(schema.resourceInvitations.expiresAt, toDate(now)))),
       pending[0] === undefined

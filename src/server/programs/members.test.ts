@@ -58,6 +58,21 @@ describe('inviteMember', () => {
       assert.strictEqual(all[0]?.expiresAt.getTime(), (T0 + 3600 + 7 * 86400) * 1000)
     })))
 
+  it.effect('a resend racing a revoke never reopens the revoked invitation: no email without its activity row', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      const first = yield* invite('ada', 'new@example.com', 'member')
+      yield* Effect.all([
+        Effect.result(invite('ada', 'new@example.com', 'commenter')),
+        Effect.result(revokeInvitation(caller('bob'), { workspaceId: 'acme', invitationId: first.invitationId })),
+      ], { concurrency: 'unbounded' })
+      const log = (yield* rows('accessLog')).map((l) => l.action)
+      const sent = (yield* Ref.get(yield* EmailOutbox)).length
+      assert.strictEqual(sent, log.filter((a) => a === 'member.invited' || a === 'member.invite_resent').length)
+      const original = (yield* rows('invitation')).find((i) => i.id === first.invitationId)
+      if (original?.status === 'canceled') assert.notInclude(log, 'member.invite_resent')
+    })))
+
   it.effect('an expired pending invitation is closed and a new one opened', () =>
     run(Effect.gen(function* () {
       yield* acme

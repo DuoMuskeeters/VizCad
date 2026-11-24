@@ -89,7 +89,12 @@ export const inviteMember = Effect.fn('inviteMember')(function* (
   const id = pending[0]?.id ?? (yield* newId)
   const expiresAt = now + limits.invitationTtlSeconds
   const activityId = yield* newId
-  const conditions = [stillRole(workspace.id, caller.userId, [role]), ...(limits.seats === null ? [] : [seatFree(workspace.id, limits.seats, now, address)])]
+  const conditions = [
+    stillRole(workspace.id, caller.userId, [role]),
+    // A resend needs its pending row to still be pending (a concurrent revoke must not be silently undone).
+    ...(pending[0] === undefined ? [] : [sql`EXISTS (SELECT 1 FROM invitation WHERE id = ${id} AND status = 'pending')`]),
+    ...(limits.seats === null ? [] : [seatFree(workspace.id, limits.seats, now, address)]),
+  ]
   yield* runBatch(
     (d) => [
       guard(d, sql.join(conditions, sql` AND `)),
