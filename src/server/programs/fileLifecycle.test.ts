@@ -12,7 +12,7 @@ import { DAILY, HOURLY, runCron } from './cron'
 import { listFiles } from './files'
 import { moveFile, previewMoveFile } from './move'
 import { drainStorageDeletions } from './storageCleanup'
-import { emptyTrash, listTrash, purgeExpiredTrash, purgeFile, restoredName, restoreFile, trashFile } from './trash'
+import { emptyTrash, listTrash, purgeExpiredTrash, purgeFile, purgeOne, restoredName, restoreFile, trashFile } from './trash'
 import { listVersions, restoreVersion } from './versions'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>) => TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(defaultPlan)))
@@ -239,6 +239,40 @@ describe('purge', () => {
       assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 2, more: false })
       assert.deepStrictEqual((yield* rows('files')).map((f) => f.id), ['c'])
       assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 0, more: false })
+    })))
+
+  it.effect('the daily job selects expired files, not workspaces: 150 workspaces with young trash do not hide the few with expired trash', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const trashAt = (id: string, deletedAt: number) =>
+        Db.use((x) => x.use((d) => d.update(schema.files).set({ isDeleted: true, deletedAt: at(deletedAt) }).where(eq(schema.files.id, id))))
+      for (let i = 0; i < 150; i++) {
+        yield* seedWorkspace(`w${i}`, 'bob')
+        yield* seedFile(`young${i}`, 'bob', `w${i}`)
+        yield* trashAt(`young${i}`, T0 - DAY)
+      }
+      for (const i of [150, 151, 152]) {
+        yield* seedWorkspace(`w${i}`, 'bob')
+        yield* seedFile(`old${i}`, 'bob', `w${i}`)
+        yield* trashAt(`old${i}`, T0 - 40 * DAY)
+      }
+      assert.deepStrictEqual(yield* purgeExpiredTrash(), { purged: 3 })
+      assert.strictEqual((yield* rows('files')).filter((f) => f.id.startsWith('old')).length, 0)
+      assert.strictEqual((yield* rows('files')).filter((f) => f.id.startsWith('young')).length, 150)
+    })))
+
+  it.effect('the system purge guard rechecks the expiry: a file restored and trashed again after the selection is not purged', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* upload('f1', 'max')
+      yield* Db.use((x) => x.use((d) => d.update(schema.files).set({ isDeleted: true, deletedAt: at(T0 - 40 * DAY) }).where(eq(schema.files.id, 'f1'))))
+      const due = { floor: 0, cutoff: T0 - 30 * DAY }
+      // Selected as expired, then restored and trashed again (deletedAt is now T0).
+      yield* restoreFile(caller('max'), { ...ref, fileId: 'f1' })
+      yield* trashFile(caller('max'), { ...ref, fileId: 'f1' })
+      assert.strictEqual(yield* tag(purgeOne(null, 'acme', 'f1', null, T0, due)), 'WriteConflict')
+      assert.strictEqual((yield* file('f1'))?.isDeleted, true)
+      assert.deepStrictEqual(yield* purgeExpiredTrash(), { purged: 0 })
     })))
 
   it.effect('the retention floor: trash counts from max(deletion time, floor), in the list and in the daily job', () =>

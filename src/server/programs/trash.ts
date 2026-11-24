@@ -6,7 +6,7 @@ import { decidePermission } from '../permissions'
 import type { TrashItem } from '../../shared/fileViews'
 import { AppConfig } from '../services/AppConfig'
 import { Db } from '../services/Db'
-import { Entitlements } from '../services/Entitlements'
+import { defaultPlan, Entitlements } from '../services/Entitlements'
 import { fileGrantsOf, loadScope, openFile, personOf, scopedInput } from './fileContext'
 import { drainStorageDeletions } from './storageCleanup'
 import {
@@ -97,12 +97,17 @@ const DRAIN_CHUNK = 40
  * uses, and anything under `blog/`, are never queued. D1 first, R2 second: the objects are deleted right after, best
  * effort; the hourly worker retries.
  */
-export const purgeOne = (caller: Caller | null, workspaceId: string, fileId: string, role: string | null, now: number) =>
+export const purgeOne = (
+  caller: Caller | null, workspaceId: string, fileId: string, role: string | null, now: number,
+  /** The system purge (cron) passes the retention it selected the file by; the guard rechecks it, so a restore and re-trash after the selection wins. */
+  due?: { readonly floor: number; readonly cutoff: number },
+) =>
   Effect.gen(function* () {
     const keys = yield* keysOf(fileId)
     const activityId = yield* newUlid
     yield* runBatch((d) => [
-      guard(d, sql`EXISTS (SELECT 1 FROM files WHERE id = ${fileId} AND workspaceId = ${workspaceId} AND isDeleted = 1)
+      guard(d, sql`EXISTS (SELECT 1 FROM files WHERE id = ${fileId} AND workspaceId = ${workspaceId} AND isDeleted = 1
+          ${due === undefined ? sql`` : sql`AND MAX(COALESCE(deletedAt, updatedAt), ${due.floor}) < ${due.cutoff}`})
         AND ${caller === null || role === null ? sql`1` : stillRole(workspaceId, caller.userId, [role])}`),
       d.insert(schema.storageDeletions).select(sql`SELECT k, ${caller === null ? 'trash_retention' : 'purged'}, ${now}, 0, NULL, ${now} FROM (
           SELECT r2Key AS k FROM files WHERE id = ${fileId}
@@ -230,38 +235,52 @@ export const listTrash = Effect.fn('listTrash')(function* (
   return { items: page.map((i) => i.item), nextCursor }
 })
 
-const PURGE_WORKSPACES_PER_RUN = 100
 const PURGE_FILES_PER_RUN = 200
+const PURGE_MAX_PAGES = 10
 
 /**
  * Daily (docs/09 §5.3): purges files that have been in the trash longer than their workspace's
- * `Entitlements.trashRetentionDays` (D21: 30), as the system. A legacy row without `deletedAt` counts from `updatedAt`.
- * Files without a workspace (not backfilled yet) are left alone. At most 200 files per run; the rest follow the next day.
+ * `Entitlements.trashRetentionDays` (D21: 30), as the system. Retention counts from `max(COALESCE(deletedAt, updatedAt), floor)`
+ * (`AppConfig.trashRetentionFloor`). Candidates are the expired files themselves (oldest first, by the base plan's
+ * retention, the shortest there is), each checked against its own workspace's limit, so workspaces with unexpired trash never
+ * crowd out the ones with expired files. The purge guard rechecks the expiry at write time. Files without a workspace are left
+ * alone. At most 200 files per run; the rest follow the next day.
  */
 export const purgeExpiredTrash = Effect.fn('purgeExpiredTrash')(function* () {
   const db = yield* Db
   const entitlements = yield* Entitlements
   const now = yield* nowSeconds
-  const { trashRetentionFloor } = yield* AppConfig
+  const { trashRetentionFloor: floor } = yield* AppConfig
   const f = schema.files
-  const workspaces = yield* db.use((d) =>
-    d.selectDistinct({ id: f.workspaceId }).from(f).where(and(eq(f.isDeleted, true), eq(f.status, 'uploaded'), sql`${f.workspaceId} IS NOT NULL`)).limit(PURGE_WORKSPACES_PER_RUN),
-  )
+  const start = retentionStart(floor)
+  const minCutoff = now - defaultPlan.trashRetentionDays * DAY
+  const retention = new Map<string, number>()
   let purged = 0
-  for (const { id: workspaceId } of workspaces) {
-    if (workspaceId === null || purged >= PURGE_FILES_PER_RUN) continue
-    const limits = yield* entitlements.limits(workspaceId)
-    const cutoff = now - limits.trashRetentionDays * DAY
-    const due = yield* db.use((d) =>
-      d.select({ id: f.id }).from(f).where(and(
-        eq(f.workspaceId, workspaceId), eq(f.isDeleted, true), eq(f.status, 'uploaded'),
-        sql`${retentionStart(trashRetentionFloor)} < ${cutoff}`,
-      )).orderBy(asc(f.id)).limit(PURGE_FILES_PER_RUN - purged),
+  let after: { readonly start: number; readonly id: string } | null = null
+  for (let page = 0; page < PURGE_MAX_PAGES && purged < PURGE_FILES_PER_RUN; page++) {
+    const cursor = after
+    const batch: ReadonlyArray<{ id: string; workspaceId: string | null; start: number }> = yield* db.use((d) =>
+      d.select({ id: f.id, workspaceId: f.workspaceId, start }).from(f).where(and(
+        eq(f.isDeleted, true), eq(f.status, 'uploaded'), sql`${f.workspaceId} IS NOT NULL`, sql`${start} < ${minCutoff}`,
+        cursor === null ? undefined : sql`(${start} > ${cursor.start} OR (${start} = ${cursor.start} AND ${f.id} > ${cursor.id}))`,
+      )).orderBy(asc(start), asc(f.id)).limit(PURGE_FILES_PER_RUN),
     )
-    for (const row of due) {
-      const done = yield* purgeOne(null, workspaceId, row.id, null, now).pipe(Effect.as(true), Effect.catchTag('WriteConflict', () => Effect.succeed(false)))
+    for (const row of batch) {
+      if (purged >= PURGE_FILES_PER_RUN) break
+      if (row.workspaceId === null) continue
+      let days = retention.get(row.workspaceId)
+      if (days === undefined) {
+        days = (yield* entitlements.limits(row.workspaceId)).trashRetentionDays
+        retention.set(row.workspaceId, days)
+      }
+      const cutoff = now - days * DAY
+      if (row.start >= cutoff) continue
+      const done = yield* purgeOne(null, row.workspaceId, row.id, null, now, { floor, cutoff }).pipe(Effect.as(true), Effect.catchTag('WriteConflict', () => Effect.succeed(false)))
       if (done) purged++
     }
+    const last = batch[batch.length - 1]
+    if (batch.length < PURGE_FILES_PER_RUN || last === undefined) break
+    after = { start: last.start, id: last.id }
   }
   return { purged }
 })
