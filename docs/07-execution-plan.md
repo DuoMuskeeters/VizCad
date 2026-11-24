@@ -53,7 +53,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 
 ### Dalga 3: çekirdek (dosyalar ve paylaşım)
 - [x] Faz 4 teknik tasarımı `docs/09-files-sharing-design.md` (PR #12), açık sorular D21'de cevaplandı; staging R2 token, CORS, link anahtarları hazır
-- [ ] (sürüyor, Sonnet high) 4a: şema 0014, Storage, yükleme; sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
+- [x] 4a: şema 0014, Storage, yükleme (PR #14; Opus incelemesi, staging'de gerçek R2 kabulü 20/20)
+- [ ] (sürüyor) 4b liste/çöp/sürüm; sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
 - [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*
 - [ ] UI: Tüm dosyalar, Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, paylaşılan sayfa. *Sonnet high*

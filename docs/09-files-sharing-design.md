@@ -434,3 +434,7 @@ Her PR `rewrite`’a. Her birinde ortak kabul: `pnpm check` ve `pnpm build` yeş
   - **4b:** bir anahtara son başvuruyu düşüren her işlem (purge, sürüm silme, geri yükleme …) anahtarı aynı batch’te silme kuyruğuna yazmalı.
   - **`upload_sessions`:** terminal durumdaki (`completed`, `expired`, `rejected`) oturumlar için budama işi gerekir; hesap ve proje silmede önce oturum satırları silinmeli (çalışma alanı, kullanıcı ve proje FK’leri `RESTRICT`).
   - **İptal/red:** kuyruk satırı `notBefore = expiresAt + 5 dk` ile yazılır; anında silme en iyi çabadır, satır URL ölene kadar kalır ve işçi nesneyi son kez siler.
+
+### Staging kabul sonucu · Faz 4a (24 Kasım 2026)
+
+`scripts/staging-verify-uploads.sh` gerçek R2'ye karşı (staging, test kullanıcısı `staging-uploader@vizcad.test`) **20/20** geçti: 5 MB STEP ve 50 MB STL yüklendi, boyut ve ETag kaydedildi; aynı URL'ye ikinci PUT **412** (`If-None-Match: *` R2'de uygulanıyor); yanlış boyutlu gövde **403** (imzalı `content-length` R2'de uygulanıyor); `.dwg` imza öncesi **415**; STL uzantılı HTML tamamlamada **415** ve nesne bucket'tan hemen silindi; iptal/red kuyruk satırları `notBefore = expiresAt + 5 dk` ile bekliyor. Yedek plana gerek kalmadı.
