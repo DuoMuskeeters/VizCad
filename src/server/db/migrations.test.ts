@@ -89,6 +89,10 @@ describe('workspace schema constraints', () => {
     ['trigger', 'files_project_workspace_insert'],
     ['trigger', 'files_project_workspace_update'],
     ['trigger', 'share_links_legacy_ceiling_immutable'],
+    ['trigger', 'file_access_guest_expiry_insert'],
+    ['trigger', 'file_access_guest_expiry_update'],
+    ['trigger', 'project_access_guest_expiry_insert'],
+    ['trigger', 'project_access_guest_expiry_update'],
     ['index', 'session_active_organization_idx'],
     ['index', 'files_workspace_id_uq'],
     ['index', 'files_workspace_deleted_updated_idx'],
@@ -156,5 +160,36 @@ describe('workspace schema constraints', () => {
     expect(() => insert.run('ciphertext', 101)).toThrow(/share_links_legacy_expiry_check/)
     insert.run('ciphertext', 100)
     expect(() => d1.sqlite.exec('UPDATE share_links SET legacyMaxExpiresAt = NULL')).toThrow(/immutable/)
+  })
+
+  describe('guest access expiry', () => {
+    const guestSql = {
+      file_access: (expiresAt: string, user = 'u4') => `INSERT INTO file_access (workspaceId,fileId,userId,level,expiresAt,source,createdAt,updatedAt)
+        VALUES ('company','f3','${user}','download',${expiresAt},'grant',1,1)`,
+      project_access: (expiresAt: string, user = 'u4') => `INSERT INTO project_access (workspaceId,projectId,userId,level,expiresAt,createdAt,updatedAt)
+        VALUES ('company','p1','${user}','download',${expiresAt},1,1)`,
+    } as const
+
+    beforeEach(() => {
+      d1.sqlite.exec(`INSERT INTO member (id, organizationId, userId, role, createdAt) VALUES ('m4', 'company', 'u4', 'guest', 1)`)
+    })
+
+    it.each(['file_access', 'project_access'] as const)('%s rejects a guest row without expiry on insert', (table) => {
+      expect(() => d1.sqlite.exec(guestSql[table]('NULL'))).toThrow(/guest access requires expiresAt/)
+      expect(d1.sqlite.prepare(`SELECT count(*) AS total FROM ${table}`).get()?.['total']).toBe(0)
+    })
+
+    it.each(['file_access', 'project_access'] as const)('%s accepts a guest row with expiry and rejects clearing it', (table) => {
+      d1.sqlite.exec(guestSql[table]('500'))
+      expect(() => d1.sqlite.exec(`UPDATE ${table} SET expiresAt = NULL`)).toThrow(/guest access requires expiresAt/)
+      d1.sqlite.exec(`UPDATE ${table} SET expiresAt = 900`)
+      expect(d1.sqlite.prepare(`SELECT expiresAt FROM ${table}`).get()?.['expiresAt']).toBe(900)
+    })
+
+    it.each(['file_access', 'project_access'] as const)('%s still allows rows without expiry for internal members', (table) => {
+      d1.sqlite.exec(guestSql[table]('NULL', 'u3'))
+      d1.sqlite.exec(`UPDATE ${table} SET expiresAt = NULL, level = 'view'`)
+      expect(d1.sqlite.prepare(`SELECT count(*) AS total FROM ${table}`).get()?.['total']).toBe(1)
+    })
   })
 })

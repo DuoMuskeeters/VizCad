@@ -246,3 +246,39 @@ WHEN NEW.legacyMaxExpiresAt IS NOT OLD.legacyMaxExpiresAt
 BEGIN
   SELECT RAISE(ABORT, 'Legacy link expiry ceiling is immutable');
 END;
+--> statement-breakpoint
+CREATE TRIGGER `file_access_guest_expiry_insert`
+BEFORE INSERT ON `file_access`
+WHEN NEW.expiresAt IS NULL AND EXISTS (
+  SELECT 1 FROM `member` WHERE organizationId = NEW.workspaceId AND userId = NEW.userId AND role = 'guest'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'guest access requires expiresAt');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `file_access_guest_expiry_update`
+BEFORE UPDATE ON `file_access`
+WHEN NEW.expiresAt IS NULL AND EXISTS (
+  SELECT 1 FROM `member` WHERE organizationId = NEW.workspaceId AND userId = NEW.userId AND role = 'guest'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'guest access requires expiresAt');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `project_access_guest_expiry_insert`
+BEFORE INSERT ON `project_access`
+WHEN NEW.expiresAt IS NULL AND EXISTS (
+  SELECT 1 FROM `member` WHERE organizationId = NEW.workspaceId AND userId = NEW.userId AND role = 'guest'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'guest access requires expiresAt');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `project_access_guest_expiry_update`
+BEFORE UPDATE ON `project_access`
+WHEN NEW.expiresAt IS NULL AND EXISTS (
+  SELECT 1 FROM `member` WHERE organizationId = NEW.workspaceId AND userId = NEW.userId AND role = 'guest'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'guest access requires expiresAt');
+END;
