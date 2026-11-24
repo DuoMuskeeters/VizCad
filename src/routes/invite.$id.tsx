@@ -3,6 +3,8 @@ import { noindexHead } from '#/auth/pages'
 import { InvitePage } from '#/app/invite/InvitePage'
 
 export const Route = createFileRoute('/invite/$id')({
+  // Client-rendered (CPU budget): the server answers with the shell only. Children of /app inherit this.
+  ssr: false,
   head: noindexHead('Invitation'),
   component: InviteRoute,
 })

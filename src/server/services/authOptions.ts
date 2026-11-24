@@ -8,7 +8,9 @@ import { eq } from 'drizzle-orm'
 import { Redacted } from 'effect'
 import * as schema from '../db/schema'
 import type { AuthSettings } from './AppConfig'
+import { isBanned } from './accountStatus'
 import type { GoogleUserInfo } from './googleProfile'
+import { SESSION_EXPIRES_IN, SESSION_UPDATE_AGE } from './sessionCookie'
 
 /**
  * Fields VizCad adds to the SDK's organization table. All server-only: `input: false` means no request body
@@ -55,9 +57,7 @@ export interface AuthOptionsInput {
   readonly googleUserInfo: (idToken: string | undefined) => Promise<GoogleUserInfo | null>
 }
 
-/** A ban holds while `banned` is set and `banExpires` is empty or in the future. */
-export const isBanned = (row: { banned: boolean | null; banExpires: Date | null } | undefined, now = Date.now()) =>
-  row?.banned === true && (row.banExpires === null || row.banExpires.getTime() > now)
+export { isBanned }
 
 /** better-auth options. Pure (no I/O besides what the adapter does lazily), so tests can inspect them. */
 export const authOptions = (input: AuthOptionsInput) => {
@@ -85,8 +85,8 @@ export const authOptions = (input: AuthOptionsInput) => {
     session: {
       // Authority must always come from D1, never from a signed cookie (docs/08 §1).
       cookieCache: { enabled: false },
-      expiresIn: 60 * 60 * 24 * 30,
-      updateAge: 60 * 60 * 24,
+      expiresIn: SESSION_EXPIRES_IN,
+      updateAge: SESSION_UPDATE_AGE,
     },
     advanced: {
       useSecureCookies: secure,

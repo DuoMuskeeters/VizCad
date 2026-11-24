@@ -5,6 +5,7 @@ import { AuthError, Unauthenticated, WorkspaceUnavailable } from '../errors'
 export interface SessionSummary {
   readonly sessionId: string
   readonly userId: string
+  readonly name: string
   readonly email: string
   readonly emailVerified: boolean
   /** `suspended` when the platform has banned the account (user.banned, unexpired). */

@@ -1,17 +1,15 @@
 import { assert, describe, it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
-import { ConfigError, DbError } from '../errors'
-import { Db } from '../services/Db'
-import * as DbMemory from '../services/Db.memory'
-import { healthResponse } from './health'
+import { Effect } from 'effect'
+import { openMemoryD1 } from '../testing/memoryD1'
+import { healthResponse } from './D1Health'
 
-const meta = { requestId: 'ray-1' }
 const json = (r: Response) => Effect.promise(() => r.json())
+const fake = (first: () => Promise<{ ok: number } | null>) => ({ prepare: () => ({ first }) }) as unknown as D1Database
 
 describe('GET /api/health', () => {
   it.effect('200 {"ok":true} when D1 answers', () =>
     Effect.gen(function* () {
-      const response = yield* healthResponse(DbMemory.memory, meta)
+      const response = yield* Effect.promise(() => healthResponse(openMemoryD1().binding, 'ray-1'))
       assert.strictEqual(response.status, 200)
       assert.deepStrictEqual(yield* json(response), { ok: true })
       assert.strictEqual(response.headers.get('cache-control'), 'no-store')
@@ -19,11 +17,11 @@ describe('GET /api/health', () => {
   )
 
   it.effect.each([
-    { name: 'D1 query fails', db: Layer.succeed(Db, Db.of({ use: () => Effect.fail(new DbError({ cause: 'D1_ERROR: select 1' })) })) },
-    { name: 'config is missing', db: Layer.effect(Db, Effect.fail(new ConfigError({ message: 'no binding' }))) },
-  ])('fixed 503 {"ok":false} when $name', ({ db }) =>
+    { name: 'D1 query fails', d1: fake(() => Promise.reject(new Error('D1_ERROR: select 1'))) },
+    { name: 'D1 answers with something else', d1: fake(() => Promise.resolve(null)) },
+  ])('fixed 503 {"ok":false} when $name', ({ d1 }) =>
     Effect.gen(function* () {
-      const response = yield* healthResponse(db, meta)
+      const response = yield* Effect.promise(() => healthResponse(d1, null))
       assert.strictEqual(response.status, 503)
       assert.deepStrictEqual(yield* json(response), { ok: false })
       assert.strictEqual(response.headers.get('cache-control'), 'no-store')
