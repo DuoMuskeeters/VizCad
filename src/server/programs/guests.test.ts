@@ -1,6 +1,8 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect, Ref } from 'effect'
 import { TestClock } from 'effect/testing'
+import * as schema from '../db/schema'
+import { Db } from '../services/Db'
 import { EmailOutbox } from '../services/Email'
 import { defaultPlan } from '../services/Entitlements'
 import { caller, programLayer, rows, seedFile, seedMember, seedProject, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
@@ -16,7 +18,7 @@ const DAY = 86400
 
 /** acme: owner bob, admin ada, member max, commenter cat; f1 projectless, p1 team (f2), p2 restricted by max (f3). */
 const acme = Effect.gen(function* () {
-  for (const id of ['bob', 'ada', 'max', 'cat', 'eve', 'zed']) yield* seedUser(id)
+  for (const id of ['bob', 'ada', 'max', 'cat', 'eve', 'zed', 'ivy']) yield* seedUser(id)
   yield* seedWorkspace('acme', 'bob')
   yield* seedMember('acme', 'ada', 'admin')
   yield* seedMember('acme', 'max', 'member')
@@ -33,6 +35,16 @@ const lastToken = Effect.gen(function* () {
   const outbox = yield* Ref.get(yield* EmailOutbox)
   return /guest-invite\/([A-Za-z0-9_-]+)/.exec(outbox[outbox.length - 1]?.text ?? '')?.[1] ?? ''
 })
+
+/** A guest membership on f1 whose grant ends at `until` (Unix seconds). */
+const seedGuest = (userId: string, until: number) =>
+  Effect.gen(function* () {
+    yield* seedMember('acme', userId, 'guest')
+    yield* Db.use((db) => db.use((d) => d.insert(schema.fileAccess).values({
+      workspaceId: 'acme', fileId: 'f1', userId, level: 'view', expiresAt: new Date(until * 1000), grantedByUserId: 'bob', source: 'grant',
+      createdAt: new Date((T0 - 3600) * 1000), updatedAt: new Date((T0 - 3600) * 1000),
+    })))
+  })
 
 const inviteEve = (by: string, target: { fileId: string } | { projectId: string }, level: 'view' | 'comment' | 'download' = 'comment', accessExpiresAt = T0 + 30 * DAY) =>
   inviteGuest(caller(by), { workspaceId: 'acme', target, email: 'eve@example.com', level, accessExpiresAt, locale: 'en' })
@@ -128,9 +140,37 @@ describe('inviteGuest / acceptGuestInvitation', () => {
   it.effect('the guest limit comes from Entitlements', () =>
     run(Effect.gen(function* () {
       yield* acme
-      yield* seedMember('acme', 'zed', 'guest')
+      yield* seedGuest('zed', T0 + DAY)
       yield* inviteEve('ada', { fileId: 'f1' })
       assert.strictEqual((yield* Effect.flip(acceptGuestInvitation(caller('eve'), { token: yield* lastToken })))._tag, 'GuestLimitReached')
+    }), { ...defaultPlan, guests: 1 }))
+
+  it.effect('guests whose grants have all ended do not use the guest quota', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedGuest('zed', T0 - 1)
+      yield* inviteEve('ada', { fileId: 'f1' })
+      yield* acceptGuestInvitation(caller('eve'), { token: yield* lastToken })
+      assert.deepStrictEqual((yield* rows('member')).filter((m) => m.role === 'guest').map((m) => m.userId).sort(), ['eve', 'zed'])
+    }), { ...defaultPlan, guests: 1 }))
+
+  it.effect('two guests accepting at once with one place left: exactly one joins', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      const invite = (email: string) =>
+        inviteGuest(caller('ada'), { workspaceId: 'acme', target: { fileId: 'f1' }, email, level: 'view', accessExpiresAt: T0 + 30 * DAY, locale: 'en' })
+      yield* invite('eve@example.com')
+      const eveToken = yield* lastToken
+      yield* invite('ivy@example.com')
+      const ivyToken = yield* lastToken
+      const results = yield* Effect.all([
+        Effect.result(acceptGuestInvitation(caller('eve'), { token: eveToken })),
+        Effect.result(acceptGuestInvitation(caller('ivy'), { token: ivyToken })),
+      ], { concurrency: 'unbounded' })
+      assert.strictEqual(results.filter((r) => r._tag === 'Success').length, 1)
+      assert.strictEqual((yield* rows('member')).filter((m) => m.role === 'guest').length, 1)
+      const failure = results.find((r) => r._tag === 'Failure')
+      assert.include(['GuestLimitReached', 'WriteConflict'], failure?._tag === 'Failure' ? failure.failure._tag : '')
     }), { ...defaultPlan, guests: 1 }))
 
   it.effect('a member may cancel only the guest invitations they sent', () =>

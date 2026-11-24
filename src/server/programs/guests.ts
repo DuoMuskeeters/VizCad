@@ -15,7 +15,7 @@ import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
 import { authorizeGrant, checkExpiry, fileContext, memberRole, projectContext } from './access'
 import { limitInvites, normalizeEmail, sendInvitation } from './invitationMail'
-import { activity, authorize, type Caller, guard, newId, nowSeconds, runBatch, stillRole, toDate, toSeconds } from './shared'
+import { activity, authorize, type Caller, guard, liveGuestScope, newId, nowSeconds, runBatch, stillRole, toDate, toSeconds } from './shared'
 
 export type GuestLevel = 'view' | 'comment' | 'download'
 export type GuestTarget = { readonly fileId: string } | { readonly projectId: string }
@@ -163,7 +163,8 @@ export const acceptGuestInvitation = Effect.fn('acceptGuestInvitation')(function
     }),
   )
   const limits = yield* (yield* Entitlements).limits(workspaceId)
-  const guestCount = sql`(SELECT count(*) FROM member WHERE organizationId = ${workspaceId} AND role = 'guest')`
+  // Only guests with a live grant use the quota; an expired guest membership is dormant (docs/08 §1 workspace picker).
+  const guestCount = sql`(SELECT count(*) FROM member WHERE organizationId = ${workspaceId} AND role = 'guest' AND ${liveGuestScope(schema.member.organizationId, schema.member.userId, now)})`
   if (current._tag === 'None' && limits.guests !== null) {
     const row = yield* db.use((d) => d.get<{ n: number }>(sql`SELECT ${guestCount} AS n`))
     if ((row?.n ?? 0) >= limits.guests) return yield* new GuestLimitReached()
