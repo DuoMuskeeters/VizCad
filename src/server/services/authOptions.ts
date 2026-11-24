@@ -4,6 +4,7 @@ import type { DBFieldAttribute } from 'better-auth/db'
 import { organization } from 'better-auth/plugins'
 import { createAccessControl } from 'better-auth/plugins/access'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
+import { eq } from 'drizzle-orm'
 import { Redacted } from 'effect'
 import * as schema from '../db/schema'
 import type { AuthSettings } from './AppConfig'
@@ -53,6 +54,10 @@ export interface AuthOptionsInput {
   /** Google's provider-level `getUserInfo` (the pre-account-takeover guard, googleProfile.ts). */
   readonly googleUserInfo: (idToken: string | undefined) => Promise<GoogleUserInfo | null>
 }
+
+/** A ban holds while `banned` is set and `banExpires` is empty or in the future. */
+export const isBanned = (row: { banned: boolean | null; banExpires: Date | null } | undefined, now = Date.now()) =>
+  row?.banned === true && (row.banExpires === null || row.banExpires.getTime() > now)
 
 /** better-auth options. Pure (no I/O besides what the adapter does lazily), so tests can inspect them. */
 export const authOptions = (input: AuthOptionsInput) => {
@@ -107,6 +112,21 @@ export const authOptions = (input: AuthOptionsInput) => {
     account: {
       // Never link an existing local account to Google by email (pre-account takeover, review 3.1).
       accountLinking: { enabled: false },
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // A banned user gets no session, by any route (password, Google callback). An expired ban does not block.
+          before: async (session) => {
+            const [row] = await input.db
+              .select({ banned: schema.user.banned, banExpires: schema.user.banExpires })
+              .from(schema.user)
+              .where(eq(schema.user.id, session.userId))
+              .limit(1)
+            return isBanned(row) ? false : { data: session }
+          },
+        },
+      },
     },
     user: {
       // Account deletion is off in the first phase (docs/08 §2).

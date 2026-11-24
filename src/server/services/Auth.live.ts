@@ -6,7 +6,7 @@ import { passwordResetEmail, localeFromHeader, verificationEmail, type RenderedE
 import { AuthError, ConfigError, Unauthenticated, WorkspaceUnavailable } from '../errors'
 import { AppConfig } from './AppConfig'
 import { Auth, type SessionSummary } from './Auth'
-import { createAuth, type AuthMailer } from './authOptions'
+import { createAuth, isBanned, type AuthMailer } from './authOptions'
 import { Email } from './Email'
 import { googleUserInfo } from './googleProfile'
 
@@ -79,9 +79,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
           try: () => db.select({ banned: schema.user.banned, banExpires: schema.user.banExpires }).from(schema.user).where(eq(schema.user.id, userId)).limit(1),
           catch: fail('readSession'),
         }).pipe(
-          Effect.map(([row]): SessionSummary['accountStatus'] =>
-            row?.banned === true && (row.banExpires === null || row.banExpires.getTime() > Date.now()) ? 'suspended' : 'active',
-          ),
+          Effect.map(([row]): SessionSummary['accountStatus'] => (isBanned(row) ? 'suspended' : 'active')),
         )
 
       const resolve = (headers: Headers) =>

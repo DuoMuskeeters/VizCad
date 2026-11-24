@@ -124,6 +124,34 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect('a banned user gets no session (password and Google); an expired ban does not block', () => {
+    const { d1, layer } = setup()
+    return Effect.gen(function* () {
+      yield* signUp('ada@example.com')
+      yield* verify
+      yield* Effect.sync(() => d1.sqlite.exec("update user set banned = 1 where email = 'ada@example.com'"))
+      const blocked = yield* signIn('ada@example.com')
+      assert.isAbove(blocked.status, 399)
+      assert.strictEqual(jar(blocked), '')
+      assert.strictEqual(rows<{ n: number }>(d1, 'select count(*) as n from session')[0]?.n, 0)
+
+      d1.sqlite.exec("update user set banExpires = 1000 where email = 'ada@example.com'")
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200, 'expired ban')
+
+      d1.sqlite.exec(`update user set banExpires = ${Date.now() + 3_600_000} where email = 'ada@example.com'`)
+      assert.isAbove((yield* signIn('ada@example.com')).status, 399, 'running ban')
+
+      // Google callback for a banned, previously linked, verified account.
+      d1.sqlite.exec(`
+        insert into user (id, name, email, emailVerified, banned, createdAt, updatedAt) values ('ub', 'B', 'ban@example.com', 1, 1, 1, 1);
+        insert into account (id, accountId, providerId, userId, createdAt, updatedAt) values ('ab', 'g-ban', 'google', 'ub', 1, 1);
+      `)
+      const viaGoogle = yield* google({ sub: 'g-ban', email: 'ban@example.com', email_verified: true })
+      assert.strictEqual(jar(viaGoogle), '')
+      assert.strictEqual(rows<{ n: number }>(d1, "select count(*) as n from session where userId = 'ub'")[0]?.n, 0)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect('password reset ends other sessions and does not verify the email', () => {
     const { d1, layer } = setup()
     return Effect.gen(function* () {
