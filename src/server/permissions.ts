@@ -85,19 +85,29 @@ interface GrantTarget {
 export type PermissionAction =
   | {
     kind: 'view' | 'preview' | 'comment' | 'download' | 'edit' | 'viewHistory'
-      | 'shareFile' | 'trashFile' | 'restoreFile' | 'purgeFile' | 'uploadVersion' | 'moveFile'
+      | 'shareFile' | 'trashFile' | 'restoreFile' | 'purgeFile' | 'uploadVersion'
       | 'createProject' | 'uploadFile' | 'uploadProjectFile' | 'updateProject'
       | 'manageMembers' | 'updateWorkspace' | 'listActivity' | 'listLinks'
       | 'archiveWorkspace' | 'selectWorkspace'
   }
   | { kind: 'viewComment'; authorUserId: string; authorScopeAtWrite: 'internal' | 'guest' | null; authorRole: WorkspaceRole | null }
-  | { kind: 'grantProjectAccess' | 'grantFileAccess'; recipient: MembershipTarget; level: string }
+  | { kind: 'grantProjectAccess' | 'grantFileAccess'; recipient: MembershipTarget; level: string; expiresAt: number | null }
   | { kind: 'revokeProjectAccess' | 'revokeFileAccess'; target: GrantTarget }
   | { kind: 'inviteMember'; role: string }
   | { kind: 'changeRole'; target: MembershipTarget; role: string }
   | { kind: 'removeMember'; target: MembershipTarget }
   | { kind: 'transferOwnership'; target: MembershipTarget }
   | { kind: 'billing'; available: boolean }
+  | {
+    kind: 'moveFile'
+    /** The destination context. Must be in the same workspace as the source. */
+    target: {
+      workspaceId: string
+      project: Project | null
+      /** Active project grant for the actor at the destination, if any. */
+      projectGrant?: ProjectGrant
+    }
+  }
 
 export interface PermissionInput {
   actor: PermissionActor
@@ -198,8 +208,14 @@ function decideLink(input: PermissionInput, actor: Extract<PermissionActor, { ki
   }
 }
 
-function canManageRole(role: string, targetRole: string) {
-  return targetRole === 'member' || targetRole === 'commenter' || (role === 'owner' && targetRole === 'admin')
+/** Roles an owner or admin may hand out. Guests only arise from resource invitations. */
+function assignableRole(role: string, next: string) {
+  return next === 'member' || next === 'commenter' || (role === 'owner' && next === 'admin')
+}
+
+/** Existing members an owner or admin may change or remove. Guests are manageable by both. */
+function manageableTarget(role: string, target: string) {
+  return target === 'guest' || assignableRole(role, target)
 }
 
 /**
@@ -230,8 +246,9 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
   const workspaceManager = role === 'owner' || role === 'admin'
   const writer = workspaceManager || role === 'member'
   const restricted = project?.accessMode === 'restricted'
-  const projectManager = workspaceManager || (role === 'member'
-    && project?.creatorManagerUserId === userId && project.createdByUserId === userId)
+  const managesProject = (candidate: Project | undefined) => workspaceManager || (role === 'member'
+    && candidate?.creatorManagerUserId === userId && candidate.createdByUserId === userId)
+  const projectManager = managesProject(project)
 
   const scopedProjectGrant = project && input.projectGrant?.projectId === project.id
     && input.projectGrant.workspaceId === workspace.id && input.projectGrant.userId === userId
@@ -302,8 +319,31 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
     case 'edit':
     case 'trashFile':
     case 'uploadVersion':
-    case 'moveFile':
       return fileWrite()
+    case 'moveFile': {
+      const source = fileWrite()
+      if (!source.allowed) return source
+      const { target } = action
+      const destination = target.project
+      if (target.workspaceId !== workspace.id || (destination && destination.workspaceId !== workspace.id)) {
+        return deny('TENANT_MISMATCH')
+      }
+      if (destination && (destination.archived
+        || (destination.accessMode !== 'team' && destination.accessMode !== 'restricted'))) {
+        return deny('RESOURCE_UNAVAILABLE')
+      }
+      // Leaving or entering a restricted project needs authority over that project.
+      if (restricted && !projectManager) return deny('PROJECT_MANAGER_REQUIRED')
+      if (!destination) return allow // same rule as uploadFile (writer, checked by fileWrite)
+      if (destination.accessMode === 'team') return allow // same rule as uploadProjectFile
+      if (!managesProject(destination)) return deny('PROJECT_MANAGER_REQUIRED')
+      const destinationGrant = target.projectGrant?.projectId === destination.id
+        && target.projectGrant.workspaceId === workspace.id && target.projectGrant.userId === userId
+        ? target.projectGrant : undefined
+      const destinationLevel = Math.min(cap, Math.max(
+        workspaceManager ? rank('edit') : 0, grantRank(destinationGrant, false, now)))
+      return destinationLevel >= rank('edit') ? allow : deny('INSUFFICIENT_LEVEL')
+    }
     case 'restoreFile':
     case 'purgeFile':
       if (!file?.trashed) return deny('RESOURCE_UNAVAILABLE')
@@ -316,7 +356,10 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
       const sharing = action.kind === 'grantFileAccess' ? fileSharing() : projectSharing()
       if (!sharing.allowed) return sharing
       const requested = rank(action.level)
-      return roleAllows(requested > 0 && requested <= roleCap(action.recipient.role))
+      if (requested <= 0 || requested > roleCap(action.recipient.role)) return deny('ROLE_LIMIT')
+      // Guests must always have a finite expiry on their access grants.
+      if (action.recipient.role === 'guest' && action.expiresAt === null) return deny('ROLE_LIMIT')
+      return allow
     }
     case 'revokeFileAccess':
     case 'revokeProjectAccess': {
@@ -346,11 +389,13 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
     case 'changeRole':
     case 'removeMember': {
       if (workspace.kind !== 'company' || !workspaceManager) return deny('ROLE_LIMIT')
-      if (action.kind === 'inviteMember') return roleAllows(canManageRole(role, action.role))
+      if (action.kind === 'inviteMember') return roleAllows(assignableRole(role, action.role))
       if (action.target.workspaceId !== workspace.id) return deny('TENANT_MISMATCH')
       if (action.target.role === 'owner') return deny('LAST_OWNER')
-      return roleAllows(canManageRole(role, action.target.role)
-        && (action.kind === 'removeMember' || canManageRole(role, action.role)))
+      if (action.kind === 'removeMember') return roleAllows(manageableTarget(role, action.target.role))
+      // A guest is promoted to member or commenter only, never straight to admin.
+      return roleAllows(manageableTarget(role, action.target.role) && assignableRole(role, action.role)
+        && (action.target.role !== 'guest' || action.role !== 'admin'))
     }
     case 'transferOwnership':
       if (action.target.workspaceId !== workspace.id) return deny('TENANT_MISMATCH')

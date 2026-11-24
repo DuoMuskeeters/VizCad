@@ -123,11 +123,11 @@ const managementCases = fileCells.flatMap(({ actor, mode, input, name, p, vector
   const canGrantProject = hasProject && (manager || creator)
   const actions = [
     [{ kind: 'shareFile' }, canShareFile],
-    [{ kind: 'grantFileAccess', recipient: targetGuest, level: 'download' }, canShareFile],
+    [{ kind: 'grantFileAccess', recipient: targetGuest, level: 'download', expiresAt: now + 1 }, canShareFile],
     [{ kind: 'createProject' }, writer],
     [{ kind: 'uploadProjectFile' }, hasProject && writer && (mode === 'team' || manager || creator || p === 'edit')],
     [{ kind: 'updateProject' }, hasProject && manager],
-    [{ kind: 'grantProjectAccess', recipient: targetGuest, level: 'download' }, canGrantProject],
+    [{ kind: 'grantProjectAccess', recipient: targetGuest, level: 'download', expiresAt: now + 1 }, canGrantProject],
     [{ kind: 'manageMembers' }, manager],
     [{ kind: 'updateWorkspace' }, manager],
     [{ kind: 'listActivity' }, manager],
@@ -409,7 +409,6 @@ describe('management targets and guest comment visibility', () => {
     ['an admin can remove a member', { actor: admin, action: { kind: 'removeMember', target: targetMember } }, 'ALLOWED'],
     ['an owner can promote an internal member to admin', { actor: owner, action: { kind: 'changeRole', target: targetMember, role: 'admin' } }, 'ALLOWED'],
     ['an owner cannot use role changes to assign ownership', { actor: owner, action: { kind: 'changeRole', target: targetMember, role: 'owner' } }, 'ROLE_LIMIT'],
-    ['ordinary role changes cannot promote a guest', { actor: owner, action: { kind: 'changeRole', target: targetGuest, role: 'member' } }, 'ROLE_LIMIT'],
     ['an admin can invite a commenter', { actor: admin, action: { kind: 'inviteMember', role: 'commenter' } }, 'ALLOWED'],
     ['an admin cannot invite an admin', { actor: admin, action: { kind: 'inviteMember', role: 'admin' } }, 'ROLE_LIMIT'],
     ['an owner can invite an admin', { actor: owner, action: { kind: 'inviteMember', role: 'admin' } }, 'ALLOWED'],
@@ -420,10 +419,11 @@ describe('management targets and guest comment visibility', () => {
     ['an owner cannot transfer to a member of another workspace', { actor: owner, action: { kind: 'transferOwnership', target: { ...targetMember, workspaceId: 'b' } } }, 'TENANT_MISMATCH'],
     ['an owner cannot transfer a personal workspace', { actor: owner, workspace: personal, action: { kind: 'transferOwnership', target: targetMember } }, 'ROLE_LIMIT'],
     ['an owner cannot archive a personal workspace', { actor: owner, workspace: personal, action: { kind: 'archiveWorkspace' } }, 'ROLE_LIMIT'],
-    ['an owner can share a file in a personal workspace', { actor: owner, workspace: personal, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'comment' } }, 'ALLOWED'],
-    ['an owner cannot assign edit to a guest', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'edit' } }, 'ROLE_LIMIT'],
-    ['an owner cannot assign download to a commenter', { actor: owner, action: { kind: 'grantFileAccess', recipient: { ...targetMember, role: 'commenter' }, level: 'download' } }, 'ROLE_LIMIT'],
-    ['an owner cannot assign a grant across workspaces', { actor: owner, action: { kind: 'grantFileAccess', recipient: { ...targetGuest, workspaceId: 'b' }, level: 'view' } }, 'TENANT_MISMATCH'],
+    ['an owner can share a file in a personal workspace', { actor: owner, workspace: personal, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'comment', expiresAt: now + 1 } }, 'ALLOWED'],
+    ['an owner cannot assign edit to a guest', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'edit', expiresAt: now + 1 } }, 'ROLE_LIMIT'],
+    ['an owner cannot assign a guest grant without expiry', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'download', expiresAt: null } }, 'ROLE_LIMIT'],
+    ['an owner cannot assign download to a commenter', { actor: owner, action: { kind: 'grantFileAccess', recipient: { ...targetMember, role: 'commenter' }, level: 'download', expiresAt: null } }, 'ROLE_LIMIT'],
+    ['an owner cannot assign a grant across workspaces', { actor: owner, action: { kind: 'grantFileAccess', recipient: { ...targetGuest, workspaceId: 'b' }, level: 'view', expiresAt: now + 1 } }, 'TENANT_MISMATCH'],
     ['a team editor can revoke their own guest grant', { ...teamEditor, action: { kind: 'revokeFileAccess', target: grantTarget } }, 'ALLOWED'],
     ['a team editor cannot revoke another member’s guest grant', { ...teamEditor, action: { kind: 'revokeFileAccess', target: { ...grantTarget, grantedByUserId: 'someone-else' } } }, 'ROLE_LIMIT'],
     ['a team editor cannot revoke an internal grant', { ...teamEditor, action: { kind: 'revokeFileAccess', target: { ...grantTarget, role: 'member' } } }, 'ROLE_LIMIT'],
@@ -431,6 +431,23 @@ describe('management targets and guest comment visibility', () => {
     ['a restricted non-manager cannot revoke even their own guest grant', { ...cellInput('member', 'restricted', null, 'edit'), action: { kind: 'revokeFileAccess', target: grantTarget } }, 'PROJECT_MANAGER_REQUIRED'],
     ['the creator can revoke a grant to their restricted project', { ...restrictedCreator, action: { kind: 'revokeProjectAccess', target: { ...grantTarget, resourceId: 'p' } } }, 'ALLOWED'],
     ['the creator cannot revoke a grant to a different project through this one', { ...restrictedCreator, action: { kind: 'revokeProjectAccess', target: { ...grantTarget, resourceId: 'other' } } }, 'RESOURCE_UNAVAILABLE'],
+    // Guest membership management (§4 table, D14 review finding)
+    ['an owner can remove a guest member', { actor: owner, action: { kind: 'removeMember', target: targetGuest } }, 'ALLOWED'],
+    ['an admin can remove a guest member', { actor: admin, action: { kind: 'removeMember', target: targetGuest } }, 'ALLOWED'],
+    ['an owner can promote a guest to member', { actor: owner, action: { kind: 'changeRole', target: targetGuest, role: 'member' } }, 'ALLOWED'],
+    ['an owner can promote a guest to commenter', { actor: owner, action: { kind: 'changeRole', target: targetGuest, role: 'commenter' } }, 'ALLOWED'],
+    ['an admin can promote a guest to member', { actor: admin, action: { kind: 'changeRole', target: targetGuest, role: 'member' } }, 'ALLOWED'],
+    ['an admin can promote a guest to commenter', { actor: admin, action: { kind: 'changeRole', target: targetGuest, role: 'commenter' } }, 'ALLOWED'],
+    ['a member cannot remove a guest', { actor: asMember('member'), action: { kind: 'removeMember', target: targetGuest } }, 'ROLE_LIMIT'],
+    ['a commenter cannot remove a guest', { actor: asMember('commenter'), action: { kind: 'removeMember', target: targetGuest } }, 'ROLE_LIMIT'],
+    ['an owner cannot demote a member to guest', { actor: owner, action: { kind: 'changeRole', target: targetMember, role: 'guest' } }, 'ROLE_LIMIT'],
+    ['an owner cannot invite a guest through member invitations', { actor: owner, action: { kind: 'inviteMember', role: 'guest' } }, 'ROLE_LIMIT'],
+    ['an owner cannot promote a guest to admin via changeRole', { actor: owner, action: { kind: 'changeRole', target: targetGuest, role: 'admin' } }, 'ROLE_LIMIT'],
+    ['an admin cannot promote a guest to admin via changeRole', { actor: admin, action: { kind: 'changeRole', target: targetGuest, role: 'admin' } }, 'ROLE_LIMIT'],
+    // Guest grant expiry enforcement
+    ['an owner granting download to a guest without expiry is denied', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'download', expiresAt: null } }, 'ROLE_LIMIT'],
+    ['an owner granting download to a guest with expiry is allowed', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetGuest, level: 'download', expiresAt: now + 1 } }, 'ALLOWED'],
+    ['an owner granting download to an internal member without expiry is allowed', { actor: owner, action: { kind: 'grantFileAccess', recipient: targetMember, level: 'download', expiresAt: null } }, 'ALLOWED'],
   ] satisfies Array<[string, Partial<PermissionInput>, string]>)('%s', (_name, patch, expected) => {
     expect(decidePermission({ ...defaultInput, ...patch }).reason).toBe(expected)
   })
@@ -450,5 +467,51 @@ describe('management targets and guest comment visibility', () => {
       fileGrant: { ...fileGrant, level: 'view', expiresAt: now + 1 },
       action: { kind: 'viewComment', authorUserId, authorScopeAtWrite, authorRole },
     }).allowed).toBe(expected)
+  })
+})
+
+describe('moveFile source and target permissions', () => {
+  const restrictedMode = { ...project, accessMode: 'restricted' } as const
+  const teamMode = { ...project, accessMode: 'team' } as const
+  const otherRestricted = { ...restrictedMode, id: 'other', creatorManagerUserId: 'u' } as const
+  const otherGrant = { ...projectGrant, projectId: 'other' } as const
+  const creatorMode = { ...restrictedMode, creatorManagerUserId: 'u' } as const
+  const moveTo = (
+    target: { workspaceId?: string; project: typeof teamMode | typeof restrictedMode | null; projectGrant?: typeof projectGrant },
+  ): PermissionAction => ({ kind: 'moveFile', target: { workspaceId: 'a', ...target } })
+  const ownStandalone = { actor: asMember('member'), file, fileGrant } as const
+  const ownTeamFile = cellInput('member', 'team', null, 'edit')
+
+  it.each([
+    ['member, no project → no project', { ...ownStandalone, action: moveTo({ project: null }) }, 'ALLOWED'],
+    ['member without edit on a standalone file', { actor: asMember('member'), file, action: moveTo({ project: null }) }, 'INSUFFICIENT_LEVEL'],
+    ['member, no project → team', { ...ownStandalone, action: moveTo({ project: teamMode }) }, 'ALLOWED'],
+    ['member, team → no project', { ...ownTeamFile, action: moveTo({ project: null }) }, 'ALLOWED'],
+    ['member, team → team', { ...ownTeamFile, action: moveTo({ project: { ...teamMode, id: 'other' } }) }, 'ALLOWED'],
+    ['member, team → restricted', { ...ownTeamFile, action: moveTo({ project: restrictedMode }) }, 'PROJECT_MANAGER_REQUIRED'],
+    ['member, no project → restricted', { ...ownStandalone, action: moveTo({ project: restrictedMode }) }, 'PROJECT_MANAGER_REQUIRED'],
+    ['member without source edit, team → no project', { ...cellInput('member', 'team', null, 'view'), action: moveTo({ project: null }) }, 'INSUFFICIENT_LEVEL'],
+    ['creator, no project → own restricted with edit grant', { ...ownStandalone, action: moveTo({ project: creatorMode, projectGrant }) }, 'ALLOWED'],
+    ['creator, no project → own restricted without edit grant', { ...ownStandalone, action: moveTo({ project: creatorMode }) }, 'INSUFFICIENT_LEVEL'],
+    ['creator, no project → own restricted with expired grant', { ...ownStandalone, action: moveTo({ project: creatorMode, projectGrant: { ...projectGrant, expiresAt: now } }) }, 'INSUFFICIENT_LEVEL'],
+    ['creator, no project → own restricted with a grant on another project', { ...ownStandalone, action: moveTo({ project: creatorMode, projectGrant: otherGrant }) }, 'INSUFFICIENT_LEVEL'],
+    ['creator, restricted → team', { ...cellInput('creator', 'restricted', 'edit', null), action: moveTo({ project: { ...teamMode, id: 'other' } }) }, 'ALLOWED'],
+    ['creator, restricted → no project', { ...cellInput('creator', 'restricted', 'edit', null), action: moveTo({ project: null }) }, 'ALLOWED'],
+    ['member with edit grant, restricted → team', { ...cellInput('member', 'restricted', null, 'edit'), action: moveTo({ project: { ...teamMode, id: 'other' } }) }, 'PROJECT_MANAGER_REQUIRED'],
+    ['member with project edit, restricted → no project', { ...cellInput('member', 'restricted', 'edit', null), action: moveTo({ project: null }) }, 'PROJECT_MANAGER_REQUIRED'],
+    ['creator, restricted → another restricted they manage with a grant', { ...cellInput('creator', 'restricted', 'edit', null), action: moveTo({ project: otherRestricted, projectGrant: otherGrant }) }, 'ALLOWED'],
+    ['creator, restricted → another restricted they do not manage', { ...cellInput('creator', 'restricted', 'edit', null), action: moveTo({ project: { ...otherRestricted, creatorManagerUserId: null, createdByUserId: 'x' }, projectGrant: otherGrant }) }, 'PROJECT_MANAGER_REQUIRED'],
+    ['owner, no project → restricted', { actor: asMember('owner'), file, action: moveTo({ project: restrictedMode }) }, 'ALLOWED'],
+    ['owner, restricted → restricted', { ...cellInput('owner', 'restricted', null, null), action: moveTo({ project: otherRestricted }) }, 'ALLOWED'],
+    ['admin, team → restricted', { ...cellInput('admin', 'team', null, null), action: moveTo({ project: restrictedMode }) }, 'ALLOWED'],
+    ['admin, restricted → no project', { ...cellInput('admin', 'restricted', null, null), action: moveTo({ project: null }) }, 'ALLOWED'],
+    ['owner, other workspace without project', { actor: asMember('owner'), file, action: moveTo({ workspaceId: 'b', project: null }) }, 'TENANT_MISMATCH'],
+    ['owner, destination project belongs to another workspace', { actor: asMember('owner'), file, action: moveTo({ project: { ...teamMode, workspaceId: 'b' } }) }, 'TENANT_MISMATCH'],
+    ['owner, archived destination project', { actor: asMember('owner'), file, action: moveTo({ project: { ...teamMode, archived: true } }) }, 'RESOURCE_UNAVAILABLE'],
+    ['guest with an edit-capped grant', { actor: asMember('guest'), file, fileGrant: { ...fileGrant, expiresAt: now + 1 }, action: moveTo({ project: null }) }, 'ROLE_LIMIT'],
+    ['commenter', { actor: asMember('commenter'), file, fileGrant: { ...fileGrant, level: 'comment' }, action: moveTo({ project: null }) }, 'ROLE_LIMIT'],
+    ['member of another workspace', { actor: asMember('owner', 'b'), file, action: moveTo({ project: null }) }, 'TENANT_MISMATCH'],
+  ] satisfies Array<[string, Partial<PermissionInput>, string]>)('%s', (_name, patch, expected) => {
+    expect(decidePermission({ ...defaultInput, ...patch }).reason).toBe(expected)
   })
 })
