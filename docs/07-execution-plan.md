@@ -28,7 +28,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 |---|---|
 | Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 ve Faz 3a `rewrite`'ta. UI kit sürüyor (Antigravity Gemini). Sırada Faz 3b |
+| Geliştirme | Faz 1 ve Faz 3a `rewrite`'ta. UI kit birleşti. Faz 3b-1 (Auth) sürüyor |
 | Hosting | Staging yayında (Faz 1) |
 
 ## Dalgalar
@@ -42,7 +42,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [x] Staging kurulumu ve yayın: https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev (`pnpm deploy:staging`)
 
 ### Dalga 2: tasarım sistemi ve kimlik
-- [ ] (sürüyor) Bileşen seti + `/dev/ui` (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
+- [x] Bileşen seti + `/dev/ui` (PR #7; staging'de `/dev/ui`, `/dev/ui/shell`) (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
 - [x] Faz 3a: şema (0012), migration denetimi (izin listesi), `permissions.ts`; Opus incelemesi, 5 bulgu düzeltildi, `rewrite`'a birleşti (PR #6), staging D1'e uygulandı
 - [ ] Faz 3b backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
 - [ ] Mevcut kullanıcılar için kişisel workspace migration'ı; staging'de sahte veriyle test. Production kopyasında prova Dalga 6'da.
