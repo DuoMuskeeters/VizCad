@@ -108,6 +108,10 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
         members = members.map((m) => (m === target ? { ...m, role: body['role'] as Role } : m))
         return json(200, { ok: true, data: { userId: target.userId, role: body['role'] } })
       }
+      case 'previewMemberRemoval': {
+        if (body['userId'] === 'u-mehmet') return json(200, { ok: true, data: { role: 'member', uploadedFiles: 14, guestGrants: 3, activeLinks: 2, pendingInvitations: 1, managedProjects: 1 } })
+        return json(200, { ok: true, data: { role: 'member', uploadedFiles: 0, guestGrants: 0, activeLinks: 0, pendingInvitations: 0, managedProjects: 0 } })
+      }
       case 'removeMember':
         members = members.filter((m) => m.userId !== body['userId'])
         return json(200, { ok: true, data: { removed: true } })

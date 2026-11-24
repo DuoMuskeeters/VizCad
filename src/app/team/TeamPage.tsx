@@ -21,6 +21,7 @@ import { useSession, useUser } from '../session'
 import { useWorkspace } from '../workspace'
 import { ConfirmDialog } from './ConfirmDialog'
 import { InviteDialog } from './InviteDialog'
+import { RemovalPreviewList } from './RemovalPreview'
 
 const memberColumns = 'app:grid-cols-[minmax(0,1fr)_180px_130px_44px]'
 const guestColumns = 'app:grid-cols-[minmax(0,1fr)_130px_44px]'
@@ -444,6 +445,7 @@ export const TeamPage = () => {
         open={pending !== null}
         busy={busy}
         error={dialogError}
+        extra={pending?.kind === 'remove' ? <RemovalPreviewList call={call} workspaceId={active.id} userId={pending.member.userId} /> : undefined}
         onCancel={() => setPending(null)}
         title={promote ? t('app.team.promote.title', { name: promote.member.name, role: t(roleKey(promote.role)) }) : demote ? t('app.team.confirm.roleTitle', { name: demote.member.name }) : t('app.team.confirm.removeTitle', { name: pending?.member.name ?? '' })}
         description={promote ? t('app.team.promote.lead', { name: promote.member.name, workspace: active.name }) : demote ? t('app.team.confirm.roleLead', { from: t(roleKey(demote.member.role)), to: t(roleKey(demote.role)) }) : t('app.team.confirm.removeLead', { name: pending?.member.name ?? '', workspace: active.name })}

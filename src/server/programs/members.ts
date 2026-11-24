@@ -357,3 +357,43 @@ export const listMembers = Effect.fn('listMembers')(function* (caller: Caller, i
   )
   return { members, invitations: invitations.map((i) => ({ ...i, expiresAt: toSeconds(i.expiresAt) })), usage }
 })
+
+export interface RemovalPreview {
+  /** Their role in this workspace. */
+  readonly role: string
+  /** Files they uploaded here (not in the trash). The files stay in the workspace. */
+  readonly uploadedFiles: number
+  /** Live access they gave to guests of this workspace (files and projects). It stays until it ends or is revoked. */
+  readonly guestGrants: number
+  /** Share links they created that are still usable. Removal revokes them. */
+  readonly activeLinks: number
+  /** Member and guest invitations they sent that are still open. Removal cancels them. */
+  readonly pendingInvitations: number
+  /** Projects where they are the managing creator. Removal clears that. */
+  readonly managedProjects: number
+}
+
+/**
+ * What removing this person would touch, as plain counts (no names, no ids): the confirmation window shows them before
+ * `removeMember` runs. Same decision as `removeMember`, so someone who may not remove them learns nothing.
+ */
+export const previewMemberRemoval = Effect.fn('previewMemberRemoval')(function* (caller: Caller, input: { readonly workspaceId: string; readonly userId: string }) {
+  const { workspace, targetRole, now, actor, target } = yield* memberTarget(caller, input.workspaceId, input.userId)
+  yield* authorize({ actor, workspace, now, action: { kind: 'removeMember', target } })
+  const db = yield* Db
+  const w = workspace.id
+  const u = input.userId
+  const row = yield* db.use((d) =>
+    d.get<Omit<RemovalPreview, 'role'>>(sql`SELECT
+      (SELECT count(*) FROM files WHERE workspaceId = ${w} AND userId = ${u} AND isDeleted = 0) AS uploadedFiles,
+      ((SELECT count(*) FROM file_access fa JOIN member m ON m.organizationId = fa.workspaceId AND m.userId = fa.userId
+          WHERE fa.workspaceId = ${w} AND fa.grantedByUserId = ${u} AND fa.source = 'grant' AND m.role = 'guest' AND (fa.expiresAt IS NULL OR fa.expiresAt > ${now}))
+       + (SELECT count(*) FROM project_access pa JOIN member m ON m.organizationId = pa.workspaceId AND m.userId = pa.userId
+          WHERE pa.workspaceId = ${w} AND pa.grantedByUserId = ${u} AND m.role = 'guest' AND (pa.expiresAt IS NULL OR pa.expiresAt > ${now}))) AS guestGrants,
+      (SELECT count(*) FROM share_links WHERE workspaceId = ${w} AND createdByUserId = ${u} AND revokedAt IS NULL AND (expiresAt IS NULL OR expiresAt > ${now})) AS activeLinks,
+      ((SELECT count(*) FROM invitation WHERE organizationId = ${w} AND inviterId = ${u} AND status = 'pending' AND expiresAt > ${now})
+       + (SELECT count(*) FROM resource_invitations WHERE workspaceId = ${w} AND inviterId = ${u} AND status = 'pending' AND expiresAt > ${now})) AS pendingInvitations,
+      (SELECT count(*) FROM projects WHERE workspaceId = ${w} AND creatorManagerUserId = ${u}) AS managedProjects`),
+  )
+  return { role: targetRole, uploadedFiles: row?.uploadedFiles ?? 0, guestGrants: row?.guestGrants ?? 0, activeLinks: row?.activeLinks ?? 0, pendingInvitations: row?.pendingInvitations ?? 0, managedProjects: row?.managedProjects ?? 0 } satisfies RemovalPreview
+})

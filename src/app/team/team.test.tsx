@@ -256,3 +256,35 @@ describe('guest promotion', () => {
     expect(screen.getAllByText(/All 7 seats are in use/).length).toBeGreaterThan(0)
   })
 })
+
+describe('removal preview', () => {
+  const openRemove = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(await screen.findByRole('button', { name: `Actions for ${name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: /Remove from workspace/ }))
+    return screen.findByRole('dialog')
+  }
+
+  it('shows the counts of what removal touches before the person confirms', async () => {
+    const { calls, user } = setup('owner')
+    const dialog = await openRemove(user, 'Mehmet Kaya')
+    expect(await within(dialog).findByText('Files they uploaded (stay in the workspace)')).toBeInTheDocument()
+    expect(within(dialog).getByText('14')).toBeInTheDocument()
+    expect(within(dialog).getByText('Share links (revoked)')).toBeInTheDocument()
+    expect(calls.find((c) => c.operation === 'previewMemberRemoval')?.body).toEqual({ workspaceId: 'ws-dm', userId: 'u-mehmet' })
+    expect(calls.some((c) => c.operation === 'removeMember')).toBe(false)
+  })
+
+  it('says so when nothing depends on the person, and still removes when the preview fails', async () => {
+    const empty = setup('owner')
+    const dialog = await openRemove(empty.user, 'Zeynep Arslan')
+    expect(await within(dialog).findByText(/Nothing else depends on this person/)).toBeInTheDocument()
+  })
+
+  it('lets the removal go ahead when the preview cannot load', async () => {
+    const { calls, user } = setup('owner', (op) => (op === 'previewMemberRemoval' ? failure(500, 'DbError') : undefined))
+    const dialog = await openRemove(user, 'Zeynep Arslan')
+    expect(await within(dialog).findByText(/could not be loaded/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(calls.some((c) => c.operation === 'removeMember')).toBe(true))
+  })
+})

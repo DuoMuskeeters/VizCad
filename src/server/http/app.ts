@@ -5,7 +5,7 @@ import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAcc
 import { listActivity } from '../programs/activity'
 import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
-import { acceptInvitation, changeRole, inviteMember, listMembers, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
+import { acceptInvitation, changeRole, inviteMember, listMembers, previewMemberRemoval, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
 import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
 import { type Caller, maxUnixSeconds } from '../programs/shared'
 import { completeOnboarding, createWorkspace, listMyWorkspaces, needsOnboarding, selectWorkspace, switchWorkspace } from '../programs/workspaces'
@@ -100,6 +100,7 @@ const operations: Readonly<Record<string, Operation>> = {
   acceptInvitation: op({ invitationId: Id }, (input, { caller }) => acceptInvitation(caller, input), 'inviteAccept'),
   revokeInvitation: op({ ...Workspace, invitationId: Id }, (input, { caller }) => revokeInvitation(caller, input)),
   changeRole: op({ ...Workspace, userId: Id, role: InternalRole }, (input, { caller }) => changeRole(caller, input)),
+  previewMemberRemoval: op({ ...Workspace, userId: Id }, (input, { caller }) => previewMemberRemoval(caller, input)),
   removeMember: op({ ...Workspace, userId: Id }, (input, { caller }) => removeMember(caller, input)),
   transferOwnership: op({ ...Workspace, userId: Id }, (input, { caller }) => transferOwnership(caller, input)),
   // Guests

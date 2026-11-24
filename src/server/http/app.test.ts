@@ -161,7 +161,7 @@ describe('POST /api/app/<operation>', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
       'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'changeRole', 'completeOnboarding', 'createProject', 'createWorkspace', 'currentWorkspace',
       'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
-      'removeMember', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
+      'previewMemberRemoval', 'removeMember', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
       'switchWorkspace', 'transferOwnership', 'updateProject',
     ])
   })
