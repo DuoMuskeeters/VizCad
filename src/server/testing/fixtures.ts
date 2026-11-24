@@ -81,6 +81,17 @@ export const seedFile = (id: string, ownerId: string, workspaceId: string | null
     ),
   )
 
+/** The uploader's own `edit` grant that `completeUpload` writes (docs/08 §4). */
+export const seedUploaderGrant = (fileId: string, userId: string, workspaceId: string) =>
+  Db.use((db) =>
+    db.use((d) =>
+      d.insert(schema.fileAccess).values({
+        workspaceId, fileId, userId, level: 'edit', expiresAt: null, grantedByUserId: userId, source: 'uploader',
+        createdAt: at(T0 - 3600), updatedAt: at(T0 - 3600),
+      }),
+    ),
+  )
+
 export const seedProject = (id: string, workspaceId: string, createdBy: string, accessMode: 'team' | 'restricted' = 'team', manager: string | null = null) =>
   Db.use((db) =>
     db.use((d) =>
@@ -107,6 +118,7 @@ const tables = {
   shareLinks: schema.shareLinks,
   files: schema.files,
   fileVersions: schema.fileVersions,
+  fileStars: schema.fileStars,
   uploadSessions: schema.uploadSessions,
   storageDeletions: schema.storageDeletions,
   securityLog: schema.securityLog,

@@ -43,11 +43,11 @@ export const supportedTypesText = fileTypes
 
 export const MAX_NAME_LENGTH = 255
 
-/** A name the product accepts: 1-255 characters, no control characters, no `/` or `\`. */
+/** A name the product accepts: 1-255 characters, no control characters, no `/` or `\`, no bidirectional controls. */
 export const isValidFileName = (name: string) =>
   name.length >= 1 && name.length <= MAX_NAME_LENGTH && name.trim().length > 0
   // eslint-disable-next-line no-control-regex
-  && !/[\u0000-\u001f\u007f-\u009f\u2028\u2029\/\\]/.test(name)
+  && !/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069\/\\]/.test(name)
 
 /** How many leading (and, for 3MF, trailing) bytes the signature checks read. */
 export const SIGNATURE_BYTES = 64 * 1024

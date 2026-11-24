@@ -150,6 +150,9 @@ export class UploadMismatch extends Data.TaggedError('UploadMismatch')<{}> {}
 /** A new version must have the same extension as the file. */
 export class VersionTypeMismatch extends Data.TaggedError('VersionTypeMismatch')<{}> {}
 
+/** The version does not exist on this file (or belongs to another file). */
+export class VersionUnavailable extends Data.TaggedError('VersionUnavailable')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -192,3 +195,4 @@ export type AppError =
   | UploadIncomplete
   | UploadMismatch
   | VersionTypeMismatch
+  | VersionUnavailable

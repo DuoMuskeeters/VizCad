@@ -88,6 +88,12 @@ export class AppConfig extends Context.Service<
     readonly cachePurge: Option.Option<CachePurge>
     /** Days `security_log` rows are kept (D21: 90, not plan dependent). The daily job deletes older rows. */
     readonly securityLogRetentionDays: number
+    /**
+     * Unix seconds (`TRASH_RETENTION_FLOOR`, 0 when unset). A trashed file's retention counts from
+     * `max(deletedAt or updatedAt, floor)`, so legacy trash (kept forever by the old app) is not purged in bulk at cutover.
+     * Production: set to the cutover time.
+     */
+    readonly trashRetentionFloor: number
   }
 >()('vizcad/AppConfig') {}
 
@@ -110,6 +116,7 @@ export const testConfig: AppConfig['Service'] = {
   }),
   cachePurge: Option.none(),
   securityLogRetentionDays: 90,
+  trashRetentionFloor: 0,
 }
 
 export const test = (overrides: Partial<AppConfig['Service']> = {}) =>

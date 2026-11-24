@@ -30,8 +30,8 @@ export const handleApp = (request: Request, env: Cloudflare.Env, waitUntil: (pro
   )
 }
 
-/** Cron triggers (`scheduled` in src/server.ts): hourly upload/deletion cleanup, daily security-log pruning. */
+/** Cron triggers (`scheduled` in src/server.ts): hourly upload/deletion cleanup, daily trash purge and security-log pruning. */
 export const handleScheduled = (cron: string, env: Cloudflare.Env): Promise<void> => {
   const live = liveLayers(env)
-  return Effect.runPromise(runCron(cron).pipe(Effect.provide(Layer.mergeAll(live.db, live.storage, live.config))))
+  return Effect.runPromise(runCron(cron).pipe(Effect.provide(Layer.mergeAll(live.db, live.storage, live.config, live.entitlements))))
 }

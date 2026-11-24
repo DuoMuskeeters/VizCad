@@ -45,7 +45,7 @@ describe('file names and extensions', () => {
 
   it.each([
     ['Bracket v2.step', true], ['ç ğ ü 部品.stl', true], ['a'.repeat(255), true], ['a'.repeat(256), false], ['', false], ['   ', false],
-    ['a/b.stl', false], ['a\\b.stl', false], ['..\\x.stl', false], ['a\nb.stl', false], ['a\u0000.stl', false], ['a‪b.stl', true],
+    ['a/b.stl', false], ['a\\b.stl', false], ['..\\x.stl', false], ['a\nb.stl', false], ['a\u0000.stl', false], ['a\u202ab.stl', false], ['a\u202eb.stl', false], ['a\u2066b.stl', false], ['a\u2069b.stl', false], ['a\u200eb.stl', false], ['a\u200fb.stl', false], ['a\u200bb.stl', true],
   ])('isValidFileName(%j) = %s', (name, ok) => expect(isValidFileName(name)).toBe(ok))
 })
 

@@ -3,7 +3,11 @@ import { type Locale, localeFromHeader, locales } from '../emails/auth'
 import { type AppError, ResourceUnavailable, Unauthenticated, ValidationError } from '../errors'
 import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
 import { listActivity } from '../programs/activity'
+import { getFile, listFiles, renameFile, starFile, unstarFile } from '../programs/files'
+import { moveFile, previewMoveFile } from '../programs/move'
+import { emptyTrash, listTrash, purgeFile, restoreFile, trashFile } from '../programs/trash'
 import { cancelUpload, completeUpload, requestUpload } from '../programs/uploads'
+import { listVersions, restoreVersion } from '../programs/versions'
 import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
 import { acceptInvitation, changeRole, inviteMember, listMembers, previewMemberRemoval, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
@@ -37,6 +41,8 @@ const AccessMode = Schema.Literals(['team', 'restricted'])
 const Seconds = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: maxUnixSeconds }))
 const LocaleField = Schema.optional(Schema.Literals(locales))
 const FileSize = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }))
+const Count = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100000 }))
+const MoveEffects = Schema.Struct({ links: Count, invitations: Count, guestGrants: Count, memberGrants: Count })
 const Workspace = { workspaceId: Id }
 const Grant = { ...Workspace, userId: Id, level: Level, expiresAt: Schema.NullOr(Seconds) }
 
@@ -158,6 +164,44 @@ const operations: Readonly<Record<string, Operation>> = {
   ),
   completeUpload: op({ uploadId: Id, etag: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128)) }, (input, { caller }) => completeUpload(caller, input)),
   cancelUpload: op({ uploadId: Id }, (input, { caller }) => cancelUpload(caller, input)),
+  // Files: list, detail, rename, stars, trash, versions, move (docs/09 §5).
+  listFiles: op(
+    {
+      ...Workspace, projectId: Schema.optional(Id), filter: Schema.optional(Schema.Literals(['all', 'starred', 'mine'])),
+      query: Schema.optional(Schema.String.check(Schema.isMaxLength(200))), sort: Schema.optional(Schema.Literals(['updated', 'created', 'name', 'size'])),
+      direction: Schema.optional(Schema.Literals(['asc', 'desc'])), limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
+      cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(600)))),
+    },
+    (input, { caller }) =>
+      listFiles(caller, {
+        workspaceId: input.workspaceId, filter: input.filter ?? 'all', sort: input.sort ?? 'updated', limit: input.limit ?? 30, cursor: input.cursor ?? null,
+        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+        ...(input.query === undefined ? {} : { query: input.query }),
+        ...(input.direction === undefined ? {} : { direction: input.direction }),
+      }),
+  ),
+  getFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => getFile(caller, input)),
+  renameFile: op({ ...Workspace, fileId: Id, name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)) }, (input, { caller }) => renameFile(caller, input)),
+  starFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => starFile(caller, input)),
+  unstarFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => unstarFile(caller, input)),
+  trashFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => trashFile(caller, input)),
+  restoreFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => restoreFile(caller, input)),
+  purgeFile: op({ ...Workspace, fileId: Id }, (input, { caller }) => purgeFile(caller, input)),
+  emptyTrash: op(Workspace, (input, { caller }) => emptyTrash(caller, input)),
+  listTrash: op(
+    { ...Workspace, limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))), cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))) },
+    (input, { caller }) => listTrash(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 30, cursor: input.cursor ?? null }),
+  ),
+  listVersions: op({ ...Workspace, fileId: Id }, (input, { caller }) => listVersions(caller, input)),
+  restoreVersion: op({ ...Workspace, fileId: Id, versionId: Id }, (input, { caller }) => restoreVersion(caller, input)),
+  previewMoveFile: op({ ...Workspace, fileId: Id, targetProjectId: Schema.NullOr(Id) }, (input, { caller }) => previewMoveFile(caller, input)),
+  moveFile: op(
+    { ...Workspace, fileId: Id, targetProjectId: Schema.NullOr(Id), expected: Schema.optional(MoveEffects) },
+    (input, { caller }) => moveFile(caller, {
+      workspaceId: input.workspaceId, fileId: input.fileId, targetProjectId: input.targetProjectId,
+      ...(input.expected === undefined ? {} : { expected: input.expected }),
+    }),
+  ),
   listActivity: op({ ...Workspace, limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))), cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))) }, (input, { caller }) =>
     listActivity(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
 }
