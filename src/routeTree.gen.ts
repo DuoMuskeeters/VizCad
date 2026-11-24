@@ -13,11 +13,16 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppTeamRouteImport } from './routes/app.team'
+import { Route as GuestInviteTokenRouteImport } from './routes/guest-invite.$token'
+import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
@@ -41,6 +46,11 @@ const EmailVerifiedRoute = EmailVerifiedRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -68,6 +78,26 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const GuestInviteTokenRoute = GuestInviteTokenRouteImport.update({
+  id: '/guest-invite/$token',
+  path: '/guest-invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteIdRoute = InviteIdRouteImport.update({
+  id: '/invite/$id',
+  path: '/invite/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAppSplatRoute = ApiAppSplatRouteImport.update({
   id: '/api/app/$',
   path: '/api/app/$',
@@ -91,14 +121,19 @@ const DevUiShellRoute = DevUiShellRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/team': typeof AppTeamRoute
+  '/guest-invite/$token': typeof GuestInviteTokenRoute
+  '/invite/$id': typeof InviteIdRoute
+  '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
@@ -106,14 +141,18 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app': typeof AppRoute
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/team': typeof AppTeamRoute
+  '/guest-invite/$token': typeof GuestInviteTokenRoute
+  '/invite/$id': typeof InviteIdRoute
+  '/app': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
@@ -122,14 +161,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/team': typeof AppTeamRoute
+  '/guest-invite/$token': typeof GuestInviteTokenRoute
+  '/invite/$id': typeof InviteIdRoute
+  '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
@@ -142,11 +186,16 @@ export interface FileRouteTypes {
     | '/app'
     | '/email-verified'
     | '/forgot-password'
+    | '/onboarding'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/team'
+    | '/guest-invite/$token'
+    | '/invite/$id'
+    | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
@@ -154,14 +203,18 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/app'
     | '/email-verified'
     | '/forgot-password'
+    | '/onboarding'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/team'
+    | '/guest-invite/$token'
+    | '/invite/$id'
+    | '/app'
     | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
@@ -172,11 +225,16 @@ export interface FileRouteTypes {
     | '/app'
     | '/email-verified'
     | '/forgot-password'
+    | '/onboarding'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/team'
+    | '/guest-invite/$token'
+    | '/invite/$id'
+    | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
@@ -185,14 +243,17 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRoute
+  AppRoute: typeof AppRouteWithChildren
   EmailVerifiedRoute: typeof EmailVerifiedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  GuestInviteTokenRoute: typeof GuestInviteTokenRoute
+  InviteIdRoute: typeof InviteIdRoute
   ApiAppSplatRoute: typeof ApiAppSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   DevUiShellRoute: typeof DevUiShellRoute
@@ -227,6 +288,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -264,6 +332,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/team': {
+      id: '/app/team'
+      path: '/team'
+      fullPath: '/app/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/guest-invite/$token': {
+      id: '/guest-invite/$token'
+      path: '/guest-invite/$token'
+      fullPath: '/guest-invite/$token'
+      preLoaderRoute: typeof GuestInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$id': {
+      id: '/invite/$id'
+      path: '/invite/$id'
+      fullPath: '/invite/$id'
+      preLoaderRoute: typeof InviteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/app/$': {
       id: '/api/app/$'
       path: '/api/app/$'
@@ -295,16 +391,31 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteChildren {
+  AppTeamRoute: typeof AppTeamRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppTeamRoute: AppTeamRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRoute,
+  AppRoute: AppRouteWithChildren,
   EmailVerifiedRoute: EmailVerifiedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiHealthRoute: ApiHealthRoute,
+  GuestInviteTokenRoute: GuestInviteTokenRoute,
+  InviteIdRoute: InviteIdRoute,
   ApiAppSplatRoute: ApiAppSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   DevUiShellRoute: DevUiShellRoute,

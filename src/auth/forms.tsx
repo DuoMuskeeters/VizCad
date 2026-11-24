@@ -6,6 +6,7 @@ import { Input } from '#/components/ui/Input'
 import { TextLink } from '#/components/ui/Link'
 import { Notice } from '#/components/ui/Notice'
 import { useI18n, type I18nKey } from '#/i18n'
+import { markOnboardingPending } from '#/app/nav'
 import { postAuth, rememberPendingEmail, TURNSTILE_HEADER, type AuthFailure } from './api'
 import { AuthHeading } from './AuthLayout'
 import { requestMessage, signInMessage, signUpMessage } from './messages'
@@ -68,11 +69,12 @@ const startGoogle = async (callbackURL: string): Promise<AuthFailure | null> => 
   return null
 }
 
-export type FormDeps = { onSuccess: () => void; fetcher?: typeof fetch }
+export type FormDeps = { onSuccess: () => void; fetcher?: typeof fetch; /** Same-site path to return to; carried across the sign-in / sign-up link. */ next?: string | undefined }
+const withNext = (href: string, next: string | undefined) => (next ? `${href}?next=${encodeURIComponent(next)}` : href)
 
 // ---------------------------------------------------------------- sign in
 
-export const SignInForm = ({ onSuccess, fetcher, google = googleEnabled() }: FormDeps & { google?: boolean }) => {
+export const SignInForm = ({ onSuccess, fetcher, next, google = googleEnabled() }: FormDeps & { google?: boolean }) => {
   const { t } = useI18n()
   const { pending, run } = useSubmitGuard()
   const [email, setEmail] = useState('')
@@ -114,7 +116,7 @@ export const SignInForm = ({ onSuccess, fetcher, google = googleEnabled() }: For
         title={t('auth.signIn.title')}
         lead={
           <>
-            {t('auth.signIn.lead')} <TextLink href="/sign-up">{t('auth.signIn.signUpLink')}</TextLink>
+            {t('auth.signIn.lead')} <TextLink href={withNext('/sign-up', next)}>{t('auth.signIn.signUpLink')}</TextLink>
           </>
         }
       />
@@ -172,7 +174,7 @@ export const SignInForm = ({ onSuccess, fetcher, google = googleEnabled() }: For
 
 // ---------------------------------------------------------------- sign up
 
-export const SignUpForm = ({ onSuccess, fetcher, google = googleEnabled() }: FormDeps & { google?: boolean }) => {
+export const SignUpForm = ({ onSuccess, fetcher, next, google = googleEnabled() }: FormDeps & { google?: boolean }) => {
   const { t } = useI18n()
   const { pending, run } = useSubmitGuard()
   const [name, setName] = useState('')
@@ -205,6 +207,7 @@ export const SignUpForm = ({ onSuccess, fetcher, google = googleEnabled() }: For
       )
       if (result.ok) {
         rememberPendingEmail(normalizeEmail(email))
+        markOnboardingPending(email)
         return onSuccess()
       }
       // A Turnstile token is single use: get a fresh one for the next attempt.
@@ -227,7 +230,7 @@ export const SignUpForm = ({ onSuccess, fetcher, google = googleEnabled() }: For
         title={t('auth.signUp.title')}
         lead={
           <>
-            {t('auth.signUp.lead')} <TextLink href="/sign-in">{t('auth.signUp.signInLink')}</TextLink>
+            {t('auth.signUp.lead')} <TextLink href={withNext('/sign-in', next)}>{t('auth.signUp.signInLink')}</TextLink>
           </>
         }
       />

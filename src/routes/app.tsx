@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SignedInPlaceholder, noindexHead } from '#/auth/pages'
+import { noindexHead } from '#/auth/pages'
+import { AppLayout } from '#/app/AppLayout'
 
 export const Route = createFileRoute('/app')({
   head: noindexHead('VizCad'),
-  component: SignedInPlaceholder,
+  component: AppLayout,
 })

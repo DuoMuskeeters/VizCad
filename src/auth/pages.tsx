@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { CircleCheck, Info } from 'lucide-react'
+import { CircleCheck } from 'lucide-react'
+import { rememberNext, takeNext } from '#/app/nav'
 import { Button } from '#/components/ui/Button'
 import { useI18n } from '#/i18n'
-import { postAuth, readPendingEmail } from './api'
+import { readPendingEmail } from './api'
 import { AuthHeading, AuthLayout } from './AuthLayout'
 import { CheckEmail, ExpiredResetLink, ForgotPasswordForm, InvalidLinkNotice, ResetPasswordForm, SignInForm, SignUpForm } from './forms'
 
@@ -11,20 +12,28 @@ export const noindexHead = (title: string) => () => ({
   meta: [{ title: `${title} · VizCad` }, { name: 'robots', content: 'noindex, nofollow' }],
 })
 
-export const SignInPage = () => {
+export const SignInPage = ({ next }: { next?: string | undefined }) => {
   const navigate = useNavigate()
+  // Return to the invitation (or other page) that sent the visitor here; a stored path covers a verification in another tab.
+  const done = () => void navigate({ href: takeNext() ?? next ?? '/app' })
   return (
     <AuthLayout>
-      <SignInForm onSuccess={() => void navigate({ to: '/app' })} />
+      <SignInForm next={next} onSuccess={done} />
     </AuthLayout>
   )
 }
 
-export const SignUpPage = () => {
+export const SignUpPage = ({ next }: { next?: string | undefined }) => {
   const navigate = useNavigate()
   return (
     <AuthLayout>
-      <SignUpForm onSuccess={() => void navigate({ to: '/verify-email', search: { error: undefined } })} />
+      <SignUpForm
+        next={next}
+        onSuccess={() => {
+          if (next) rememberNext(next)
+          void navigate({ to: '/verify-email', search: { error: undefined } })
+        }}
+      />
     </AuthLayout>
   )
 }
@@ -74,28 +83,3 @@ export const ForgotPasswordPage = () => (
 export const ResetPasswordPage = ({ token, error }: { token: string | undefined; error: string | undefined }) => (
   <AuthLayout>{token && !error ? <ResetPasswordForm token={token} /> : <ExpiredResetLink />}</AuthLayout>
 )
-
-/** Temporary landing after sign-in until the real app shell exists. */
-export const SignedInPlaceholder = () => {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
-  const signOut = async () => {
-    setBusy(true)
-    await postAuth('/sign-out', {})
-    void navigate({ to: '/sign-in' })
-  }
-  return (
-    <AuthLayout>
-      <div className="grid gap-5">
-        <span className="grid size-13 place-items-center rounded-full bg-accent-soft text-accent">
-          <Info aria-hidden className="size-6" />
-        </span>
-        <AuthHeading title={t('app.placeholder.title')} lead={t('app.placeholder.lead')} />
-        <Button loading={busy} onClick={() => void signOut()} className="h-12 w-full rounded-lg text-base font-semibold">
-          {t('app.placeholder.signOut')}
-        </Button>
-      </div>
-    </AuthLayout>
-  )
-}

@@ -114,7 +114,7 @@ export const IconButton = ({ label, children, size = 'md', variant = 'ghost', to
     <Button
       variant={variant}
       aria-label={label}
-      className={cx('gap-0 px-0', sizing, size === 'sm' && 'border-transparent text-text-3', className)}
+      className={cx('gap-0 px-0!', sizing, size === 'sm' && 'border-transparent text-text-3', className)}
       {...rest}
     >
       {children}
