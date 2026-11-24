@@ -243,7 +243,7 @@ describe('guest promotion', () => {
     expect(await screen.findByText('Ömer Koç is now Member.')).toBeInTheDocument()
   })
 
-  it('offers commenter too, and disables both when no seat is free', async () => {
+  it('offers commenter too when a seat is free', async () => {
     const { user } = setup('owner')
     await guestActions(user)
     expect(await screen.findByRole('menuitem', { name: 'Make commenter' })).not.toHaveAttribute('aria-disabled', 'true')
@@ -252,7 +252,7 @@ describe('guest promotion', () => {
   it('disables promotion with the reason when all seats are taken', async () => {
     const { user } = setup('seats-full')
     await guestActions(user)
-    expect(await screen.findByRole('menuitem', { name: 'Make member' })).toHaveAttribute('aria-disabled', 'true')
+    expect(await screen.findByRole('menuitem', { name: /Make member/ })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getAllByText(/All 7 seats are in use/).length).toBeGreaterThan(0)
   })
 })
