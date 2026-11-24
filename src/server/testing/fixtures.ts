@@ -31,6 +31,7 @@ export const caller = (userId: string, overrides: Partial<Caller> = {}): Caller 
   email: `${userId}@example.com`,
   emailVerified: true,
   requestId: 'ray-test',
+  ip: '203.0.113.7',
   ...overrides,
 })
 

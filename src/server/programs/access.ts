@@ -55,7 +55,7 @@ export const checkExpiry = Effect.fnUntraced(function* (workspaceId: string, rol
  * Runs the grant decision. The actor's own sharing right is decided first (a denial there is about the actor), then
  * the expiry rules; a ROLE_LIMIT after that can only come from the recipient side (level above the role's ceiling).
  */
-const authorizeGrant = <E, R>(sharing: PermissionInput, expiry: Effect.Effect<void, E, R>, grant: PermissionInput) =>
+export const authorizeGrant = <E, R>(sharing: PermissionInput, expiry: Effect.Effect<void, E, R>, grant: PermissionInput) =>
   authorize(sharing).pipe(
     Effect.andThen(expiry),
     Effect.andThen(
@@ -66,7 +66,7 @@ const authorizeGrant = <E, R>(sharing: PermissionInput, expiry: Effect.Effect<vo
   )
 
 /** Context for a file decision: the file, its project and the caller's own grants on both. */
-const fileContext = Effect.fnUntraced(function* (caller: Caller, workspaceId: string, fileId: string) {
+export const fileContext = Effect.fnUntraced(function* (caller: Caller, workspaceId: string, fileId: string) {
   const { workspace, role } = yield* requireMembership(workspaceId, caller.userId)
   const file = yield* loadFile(workspaceId, fileId)
   const project = file.projectId === null ? undefined : yield* loadProject(workspaceId, file.projectId)
@@ -85,7 +85,7 @@ const fileContext = Effect.fnUntraced(function* (caller: Caller, workspaceId: st
   return { role, base, still }
 })
 
-const projectContext = Effect.fnUntraced(function* (caller: Caller, workspaceId: string, projectId: string) {
+export const projectContext = Effect.fnUntraced(function* (caller: Caller, workspaceId: string, projectId: string) {
   const { workspace, role } = yield* requireMembership(workspaceId, caller.userId)
   const project = yield* loadProject(workspaceId, projectId)
   const base = {

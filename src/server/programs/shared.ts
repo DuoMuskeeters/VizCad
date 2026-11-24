@@ -20,6 +20,8 @@ export interface Caller {
   readonly emailVerified: boolean
   /** `cf-ray`, stored on activity rows. */
   readonly requestId: string
+  /** `cf-connecting-ip`, for rate limits only (never stored). */
+  readonly ip: string | null
 }
 
 export const internalRoles = ['owner', 'admin', 'member', 'commenter'] as const satisfies ReadonlyArray<WorkspaceRole>
