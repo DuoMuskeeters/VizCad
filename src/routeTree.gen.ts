@@ -18,6 +18,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
 import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
@@ -67,6 +68,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAppSplatRoute = ApiAppSplatRouteImport.update({
+  id: '/api/app/$',
+  path: '/api/app/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/dev/ui/': typeof DevUiIndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/dev/ui': typeof DevUiIndexRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/dev/ui/': typeof DevUiIndexRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
     | '/dev/ui/'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
     | '/dev/ui'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/api/app/$'
     | '/api/auth/$'
     | '/dev/ui/shell'
     | '/dev/ui/'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiAppSplatRoute: typeof ApiAppSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   DevUiShellRoute: typeof DevUiShellRoute
   DevUiIndexRoute: typeof DevUiIndexRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/app/$': {
+      id: '/api/app/$'
+      path: '/api/app/$'
+      fullPath: '/api/app/$'
+      preLoaderRoute: typeof ApiAppSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiAppSplatRoute: ApiAppSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   DevUiShellRoute: DevUiShellRoute,
   DevUiIndexRoute: DevUiIndexRoute,

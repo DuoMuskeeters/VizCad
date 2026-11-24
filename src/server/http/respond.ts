@@ -18,7 +18,29 @@ export const STATUS: Record<AppError['_tag'], number> = {
   CsrfRejected: 403,
   RateLimitExceeded: 429,
   RateLimitError: 503,
+  EmailUnverified: 403,
+  PermissionDenied: 403,
+  InvitationUnavailable: 404,
+  InvitationExpired: 410,
+  InvitationConflict: 409,
+  SeatLimitReached: 409,
+  GuestLimitReached: 409,
+  ProjectLimitReached: 409,
+  MemberUnavailable: 404,
+  RoleConflict: 409,
+  LastOwner: 409,
+  SlugTaken: 409,
+  InvalidAccessLevel: 400,
+  AccessExpiryInvalid: 400,
+  WorkspaceLimitReached: 409,
+  AlreadyHasAccess: 409,
+  WriteConflict: 409,
 }
+
+/** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */
+export const SAFE_REASONS: ReadonlySet<string> = new Set([
+  'INSUFFICIENT_LEVEL', 'ROLE_LIMIT', 'FEATURE_UNAVAILABLE', 'LINK_NO_COMMENTS', 'LAST_OWNER', 'PROJECT_MANAGER_REQUIRED',
+])
 
 export interface RequestMeta {
   /** Cloudflare's `cf-ray`, to find the request in Worker logs. */
@@ -47,7 +69,8 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
     // Turnstile's reason is a fixed, non-sensitive code (never the token); it tells a bad widget from an attack.
     else if (error._tag === 'CaptchaFailed') yield* Effect.logInfo('captcha failed').pipe(Effect.annotateLogs({ ...logFields(error, meta), reason: error.reason }))
     const headers = error._tag === 'RateLimitExceeded' ? { ...noStore, 'retry-after': String(error.retryAfterSeconds) } : noStore
-    return Response.json({ ok: false, error: error._tag }, { status, headers })
+    const reason = error._tag === 'PermissionDenied' && SAFE_REASONS.has(error.reason) ? { reason: error.reason } : {}
+    return Response.json({ ok: false, error: error._tag, ...reason }, { status, headers })
   })
 
 /**

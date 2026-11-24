@@ -88,7 +88,7 @@ export type PermissionAction =
       | 'shareFile' | 'trashFile' | 'restoreFile' | 'purgeFile' | 'uploadVersion'
       | 'createProject' | 'uploadFile' | 'uploadProjectFile' | 'updateProject'
       | 'manageMembers' | 'updateWorkspace' | 'listActivity' | 'listLinks'
-      | 'archiveWorkspace' | 'selectWorkspace'
+      | 'archiveWorkspace' | 'selectWorkspace' | 'manageProjectAccess' | 'viewTeam'
   }
   | { kind: 'viewComment'; authorUserId: string; authorScopeAtWrite: 'internal' | 'guest' | null; authorRole: WorkspaceRole | null }
   | { kind: 'grantProjectAccess' | 'grantFileAccess'; recipient: MembershipTarget; level: string; expiresAt: number | null }
@@ -373,6 +373,9 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
       return roleAllows(workspaceManager || (restricted && projectManager)
         || (action.target.role === 'guest' && action.target.grantedByUserId === userId))
     }
+    case 'manageProjectAccess':
+      // Who manages a project's grants and guests: owner/admin, or the restricted project's creator-manager.
+      return projectSharing()
     case 'createProject':
       return roleAllows(writer)
     case 'uploadFile':
@@ -383,6 +386,9 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
       return !restricted || projectLevel >= rank('edit') ? allow : deny('INSUFFICIENT_LEVEL')
     case 'updateProject':
       return project ? roleAllows(workspaceManager) : deny('RESOURCE_UNAVAILABLE')
+    case 'viewTeam':
+      // The team list (names, roles, addresses) is internal; a guest sees only their own row.
+      return roleAllows(!guest)
     case 'manageMembers':
       return roleAllows(workspace.kind === 'company' && workspaceManager)
     case 'inviteMember':

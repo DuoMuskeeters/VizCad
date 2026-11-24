@@ -130,6 +130,7 @@ const managementCases = fileCells.flatMap(({ actor, mode, input, name, p, vector
     [{ kind: 'updateProject' }, hasProject && manager],
     [{ kind: 'grantProjectAccess', recipient: targetGuest, level: 'download', expiresAt: now + 1 }, canGrantProject],
     [{ kind: 'manageMembers' }, manager],
+    [{ kind: 'viewTeam' }, writer || actor === 'commenter'],
     [{ kind: 'updateWorkspace' }, manager],
     [{ kind: 'listActivity' }, manager],
     [{ kind: 'listLinks' }, manager],
@@ -515,5 +516,28 @@ describe('moveFile source and target permissions', () => {
     ['member of another workspace', { actor: asMember('owner', 'b'), file, action: moveTo({ project: null }) }, 'TENANT_MISMATCH'],
   ] satisfies Array<[string, Partial<PermissionInput>, string]>)('%s', (_name, patch, expected) => {
     expect(decidePermission({ ...defaultInput, ...patch }).reason).toBe(expected)
+  })
+})
+
+describe('manageProjectAccess', () => {
+  const decide = (role: string, mode: 'team' | 'restricted', creator: boolean) =>
+    decidePermission({
+      workspace,
+      now,
+      actor: asMember(role),
+      project: { ...project, accessMode: mode, creatorManagerUserId: creator ? 'u' : null },
+      action: { kind: 'manageProjectAccess' },
+    }).reason
+
+  it.each([
+    ['owner', 'team', false, 'ALLOWED'],
+    ['admin', 'restricted', false, 'ALLOWED'],
+    ['member', 'restricted', true, 'ALLOWED'],
+    ['member', 'restricted', false, 'PROJECT_MANAGER_REQUIRED'],
+    ['member', 'team', true, 'PROJECT_MANAGER_REQUIRED'],
+    ['commenter', 'restricted', true, 'PROJECT_MANAGER_REQUIRED'],
+    ['guest', 'restricted', false, 'PROJECT_MANAGER_REQUIRED'],
+  ] as const)('%s on a %s project (creator: %s) -> %s', (role, mode, creator, reason) => {
+    expect(decide(role, mode, creator)).toBe(reason)
   })
 })

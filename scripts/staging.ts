@@ -2,13 +2,16 @@
  * The only way to run remote commands against staging (D18: the orchestrator deploys by hand).
  *   node scripts/staging.ts migrate   apply drizzle/ migrations to D1 vizcad-staging
  *   node scripts/staging.ts deploy    build and deploy Worker vizcad-rewrite
+ *   node scripts/staging.ts backfill  personal workspace backfill on D1 vizcad-staging (docs/08 §3 step 2), then
+ *                                     print the verification counts (all must be 0)
  * CLOUDFLARE_ENV is removed so an inherited `production` cannot switch the target, the database is named
  * explicitly (`vizcad-staging` does not exist in env.production), and the config Wrangler will actually
  * read (the build's redirect, if any) is checked by stagingGuard before Wrangler runs.
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { backfillStatements, verifyQueries } from './backfillPersonalWorkspaces.ts'
 import { checkStagingConfig, STAGING } from './stagingGuard.ts'
 
 const childEnv = { ...process.env }
@@ -52,6 +55,17 @@ if (command === 'migrate') {
   if (target !== expected) stop(`build redirect points to ${String(target)}, expected ${expected}`)
   verify(expected)
   run(['wrangler', 'deploy'])
+} else if (command === 'backfill') {
+  const target = redirectTarget()
+  if (target) verify(target)
+  mkdirSync('.wrangler', { recursive: true })
+  const file = resolve('.wrangler/backfill-personal-workspaces.sql')
+  writeFileSync(file, `${backfillStatements.join('\n\n')}\n`)
+  run(['wrangler', 'd1', 'execute', STAGING.d1Name, '--remote', `--file=${file}`])
+  for (const [name, query] of Object.entries(verifyQueries)) {
+    console.log(`verify: ${name}`)
+    run(['wrangler', 'd1', 'execute', STAGING.d1Name, '--remote', `--command=${query.replace(/\s+/g, ' ')}`])
+  }
 } else {
-  stop('usage: node scripts/staging.ts <migrate|deploy>')
+  stop('usage: node scripts/staging.ts <migrate|deploy|backfill>')
 }

@@ -17,6 +17,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply vizcad_auth --local",
 		"db:migrate:staging": "node scripts/staging.ts migrate",
+		"db:backfill:local": "node scripts/backfillPersonalWorkspaces.ts .wrangler/backfill-personal-workspaces.sql && wrangler d1 execute vizcad_auth --local --file=.wrangler/backfill-personal-workspaces.sql",
+		"db:backfill:staging": "node scripts/staging.ts backfill",
 		"deploy:staging": "node scripts/staging.ts deploy",
 		"cf-typegen": "wrangler types"
 	},
