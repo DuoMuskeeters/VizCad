@@ -122,7 +122,7 @@ describe('listMyWorkspaces / switchWorkspace / selectWorkspace', () => {
       yield* Ref.update(auth, (s) => ({
         ...s,
         workspaces: new Set(['pers-ada', 'acme', 'beta']),
-        sessions: new Map([['tok', { sessionId: 's1', userId: 'ada', email: 'ada@example.com', emailVerified: true, accountStatus: 'active' as const, activeWorkspaceId: null }]]),
+        sessions: new Map([['tok', { sessionId: 's1', userId: 'ada', name: 'Ada', email: 'ada@example.com', emailVerified: true, accountStatus: 'active' as const, activeWorkspaceId: null }]]),
       }))
       const headers = new Headers({ cookie: 'session=tok' })
       const switched = yield* switchWorkspace(caller('ada'), headers, 'acme')

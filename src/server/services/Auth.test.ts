@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest'
-import { Effect, Layer, Option, Ref } from 'effect'
+import { Effect, Layer, Option, Redacted, Ref } from 'effect'
 import { vi } from 'vitest'
 import * as schema from '../db/schema'
 import { openMemoryD1, type MemoryD1 } from '../testing/memoryD1'
@@ -8,6 +8,7 @@ import { Auth, MemoryAuth, memory } from './Auth'
 import * as AuthLive from './Auth.live'
 import { EmailOutbox, memory as emailMemory } from './Email'
 import { authOptions, organizationFields } from './authOptions'
+import { readCookie, signCookieValue, verifySignedCookie } from './sessionCookie'
 
 const ORIGIN = 'https://vizcad.test'
 const PASSWORD = 'correct-horse-battery'
@@ -285,6 +286,86 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
     }).pipe(Effect.provide(layer))
   })
 
+  describe('session read without the SDK', () => {
+    const secret = Redacted.value(Option.getOrThrow(AppConfig.testConfig.auth).secret)
+    const tokenRows = (d1: MemoryD1) => rows<{ token: string; expiresAt: number }>(d1, 'select token, expiresAt from session')
+
+    const signedIn = (email = 'ada@example.com') =>
+      Effect.gen(function* () {
+        yield* signUp(email)
+        yield* verify
+        return jar(yield* signIn(email))
+      })
+
+    it.effect("accepts the exact cookie better-auth set, and rejects forged, unsigned or foreign-secret ones", () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        const [name, value] = [cookie.slice(0, cookie.indexOf('=')), cookie.slice(cookie.indexOf('=') + 1)]
+        const token = tokenRows(d1)[0]?.token ?? ''
+        // Our signer reproduces the SDK's cookie byte for byte, and our verifier accepts it.
+        assert.strictEqual(yield* Effect.promise(() => signCookieValue(token, secret)), value)
+        assert.strictEqual(yield* Effect.promise(() => verifySignedCookie(readCookie(cookie, name), secret)), token)
+        const read = (cookieHeader: string) => Auth.use((a) => a.readSession(new Headers({ cookie: cookieHeader })))
+        assert.isTrue(Option.isSome(yield* read(cookie)))
+        const decoded = decodeURIComponent(value)
+        const flip = (text: string) => `${text.slice(0, -2)}${text.at(-2) === 'A' ? 'B' : 'A'}=`
+        const forged = [
+          `${name}=${encodeURIComponent(flip(decoded))}`, // signature changed
+          `${name}=${token}`, // unsigned token
+          `${name}=${encodeURIComponent(`${token}x.${decoded.slice(decoded.lastIndexOf('.') + 1)}`)}`, // token changed, signature kept
+          `${name}=${yield* Effect.promise(() => signCookieValue(token, 'another-secret-another-secret-0123'))}`, // signed with another secret
+          `${name}=${encodeURIComponent(`${decoded.slice(0, decoded.lastIndexOf('.'))}.short=`)}`, // malformed signature
+          `${name}=%E0%A4%A`, // malformed escape
+        ]
+        for (const header of forged) assert.isTrue(Option.isNone(yield* read(header)), header)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('an expired session is none and its row is deleted; an old one is extended', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        const headers = new Headers({ cookie })
+        const nowSeconds = Math.floor(Date.now() / 1000)
+        const untouched = tokenRows(d1)[0]?.expiresAt ?? 0
+        yield* Auth.use((a) => a.readSession(headers))
+        assert.strictEqual(tokenRows(d1)[0]?.expiresAt, untouched, 'a fresh session is not rewritten')
+
+        d1.sqlite.exec(`update session set expiresAt = ${nowSeconds + 10 * 86400}`)
+        assert.isTrue(Option.isSome(yield* Auth.use((a) => a.readSession(headers))))
+        assert.isAbove(tokenRows(d1)[0]?.expiresAt ?? 0, nowSeconds + 29 * 86400, 'extended to a full lifetime')
+
+        d1.sqlite.exec(`update session set expiresAt = ${nowSeconds - 60}`)
+        assert.isTrue(Option.isNone(yield* Auth.use((a) => a.readSession(headers))))
+        assert.strictEqual(tokenRows(d1).length, 0, 'expired row removed')
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('answers get-session itself, with no session token in the body, and null without a session', () => {
+      const { layer } = setup()
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        const response = yield* handle(get('get-session', cookie))
+        const body = (yield* Effect.promise(() => response.json())) as { session: Record<string, unknown>; user: Record<string, unknown> }
+        assert.strictEqual(body.user['email'], 'ada@example.com')
+        assert.strictEqual(body.user['name'], 'Ada')
+        assert.notProperty(body.session, 'token')
+        const none = yield* handle(get('get-session'))
+        assert.strictEqual(none.status, 200)
+        assert.isNull(yield* Effect.promise(() => none.json()))
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('does not load the SDK until an identity request needs it', () => {
+      const { layer } = setup()
+      return Effect.gen(function* () {
+        // Building the layer and reading sessions must work even though `./authOptions` was never imported by the layer itself.
+        assert.isTrue(Option.isNone(yield* Auth.use((a) => a.readSession(new Headers()))))
+      }).pipe(Effect.provide(layer))
+    })
+  })
+
   it.effect('a body cannot write fields the SDK does not own (role, storage quota, banned)', () => {
     const { d1, layer } = setup()
     return Effect.gen(function* () {
@@ -327,7 +408,7 @@ describe('Auth (in-memory layer)', () => {
   it.effect('resolves seeded sessions, switches workspaces and records identity requests', () =>
     Effect.gen(function* () {
       const state = yield* MemoryAuth
-      const summary = { sessionId: 's1', userId: 'u1', email: 'a@x.test', emailVerified: true, accountStatus: 'active' as const, activeWorkspaceId: null }
+      const summary = { sessionId: 's1', userId: 'u1', name: 'A', email: 'a@x.test', emailVerified: true, accountStatus: 'active' as const, activeWorkspaceId: null }
       yield* Ref.set(state, { sessions: new Map([['t1', summary]]), workspaces: new Set(['w1']), handled: [] })
       const auth = yield* Auth
       const headers = new Headers({ cookie: 'session=t1' })
