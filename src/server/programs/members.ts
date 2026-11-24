@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNull, lte, type SQL, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull, lte, type SQL, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import type { Locale } from '../emails/auth'
@@ -21,7 +21,6 @@ import {
   authorize,
   type Caller,
   guard,
-  internalRoles,
   newId,
   nowSeconds,
   permissionActor,
@@ -288,28 +287,28 @@ export const transferOwnership = Effect.fn('transferOwnership')(function* (calle
 export interface MemberView {
   readonly userId: string
   readonly name: string
-  /** Omitted for guests' view of the team. */
-  readonly email?: string
+  readonly email: string
   readonly role: string
   readonly joinedAt: number
 }
 
 /**
- * The workspace's people. Internal members see everyone; owners and admins also get pending invitations. A guest sees
- * the internal team (names and roles only) and themself, never other guests (D19).
+ * The workspace's people. Internal members (owner, admin, member, commenter) see everyone, guests included (name and
+ * address); owners and admins also get pending invitations. A guest, even one whose grants have all expired, sees only
+ * their own row (D19). The rule is `viewTeam` in permissions.ts.
  */
 export const listMembers = Effect.fn('listMembers')(function* (caller: Caller, input: { readonly workspaceId: string }) {
   const { workspace, role } = yield* requireMembership(input.workspaceId, caller.userId)
   const db = yield* Db
   const now = yield* nowSeconds
-  const guest = role === 'guest'
+  const team = decidePermission({ actor: permissionActor(caller, workspace.id, role), workspace, now, action: { kind: 'viewTeam' } }).allowed
   const rows = yield* db.use((d) =>
     d.select({ userId: schema.member.userId, name: schema.user.name, email: schema.user.email, role: schema.member.role, joinedAt: schema.member.createdAt })
       .from(schema.member)
       .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
       .where(and(
         eq(schema.member.organizationId, workspace.id),
-        guest ? sql`(${inArray(schema.member.role, [...internalRoles])} OR ${eq(schema.member.userId, caller.userId)})` : undefined,
+        team ? undefined : eq(schema.member.userId, caller.userId),
       ))
       .orderBy(asc(schema.member.createdAt), asc(schema.member.userId)),
   )
@@ -318,7 +317,7 @@ export const listMembers = Effect.fn('listMembers')(function* (caller: Caller, i
     name: r.name,
     role: r.role,
     joinedAt: toSeconds(r.joinedAt),
-    ...(guest && r.userId !== caller.userId ? {} : { email: r.email }),
+    email: r.email,
   }))
   const manages = decidePermission({ actor: permissionActor(caller, workspace.id, role), workspace, now, action: { kind: 'manageMembers' } }).allowed
   if (!manages) return { members, invitations: [] }

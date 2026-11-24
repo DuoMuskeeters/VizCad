@@ -308,14 +308,32 @@ describe('listMembers', () => {
       assert.deepStrictEqual(asAdmin.invitations.map((i) => i.email), ['new@example.com'])
     })))
 
-  it.effect('guests never see other guests or internal emails', () =>
+  it.effect('a guest with a live grant sees only themself, not the internal team or other guests', () =>
     run(Effect.gen(function* () {
       yield* acme
       yield* seedMember('acme', 'eve', 'guest')
       yield* seedMember('acme', 'new', 'guest')
       const view = yield* listMembers(caller('eve'), { workspaceId: 'acme' })
+      assert.deepStrictEqual(view.members.map((m) => m.userId), ['eve'])
+      assert.strictEqual(view.invitations.length, 0)
+    })))
+
+  it.effect('a guest whose grants have ended sees only themself', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedMember('acme', 'eve', 'guest')
+      yield* seedMember('acme', 'new', 'guest')
+      yield* TestClock.adjust('400 days')
+      const view = yield* listMembers(caller('eve'), { workspaceId: 'acme' })
+      assert.deepStrictEqual(view.members.map((m) => m.userId), ['eve'])
+    })))
+
+  it.effect('a commenter sees the team and the guests', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedMember('acme', 'eve', 'guest')
+      const view = yield* listMembers(caller('cat'), { workspaceId: 'acme' })
       assert.deepStrictEqual(view.members.map((m) => m.userId).sort(), ['ada', 'bob', 'cat', 'eve', 'max'])
-      assert.deepStrictEqual(view.members.filter((m) => m.email !== undefined).map((m) => m.userId), ['eve'])
       assert.strictEqual(view.invitations.length, 0)
     })))
 })

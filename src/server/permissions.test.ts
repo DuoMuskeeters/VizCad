@@ -130,6 +130,7 @@ const managementCases = fileCells.flatMap(({ actor, mode, input, name, p, vector
     [{ kind: 'updateProject' }, hasProject && manager],
     [{ kind: 'grantProjectAccess', recipient: targetGuest, level: 'download', expiresAt: now + 1 }, canGrantProject],
     [{ kind: 'manageMembers' }, manager],
+    [{ kind: 'viewTeam' }, writer || actor === 'commenter'],
     [{ kind: 'updateWorkspace' }, manager],
     [{ kind: 'listActivity' }, manager],
     [{ kind: 'listLinks' }, manager],
