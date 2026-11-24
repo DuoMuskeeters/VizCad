@@ -50,8 +50,8 @@
 	"send_email": [{ "name": "EMAIL" }],
 	"durable_objects": { "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiter" }] },
 	"migrations": [{ "tag": "v1-rate-limiter", "new_sqlite_classes": ["RateLimiter"] }],
-	// Cron triggers (docs/09 §9.2), top level (staging) only: `triggers` is not inherited by env.production, and production
-	// gets none before the cutover. Keep the expressions equal to HOURLY and DAILY in src/server/programs/cron.ts.
+	// Cron triggers (docs/09 §9.2). Wrangler inherits `triggers` into environments, so env.production overrides it with an
+	// empty list: production gets no crons before the cutover (scripts/wranglerCrons.test.ts checks both). Keep the expressions equal to HOURLY and DAILY in src/server/programs/cron.ts.
 	//   0 * * * *    expire abandoned upload sessions, drain the R2 deletion queue
 	//   30 3 * * *   prune the security log (90 days)
 	"triggers": { "crons": ["0 * * * *", "30 3 * * *"] },
@@ -80,6 +80,7 @@
 				"APP_ENV": "production"
 				// R2_BUCKET_NAME comes from the existing production secret; a var with that name would fail the deploy.
 			},
+			"triggers": { "crons": [] },
 			"send_email": [{ "name": "EMAIL" }],
 			"durable_objects": { "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiter" }] },
 			"migrations": [{ "tag": "v1-rate-limiter", "new_sqlite_classes": ["RateLimiter"] }],

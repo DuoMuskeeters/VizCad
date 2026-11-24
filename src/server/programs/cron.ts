@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { AppConfig } from '../services/AppConfig'
 import { drainStorageDeletions, expireUploadSessions, pruneSecurityLog } from './storageCleanup'
 
-/** Must match `triggers.crons` in wrangler.jsonc (top level only; `env.production` gets none before the cutover). */
+/** Must match `triggers.crons` in wrangler.jsonc (top level; `env.production` overrides it with an empty list before the cutover). */
 export const HOURLY = '0 * * * *'
 export const DAILY = '30 3 * * *'
 

@@ -384,7 +384,7 @@ Orkestratör bunları `wrangler secret put R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS
 ```
 
   GET için CORS yok, çünkü teslim Worker’dan aynı origin ile yapılır. Prod CORS’u cutover adımıdır ve onay ister.
-- `wrangler.jsonc` üst düzeyine `triggers.crons` (`0 * * * *` yükleme oturumları ve silme kuyruğu, `30 3 * * *` çöp ve audit temizliği). `env.production` cron’u cutover’a kadar eklenmez.
+- `wrangler.jsonc` üst düzeyine `triggers.crons` (`0 * * * *` yükleme oturumları ve silme kuyruğu, `30 3 * * *` çöp ve audit temizliği). `env.production` içinde `"triggers": { "crons": [] }` ile boşaltılır (Wrangler `triggers`’ı env’lere miras verir); cutover’da doldurulur.
 - Bucket’ta `r2.dev` ve genel erişimin kapalı olduğunu doğrulamak (salt okunur komut).
 
 ## 10. Bölünme ve kabul ölçütleri
@@ -423,7 +423,7 @@ Her PR `rewrite`’a. Her birinde ortak kabul: `pnpm check` ve `pnpm build` yeş
 - **Yeni sürüm uzantısı:** `.stp` dosyasına `.step` sürümü `VersionTypeMismatch` (uzantı bire bir aynı olmalı, tasarım metni gibi).
 - **`Storage`:** `presignUpload` `contentLength` ve `ifNoneMatch: '*'` ister ve ikisini de imzalar (`content-length;content-type;host;if-none-match`, bağımsız SigV4 doğrulayıcısıyla test edildi). `get(key, { range })` ve `getRange`; `onlyIf` 4c’de. Memory layer’da `MemoryStorageControl.simulateBrowserPut` (boyut/başlık/süre → 403, var olan anahtar → 412) ve işlem sayacı. `Storage.live` yalnız binding kullanır, ağ çağrısı yoktur, bu yüzden enjekte edilecek `fetch` yok.
 - **Hız sınırı:** yalnız `upload` eklendi (kullanıcı başına 120/saat, IP başına 240/saat); diğer eylemler (`linkOpen` …) 4c/4d ile.
-- **Cron:** `scheduled` işleyicisi `src/server.ts`’te. Saatlik: oturum süresi doldurma ve silme kuyruğu. Günlük: `security_log` temizliği (90 gün, `AppConfig.securityLogRetentionDays`). Çöp ve `access_log` temizliği 4b/4d’de aynı dağıtıcıya eklenir. `triggers.crons` yalnız üst düzeyde; `env.production` dışında kaldı.
+- **Cron:** `scheduled` işleyicisi `src/server.ts`’te. Saatlik: oturum süresi doldurma ve silme kuyruğu. Günlük: `security_log` temizliği (90 gün, `AppConfig.securityLogRetentionDays`). Çöp ve `access_log` temizliği 4b/4d’de aynı dağıtıcıya eklenir. `triggers.crons` üst düzeyde; Wrangler miras verdiği için `env.production` boş listeyle geçersiz kılındı (`scripts/wranglerCrons.test.ts`).
 - **`SHARE_TOKEN_KEYS` biçimi (4c için):** `{"1":"<base64 32 bayt>"}` §4.1’deki `active` alanını taşımıyor. Öneri: `active` yoksa en yüksek sürüm aktif sayılır, varsa o kullanılır. 4a bu sırları okumaz.
 - **Staging gereksinimi:** presign için `R2_ACCOUNT_ID` (veya `R2_ENDPOINT`) de tanımlı olmalı; yoksa `requestUpload` `ConfigError` (500) verir.
 - **Gerçek R2 doğrulaması** (`scripts/staging-verify-uploads.sh`): sonuçlar staging’e yayınlandıktan sonra buraya yazılacak. Beklenen: imzalı `content-length` uyuşmazlığı 403, ikinci PUT 412; biri desteklenmezse §8.2’deki telafi (PUT süresi 5 dakika, teslimde boyut/ETag karşılaştırması).
