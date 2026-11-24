@@ -16,6 +16,8 @@ export type Scenario =
   | 'invite-expired'
   | 'invite-other'
   | 'invite-full'
+  | 'invite-canceled'
+  | 'invite-guest-other'
 
 const day = 86_400
 const now = () => Math.floor(Date.now() / 1000)
@@ -101,6 +103,19 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
       case 'removeMember':
         members = members.filter((m) => m.userId !== body['userId'])
         return json(200, { ok: true, data: { removed: true } })
+      case 'getInvitation': {
+        const guest = body['token'] !== undefined
+        if (name === 'invite-other' && !guest) return json(200, { ok: true, data: { state: 'other_account' } })
+        const state = name === 'invite-expired' ? 'expired' : name === 'invite-canceled' ? 'canceled' : 'pending'
+        return json(200, {
+          ok: true,
+          data: {
+            state, kind: guest ? 'guest' : 'member', workspaceName: 'Demir Makina', inviterEmail: 'mehmet@demirmakina.com',
+            role: guest ? null : 'member', level: guest ? 'download' : null, target: guest ? 'project' : null,
+            expiresAt: now() + 5 * day, accessExpiresAt: guest ? now() + 30 * day : null, emailMatches: name !== 'invite-guest-other',
+          },
+        })
+      }
       case 'acceptInvitation':
       case 'acceptGuestInvitation':
         if (name === 'invite-expired') return fail(410, 'InvitationExpired')

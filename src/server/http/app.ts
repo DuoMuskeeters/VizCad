@@ -3,6 +3,7 @@ import { type Locale, localeFromHeader, locales } from '../emails/auth'
 import { type AppError, ResourceUnavailable, Unauthenticated, ValidationError } from '../errors'
 import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
 import { listActivity } from '../programs/activity'
+import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
 import { acceptInvitation, changeRole, inviteMember, listMembers, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
 import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
@@ -52,7 +53,7 @@ interface Result {
 
 interface Operation {
   /** Invitation acceptance is throttled per IP and account before the token is hashed or the row is read. */
-  readonly limit?: 'inviteAccept'
+  readonly limit?: 'inviteAccept' | 'inviteLookup'
   readonly run: (body: unknown, ctx: Context) => Effect.Effect<Result, AppError, AppServices>
 }
 
@@ -65,7 +66,7 @@ type Fields = { readonly [key: string]: Schema.Top & { readonly DecodingServices
 const op = <F extends Fields>(
   fields: F,
   run: (input: Schema.Struct<F>['Type'], ctx: Context) => Effect.Effect<unknown, AppError, AppServices>,
-  limit?: 'inviteAccept',
+  limit?: 'inviteAccept' | 'inviteLookup',
 ): Operation => ({
   ...(limit === undefined ? {} : { limit }),
   run: (body, ctx) =>
@@ -111,6 +112,14 @@ const operations: Readonly<Record<string, Operation>> = {
       }),
   ),
   acceptGuestInvitation: op({ token: Schema.String.check(Schema.isMinLength(16), Schema.isMaxLength(128)) }, (input, { caller }) => acceptGuestInvitation(caller, input), 'inviteAccept'),
+  getInvitation: op(
+    { invitationId: Schema.optional(Id), token: Schema.optional(Schema.String.check(Schema.isMinLength(16), Schema.isMaxLength(128))) },
+    (input, { caller }) =>
+      input.invitationId !== undefined && input.token === undefined ? getInvitation(caller, { kind: 'member', invitationId: input.invitationId })
+      : input.token !== undefined && input.invitationId === undefined ? getInvitation(caller, { kind: 'guest', token: input.token })
+      : Effect.fail(new ValidationError({ message: 'exactly one of invitationId, token' })),
+    'inviteLookup',
+  ),
   revokeGuestInvitation: op({ ...Workspace, invitationId: Id }, (input, { caller }) => revokeGuestInvitation(caller, input)),
   // Projects and access
   createProject: op({ ...Workspace, name: Name, description: Schema.optional(Description), accessMode: Schema.optional(AccessMode) }, (input, { caller }) =>

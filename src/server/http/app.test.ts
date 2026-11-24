@@ -137,10 +137,21 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual(statuses[10], 429)
     })))
 
+  it.effect('getInvitation: needs exactly one reference, answers 200 with the bare other_account state, and is rate limited', () =>
+    run(Effect.gen(function* () {
+      assert.strictEqual((yield* call(post('getInvitation', {}))).status, 400)
+      assert.strictEqual((yield* call(post('getInvitation', { invitationId: 'a', token: 'b'.repeat(20) }))).status, 400)
+      const unknown = yield* call(post('getInvitation', { invitationId: 'nope' }))
+      assert.deepStrictEqual([unknown.status, unknown.body.data], [200, { state: 'other_account' }])
+      const statuses: Array<number> = []
+      for (let i = 0; i < 125; i++) statuses.push((yield* call(post('getInvitation', { invitationId: `x${i}` }, { 'cf-connecting-ip': '198.51.100.9' }))).status)
+      assert.isTrue(statuses.includes(429))
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
       'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'changeRole', 'createProject', 'createWorkspace', 'currentWorkspace',
-      'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
+      'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
       'removeMember', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
       'switchWorkspace', 'transferOwnership', 'updateProject',
     ])

@@ -88,3 +88,20 @@ export type InvitationView = {
 }
 
 export type TeamData = { readonly members: readonly MemberView[]; readonly invitations: readonly InvitationView[] }
+
+/** The card of `getInvitation` (src/server/programs/invitations.ts), or `other_account` with nothing else. */
+export type InvitationDetails =
+  | { readonly state: 'other_account' }
+  | {
+      readonly state: 'pending' | 'expired' | 'canceled' | 'accepted'
+      readonly kind: 'member' | 'guest'
+      readonly workspaceName: string
+      readonly inviterEmail: string | null
+      readonly role: string | null
+      readonly level: string | null
+      readonly target: 'file' | 'project' | null
+      /** Unix seconds. */
+      readonly expiresAt: number
+      readonly accessExpiresAt: number | null
+      readonly emailMatches: boolean
+    }
