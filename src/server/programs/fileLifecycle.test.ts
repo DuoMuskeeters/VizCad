@@ -69,9 +69,9 @@ const file = (id: string) => Db.use((x) => x.use((d) => d.select().from(schema.f
 
 describe('restoredName', () => {
   it('adds a suffix before the extension and numbers further clashes', () => {
-    assert.strictEqual(restoredName('part.step', 'step', new Set(['part.step'])), 'part (geri yüklendi).step')
-    assert.strictEqual(restoredName('part.step', 'step', new Set(['part.step', 'part (geri yüklendi).step'])), 'part (geri yüklendi 2).step')
-    assert.strictEqual(restoredName('noext', 'step', new Set()), 'noext (geri yüklendi)')
+    assert.strictEqual(restoredName('part.step', 'step', new Set(['part.step'])), 'part (2).step')
+    assert.strictEqual(restoredName('part.step', 'step', new Set(['part.step', 'part (2).step'])), 'part (3).step')
+    assert.strictEqual(restoredName('noext', 'step', new Set()), 'noext (2)')
   })
 })
 
@@ -123,7 +123,7 @@ describe('trashFile / restoreFile / listTrash', () => {
       assert.strictEqual(yield* restore('max'), 'ok')
       assert.strictEqual(yield* restore('max'), 'ResourceUnavailable')
       const restored = yield* file('f1')
-      assert.deepStrictEqual([restored?.isDeleted, restored?.deletedAt, restored?.deletedByUserId, restored?.name], [false, null, null, 'f1 (geri yüklendi).step'])
+      assert.deepStrictEqual([restored?.isDeleted, restored?.deletedAt, restored?.deletedByUserId, restored?.name], [false, null, null, 'f1 (2).step'])
       assert.strictEqual((yield* rows('shareLinks'))[0]?.revokedAt === null, false)
       const page = yield* listFiles(caller('max'), { ...ref, filter: 'all', sort: 'name', limit: 10, cursor: null })
       assert.strictEqual(page.items.length, 3)

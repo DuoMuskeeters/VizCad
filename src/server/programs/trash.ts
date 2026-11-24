@@ -14,16 +14,16 @@ import {
 
 const DAY = 24 * 60 * 60
 
-/** A unique `name (geri yüklendi).ext` for a restored file whose name is taken at its old place (docs/03 §2.8). */
+/** A unique, language-neutral `name (2).ext` (then 3, 4, ...) for a restored file whose name is taken at its old place. */
 const suffixOf = (name: string, extension: string) => name.toLowerCase().endsWith(`.${extension.toLowerCase()}`) ? name.slice(name.length - extension.length - 1) : ''
 const stemOf = (name: string, extension: string) => name.slice(0, name.length - suffixOf(name, extension).length)
 
 export const restoredName = (name: string, extension: string, taken: ReadonlySet<string>) => {
   const suffix = suffixOf(name, extension)
   const stem = stemOf(name, extension)
-  let candidate = `${stem} (geri yüklendi)${suffix}`
-  for (let n = 2; taken.has(candidate); n++) candidate = `${stem} (geri yüklendi ${n})${suffix}`
-  return candidate
+  let n = 2
+  while (taken.has(`${stem} (${n})${suffix}`)) n++
+  return `${stem} (${n})${suffix}`
 }
 
 /**
@@ -48,7 +48,7 @@ export const trashFile = Effect.fn('trashFile')(function* (caller: Caller, input
   return { fileId: file.id }
 })
 
-/** Brings a file back from the trash. Links do not come back. A name taken at the old place gets a "(geri yüklendi)" suffix. */
+/** Brings a file back from the trash. Links do not come back. A name taken at the old place gets a "(2)" style suffix. */
 export const restoreFile = Effect.fn('restoreFile')(function* (caller: Caller, input: { readonly workspaceId: string; readonly fileId: string }) {
   const { base, file, role, still } = yield* openFile(caller, input.workspaceId, input.fileId)
   yield* authorize({ ...base, action: { kind: 'restoreFile' } })
@@ -59,7 +59,7 @@ export const restoreFile = Effect.fn('restoreFile')(function* (caller: Caller, i
   )
   const clash = yield* db.use((d) => d.select({ id: schema.files.id }).from(schema.files).where(and(here, eq(schema.files.name, file.name))).limit(1))
   const name = clash.length === 0 ? file.name : restoredName(file.name, file.extension, new Set((yield* db.use((d) =>
-    d.select({ name: schema.files.name }).from(schema.files).where(and(here, sql`${schema.files.name} LIKE ${`${stemOf(file.name, file.extension).replace(/[\\%_]/g, '\\$&')} (geri yüklendi%`} ESCAPE '\\'`)),
+    d.select({ name: schema.files.name }).from(schema.files).where(and(here, sql`${schema.files.name} LIKE ${`${stemOf(file.name, file.extension).replace(/[\\%_]/g, '\\$&')} (%`} ESCAPE '\\'`)),
   )).map((r) => r.name)))
   const activityId = yield* newUlid
   yield* runBatch((d) => [
