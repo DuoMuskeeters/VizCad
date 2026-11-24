@@ -21,6 +21,7 @@ import {
   authorize,
   type Caller,
   guard,
+  liveGuestScope,
   newId,
   nowSeconds,
   permissionActor,
@@ -48,6 +49,23 @@ const seatsUsed = Effect.fnUntraced(function* (workspaceId: string, now: number,
          AND (${pendingExcept} IS NULL OR email <> ${pendingExcept})) AS used`),
   )
   return row?.used ?? 0
+})
+
+export interface Usage {
+  readonly used: number
+  /** `null`: the plan has no limit. */
+  readonly limit: number | null
+}
+
+/** Seats (members plus pending invitations) and guests with a live grant, with the plan's limits from Entitlements. */
+const workspaceUsage = Effect.fnUntraced(function* (workspaceId: string, now: number) {
+  const db = yield* Db
+  const limits = yield* (yield* Entitlements).limits(workspaceId)
+  const seats = yield* seatsUsed(workspaceId, now, null)
+  const guests = yield* db.use((d) =>
+    d.get<{ n: number }>(sql`SELECT count(*) AS n FROM member WHERE organizationId = ${workspaceId} AND role = 'guest' AND ${liveGuestScope(schema.member.organizationId, schema.member.userId, now)}`),
+  )
+  return { seats: { used: seats, limit: limits.seats } satisfies Usage, guests: { used: guests?.n ?? 0, limit: limits.guests } satisfies Usage }
 })
 
 /** The member row (and role) of the account with this address, if any. */
@@ -328,12 +346,14 @@ export const listMembers = Effect.fn('listMembers')(function* (caller: Caller, i
     email: r.email,
   }))
   const manages = decidePermission({ actor: permissionActor(caller, workspace.id, role), workspace, now, action: { kind: 'manageMembers' } }).allowed
-  if (!manages) return { members, invitations: [] }
+  // Seat and guest usage against the plan (same counting rules as the write guards); only the internal team sees it.
+  const usage = team ? yield* workspaceUsage(workspace.id, now) : null
+  if (!manages) return { members, invitations: [], usage }
   const invitations = yield* db.use((d) =>
     d.select({ id: schema.invitation.id, email: schema.invitation.email, role: schema.invitation.role, expiresAt: schema.invitation.expiresAt })
       .from(schema.invitation)
       .where(and(eq(schema.invitation.organizationId, workspace.id), eq(schema.invitation.status, 'pending'), gt(schema.invitation.expiresAt, toDate(now))))
       .orderBy(asc(schema.invitation.createdAt)),
   )
-  return { members, invitations: invitations.map((i) => ({ ...i, expiresAt: toSeconds(i.expiresAt) })) }
+  return { members, invitations: invitations.map((i) => ({ ...i, expiresAt: toSeconds(i.expiresAt) })), usage }
 })

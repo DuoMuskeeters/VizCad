@@ -269,7 +269,13 @@ export const TeamPage = () => {
   const members = (data?.members ?? []).filter((m) => m.role !== 'guest')
   const guests = (data?.members ?? []).filter((m) => m.role === 'guest')
   const invitations = data?.invitations ?? []
-  const seats = members.filter((m) => m.role === 'owner' || m.role === 'admin' || m.role === 'member').length + invitations.length
+  const usage = data?.usage ?? null
+  const seatsUsed = usage?.seats.used ?? members.length + invitations.length
+  const seatLimit = usage?.seats.limit ?? null
+  const seatsFull = seatLimit !== null && seatsUsed >= seatLimit
+  const guestLimit = usage?.guests.limit ?? null
+  const guestsUsed = usage?.guests.used ?? guests.length
+  const inviteDisabled = !manage.allowed ? t(manage.reason) : seatsFull ? t('app.team.reason.seatsFull', { limit: seatLimit ?? 0 }) : undefined
   const commenters = members.filter((m) => m.role === 'commenter').length
   const iAmGuest = active.role === 'guest'
   const demote = pending?.kind === 'role' && pending
@@ -284,7 +290,7 @@ export const TeamPage = () => {
           <Button
             variant="primary"
             onClick={() => setInviting(true)}
-            {...(manage.allowed ? {} : { disabledReason: t(manage.reason) })}
+            {...(inviteDisabled === undefined ? {} : { disabledReason: inviteDisabled })}
           >
             <UserPlus aria-hidden className="size-4.5" />
             {t('app.team.invite.open')}
@@ -320,7 +326,7 @@ export const TeamPage = () => {
           <dl className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-line px-4 py-3.5 text-base">
             <div>
               <dt className="text-text-3">{t('app.team.stat.seats')}</dt>
-              <dd className="text-lg font-semibold">{seats}</dd>
+              <dd className="text-lg font-semibold">{seatLimit === null ? seatsUsed : t('app.team.stat.of', { used: seatsUsed, limit: seatLimit })}</dd>
             </div>
             <div>
               <dt className="text-text-3">{t('app.team.stat.commenters')}</dt>
@@ -328,7 +334,7 @@ export const TeamPage = () => {
             </div>
             <div>
               <dt className="text-text-3">{t('app.team.stat.guests')}</dt>
-              <dd className="text-lg font-semibold">{guests.length}</dd>
+              <dd className="text-lg font-semibold">{guestLimit === null ? guestsUsed : t('app.team.stat.of', { used: guestsUsed, limit: guestLimit })}</dd>
             </div>
             <p className="self-end text-sm text-text-3">{t('app.team.stat.note')}</p>
           </dl>

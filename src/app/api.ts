@@ -87,7 +87,14 @@ export type InvitationView = {
   readonly expiresAt: number
 }
 
-export type TeamData = { readonly members: readonly MemberView[]; readonly invitations: readonly InvitationView[] }
+export type Usage = { readonly used: number; /** `null`: no limit on this plan. */ readonly limit: number | null }
+
+export type TeamData = {
+  readonly members: readonly MemberView[]
+  readonly invitations: readonly InvitationView[]
+  /** Seats (members + pending invitations) and live guests against the plan; null for guests of the workspace. */
+  readonly usage: { readonly seats: Usage; readonly guests: Usage } | null
+}
 
 /** The card of `getInvitation` (src/server/programs/invitations.ts), or `other_account` with nothing else. */
 export type InvitationDetails =

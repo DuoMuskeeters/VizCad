@@ -13,6 +13,7 @@ export type Scenario =
   | 'newuser'
   | 'empty-team'
   | 'anon'
+  | 'seats-full'
   | 'invite-ok'
   | 'invite-expired'
   | 'invite-other'
@@ -39,7 +40,7 @@ const fail = (status: number, error: string, reason?: string) => json(status, { 
 export const fixtureFetch = (scenario: string): typeof fetch => {
   const name = scenario as Scenario
   const inviteScenario = name.startsWith('invite-')
-  const myRole: Role = name === 'owner' ? 'owner' : name === 'commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
+  const myRole: Role = name === 'owner' || name === 'seats-full' ? 'owner' : name === 'commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
   const user = { id: 'u-me', name: 'Ayşe Yılmaz', email: 'ayse@demirmakina.com' }
   const personal: WorkspaceSummary = { id: 'ws-personal', name: 'Personal', kind: 'personal', role: 'owner' }
   const company: WorkspaceSummary = { id: 'ws-dm', name: 'Demir Makina', kind: 'company', role: myRole }
@@ -83,7 +84,9 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
       case 'listMembers': {
         const manager = myRole === 'owner' || myRole === 'admin'
         const visible = (workspaces.find((w) => w.id === body['workspaceId'])?.role ?? myRole) === 'guest' ? members.filter((m) => m.userId === 'u-me') : members
-        return json(200, { ok: true, data: { members: visible, invitations: manager ? invitations : [] } })
+        const seatsUsed = members.filter((m) => m.role !== 'guest').length + invitations.length
+        const usage = myRole === 'guest' ? null : { seats: { used: seatsUsed, limit: name === 'seats-full' ? seatsUsed : 10 }, guests: { used: members.filter((m) => m.role === 'guest').length, limit: 20 } }
+        return json(200, { ok: true, data: { members: visible, invitations: manager ? invitations : [], usage } })
       }
       case 'inviteMember': {
         const email = String(body['email']).trim().toLowerCase()

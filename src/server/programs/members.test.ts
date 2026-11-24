@@ -349,6 +349,17 @@ describe('listMembers', () => {
       assert.deepStrictEqual(asAdmin.invitations.map((i) => i.email), ['new@example.com'])
     })))
 
+  it.effect('the internal team sees seat and guest usage against the plan; pending invitations take seats; a guest sees none', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedMember('acme', 'eve', 'guest')
+      yield* invite('ada', 'new@example.com', 'member')
+      const asMember = yield* listMembers(caller('max'), { workspaceId: 'acme' })
+      // bob, ada, max, cat + one pending invitation; the seeded guest has no live grant.
+      assert.deepStrictEqual(asMember.usage, { seats: { used: 5, limit: 5 }, guests: { used: 0, limit: 7 } })
+      assert.isNull((yield* listMembers(caller('eve'), { workspaceId: 'acme' })).usage)
+    }), { ...defaultPlan, seats: 5, guests: 7 }))
+
   it.effect('a guest with a live grant sees only themself, not the internal team or other guests', () =>
     run(Effect.gen(function* () {
       yield* acme

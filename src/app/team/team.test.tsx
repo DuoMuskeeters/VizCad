@@ -206,3 +206,20 @@ describe('views by role', () => {
     expect(screen.getByRole('button', { name: 'Create company workspace' })).toBeInTheDocument()
   })
 })
+
+describe('seat limit', () => {
+  it('shows seats and guests as used / limit', async () => {
+    setup('owner')
+    expect(await screen.findByText('7 / 10')).toBeInTheDocument()
+    expect(screen.getByText('2 / 20')).toBeInTheDocument()
+    expect(await inviteButton()).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('disables the invite button with the reason when every seat is taken', async () => {
+    setup('seats-full')
+    expect(await screen.findByText('7 / 7')).toBeInTheDocument()
+    const invite = await inviteButton()
+    expect(invite).toHaveAttribute('aria-disabled', 'true')
+    expect(invite).toHaveAccessibleDescription(/All 7 seats are in use/)
+  })
+})
