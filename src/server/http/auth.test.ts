@@ -139,7 +139,33 @@ describe('identity HTTP surface', () => {
       const malformed = new Request(`${ORIGIN}/api/auth/sign-in/email`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{nope' })
       assert.strictEqual((yield* run(malformed)).status, 400)
       const big = new Request(`${ORIGIN}/api/auth/sign-in/email`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: JSON.stringify({ email: 'a@b.test', pad: 'x'.repeat(20_000) }) })
-      assert.strictEqual((yield* run(big)).status, 400)
+      assert.strictEqual((yield* run(big)).status, 413)
+      assert.deepStrictEqual(yield* handled, [])
+    }).pipe(Effect.provide(baseLayer)),
+  )
+
+  it.effect('a body over 16 KB is 413 even without content-length (streamed), and is cut early', () =>
+    Effect.gen(function* () {
+      let pulled = 0
+      const chunk = new TextEncoder().encode('x'.repeat(4096))
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulled++
+          if (pulled > 100) controller.close()
+          else controller.enqueue(chunk)
+        },
+      })
+      const streamed = new Request(`${ORIGIN}/api/auth/sign-in/email`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: ORIGIN },
+        body: stream,
+        duplex: 'half',
+      } as RequestInit)
+      assert.isNull(streamed.headers.get('content-length'))
+      const response = yield* run(streamed)
+      assert.strictEqual(response.status, 413)
+      assert.deepStrictEqual(yield* body(response), { ok: false, error: 'PayloadTooLarge' })
+      assert.isBelow(pulled, 20, 'the stream was cut, not read to the end')
       assert.deepStrictEqual(yield* handled, [])
     }).pipe(Effect.provide(baseLayer)),
   )

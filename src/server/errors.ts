@@ -27,6 +27,9 @@ export class EmailError extends Data.TaggedError('EmailError')<{
   readonly cause: unknown
 }> {}
 
+/** A request body exceeded the endpoint's size cap (413). */
+export class PayloadTooLarge extends Data.TaggedError('PayloadTooLarge')<{}> {}
+
 /** Turnstile rejected the token or could not be reached. */
 export class CaptchaFailed extends Data.TaggedError('CaptchaFailed')<{
   readonly reason: string
@@ -70,6 +73,7 @@ export class RateLimitError extends Data.TaggedError('RateLimitError')<{
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
+  | PayloadTooLarge
   | ConfigError
   | DbError
   | StorageError

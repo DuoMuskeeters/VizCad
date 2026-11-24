@@ -4,6 +4,7 @@ import type { AppError } from '../errors'
 /** HTTP status per tagged error. A Record keeps the mapping exhaustive: a new error fails type checking here. */
 export const STATUS: Record<AppError['_tag'], number> = {
   ValidationError: 400,
+  PayloadTooLarge: 413,
   CaptchaFailed: 403,
   ConfigError: 500,
   DbError: 500,
