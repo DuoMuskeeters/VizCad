@@ -142,7 +142,7 @@ export const requestUpload = Effect.fn('requestUpload')(function* (
 
   const now = yield* nowSeconds
   const access = yield* authorizeUpload(caller, input.workspaceId, { projectId: input.projectId ?? null, fileId: input.targetFileId ?? null }, now)
-  if (access.file !== null && access.file.extension !== extension) return yield* new VersionTypeMismatch()
+  if (access.file !== null && access.file.extension.toLowerCase() !== extension) return yield* new VersionTypeMismatch()
 
   const limits = yield* (yield* Entitlements).limits(input.workspaceId)
   if (input.size > limits.maxFileBytes) return yield* new FileTooLarge()
@@ -242,6 +242,8 @@ export const completeUpload = Effect.fn('completeUpload')(function* (caller: Cal
   if (session.status !== 'pending' || toSeconds(session.expiresAt) <= now) return yield* new UploadUnavailable()
 
   const access = yield* authorizeUpload(caller, session.workspaceId, { projectId: session.targetFileId === null ? session.projectId : null, fileId: session.targetFileId }, now)
+  // The file may have changed since the request (legacy rows keep their original case): compare again, case-insensitively.
+  if (access.file !== null && access.file.extension.toLowerCase() !== session.extension) return yield* reject(session, now, new VersionTypeMismatch())
   const limits = yield* (yield* Entitlements).limits(session.workspaceId)
   const storage = yield* Storage
   const db = yield* Db

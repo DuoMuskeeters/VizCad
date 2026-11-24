@@ -425,6 +425,18 @@ describe('completeUpload: new version', () => {
       assert.deepStrictEqual([file?.currentVersionNumber, file?.size, file?.contentEtag === null], [3, 200, false])
     })))
 
+  it.effect('a legacy upper-case extension (Part.STL / "STL") accepts a .stl version; a changed extension is caught again at completion', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedFile('up', 'bob', 'acme')
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({ name: 'Part.STL', extension: 'STL', r2Key: 'users/bob/up.STL' }).where(eq(schema.files.id, 'up'))))
+      const result = yield* finish('ada', yield* upload('ada', 'x.stl', stlBytes(2), { targetFileId: 'up' }))
+      assert.strictEqual(result.versionNumber, 2)
+      const pending = yield* upload('ada', 'y.stl', stlBytes(2), { targetFileId: 'up' })
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({ extension: 'step' }).where(eq(schema.files.id, 'up'))))
+      assert.strictEqual((yield* Effect.flip(finish('ada', pending)))._tag, 'VersionTypeMismatch')
+    })))
+
   it.effect('version race: the second of two concurrent completions never reuses a number; a retry succeeds', () =>
     run(Effect.gen(function* () {
       yield* world
