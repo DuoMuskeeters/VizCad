@@ -112,6 +112,8 @@ export const authOptions = (input: AuthOptionsInput) => {
     account: {
       // Never link an existing local account to Google by email (pre-account takeover, review 3.1).
       accountLinking: { enabled: false },
+      // Google access/refresh/id tokens are stored encrypted (with the auth secret), never as plain text in D1.
+      encryptOAuthTokens: true,
     },
     databaseHooks: {
       session: {

@@ -184,6 +184,9 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
       const session = Option.getOrThrow(yield* Auth.use((a) => a.readSession(new Headers({ cookie: jar(first) }))))
       assert.strictEqual(session.email, 'lin@example.com')
       assert.isTrue(session.emailVerified)
+      const stored = rows<{ accessToken: string | null; idToken: string | null }>(d1, "select accessToken, idToken from account where providerId = 'google'")[0]
+      assert.isTrue(stored?.accessToken !== null && stored?.accessToken !== 'at', 'access token is not stored in plain text')
+      assert.notInclude(stored?.idToken ?? '', 'lin@example.com')
       const again = yield* google({ sub: 'g-1', email: 'lin@example.com', email_verified: true })
       assert.include(again.headers.get('location') ?? '', '/app')
       assert.isTrue(Option.isSome(yield* Auth.use((a) => a.readSession(new Headers({ cookie: jar(again) })))))
