@@ -3,13 +3,17 @@ import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import { Db, type Database } from '../services/Db'
 import { Storage } from '../services/Storage'
-import { runBatch, nowSeconds, toDate } from './shared'
+import { runBatch, nowSeconds, toDate, toSeconds } from './shared'
 
 type DeletionReason = (typeof schema.storageDeletionReasons)[number]
 
-/** A batch statement that queues an R2 key for deletion; a key already queued stays as it is. */
-export const enqueueDeletion = (d: Database, key: string, reason: DeletionReason, now: number) =>
-  d.insert(schema.storageDeletions).values({ key, reason, createdAt: toDate(now), attempts: 0, notBefore: toDate(now) }).onConflictDoNothing()
+/**
+ * A batch statement that queues an R2 key for deletion; a key already queued stays as it is. `notBefore` (seconds,
+ * default now) is the earliest time the row may be dropped: a key whose upload URL is still alive must stay queued until
+ * the URL is dead, or a late PUT would leave an object nobody deletes.
+ */
+export const enqueueDeletion = (d: Database, key: string, reason: DeletionReason, now: number, notBefore: number = now) =>
+  d.insert(schema.storageDeletions).values({ key, reason, createdAt: toDate(now), attempts: 0, notBefore: toDate(notBefore) }).onConflictDoNothing()
 
 /** Keys under this prefix are blog images; the worker never deletes them (docs/09 §5.3). */
 const PROTECTED_PREFIX = 'blog/'
@@ -53,14 +57,16 @@ export const drainStorageDeletions = Effect.fn('drainStorageDeletions')(function
   let failed = 0
   for (const row of rows) {
     const drop = db.use((d) => d.delete(schema.storageDeletions).where(eq(schema.storageDeletions.key, row.key)))
+    // Not due yet (an immediate `keys` run): the object is deleted as usual but the row stays for the final pass.
+    const notDue = toSeconds(row.notBefore) > now
     if (row.key.startsWith(PROTECTED_PREFIX) || ((yield* db.use((d) => referenced(d, row.key)))?.referenced ?? 0) === 1) {
-      yield* drop
+      if (!notDue) yield* drop
       skipped++
       continue
     }
     const removed = yield* storage.delete([row.key]).pipe(Effect.as(true), Effect.catchTag('StorageError', () => Effect.succeed(false)))
     if (removed) {
-      yield* drop
+      if (!notDue) yield* drop
       deleted++
       continue
     }
@@ -70,7 +76,7 @@ export const drainStorageDeletions = Effect.fn('drainStorageDeletions')(function
     const backoff = Math.min(BACKOFF_BASE_SECONDS * 2 ** attempts, BACKOFF_MAX_SECONDS)
     yield* db.use((d) =>
       d.update(schema.storageDeletions)
-        .set({ attempts, lastError: 'StorageError', notBefore: toDate(now + backoff) })
+        .set({ attempts, lastError: 'StorageError', notBefore: toDate(Math.max(toSeconds(row.notBefore), now + backoff)) })
         .where(eq(schema.storageDeletions.key, row.key)),
     )
   }

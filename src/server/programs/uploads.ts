@@ -211,6 +211,9 @@ const uploadedFile = Effect.fnUntraced(function* (session: SessionRow) {
   } satisfies UploadedFile
 })
 
+/** The signed PUT URL may still be used until the session's expiry; the queue row must outlive it (plus clock slack). */
+const urlDeadAt = (session: SessionRow) => toSeconds(session.expiresAt) + 5 * 60
+
 /**
  * Marks the session rejected and queues its object for deletion in one batch (D1 first), then tries the deletion right
  * away; the hourly job retries what fails. Always ends in `error`.
@@ -219,7 +222,7 @@ const reject = Effect.fnUntraced(function* <E>(session: SessionRow, now: number,
   yield* runBatch((d) => [
     guard(d, sql`EXISTS (SELECT 1 FROM upload_sessions WHERE id = ${session.id} AND status = 'pending')`),
     d.update(schema.uploadSessions).set({ status: 'rejected' }).where(eq(schema.uploadSessions.id, session.id)),
-    enqueueDeletion(d, session.r2Key, 'upload_rejected', now),
+    enqueueDeletion(d, session.r2Key, 'upload_rejected', now, urlDeadAt(session)),
   ]).pipe(Effect.catchTag('WriteConflict', () => Effect.void))
   yield* drainStorageDeletions({ keys: [session.r2Key] }).pipe(Effect.ignore)
   return yield* Effect.fail(error)
@@ -355,7 +358,7 @@ export const cancelUpload = Effect.fn('cancelUpload')(function* (caller: Caller,
   yield* runBatch((d) => [
     guard(d, sql`EXISTS (SELECT 1 FROM upload_sessions WHERE id = ${session.id} AND status = 'pending')`),
     d.update(schema.uploadSessions).set({ status: 'expired' }).where(eq(schema.uploadSessions.id, session.id)),
-    enqueueDeletion(d, session.r2Key, 'upload_canceled', now),
+    enqueueDeletion(d, session.r2Key, 'upload_canceled', now, urlDeadAt(session)),
   ]).pipe(Effect.catchTag('WriteConflict', () => Effect.fail(new UploadUnavailable())))
   yield* drainStorageDeletions({ keys: [session.r2Key] }).pipe(Effect.ignore)
 })

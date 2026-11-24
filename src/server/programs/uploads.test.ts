@@ -7,6 +7,7 @@ import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
 import { caller, programLayer, rows, seedFile, seedMember, seedProject, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { drainStorageDeletions } from './storageCleanup'
 import { cancelUpload, completeUpload, objectKey, requestUpload, uploadTtlSeconds } from './uploads'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>, limits = defaultPlan) =>
@@ -286,8 +287,8 @@ describe('completeUpload: rejections', () => {
       assert.strictEqual((yield* Effect.flip(finish('max', uploaded)))._tag, 'UnsupportedFileType')
       const state = yield* rejected(uploaded.ticket.uploadId)
       assert.deepStrictEqual([state.status, state.files], ['rejected', 0])
-      // The best-effort deletion ran right after the batch, so the queue row is gone and so is the object.
-      assert.deepStrictEqual(state.queue, [])
+      // The best-effort deletion removed the object, but the queue row stays until the upload URL is dead.
+      assert.strictEqual(state.queue.length, 1)
       assert.deepStrictEqual(yield* control.keys, [])
       assert.strictEqual((yield* Effect.flip(finish('max', uploaded)))._tag, 'UploadUnavailable')
     })))
@@ -462,6 +463,25 @@ describe('cancelUpload', () => {
       assert.deepStrictEqual(yield* (yield* MemoryStorageControl).keys, [])
       assert.strictEqual((yield* Effect.flip(cancelUpload(caller('max'), { uploadId: uploaded.ticket.uploadId })))._tag, 'UploadUnavailable')
       assert.strictEqual((yield* Effect.flip(finish('max', uploaded)))._tag, 'UploadUnavailable')
+    })))
+
+  it.effect('a late PUT with the still-valid URL is deleted by the worker once the URL is dead; the row survives until then', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const control = yield* MemoryStorageControl
+      const ticket = yield* requestUpload(caller('max'), { workspaceId: 'acme', name: 'a.stl', size: stlBytes(3).length })
+      yield* cancelUpload(caller('max'), { uploadId: ticket.uploadId })
+      assert.strictEqual((yield* rows('storageDeletions')).length, 1)
+      const late = yield* control.simulateBrowserPut(new URL(ticket.url), stlBytes(3), ticket.headers)
+      assert.strictEqual(late.status, 200)
+      assert.deepStrictEqual((yield* control.keys).length, 1)
+      assert.deepStrictEqual(yield* drainStorageDeletions(), { deleted: 0, skipped: 0, failed: 0 })
+      assert.strictEqual((yield* control.keys).length, 1)
+      const session = yield* sessionOf(ticket.uploadId)
+      yield* TestClock.setTime(((session ? Math.floor(session.expiresAt.getTime() / 1000) : 0) + 5 * 60 + 1) * 1000)
+      assert.deepStrictEqual(yield* drainStorageDeletions(), { deleted: 1, skipped: 0, failed: 0 })
+      assert.deepStrictEqual(yield* control.keys, [])
+      assert.deepStrictEqual(yield* rows('storageDeletions'), [])
     })))
 
   it.effect('a completed session cannot be cancelled', () =>
