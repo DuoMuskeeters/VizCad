@@ -67,9 +67,11 @@ export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll }: F
                   {file.name}
                 </TextLink>
               </DataListPrimary>
-              <DataListCell desktopOnly className="flex items-center gap-2">
-                <Avatar name={file.owner} size="xs" decorative />
-                <span className="truncate">{file.owner}</span>
+              <DataListCell desktopOnly>
+                <span className="flex min-w-0 items-center gap-2">
+                  <Avatar name={file.owner} size="xs" decorative />
+                  <span className="truncate">{file.owner}</span>
+                </span>
               </DataListCell>
               <DataListCell desktopOnly>{file.modified}</DataListCell>
               <DataListCell desktopOnly align="end">

@@ -38,10 +38,12 @@ export const FilesDemo = () => {
         title="Tüm dosyalar"
         subtitle="8 dosya · 153 MB"
         actions={
-          <Button variant="primary" className="hidden app:inline-flex">
-            <Upload aria-hidden className="size-4.5" />
-            Yükle
-          </Button>
+          <div className="hidden app:block">
+            <Button variant="primary">
+              <Upload aria-hidden className="size-4.5" />
+              Yükle
+            </Button>
+          </div>
         }
       />
 
