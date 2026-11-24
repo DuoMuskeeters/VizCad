@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { TestClock } from 'effect/testing'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import * as schema from '../db/schema'
 import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
@@ -226,6 +226,18 @@ describe('purge', () => {
       assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 3, more: false })
       assert.deepStrictEqual((yield* rows('files')).map((f) => f.id), ['arch'])
       assert.deepStrictEqual(yield* bucket, ['w/acme/f/arch/cur'])
+    })))
+
+  it.effect('emptyTrash does not count a file that conflicts, and does not ask the client to call again when nothing progressed', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      for (const id of ['a', 'b', 'c']) yield* upload(id, 'max')
+      for (const id of ['a', 'b', 'c']) yield* trashFile(caller('bob'), { ...ref, fileId: id })
+      // A concurrent change makes the purge of "c" lose its batch.
+      yield* Db.use((x) => x.use((d) => d.run(sql`CREATE TRIGGER conflict_c BEFORE DELETE ON file_access WHEN OLD.fileId = 'c' BEGIN SELECT RAISE(ABORT, 'batch_guard_failed'); END`)))
+      assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 2, more: false })
+      assert.deepStrictEqual((yield* rows('files')).map((f) => f.id), ['c'])
+      assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 0, more: false })
     })))
 
   it.effect('the daily job purges files past the workspace retention as the system and leaves younger ones', () =>

@@ -136,7 +136,7 @@ const EMPTY_TRASH_GROUP = 50
 
 /**
  * Purges the workspace's trash in groups of 50 (docs/09 §5.3); `more` tells the client to call again. Every file goes
- * through the `purgeFile` decision; a file in an archived project is skipped (it expires with the daily job), any other
+ * through the `purgeFile` decision; a file in an archived project is skipped (it expires with the daily job), a file that conflicts with a concurrent change is skipped and not counted, any other
  * denial (a member, a commenter) fails the call.
  */
 export const emptyTrash = Effect.fn('emptyTrash')(function* (caller: Caller, input: { readonly workspaceId: string }) {
@@ -155,10 +155,13 @@ export const emptyTrash = Effect.fn('emptyTrash')(function* (caller: Caller, inp
     const base = scopedInput(scope, row, grants.get(row.id))
     if (base === undefined) continue
     yield* authorize({ ...base, action: { kind: 'purgeFile' } })
-    yield* drainKeys(yield* purgeOne(caller, input.workspaceId, row.id, scope.role, scope.now).pipe(Effect.catchTag('WriteConflict', () => Effect.succeed([] as ReadonlyArray<string>))))
+    const keys = yield* purgeOne(caller, input.workspaceId, row.id, scope.role, scope.now).pipe(Effect.catchTag('WriteConflict', () => Effect.succeed(null)))
+    if (keys === null) continue // a concurrent change (restore, purge): left for the next call, not counted
+    yield* drainKeys(keys)
     purged++
   }
-  return { purged, more: rows.length === EMPTY_TRASH_GROUP }
+  // `more` only when this call made progress: files that keep conflicting must not make the client loop forever.
+  return { purged, more: purged > 0 && rows.length === EMPTY_TRASH_GROUP }
 })
 
 const encodeCursor = (id: string, value: number) => `${id}|${value}`
