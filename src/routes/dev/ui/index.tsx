@@ -4,6 +4,8 @@ import { requireDevEnvironment } from '#/components/dev/guard'
 
 // Home of the component set (docs/03-design.md). Static samples only. Never indexed. 404 in production.
 export const Route = createFileRoute('/dev/ui/')({
+  // Client-rendered (CPU budget): the server answers with the shell only. Children of /app inherit this.
+  ssr: false,
   beforeLoad: () => {
     requireDevEnvironment()
   },

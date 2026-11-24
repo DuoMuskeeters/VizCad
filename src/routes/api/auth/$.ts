@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 /** Identity surface: every method lands here; src/server/http/auth.ts answers 404 for anything not allowlisted. */
 const identity = async ({ request }: { request: Request }) => {
   // Server-only modules are loaded here so they never reach the client bundle.
-  const [{ env, waitUntil }, { handleIdentity }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry')])
+  const [{ env, waitUntil }, { handleIdentity }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.auth')])
   return handleIdentity(request, env, waitUntil)
 }
 
