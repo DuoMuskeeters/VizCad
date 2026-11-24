@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect, Layer, Ref } from 'effect'
-import { AuthError } from '../errors'
+import { AuthError, CaptchaFailed } from '../errors'
 import * as AppConfig from '../services/AppConfig'
 import { Auth, MemoryAuth, memory as authMemory } from '../services/Auth'
 import { memory as rateLimitMemory, unavailable } from '../services/RateLimit'
@@ -155,17 +155,52 @@ describe('identity HTTP surface', () => {
     }).pipe(Effect.provide(baseLayer))
   })
 
-  it.effect('sign-up hits the rate limit first: a limited address never costs a Turnstile call', () => {
+  it.effect('sign-up order: IP counter, then Turnstile, then the address counter', () => {
     let calls = 0
-    const counting = Layer.succeed(Turnstile, Turnstile.of({ verify: () => Effect.sync(() => void calls++) }))
-    const layer = Layer.mergeAll(authMemory, rateLimitMemory, counting, config).pipe(Layer.provideMerge(config))
+    let pass = false
+    const counting = Layer.succeed(
+      Turnstile,
+      Turnstile.of({
+        verify: () => {
+          calls++
+          return pass ? Effect.void : Effect.fail(new CaptchaFailed({ reason: 'invalid-input-response' }))
+        },
+      }),
+    )
+    const tight = AppConfig.test({
+      rateLimits: {
+        ...AppConfig.defaultRateLimits,
+        signUp: { target: { limit: 1, windowSeconds: 60 }, ip: { limit: 2, windowSeconds: 60 } },
+      },
+    })
+    const layer = Layer.mergeAll(authMemory, rateLimitMemory, counting, tight).pipe(Layer.provideMerge(tight))
+    const attempt = (email: string, ip = '203.0.113.9') =>
+      run(json('/sign-up/email', { email, password: 'long-enough-1', name: 'Ada' }, { ...signUpHeaders, 'cf-connecting-ip': ip }), layer as never)
     return Effect.gen(function* () {
-      const attempt = () => run(json('/sign-up/email', { email: 'ada@example.com', password: 'long-enough-1', name: 'Ada' }, signUpHeaders), layer as never)
-      assert.strictEqual((yield* attempt()).status, 200)
-      assert.strictEqual((yield* attempt()).status, 429)
-      assert.strictEqual(calls, 1)
+      // Failed Turnstile does not touch the address counter: the same address can still register afterwards.
+      assert.strictEqual((yield* attempt('ada@example.com')).status, 403)
+      pass = true
+      assert.strictEqual((yield* attempt('ada@example.com', '203.0.113.10')).status, 200)
+      assert.strictEqual((yield* attempt('ada@example.com', '203.0.113.11')).status, 429, 'address counter is spent')
+      // Over its IP budget a client costs no Turnstile call and cannot burn another address's counter.
+      assert.strictEqual((yield* attempt('x@example.com')).status, 200)
+      const before = calls
+      assert.strictEqual((yield* attempt('victim@example.com')).status, 429)
+      assert.strictEqual(calls, before, 'IP-limited: no Turnstile call')
+      assert.strictEqual((yield* attempt('victim@example.com', '198.51.100.1')).status, 200, 'victim counter untouched')
     }).pipe(Effect.provide(layer))
   })
+
+  it.effect('sign-up names: at most 64 characters, one line, no links', () =>
+    Effect.gen(function* () {
+      const attempt = (name: unknown) => run(json('/sign-up/email', { email: 'ada@example.com', password: 'long-enough-1', name }, signUpHeaders))
+      for (const bad of ['x'.repeat(65), 'Ada\nVisit', 'Ada\r', 'see https://evil.test', 'HTTP://evil.test', 'go to www.evil.test', 5, undefined]) {
+        assert.strictEqual((yield* attempt(bad)).status, 400, JSON.stringify(bad))
+      }
+      assert.deepStrictEqual(yield* handled, [])
+      assert.strictEqual((yield* attempt('x'.repeat(64))).status, 200)
+    }).pipe(Effect.provide(baseLayer)),
+  )
 
   it.effect('social sign-in is Google redirect only: idToken, other providers and absolute redirects are 400', () =>
     Effect.gen(function* () {

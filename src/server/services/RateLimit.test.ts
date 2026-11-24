@@ -103,8 +103,8 @@ describe('RateLimit.live', () => {
     return Effect.gen(function* () {
       yield* RateLimit.use((l) => l.hit({ action: 'passwordReset', target: 'Ada@Example.com', ip: '203.0.113.7' }))
       assert.strictEqual(calls.length, 2)
-      assert.match(calls[0] ?? '', /^passwordReset:target:[0-9a-f]{64}$/)
-      assert.match(calls[1] ?? '', /^passwordReset:ip:[0-9a-f]{64}$/)
+      assert.match(calls[0] ?? '', /^passwordReset:ip:[0-9a-f]{64}$/, 'IP counter first')
+      assert.match(calls[1] ?? '', /^passwordReset:target:[0-9a-f]{64}$/)
       assert.notInclude(calls.join(), 'ada')
       assert.notInclude(calls.join(), '203.0.113')
     }).pipe(Effect.provide(RateLimitLive.layer(fakeNamespace(calls)).pipe(Layer.provide(config))))

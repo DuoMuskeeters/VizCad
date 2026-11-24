@@ -50,9 +50,9 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
 
       const mailer: AuthMailer = {
         verification: ({ user, url, request }) =>
-          send('verification', verificationEmail({ name: user.name, url, locale: localeFromHeader(request?.headers.get('accept-language')) }), user.email),
+          send('verification', verificationEmail({ url, locale: localeFromHeader(request?.headers.get('accept-language')) }), user.email),
         passwordReset: ({ user, url, request }) =>
-          send('passwordReset', passwordResetEmail({ name: user.name, url, locale: localeFromHeader(request?.headers.get('accept-language')) }), user.email),
+          send('passwordReset', passwordResetEmail({ url, locale: localeFromHeader(request?.headers.get('accept-language')) }), user.email),
       }
 
       const findUserByEmail = (address: string) =>

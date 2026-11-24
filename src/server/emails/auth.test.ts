@@ -5,22 +5,21 @@ describe('identity emails', () => {
   it('every locale renders subject, text and html with the link', () => {
     for (const locale of locales) {
       for (const render of [verificationEmail, passwordResetEmail]) {
-        const mail = render({ name: 'Ada', url: 'https://viz-cad.com/api/auth/verify-email?token=t', locale })
+        const mail = render({ url: 'https://viz-cad.com/api/auth/verify-email?token=t', locale })
         assert.isAbove(mail.subject.length, 5)
         assert.include(mail.text, 'https://viz-cad.com/api/auth/verify-email?token=t')
-        assert.include(mail.html, 'Ada')
+        assert.include(mail.html, escapeHtml(mail.text.split('\n')[0] ?? ''))
       }
     }
-    assert.notStrictEqual(verificationEmail({ name: 'A', url: 'u', locale: 'tr' }).subject, verificationEmail({ name: 'A', url: 'u', locale: 'en' }).subject)
+    assert.notStrictEqual(verificationEmail({ url: 'u', locale: 'tr' }).subject, verificationEmail({ url: 'u', locale: 'en' }).subject)
   })
 
-  it('escapes the name and the link by context', () => {
-    const mail = verificationEmail({ name: '<script>alert(1)</script> "x"', url: 'https://viz-cad.com/?a=1&b="><img src=x>', locale: 'en' })
-    assert.notInclude(mail.html, '<script>')
+  it('never renders a user name and escapes the link by context', () => {
+    const mail = verificationEmail({ url: 'https://viz-cad.com/?a=1&b="><img src=x>', locale: 'en' })
     assert.notInclude(mail.html, '"><img')
-    assert.include(mail.html, '&lt;script&gt;')
     assert.include(mail.html, 'a=1&amp;b=&quot;&gt;&lt;img src=x&gt;')
     assert.strictEqual(escapeHtml(`&<>"'`), '&amp;&lt;&gt;&quot;&#39;')
+    for (const locale of locales) assert.match(passwordResetEmail({ url: 'u', locale }).text, /^[^\s,]+,\n/, 'generic greeting')
   })
 
   it('picks the first supported language from Accept-Language, else English', () => {

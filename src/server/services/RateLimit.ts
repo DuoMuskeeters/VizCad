@@ -45,9 +45,10 @@ export const make = (counter: Counter) =>
       hit: ({ action, target, ip }) =>
         Effect.gen(function* () {
           const rules = rateLimits[action]
+          // IP first: a client over its IP budget must not also burn the (victim's) target counter.
           const checks = [
-            ...(target === undefined ? [] : [{ scope: 'target' as const, value: target.trim().toLowerCase(), rule: rules.target }]),
             ...(ip ? [{ scope: 'ip' as const, value: ip.trim(), rule: rules.ip }] : []),
+            ...(target === undefined ? [] : [{ scope: 'target' as const, value: target.trim().toLowerCase(), rule: rules.target }]),
           ]
           for (const { scope, value, rule } of checks) {
             const result = yield* counterName(action, scope, value).pipe(Effect.flatMap((name) => counter(name, rule)))

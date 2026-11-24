@@ -15,6 +15,17 @@ export const TURNSTILE_HEADER = 'x-turnstile-token'
 
 const Target = Schema.Struct({ email: Schema.String.check(Schema.isMaxLength(254)) })
 
+/**
+ * Sign-up display name: at most 64 characters, one line, no link-like text. The name is stored and shown
+ * back in the UI; it is never put into outgoing mail.
+ */
+const DisplayName = Schema.String.check(
+  Schema.isMaxLength(64),
+  Schema.isPattern(/^[^\r\n\u2028\u2029]*$/),
+  Schema.makeFilter((name) => !/:\/\/|www\./i.test(name)),
+)
+const SignUpBody = Schema.Struct({ email: Schema.String.check(Schema.isMaxLength(254)), name: DisplayName })
+
 /** Same-site relative path only: `/x`, never `//host`, `/\host` or an absolute URL. */
 const RelativePath = Schema.String.check(Schema.isPattern(/^\/(?![/\\])[^\r\n]*$/), Schema.isMaxLength(2048))
 
@@ -55,18 +66,24 @@ const guard = (action: IdentityAction, request: Request) =>
   Effect.gen(function* () {
     const limiter = yield* RateLimit
     const ip = clientIp(request)
-    const byEmail = (kind: 'signIn' | 'signUp' | 'passwordReset' | 'verificationEmail') =>
-      readBody(request).pipe(
-        Effect.flatMap(emailOf),
-        Effect.flatMap((email) => limiter.hit({ action: kind, target: email, ip })),
+    const emailFrom = readBody(request).pipe(Effect.flatMap(emailOf))
+    type Kind = 'signIn' | 'signUp' | 'passwordReset' | 'verificationEmail'
+    // IP counter first, then the target (email) counter: an attacker over its IP budget cannot keep burning a victim's counter.
+    const byEmail = (kind: Kind) =>
+      emailFrom.pipe(
+        Effect.flatMap((email) => limiter.hit({ action: kind, ip }).pipe(Effect.andThen(limiter.hit({ action: kind, target: email })))),
       )
     switch (action) {
       case 'signUp': {
-        yield* byEmail('signUp')
+        const raw = yield* readBody(request)
+        yield* Schema.decodeUnknownEffect(SignUpBody)(raw).pipe(Effect.mapError(() => invalid('invalid name')))
+        const email = yield* emailOf(raw)
+        // IP counter, then Turnstile, then the target counter: unverified clients cannot lock an address.
+        yield* limiter.hit({ action: 'signUp', ip })
         const token = request.headers.get(TURNSTILE_HEADER)
         if (token === null || token === '') return yield* new CaptchaFailed({ reason: 'missing-token' })
         yield* Turnstile.use((t) => t.verify({ token, action: 'signup', ip }))
-        return
+        return yield* limiter.hit({ action: 'signUp', target: email })
       }
       case 'signIn':
         return yield* byEmail('signIn')

@@ -1,7 +1,8 @@
 /**
  * Identity emails (verification, password reset) in the five product locales. Text keys live here until the
  * i18n module lands; English is the fallback. Every dynamic value is HTML-escaped for its context (docs/08 §1):
- * the user's name goes into text nodes, the link into an attribute and a text node.
+ * the link goes into an attribute and a text node. The user's name is never used: it is attacker-controlled text
+ * (sign-up is open) that would reach a victim's inbox from our domain, so the greeting is generic.
  */
 export const locales = ['en', 'tr', 'de', 'es', 'fr'] as const
 export type Locale = (typeof locales)[number]
@@ -22,7 +23,7 @@ export const escapeHtml = (value: string) =>
 interface Copy {
   readonly subject: string
   readonly heading: string
-  readonly hello: (name: string) => string
+  readonly hello: string
   readonly body: string
   readonly button: string
   readonly orCopy: string
@@ -33,7 +34,7 @@ const verification: Record<Locale, Copy> = {
   en: {
     subject: 'Verify your VizCad account',
     heading: 'Welcome to VizCad',
-    hello: (n) => `Hi ${n},`,
+    hello: 'Hi,',
     body: 'Please confirm your email address to finish creating your account.',
     button: 'Verify email',
     orCopy: 'Or copy this link into your browser:',
@@ -42,7 +43,7 @@ const verification: Record<Locale, Copy> = {
   tr: {
     subject: 'VizCad hesabınızı doğrulayın',
     heading: "VizCad'e hoş geldiniz",
-    hello: (n) => `Merhaba ${n},`,
+    hello: 'Merhaba,',
     body: 'Hesabınızı oluşturmayı tamamlamak için e-posta adresinizi doğrulayın.',
     button: 'E-postayı doğrula',
     orCopy: 'Ya da bu bağlantıyı tarayıcınıza yapıştırın:',
@@ -51,7 +52,7 @@ const verification: Record<Locale, Copy> = {
   de: {
     subject: 'Bestätigen Sie Ihr VizCad-Konto',
     heading: 'Willkommen bei VizCad',
-    hello: (n) => `Hallo ${n},`,
+    hello: 'Hallo,',
     body: 'Bitte bestätigen Sie Ihre E-Mail-Adresse, um die Kontoerstellung abzuschließen.',
     button: 'E-Mail bestätigen',
     orCopy: 'Oder kopieren Sie diesen Link in Ihren Browser:',
@@ -60,7 +61,7 @@ const verification: Record<Locale, Copy> = {
   es: {
     subject: 'Verifica tu cuenta de VizCad',
     heading: 'Te damos la bienvenida a VizCad',
-    hello: (n) => `Hola ${n},`,
+    hello: 'Hola,',
     body: 'Confirma tu dirección de correo para terminar de crear tu cuenta.',
     button: 'Verificar correo',
     orCopy: 'O copia este enlace en tu navegador:',
@@ -69,7 +70,7 @@ const verification: Record<Locale, Copy> = {
   fr: {
     subject: 'Vérifiez votre compte VizCad',
     heading: 'Bienvenue sur VizCad',
-    hello: (n) => `Bonjour ${n},`,
+    hello: 'Bonjour,',
     body: 'Confirmez votre adresse e-mail pour terminer la création de votre compte.',
     button: "Vérifier l'e-mail",
     orCopy: 'Ou copiez ce lien dans votre navigateur :',
@@ -81,7 +82,7 @@ const reset: Record<Locale, Copy> = {
   en: {
     subject: 'Reset your VizCad password',
     heading: 'Reset your password',
-    hello: (n) => `Hi ${n},`,
+    hello: 'Hi,',
     body: 'We received a request to reset your password. The link works once and expires soon.',
     button: 'Reset password',
     orCopy: 'Or copy this link into your browser:',
@@ -90,7 +91,7 @@ const reset: Record<Locale, Copy> = {
   tr: {
     subject: 'VizCad parolanızı sıfırlayın',
     heading: 'Parolanızı sıfırlayın',
-    hello: (n) => `Merhaba ${n},`,
+    hello: 'Merhaba,',
     body: 'Parolanızı sıfırlama isteği aldık. Bağlantı bir kez çalışır ve kısa sürede geçerliliğini yitirir.',
     button: 'Parolayı sıfırla',
     orCopy: 'Ya da bu bağlantıyı tarayıcınıza yapıştırın:',
@@ -99,7 +100,7 @@ const reset: Record<Locale, Copy> = {
   de: {
     subject: 'Setzen Sie Ihr VizCad-Passwort zurück',
     heading: 'Passwort zurücksetzen',
-    hello: (n) => `Hallo ${n},`,
+    hello: 'Hallo,',
     body: 'Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts erhalten. Der Link funktioniert einmal und läuft bald ab.',
     button: 'Passwort zurücksetzen',
     orCopy: 'Oder kopieren Sie diesen Link in Ihren Browser:',
@@ -108,7 +109,7 @@ const reset: Record<Locale, Copy> = {
   es: {
     subject: 'Restablece tu contraseña de VizCad',
     heading: 'Restablece tu contraseña',
-    hello: (n) => `Hola ${n},`,
+    hello: 'Hola,',
     body: 'Recibimos una solicitud para restablecer tu contraseña. El enlace funciona una vez y caduca pronto.',
     button: 'Restablecer contraseña',
     orCopy: 'O copia este enlace en tu navegador:',
@@ -117,7 +118,7 @@ const reset: Record<Locale, Copy> = {
   fr: {
     subject: 'Réinitialisez votre mot de passe VizCad',
     heading: 'Réinitialisez votre mot de passe',
-    hello: (n) => `Bonjour ${n},`,
+    hello: 'Bonjour,',
     body: 'Nous avons reçu une demande de réinitialisation de votre mot de passe. Le lien ne fonctionne qu’une fois et expire bientôt.',
     button: 'Réinitialiser le mot de passe',
     orCopy: 'Ou copiez ce lien dans votre navigateur :',
@@ -131,15 +132,15 @@ export interface RenderedEmail {
   readonly html: string
 }
 
-const render = (copy: Copy, name: string, url: string): RenderedEmail => {
+const render = (copy: Copy, url: string): RenderedEmail => {
   const safeUrl = escapeHtml(url)
   return {
     subject: copy.subject,
-    text: `${copy.hello(name)}\n\n${copy.body}\n\n${url}\n\n${copy.ignore}\n`,
+    text: `${copy.hello}\n\n${copy.body}\n\n${url}\n\n${copy.ignore}\n`,
     html:
       `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">` +
       `<h1 style="font-size:20px">${escapeHtml(copy.heading)}</h1>` +
-      `<p>${escapeHtml(copy.hello(name))}</p>` +
+      `<p>${escapeHtml(copy.hello)}</p>` +
       `<p>${escapeHtml(copy.body)}</p>` +
       `<p><a href="${safeUrl}" style="display:inline-block;padding:12px 20px;background:#0e7490;color:#ffffff;text-decoration:none;border-radius:6px">${escapeHtml(copy.button)}</a></p>` +
       `<p style="font-size:14px;color:#475569">${escapeHtml(copy.orCopy)}<br>${safeUrl}</p>` +
@@ -147,8 +148,8 @@ const render = (copy: Copy, name: string, url: string): RenderedEmail => {
   }
 }
 
-export const verificationEmail = (input: { name: string; url: string; locale: Locale }) =>
-  render(verification[input.locale], input.name, input.url)
+export const verificationEmail = (input: { url: string; locale: Locale }) =>
+  render(verification[input.locale], input.url)
 
-export const passwordResetEmail = (input: { name: string; url: string; locale: Locale }) =>
-  render(reset[input.locale], input.name, input.url)
+export const passwordResetEmail = (input: { url: string; locale: Locale }) =>
+  render(reset[input.locale], input.url)
