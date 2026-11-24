@@ -14,6 +14,39 @@ export interface CachePurge {
   readonly token: Redacted.Redacted<string>
 }
 
+/** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail'] as const
+export type RateLimitAction = (typeof rateLimitActions)[number]
+
+/** At most `limit` hits per fixed window of `windowSeconds`. */
+export interface RateLimitRule {
+  readonly limit: number
+  readonly windowSeconds: number
+}
+
+export interface RateLimitRules {
+  /** Counter keyed by the normalized target (email address, link id, ...). */
+  readonly target: RateLimitRule
+  /** Counter keyed by the client IP. */
+  readonly ip: RateLimitRule
+}
+
+/** Identity layer settings (better-auth). */
+export interface AuthSettings {
+  /** `BETTER_AUTH_SECRET` (the production secret keeps its old name so existing sessions stay valid). */
+  readonly secret: Redacted.Redacted<string>
+  /** None when Google sign-in is not configured. */
+  readonly google: Option.Option<{ readonly clientId: string; readonly clientSecret: Redacted.Redacted<string> }>
+}
+
+/** Limits per action; defaults live in AppConfig.live.ts. */
+export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
+  signIn: { target: { limit: 10, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
+  signUp: { target: { limit: 3, windowSeconds: 60 * 60 }, ip: { limit: 10, windowSeconds: 60 * 60 } },
+  passwordReset: { target: { limit: 3, windowSeconds: 60 * 60 }, ip: { limit: 10, windowSeconds: 60 * 60 } },
+  verificationEmail: { target: { limit: 3, windowSeconds: 60 * 60 }, ip: { limit: 10, windowSeconds: 60 * 60 } },
+}
+
 /**
  * Typed, validated configuration. Business code reads config only through this service, never
  * `process.env` or `env.X`. Live layer: AppConfig.live.ts (decodes the Worker env).
@@ -22,7 +55,20 @@ export class AppConfig extends Context.Service<
   AppConfig,
   {
     readonly siteUrl: URL
-    readonly email: { readonly from: string; readonly fromName: string }
+    readonly email: {
+      readonly from: string
+      readonly fromName: string
+      /**
+       * Staging only: Email sends to these recipients (exact addresses, or `@domain` entries) and logs and skips
+       * everyone else. None in production, where it is never read (docs/08 uygulama notları · Faz 3b).
+       */
+      readonly allowlist: Option.Option<ReadonlySet<string>>
+    }
+    /** Origins allowed to make state-changing requests (CSRF) and used as better-auth trusted origins. Always includes the site origin. */
+    readonly trustedOrigins: ReadonlySet<string>
+    /** None when `BETTER_AUTH_SECRET` is not configured: the Auth layer then fails with ConfigError. */
+    readonly auth: Option.Option<AuthSettings>
+    readonly rateLimits: Record<RateLimitAction, RateLimitRules>
     readonly turnstile: {
       readonly secret: Redacted.Redacted<string>
       /** Frontend hostnames siteverify may report. Production must not include localhost. */
@@ -38,7 +84,13 @@ export class AppConfig extends Context.Service<
 /** Fixed values for tests. Override any field with `test({ ... })`. */
 export const testConfig: AppConfig['Service'] = {
   siteUrl: new URL('https://vizcad.test'),
-  email: { from: 'noreply@vizcad.test', fromName: 'VizCad' },
+  email: { from: 'noreply@vizcad.test', fromName: 'VizCad', allowlist: Option.none() },
+  trustedOrigins: new Set(['https://vizcad.test']),
+  auth: Option.some({
+    secret: Redacted.make('test-better-auth-secret-0123456789abcdef'),
+    google: Option.some({ clientId: 'test-google-client', clientSecret: Redacted.make('test-google-secret') }),
+  }),
+  rateLimits: defaultRateLimits,
   turnstile: { secret: Redacted.make('test-turnstile-secret'), hostnames: new Set(['vizcad.test']) },
   r2Presign: Option.some({
     endpoint: new URL('https://account.r2.cloudflarestorage.com'),

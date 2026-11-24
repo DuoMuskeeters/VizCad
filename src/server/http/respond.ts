@@ -10,6 +10,13 @@ export const STATUS: Record<AppError['_tag'], number> = {
   StorageError: 500,
   EmailError: 502,
   CacheError: 502,
+  AuthError: 500,
+  Unauthenticated: 401,
+  WorkspaceUnavailable: 404,
+  ResourceUnavailable: 404,
+  CsrfRejected: 403,
+  RateLimitExceeded: 429,
+  RateLimitError: 503,
 }
 
 export interface RequestMeta {
@@ -27,7 +34,7 @@ const noStore = { 'cache-control': 'no-store' }
  */
 export const logFields = (error: AppError, meta: RequestMeta) => ({
   error: error._tag,
-  ...(error._tag === 'StorageError' ? { operation: error.operation } : {}),
+  ...(error._tag === 'StorageError' || error._tag === 'AuthError' ? { operation: error.operation } : {}),
   requestId: meta.requestId ?? 'none',
 })
 
@@ -36,7 +43,8 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
   Effect.gen(function* () {
     const status = STATUS[error._tag]
     if (status >= 500) yield* Effect.logError('request failed').pipe(Effect.annotateLogs(logFields(error, meta)))
-    return Response.json({ ok: false, error: error._tag }, { status, headers: noStore })
+    const headers = error._tag === 'RateLimitExceeded' ? { ...noStore, 'retry-after': String(error.retryAfterSeconds) } : noStore
+    return Response.json({ ok: false, error: error._tag }, { status, headers })
   })
 
 /**

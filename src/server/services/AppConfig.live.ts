@@ -1,6 +1,6 @@
 import { Effect, Layer, Option, Redacted, Schema } from 'effect'
 import { ConfigError } from '../errors'
-import { AppConfig, type CachePurge, type R2Presign } from './AppConfig'
+import { AppConfig, type AuthSettings, type CachePurge, defaultRateLimits, type R2Presign } from './AppConfig'
 
 const Text = Schema.Trimmed.check(Schema.isMinLength(1))
 const optionalText = Schema.optional(Text)
@@ -34,6 +34,16 @@ const EnvSchema = Schema.Struct({
   R2_ENDPOINT: Schema.optional(HttpsUrl),
   CF_ZONE_ID: Schema.optional(Hex32),
   CF_PURGE_TOKEN: optionalText,
+  /** Set by wrangler.jsonc: `staging` for the top level, `production` for env.production. Unset (local dev) behaves like staging only if EMAIL_ALLOWLIST is set. */
+  APP_ENV: Schema.optional(Schema.Literals(['staging', 'production'])),
+  /** Comma-separated recipients (addresses or `@domain`) staging may email. Staging without it emails nobody. Ignored in production. */
+  EMAIL_ALLOWLIST: Schema.optional(Schema.String),
+  /** Comma-separated extra origins (e.g. http://localhost:3000) trusted for state-changing requests. */
+  TRUSTED_ORIGINS: Schema.optional(Schema.String),
+  /** Min 32 characters; production keeps the old app's secret so existing sessions survive. */
+  BETTER_AUTH_SECRET: Schema.optional(Schema.String.check(Schema.isMinLength(32))),
+  GOOGLE_CLIENT_ID: optionalText,
+  GOOGLE_CLIENT_SECRET: optionalText,
 })
 type Env = typeof EnvSchema.Type
 
@@ -73,6 +83,48 @@ const cachePurge = (e: Env) => {
   return partial('Cache purge (CF_ZONE_ID, CF_PURGE_TOKEN)')
 }
 
+const list = (value: string | undefined) =>
+  (value ?? '')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.length > 0)
+
+/** Production never restricts recipients. Staging always does (no variable = nobody). Unset (local) restricts only when asked. */
+const emailAllowlist = (e: Env) => {
+  if (e.APP_ENV === 'production') return Option.none<ReadonlySet<string>>()
+  if (e.APP_ENV === 'staging' || e.EMAIL_ALLOWLIST !== undefined) return Option.some<ReadonlySet<string>>(new Set(list(e.EMAIL_ALLOWLIST)))
+  return Option.none<ReadonlySet<string>>()
+}
+
+const trustedOrigins = (e: Env) =>
+  Effect.forEach(list(e.TRUSTED_ORIGINS), (origin) =>
+    Schema.decodeUnknownEffect(HttpUrl)(origin).pipe(
+      Effect.map((url) => url.origin),
+      Effect.mapError(() => new ConfigError({ message: 'TRUSTED_ORIGINS: every entry must be an http(s) URL' })),
+    ),
+  ).pipe(Effect.map((extra) => new Set([e.SITE_URL.origin, ...extra]) as ReadonlySet<string>))
+
+const authSettings = (e: Env) => {
+  const { BETTER_AUTH_SECRET: secret, GOOGLE_CLIENT_ID: clientId, GOOGLE_CLIENT_SECRET: clientSecret } = e
+  if (!secret) {
+    return clientId || clientSecret
+      ? partial('Auth (BETTER_AUTH_SECRET is required when Google is configured)')
+      : Effect.succeed(Option.none<AuthSettings>())
+  }
+  if (clientId && clientSecret) {
+    return Effect.succeed(
+      Option.some<AuthSettings>({
+        secret: Redacted.make(secret),
+        google: Option.some({ clientId, clientSecret: Redacted.make(clientSecret) }),
+      }),
+    )
+  }
+  if (!clientId && !clientSecret) {
+    return Effect.succeed(Option.some<AuthSettings>({ secret: Redacted.make(secret), google: Option.none() }))
+  }
+  return partial('Google sign-in (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)')
+}
+
 /** Decodes the Worker `env` (or a plain object in tests) into AppConfig; bindings in it are ignored. */
 export const decodeEnv = Effect.fnUntraced(function* (env: object) {
   const e = yield* Schema.decodeUnknownEffect(EnvSchema)(withoutBlanks(env)).pipe(
@@ -80,7 +132,10 @@ export const decodeEnv = Effect.fnUntraced(function* (env: object) {
   )
   return AppConfig.of({
     siteUrl: e.SITE_URL,
-    email: { from: e.EMAIL_FROM, fromName: e.EMAIL_FROM_NAME },
+    email: { from: e.EMAIL_FROM, fromName: e.EMAIL_FROM_NAME, allowlist: emailAllowlist(e) },
+    trustedOrigins: yield* trustedOrigins(e),
+    auth: yield* authSettings(e),
+    rateLimits: defaultRateLimits,
     turnstile: {
       secret: Redacted.make(e.TURNSTILE_SECRET),
       hostnames: new Set(

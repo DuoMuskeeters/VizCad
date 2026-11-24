@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { EmailError } from '../errors'
 
 export interface OutgoingEmail {
@@ -29,6 +29,29 @@ export const checkHeaders = (message: OutgoingEmail) =>
   [message.to, message.subject, message.replyTo ?? ''].some((v) => /[\r\n]/.test(v))
     ? Effect.fail(new EmailError({ cause: 'header fields must not contain line breaks' }))
     : Effect.void
+
+/** True when `to` is on the allowlist (exact address, or an `@domain` entry), case-insensitive. */
+export const isAllowed = (allowlist: ReadonlySet<string>, to: string) => {
+  const address = to.trim().toLowerCase()
+  const at = address.lastIndexOf('@')
+  return allowlist.has(address) || (at >= 0 && allowlist.has(address.slice(at)))
+}
+
+/**
+ * Staging guard: sends only to allowlisted recipients; anything else is logged (without the address) and
+ * skipped, and the caller sees a normal success with `messageId: 'skipped'`. With no allowlist (production)
+ * it is the identity.
+ */
+export const withAllowlist = (
+  send: Email['Service']['send'],
+  allowlist: Option.Option<ReadonlySet<string>>,
+): Email['Service']['send'] =>
+  Option.isNone(allowlist)
+    ? send
+    : (message) =>
+        isAllowed(allowlist.value, message.to)
+          ? send(message)
+          : Effect.logInfo('email skipped: recipient not on the staging allowlist').pipe(Effect.as({ messageId: 'skipped' }))
 
 /** What the in-memory layer has "sent", in order. */
 export class EmailOutbox extends Context.Service<EmailOutbox, Ref.Ref<ReadonlyArray<SentEmail>>>()('vizcad/test/EmailOutbox') {}

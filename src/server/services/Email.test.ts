@@ -1,7 +1,7 @@
 import { assert, describe, it, layer } from '@effect/vitest'
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Logger, Option, Ref } from 'effect'
 import * as AppConfig from './AppConfig'
-import { Email, EmailOutbox, memory } from './Email'
+import { Email, EmailOutbox, isAllowed, memory, withAllowlist } from './Email'
 import * as EmailLive from './Email.live'
 
 const welcome = { to: 'ada@example.com', subject: 'Verify your VizCad account', text: 'Hi Ada', html: '<p>Hi Ada</p>' }
@@ -61,5 +61,58 @@ describe('Email.live', () => {
       yield* email.send({ ...welcome, to: 'a@example.com\nBcc: b@example.com' }).pipe(Effect.flip)
       assert.strictEqual(calls.length, 1)
     }).pipe(Effect.provide(EmailLive.layer(fakeBinding(calls, true)).pipe(Layer.provide(AppConfig.test()))))
+  })
+})
+
+describe('Email staging allowlist', () => {
+  const allow = Option.some<ReadonlySet<string>>(new Set(['ada@example.com', '@team.test']))
+  const fakeBinding = (calls: Array<unknown>) =>
+    ({ send: (message: unknown) => (calls.push(message), Promise.resolve({ messageId: 'cf-1' })) }) as SendEmail
+
+  it('matches exact addresses and @domain entries, case-insensitively', () => {
+    const set = new Set(['ada@example.com', '@team.test'])
+    assert.isTrue(isAllowed(set, 'Ada@Example.com'))
+    assert.isTrue(isAllowed(set, 'anyone@team.test'))
+    assert.isFalse(isAllowed(set, 'lin@example.com'))
+    assert.isFalse(isAllowed(set, 'x@sub.team.test'))
+    assert.isFalse(isAllowed(set, 'ada@example.com.evil.test'))
+    assert.isFalse(isAllowed(new Set(), 'ada@example.com'))
+  })
+
+  it.effect('sends to allowlisted recipients and logs-and-skips the rest without naming them', () => {
+    const calls: Array<unknown> = []
+    const lines: Array<string> = []
+    const logger = Logger.make(({ message }) => void lines.push(JSON.stringify(message)))
+    return Effect.gen(function* () {
+      const email = yield* Email
+      assert.strictEqual((yield* email.send(welcome)).messageId, 'cf-1')
+      assert.strictEqual((yield* email.send({ ...welcome, to: 'stranger@example.org' })).messageId, 'skipped')
+      assert.strictEqual(calls.length, 1)
+      assert.strictEqual(lines.length, 1)
+      assert.notInclude(lines.join(), 'stranger')
+    }).pipe(
+      Effect.provide(EmailLive.layer(fakeBinding(calls)).pipe(Layer.provide(AppConfig.test({ email: { ...AppConfig.testConfig.email, allowlist: allow } })))),
+      Effect.provide(Logger.layer([logger])),
+    )
+  })
+
+  it.effect('an empty staging allowlist emails nobody; no allowlist (production) emails everybody', () => {
+    const calls: Array<unknown> = []
+    return Effect.gen(function* () {
+      const nobody = withAllowlist(() => Effect.die('must not send'), Option.some(new Set<string>()))
+      assert.strictEqual((yield* nobody(welcome)).messageId, 'skipped')
+      const everyone = yield* Email.use((e) => e.send({ ...welcome, to: 'stranger@example.org' }))
+      assert.strictEqual(everyone.messageId, 'cf-1')
+      assert.strictEqual(calls.length, 1)
+    }).pipe(Effect.provide(EmailLive.layer(fakeBinding(calls)).pipe(Layer.provide(AppConfig.test()))))
+  })
+
+  it.effect('the allowlist does not bypass header-injection checks', () => {
+    const calls: Array<unknown> = []
+    return Effect.gen(function* () {
+      const error = yield* Email.use((e) => e.send({ ...welcome, to: 'x\r\nBcc: y@evil.test\r\n@team.test' })).pipe(Effect.flip)
+      assert.strictEqual(error._tag, 'EmailError')
+      assert.strictEqual(calls.length, 0)
+    }).pipe(Effect.provide(EmailLive.layer(fakeBinding(calls)).pipe(Layer.provide(AppConfig.test({ email: { ...AppConfig.testConfig.email, allowlist: allow } })))))
   })
 })
