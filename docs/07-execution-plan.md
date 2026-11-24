@@ -28,7 +28,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 |---|---|
 | Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1, 3a, 3b-1 (Auth), 3b-2 (workspace programları), UI kit ve giriş ekranları `rewrite`'ta ve staging'de. Sırada: onboarding, ekip, davet kabulü, workspace değiştirici ekranları |
+| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Sırada: Faz 3 artıkları, sonra Faz 4 (dosyalar ve paylaşım) |
 | Hosting | Staging yayında (Faz 1) |
 
 ## Dalgalar
@@ -48,7 +48,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [x] Faz 3b-2: workspace, üye, davet, proje, misafir programları, `Entitlements`, batch guard (0013); Sonnet incelemesi, 9 bulgu düzeltildi (PR #9), staging D1'e uygulandı
 - [ ] Faz 3b (kalan) backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
 - [ ] Mevcut kullanıcılar için kişisel workspace backfill'i: script hazır ve testli (`pnpm db:backfill:staging`), henüz çalıştırılmadı; ön koşul legacy admin panelinde kullanıcı silmenin kapatılması. Production kopyasında prova Dalga 6'da.
-- [ ] Faz 3 UI: ~~giriş, kayıt, doğrulama~~ (PR #10, staging'de), onboarding, ekip, davet kabulü, workspace değiştirici.
+- [x] Faz 3 UI: giriş/kayıt/doğrulama (PR #10), uygulama çerçevesi, onboarding, ekip, davet kabulü, workspace değiştirici (PR #11); staging'de
+- [ ] Faz 3 artıkları: davet ayrıntısı ucu (`getInvitation`), onboarding işaretinin sunucuda tutulması (`onboardingCompletedAt`), koltuk limitinin istemciye açılması, misafiri üyeye yükseltme arayüzü, üye kaldırmada etkilenenler önizlemesi
 
 ### Dalga 3: çekirdek (dosyalar ve paylaşım)
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
