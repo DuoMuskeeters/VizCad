@@ -14,6 +14,9 @@ const actorKinds = ["user", "link", "system"] as const;
 const accessOutcomes = ["allowed", "denied"] as const;
 const migrationSources = ["file_shares", "file_invitations"] as const;
 const migrationOutcomes = ["mapped", "ineligible", "quarantined"] as const;
+const uploadStatuses = ["pending", "completed", "expired", "rejected"] as const;
+export const storageDeletionReasons = ["upload_rejected", "upload_expired", "upload_canceled", "purged", "trash_retention"] as const;
+export const securityEvents = ["sign_in_succeeded", "sign_in_failed", "password_reset_requested", "link_opened", "link_password_failed", "file_downloaded"] as const;
 
 const sqlValues = (values: readonly string[]) => sql.join(values.map((value) => sql.raw(`'${value}'`)), sql`, `);
 
@@ -174,6 +177,12 @@ export const files = sqliteTable("files", {
   thumbnailR2Key: text("thumbnailR2Key"),
   workspaceId: text("workspaceId").references(() => organization.id, { onDelete: "restrict" }),
   projectId: text("projectId").references(() => projects.id, { onDelete: "restrict" }),
+  // 0014 (docs/09 §1.4): all nullable, legacy never writes them. NULL contentEtag: legacy object, the ETag comparison is skipped.
+  // NULL currentVersionNumber: COUNT(file_versions) + 1. NULL currentUploadedByUserId: userId. NULL deletedByUserId: unknown.
+  contentEtag: text("contentEtag"),
+  currentVersionNumber: integer("currentVersionNumber"),
+  currentUploadedByUserId: text("currentUploadedByUserId").references(() => user.id, { onDelete: "set null" }),
+  deletedByUserId: text("deletedByUserId").references(() => user.id, { onDelete: "set null" }),
 }, (t) => [
   uniqueIndex("files_workspace_id_uq").on(t.workspaceId, t.id),
   index("files_workspace_deleted_updated_idx").on(t.workspaceId, t.isDeleted, t.updatedAt, t.id),
@@ -194,7 +203,11 @@ export const fileStars = sqliteTable("file_stars", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
-});
+}, (t) => [
+  // Not unique: legacy may hold duplicate stars; UNIQUE comes with the cutover dedup (docs/09 §1.5).
+  index("file_stars_user_file_idx").on(t.userId, t.fileId),
+  index("file_stars_file_user_idx").on(t.fileId, t.userId),
+]);
 
 // File activities - track user interactions for "Recent Files"
 export const fileActivities = sqliteTable("file_activities", {
@@ -263,7 +276,13 @@ export const fileVersions = sqliteTable("file_versions", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
-});
+  // 0014: NULL means a legacy snapshot (no ETag check, no thumbnail).
+  contentEtag: text("contentEtag"),
+  thumbnailR2Key: text("thumbnailR2Key"),
+}, (t) => [
+  // Not unique: legacy races produced duplicate (fileId, versionNumber) rows.
+  index("file_versions_file_version_idx").on(t.fileId, t.versionNumber),
+]);
 
 // File comments - discussion on files
 export const fileComments = sqliteTable("file_comments", {
@@ -278,7 +297,14 @@ export const fileComments = sqliteTable("file_comments", {
   content: text("content").notNull(),
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
-});
+  // 0014. NULL scope: cannot be proven, closed to guests (docs/08 §4). The migration SQL adds
+  // CHECK (authorScopeAtWrite IN ('internal', 'guest')); drizzle cannot express a column check on an existing table.
+  authorScopeAtWrite: text("authorScopeAtWrite", { enum: ["internal", "guest"] }),
+  versionNumber: integer("versionNumber"),
+  deletedAt: integer("deletedAt", { mode: "timestamp" }),
+}, (t) => [
+  index("file_comments_file_created_idx").on(t.fileId, t.createdAt, t.id),
+]);
 
 // ============================================
 // BLOG TABLES
@@ -484,6 +510,8 @@ export const shareLinks = sqliteTable("share_links", {
 }, (t) => [
   index("share_links_workspace_file_revoked_idx").on(t.workspaceId, t.fileId, t.revokedAt),
   index("share_links_workspace_creator_revoked_idx").on(t.workspaceId, t.createdByUserId, t.revokedAt),
+  // One active new link per file (docs/09 §4.1); links mapped from legacy (legacyMaxExpiresAt set) are outside the rule.
+  uniqueIndex("share_links_one_active_uq").on(t.fileId).where(sql`${t.revokedAt} IS NULL AND ${t.legacyMaxExpiresAt} IS NULL`),
   foreignKey({
     name: "share_links_file_fk",
     columns: [t.workspaceId, t.fileId],
@@ -512,6 +540,7 @@ export const accessLog = sqliteTable("access_log", {
 }, (t) => [
   index("access_log_workspace_created_idx").on(t.workspaceId, t.createdAt, t.id),
   index("access_log_workspace_target_created_idx").on(t.workspaceId, t.targetKind, t.targetId, t.createdAt, t.id),
+  index("access_log_workspace_actor_created_idx").on(t.workspaceId, t.actorUserId, t.createdAt, t.id),
   check("access_log_actor_check", sql`
     (${t.actorKind} = 'user' AND ${t.actorUserId} IS NOT NULL AND ${t.linkId} IS NULL)
     OR (${t.actorKind} = 'link' AND ${t.actorUserId} IS NULL AND ${t.linkId} IS NOT NULL)
@@ -544,4 +573,81 @@ export const batchGuard = sqliteTable("batch_guard", {
   ok: integer("ok").notNull(),
 }, (t) => [
   check("batch_guard_failed", sql`${t.ok} = 1`),
+]);
+
+/**
+ * Browser uploads in flight (docs/09 §2.5). The R2 key is minted here on the server and never comes from the client.
+ * `fileId` and `targetFileId` are snapshots without a foreign key, so purging a file never waits on its sessions;
+ * the workspace, user and project keys are RESTRICT.
+ */
+export const uploadSessions = sqliteTable("upload_sessions", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull().references(() => organization.id, { onDelete: "restrict" }),
+  projectId: text("projectId"),
+  /** The file this object belongs to: a fresh id for a new file, the target file for a new version. */
+  fileId: text("fileId").notNull(),
+  /** Set only for a new version of an existing file. */
+  targetFileId: text("targetFileId"),
+  userId: text("userId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  r2Key: text("r2Key").notNull(),
+  objectId: text("objectId").notNull(),
+  name: text("name").notNull(),
+  extension: text("extension").notNull(),
+  declaredSize: integer("declaredSize").notNull(),
+  status: text("status", { enum: uploadStatuses }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  completedAt: integer("completedAt", { mode: "timestamp" }),
+}, (t) => [
+  uniqueIndex("upload_sessions_r2_key_uq").on(t.r2Key),
+  index("upload_sessions_user_status_idx").on(t.userId, t.status),
+  index("upload_sessions_status_expiry_idx").on(t.status, t.expiresAt),
+  index("upload_sessions_workspace_status_idx").on(t.workspaceId, t.status, t.expiresAt),
+  foreignKey({
+    name: "upload_sessions_project_fk",
+    columns: [t.workspaceId, t.projectId],
+    foreignColumns: [projects.workspaceId, projects.id],
+  }).onDelete("restrict"),
+  check("upload_sessions_status_check", sql`${t.status} IN (${sqlValues(uploadStatuses)})`),
+  check("upload_sessions_size_check", sql`${t.declaredSize} > 0`),
+  check("upload_sessions_completed_check", sql`(${t.status} = 'completed') = (${t.completedAt} IS NOT NULL)`),
+  check("upload_sessions_target_check", sql`${t.targetFileId} IS NULL OR ${t.targetFileId} = ${t.fileId}`),
+]);
+
+/**
+ * R2 keys waiting to be deleted (docs/09 §5.3). The row is written in the same D1 batch that drops the last
+ * reference, so the order is always D1 first, R2 second; the worker never deletes a key D1 still references.
+ */
+export const storageDeletions = sqliteTable("storage_deletions", {
+  key: text("key").primaryKey(),
+  reason: text("reason", { enum: storageDeletionReasons }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("lastError"),
+  notBefore: integer("notBefore", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  index("storage_deletions_not_before_idx").on(t.notBefore),
+  check("storage_deletions_reason_check", sql`${t.reason} IN (${sqlValues(storageDeletionReasons)})`),
+  check("storage_deletions_attempts_check", sql`${t.attempts} >= 0`),
+]);
+
+/**
+ * Security log (docs/09 §7.2a, D21): the only table with IP and user agent. No foreign keys (snapshots), no workspace
+ * endpoint reads it; platform admins only. Rows are deleted after 90 days by the daily cron.
+ */
+export const securityLog = sqliteTable("security_log", {
+  id: text("id").primaryKey(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  event: text("event", { enum: securityEvents }).notNull(),
+  userId: text("userId"),
+  workspaceId: text("workspaceId"),
+  targetId: text("targetId"),
+  ip: text("ip"),
+  userAgent: text("userAgent"),
+  requestId: text("requestId").notNull(),
+}, (t) => [
+  index("security_log_created_idx").on(t.createdAt),
+  index("security_log_event_created_idx").on(t.event, t.createdAt),
+  check("security_log_event_check", sql`${t.event} IN (${sqlValues(securityEvents)})`),
+  check("security_log_user_agent_check", sql`${t.userAgent} IS NULL OR length(${t.userAgent}) <= 256`),
 ]);
