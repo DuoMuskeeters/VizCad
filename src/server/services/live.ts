@@ -1,10 +1,12 @@
 import { Layer } from 'effect'
 import * as AppConfigLive from './AppConfig.live'
 import * as AuthLive from './Auth.live'
+import * as Background from './Background'
 import * as CacheLive from './Cache.live'
 import type { CacheBinding } from './Cache.live'
 import * as DbLive from './Db.live'
 import * as EmailLive from './Email.live'
+import * as Entitlements from './Entitlements'
 import * as RateLimitLive from './RateLimit.live'
 import * as StorageLive from './Storage.live'
 import * as TurnstileLive from './Turnstile.live'
@@ -30,5 +32,7 @@ export const liveLayers = (env: Cloudflare.Env, defer?: AuthLive.Defer) => {
     rateLimit: RateLimitLive.layer(env.RATE_LIMITER).pipe(Layer.provide(config)),
     turnstile: TurnstileLive.layer.pipe(Layer.provide(config)),
     cache: CacheLive.layer(caches.default).pipe(Layer.provide(config)),
+    entitlements: Entitlements.live,
+    background: Background.layer(defer ?? AuthLive.detached),
   }
 }

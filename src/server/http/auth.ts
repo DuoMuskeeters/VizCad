@@ -1,14 +1,13 @@
 import { Effect, type Layer, Option, Schema } from 'effect'
-import { type AppError, CaptchaFailed, PayloadTooLarge, ResourceUnavailable, ValidationError } from '../errors'
+import { type AppError, CaptchaFailed, ResourceUnavailable, ValidationError } from '../errors'
 import { AppConfig } from '../services/AppConfig'
 import { Auth } from '../services/Auth'
 import { RateLimit } from '../services/RateLimit'
 import { Turnstile } from '../services/Turnstile'
 import { type IdentityAction, matchIdentityRoute } from './authAllowlist'
+import { readBody } from './body'
 import { checkMutationRequest } from './csrf'
 import { handle, type RequestMeta } from './respond'
-
-const MAX_BODY_BYTES = 16 * 1024
 
 /** `x-turnstile-token` carries the sign-up widget's token (it is not a field of the SDK's body). */
 export const TURNSTILE_HEADER = 'x-turnstile-token'
@@ -42,46 +41,6 @@ const SocialBody = Schema.Struct({
 })
 
 const invalid = (message: string) => new ValidationError({ message })
-
-/**
- * Reads the JSON body of a clone (the SDK still gets the original), with a hard size cap: a declared
- * content-length over the cap is refused outright, and without one (chunked) the stream is cut as soon as
- * it passes the cap, so an oversized body is never buffered.
- */
-const readBody = (request: Request) =>
-  Effect.gen(function* () {
-    const declared = Number(request.headers.get('content-length') ?? '0')
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return yield* new PayloadTooLarge()
-    const stream = request.clone().body
-    const text = yield* Effect.tryPromise({
-      try: async () => {
-        if (stream === null) return ''
-        const reader = stream.getReader()
-        const chunks: Array<Uint8Array> = []
-        let size = 0
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) break
-          size += value.byteLength
-          if (size > MAX_BODY_BYTES) {
-            void reader.cancel().catch(() => undefined)
-            return null
-          }
-          chunks.push(value)
-        }
-        const all = new Uint8Array(size)
-        let offset = 0
-        for (const chunk of chunks) {
-          all.set(chunk, offset)
-          offset += chunk.byteLength
-        }
-        return new TextDecoder().decode(all)
-      },
-      catch: () => invalid('unreadable body'),
-    })
-    if (text === null) return yield* new PayloadTooLarge()
-    return yield* Effect.try({ try: (): unknown => JSON.parse(text), catch: () => invalid('invalid JSON') })
-  })
 
 const emailOf = (body: unknown) =>
   Schema.decodeUnknownEffect(Target)(body).pipe(
