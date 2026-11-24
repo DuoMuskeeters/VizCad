@@ -235,6 +235,19 @@ describe('changeRole', () => {
 })
 
 describe('removeMember', () => {
+  it.effect('the actor is judged before the target is looked up: a non-manager gets 403 whether or not the user exists', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      for (const who of ['max', 'cat']) {
+        const real = yield* Effect.flip(removeMember(caller(who), { workspaceId: 'acme', userId: 'ada' }))
+        const ghost = yield* Effect.flip(removeMember(caller(who), { workspaceId: 'acme', userId: 'nobody' }))
+        assert.deepStrictEqual([real._tag, ghost._tag], ['PermissionDenied', 'PermissionDenied'])
+        const ghostRole = yield* Effect.flip(changeRole(caller(who), { workspaceId: 'acme', userId: 'nobody', role: 'member' }))
+        assert.strictEqual(ghostRole._tag, 'PermissionDenied')
+      }
+      assert.strictEqual((yield* Effect.flip(removeMember(caller('ada'), { workspaceId: 'acme', userId: 'nobody' })))._tag, 'MemberUnavailable')
+    })))
+
   it.effect('removes membership and grants, revokes their links, closes their invitations, resets their sessions', () =>
     run(Effect.gen(function* () {
       yield* acme

@@ -203,9 +203,12 @@ export const revokeInvitation = Effect.fn('revokeInvitation')(function* (caller:
 /** Shared start of the member-management programs: caller, target and the decision from permissions.ts. */
 const memberTarget = Effect.fnUntraced(function* (caller: Caller, workspaceId: string, userId: string) {
   const { workspace, role } = yield* requireMembership(workspaceId, caller.userId)
-  const targetRole = yield* memberRole(workspaceId, userId)
   const now = yield* nowSeconds
-  return { workspace, role, targetRole, now, actor: permissionActor(caller, workspace.id, role), target: { workspaceId, userId, role: targetRole } }
+  const actor = permissionActor(caller, workspace.id, role)
+  // The actor's right comes first: someone who may not manage members learns nothing about who exists.
+  yield* authorize({ actor, workspace, now, action: { kind: 'manageMembers' } })
+  const targetRole = yield* memberRole(workspaceId, userId)
+  return { workspace, role, targetRole, now, actor, target: { workspaceId, userId, role: targetRole } }
 })
 
 /**
