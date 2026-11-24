@@ -258,6 +258,7 @@ describe('cron', () => {
       yield* TestClock.adjust(`${31 * DAY} seconds`)
       yield* runCron(DAILY)
       assert.deepStrictEqual([(yield* rows('files')).length, (yield* rows('storageDeletions')).length, yield* bucket], [0, 1, ['w/acme/f/old/cur']])
+      assert.deepStrictEqual((yield* rows('storageDeletions')).map((r) => r.reason), ['trash_retention'])
       yield* runCron(HOURLY)
       assert.deepStrictEqual([(yield* rows('storageDeletions')).length, yield* bucket], [0, []])
     })))

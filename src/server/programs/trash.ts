@@ -100,7 +100,7 @@ export const purgeOne = (caller: Caller | null, workspaceId: string, fileId: str
     yield* runBatch((d) => [
       guard(d, sql`EXISTS (SELECT 1 FROM files WHERE id = ${fileId} AND workspaceId = ${workspaceId} AND isDeleted = 1)
         AND ${caller === null || role === null ? sql`1` : stillRole(workspaceId, caller.userId, [role])}`),
-      d.insert(schema.storageDeletions).select(sql`SELECT k, 'purged', ${now}, 0, NULL, ${now} FROM (
+      d.insert(schema.storageDeletions).select(sql`SELECT k, ${caller === null ? 'trash_retention' : 'purged'}, ${now}, 0, NULL, ${now} FROM (
           SELECT r2Key AS k FROM files WHERE id = ${fileId}
           UNION SELECT thumbnailR2Key FROM files WHERE id = ${fileId}
           UNION SELECT r2Key FROM file_versions WHERE fileId = ${fileId}
