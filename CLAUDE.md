@@ -34,6 +34,7 @@ Effect 4 API: services are `class X extends Context.Service<X, Shape>()('vizcad/
 - Errors are `Data.TaggedError` classes in `src/server/errors.ts`; route handlers map them exhaustively.
 - Validate every external input (request bodies, query params, env) with `Schema` at the boundary.
 - Config via the `AppConfig` service, never `process.env` or raw `env.X` in business code.
+- Exception: `/api/health` (`services/D1Health.ts`) is deliberately Effect-free: only `select 1`, fixed body.
 - Each service has an in-memory test Layer; tests never hit real D1/R2.
 - Never import `effect` from code that reaches the browser. Don't run Effect inside React components.
 - Every new program ships with tests. File permissions (owner / editor / preview / download) live in one module and are fully tested.
