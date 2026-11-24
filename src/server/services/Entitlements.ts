@@ -20,6 +20,12 @@ export interface WorkspaceLimits {
   readonly invitationTtlSeconds: number
   /** Invitations (member and guest) a workspace may send per day. */
   readonly invitesPerDay: number
+  /** Invitations (member and guest) one user may send per day across all workspaces. */
+  readonly invitesPerUserPerDay: number
+  /** Company workspaces one user may own at the same time. */
+  readonly ownedWorkspaces: number
+  /** Company workspaces one user may create per day. */
+  readonly workspaceCreatesPerDay: number
 }
 
 /**
@@ -31,6 +37,8 @@ export class Entitlements extends Context.Service<
   Entitlements,
   {
     readonly limits: (workspaceId: string) => Effect.Effect<WorkspaceLimits, DbError>
+    /** Limits that apply to a user's own actions before any workspace exists (creating one, per-user quotas). */
+    readonly userLimits: (userId: string) => Effect.Effect<WorkspaceLimits, DbError>
   }
 >()('vizcad/Entitlements') {}
 
@@ -45,10 +53,13 @@ export const defaultPlan: WorkspaceLimits = {
   guestAccessMaxSeconds: 365 * DAY,
   invitationTtlSeconds: 7 * DAY,
   invitesPerDay: 50,
+  invitesPerUserPerDay: 100,
+  ownedWorkspaces: 5,
+  workspaceCreatesPerDay: 10,
 }
 
 /** Every workspace gets `limits`. Tests override single fields with `fixed({ ...defaultPlan, seats: 2 })`. */
 export const fixed = (limits: WorkspaceLimits) =>
-  Layer.succeed(Entitlements, Entitlements.of({ limits: () => Effect.succeed(limits) }))
+  Layer.succeed(Entitlements, Entitlements.of({ limits: () => Effect.succeed(limits), userLimits: () => Effect.succeed(limits) }))
 
 export const live = fixed(defaultPlan)

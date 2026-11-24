@@ -2,12 +2,13 @@ import { assert, describe, it } from '@effect/vitest'
 import { Effect, Ref } from 'effect'
 import { TestClock } from 'effect/testing'
 import { MemoryAuth } from '../services/Auth'
+import { defaultPlan } from '../services/Entitlements'
 import { caller, programLayer, rows, seedFile, seedMember, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { grantFileAccess } from './access'
 import { createWorkspace, ensurePersonalWorkspace, listMyWorkspaces, selectWorkspace, slugFrom, switchWorkspace } from './workspaces'
 
-const setup = <A, E, R>(body: Effect.Effect<A, E, R>) =>
-  TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer()))
+const setup = <A, E, R>(body: Effect.Effect<A, E, R>, limits = defaultPlan) =>
+  TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(limits)))
 
 describe('createWorkspace', () => {
   it.effect('writes the company, its single owner and one activity row atomically', () =>
@@ -21,6 +22,43 @@ describe('createWorkspace', () => {
       const log = yield* rows('accessLog')
       assert.deepStrictEqual(log.map((l) => [l.workspaceId, l.actorUserId, l.action, l.targetId, l.requestId]), [[created.id, 'ada', 'workspace.created', created.id, 'ray-test']])
     })))
+
+  it.effect('a user owns at most `ownedWorkspaces` company workspaces; archived ones and other people\'s do not count', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('ada')
+      yield* seedUser('bob')
+      yield* seedWorkspace('theirs', 'bob')
+      yield* createWorkspace(caller('ada'), { name: 'One' })
+      yield* createWorkspace(caller('ada'), { name: 'Two' })
+      assert.strictEqual((yield* Effect.flip(createWorkspace(caller('ada'), { name: 'Three' })))._tag, 'WorkspaceLimitReached')
+      assert.strictEqual((yield* rows('organization')).length, 3)
+      yield* createWorkspace(caller('bob'), { name: 'Bobs' })
+    }), { ...defaultPlan, ownedWorkspaces: 2 }))
+
+  it.effect('two creations at once with one place left: exactly one workspace is written', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('ada')
+      const results = yield* Effect.all([
+        Effect.result(createWorkspace(caller('ada'), { name: 'A' })),
+        Effect.result(createWorkspace(caller('ada'), { name: 'B' })),
+      ], { concurrency: 'unbounded' })
+      assert.strictEqual(results.filter((r) => r._tag === 'Success').length, 1)
+      assert.strictEqual((yield* rows('organization')).length, 1)
+      assert.strictEqual((yield* rows('member')).length, 1)
+      const failure = results.find((r) => r._tag === 'Failure')
+      assert.include(['WorkspaceLimitReached', 'WriteConflict'], failure?._tag === 'Failure' ? failure.failure._tag : '')
+    }), { ...defaultPlan, ownedWorkspaces: 1 }))
+
+  it.effect('creation is rate limited per user per day (from Entitlements), before anything is written', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('ada')
+      yield* createWorkspace(caller('ada'), { name: 'One' })
+      yield* createWorkspace(caller('ada'), { name: 'Two' })
+      assert.strictEqual((yield* Effect.flip(createWorkspace(caller('ada'), { name: 'Three' })))._tag, 'RateLimitExceeded')
+      assert.strictEqual((yield* rows('organization')).length, 2)
+      yield* TestClock.adjust('25 hours')
+      yield* createWorkspace(caller('ada'), { name: 'Three' })
+    }), { ...defaultPlan, workspaceCreatesPerDay: 2 }))
 
   it.effect('refuses an unverified account', () =>
     setup(Effect.gen(function* () {

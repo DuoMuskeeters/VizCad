@@ -117,6 +117,9 @@ export class InvalidAccessLevel extends Data.TaggedError('InvalidAccessLevel')<{
 /** The access expiry is missing (guest), in the past or beyond the Entitlements ceiling. */
 export class AccessExpiryInvalid extends Data.TaggedError('AccessExpiryInvalid')<{}> {}
 
+/** The user already owns as many company workspaces as the plan allows. */
+export class WorkspaceLimitReached extends Data.TaggedError('WorkspaceLimitReached')<{}> {}
+
 /** The recipient already holds this file through ownership (the uploader row); a grant would change nothing. */
 export class AlreadyHasAccess extends Data.TaggedError('AlreadyHasAccess')<{}> {}
 
@@ -154,5 +157,6 @@ export type AppError =
   | SlugTaken
   | InvalidAccessLevel
   | AccessExpiryInvalid
+  | WorkspaceLimitReached
   | AlreadyHasAccess
   | WriteConflict

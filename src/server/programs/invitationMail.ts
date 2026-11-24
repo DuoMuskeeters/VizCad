@@ -11,7 +11,7 @@ import type { Caller } from './shared'
 const DAY = 24 * 60 * 60
 
 /**
- * Invitation send quota: per IP, and per workspace with the daily limit from Entitlements. Runs before anything is
+ * Invitation send quota: per IP, per workspace and per user, with the daily limits from Entitlements. Runs before anything is
  * written or sent (docs/08 §1 `RateLimit`).
  */
 export const limitInvites = Effect.fnUntraced(function* (caller: Caller, workspaceId: string) {
@@ -19,6 +19,9 @@ export const limitInvites = Effect.fnUntraced(function* (caller: Caller, workspa
   const limiter = yield* RateLimit
   yield* limiter.hit({ action: 'invite', ip: caller.ip })
   yield* limiter.hit({ action: 'invite', target: workspaceId, targetRule: { limit: limits.invitesPerDay, windowSeconds: DAY } })
+  // One user cannot multiply the workspace quota by spreading invitations over many workspaces.
+  const own = yield* (yield* Entitlements).userLimits(caller.userId)
+  yield* limiter.hit({ action: 'invite', target: `user:${caller.userId}`, targetRule: { limit: own.invitesPerUserPerDay, windowSeconds: DAY } })
 })
 
 /**

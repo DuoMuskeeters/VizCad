@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'createWorkspace'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -46,6 +46,8 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   invite: { target: { limit: 50, windowSeconds: 24 * 60 * 60 }, ip: { limit: 60, windowSeconds: 60 * 60 } },
   // Invitation acceptance (guest tokens are secrets): per IP before the token is hashed and looked up.
   inviteAccept: { target: { limit: 10, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
+  // Workspace creation. The target is the user; its daily quota comes from Entitlements (`targetRule`), this is the fallback.
+  createWorkspace: { target: { limit: 10, windowSeconds: 24 * 60 * 60 }, ip: { limit: 20, windowSeconds: 60 * 60 } },
 }
 
 /**

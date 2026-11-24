@@ -1,10 +1,12 @@
 import { and, eq, isNull, ne, or, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
-import { EmailUnverified, SlugTaken, WorkspaceUnavailable } from '../errors'
+import { EmailUnverified, SlugTaken, WorkspaceLimitReached, WorkspaceUnavailable } from '../errors'
 import { Auth } from '../services/Auth'
 import { Db } from '../services/Db'
-import { activity, type Caller, liveGuestScope, newId, nowSeconds, runBatch, toDate } from './shared'
+import { Entitlements } from '../services/Entitlements'
+import { RateLimit } from '../services/RateLimit'
+import { activity, type Caller, guard, liveGuestScope, newId, nowSeconds, runBatch, toDate } from './shared'
 
 /** Deterministic personal workspace ids: the backfill script (scripts/backfillPersonalWorkspaces.ts) uses the same scheme. */
 export const personalWorkspaceId = (userId: string) => `personal-${userId}`
@@ -19,9 +21,21 @@ export const slugFrom = (name: string, suffix: string) => {
   return `${safe}-${suffix}`
 }
 
+/** SQL: how many live company workspaces the user owns (read before the batch and re-checked in it). */
+const ownedCompanies = (userId: string) =>
+  sql`(SELECT count(*) FROM member m JOIN organization o ON o.id = m.organizationId
+    WHERE m.userId = ${userId} AND m.role = 'owner' AND o.kind = 'company' AND o.archivedAt IS NULL)`
+
 /** Company workspace with its founder as the single owner, atomically, plus the activity row. */
 export const createWorkspace = Effect.fn('createWorkspace')(function* (caller: Caller, input: { readonly name: string }) {
   if (!caller.emailVerified) return yield* new EmailUnverified()
+  const limits = yield* (yield* Entitlements).userLimits(caller.userId)
+  const limiter = yield* RateLimit
+  yield* limiter.hit({ action: 'createWorkspace', ip: caller.ip })
+  yield* limiter.hit({ action: 'createWorkspace', target: caller.userId, targetRule: { limit: limits.workspaceCreatesPerDay, windowSeconds: 24 * 60 * 60 } })
+  const db = yield* Db
+  const owned = yield* db.use((d) => d.get<{ n: number }>(sql`SELECT ${ownedCompanies(caller.userId)} AS n`))
+  if ((owned?.n ?? 0) >= limits.ownedWorkspaces) return yield* new WorkspaceLimitReached()
   const now = yield* nowSeconds
   const id = yield* newId
   const slug = slugFrom(input.name, (yield* newId).slice(0, 8))
@@ -29,6 +43,7 @@ export const createWorkspace = Effect.fn('createWorkspace')(function* (caller: C
   const activityId = yield* newId
   yield* runBatch(
     (d) => [
+      guard(d, sql`${ownedCompanies(caller.userId)} < ${limits.ownedWorkspaces}`),
       d.insert(schema.organization).values({ id, name: input.name, slug, createdAt: toDate(now), kind: 'company' }),
       d.insert(schema.member).values({ id: memberId, organizationId: id, userId: caller.userId, role: 'owner', createdAt: toDate(now) }),
       activity(d, { workspaceId: id, caller, targetKind: 'workspace', targetId: id, action: 'workspace.created', at: now }, activityId),

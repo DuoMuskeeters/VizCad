@@ -32,6 +32,7 @@ export const STATUS: Record<AppError['_tag'], number> = {
   SlugTaken: 409,
   InvalidAccessLevel: 400,
   AccessExpiryInvalid: 400,
+  WorkspaceLimitReached: 409,
   AlreadyHasAccess: 409,
   WriteConflict: 409,
 }

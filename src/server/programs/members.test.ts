@@ -112,6 +112,19 @@ describe('inviteMember', () => {
       assert.strictEqual((yield* Effect.flip(invite('ada', 'a3@example.com', 'member')))._tag, 'RateLimitExceeded')
     }), { ...defaultPlan, invitesPerDay: 2 }))
 
+  it.effect('the daily quota per user holds across workspaces (member and guest invitations share it)', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedWorkspace('beta', 'bob')
+      yield* inviteMember(caller('bob'), { workspaceId: 'beta', email: 'b1@example.com', role: 'member', locale: 'en' })
+      yield* invite('bob', 'a1@example.com', 'member')
+      const third = yield* Effect.flip(invite('bob', 'a2@example.com', 'member'))
+      assert.strictEqual(third._tag, 'RateLimitExceeded')
+      assert.strictEqual((yield* rows('invitation')).length, 2)
+      // another user is unaffected
+      assert.strictEqual((yield* invite('ada', 'a3@example.com', 'member')).role, 'member')
+    }), { ...defaultPlan, invitesPerUserPerDay: 2 }))
+
   it.effect('a failed email keeps the invitation (resend from the row)', () =>
     run(Effect.gen(function* () {
       yield* acme
