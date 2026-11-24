@@ -94,6 +94,16 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual((yield* call(post('inviteGuest', { workspaceId: 'acme', email: 'x@example.com', accessExpiresAt: T0 + 60 }, { cookie: 'session=tok-bob' }))).status, 400)
     })))
 
+  it.effect('timestamps and the activity cursor are bounded: beyond year 2100 is 400', () =>
+    run(Effect.gen(function* () {
+      const bob = { cookie: 'session=tok-bob' }
+      const huge = 4102444801
+      assert.strictEqual((yield* call(post('inviteGuest', { workspaceId: 'acme', fileId: 'f', email: 'x@example.com', accessExpiresAt: huge }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('grantFileAccess', { workspaceId: 'acme', fileId: 'f', userId: 'ada', level: 'view', expiresAt: huge }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('listActivity', { workspaceId: 'acme', cursor: `${huge}.abc` }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('listActivity', { workspaceId: 'acme', cursor: `${T0}.abc` }, bob))).status, 200)
+    })))
+
   it.effect('a permission denial is 403 with a user-safe reason; another workspace is 404', () =>
     run(Effect.gen(function* () {
       const denied = yield* call(post('inviteMember', { workspaceId: 'acme', email: 'x@example.com', role: 'member' }))

@@ -28,6 +28,8 @@ export const internalRoles = ['owner', 'admin', 'member', 'commenter'] as const 
 
 /** UTC Unix seconds from Effect's Clock (TestClock in tests). */
 export const nowSeconds = Clock.currentTimeMillis.pipe(Effect.map((ms) => Math.floor(ms / 1000)))
+/** 2100-01-01T00:00:00Z: the largest timestamp any input may carry (a Date holds far more; stored values stay sane). */
+export const maxUnixSeconds = 4102444800
 export const toDate = (seconds: number) => new Date(seconds * 1000)
 export const toSeconds = (date: Date) => Math.floor(date.getTime() / 1000)
 export const newId = Effect.sync(() => crypto.randomUUID())

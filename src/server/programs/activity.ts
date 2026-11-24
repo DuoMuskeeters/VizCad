@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import { ValidationError } from '../errors'
 import { Db } from '../services/Db'
-import { authorize, type Caller, nowSeconds, permissionActor, requireMembership, toDate, toSeconds } from './shared'
+import { authorize, type Caller, maxUnixSeconds, nowSeconds, permissionActor, requireMembership, toDate, toSeconds } from './shared'
 
 /** Keyset cursor `<createdAt>.<id>`: stable under concurrent inserts, never an offset. */
 export const encodeCursor = (createdAt: number, id: string) => `${createdAt}.${id}`
@@ -12,7 +12,7 @@ const decodeCursor = (cursor: string) => {
   const dot = cursor.indexOf('.')
   const createdAt = Number(cursor.slice(0, dot))
   const id = cursor.slice(dot + 1)
-  return dot > 0 && Number.isSafeInteger(createdAt) && id !== '' ? Effect.succeed({ createdAt, id }) : Effect.fail(new ValidationError({ message: 'invalid cursor' }))
+  return dot > 0 && Number.isSafeInteger(createdAt) && createdAt >= 0 && createdAt <= maxUnixSeconds && id !== '' ? Effect.succeed({ createdAt, id }) : Effect.fail(new ValidationError({ message: 'invalid cursor' }))
 }
 
 /**

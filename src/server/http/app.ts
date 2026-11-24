@@ -6,7 +6,7 @@ import { listActivity } from '../programs/activity'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
 import { acceptInvitation, changeRole, inviteMember, listMembers, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
 import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
-import type { Caller } from '../programs/shared'
+import { type Caller, maxUnixSeconds } from '../programs/shared'
 import { createWorkspace, listMyWorkspaces, selectWorkspace, switchWorkspace } from '../programs/workspaces'
 import { AppConfig } from '../services/AppConfig'
 import { Auth } from '../services/Auth'
@@ -31,7 +31,7 @@ const InternalRole = Schema.Literals(['admin', 'member', 'commenter'])
 const Level = Schema.Literals(['view', 'comment', 'download', 'edit'])
 const GuestLevel = Schema.Literals(['view', 'comment', 'download'])
 const AccessMode = Schema.Literals(['team', 'restricted'])
-const Seconds = Schema.Int.check(Schema.isGreaterThan(0))
+const Seconds = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: maxUnixSeconds }))
 const LocaleField = Schema.optional(Schema.Literals(locales))
 const Workspace = { workspaceId: Id }
 const Grant = { ...Workspace, userId: Id, level: Level, expiresAt: Schema.NullOr(Seconds) }
