@@ -9,8 +9,8 @@ export const handleHealth = (request: Request, env: Cloudflare.Env): Promise<Res
   Effect.runPromise(healthResponse(liveLayers(env).db, requestMeta(request)))
 
 /** `/api/auth/*`: allowlist, CSRF, rate limits and Turnstile in front of better-auth (http/auth.ts). */
-export const handleIdentity = (request: Request, env: Cloudflare.Env): Promise<Response> => {
-  const live = liveLayers(env)
+export const handleIdentity = (request: Request, env: Cloudflare.Env, waitUntil: (promise: Promise<unknown>) => void): Promise<Response> => {
+  const live = liveLayers(env, (run) => waitUntil(run()))
   return Effect.runPromise(
     identityResponse(request, Layer.mergeAll(live.auth, live.rateLimit, live.turnstile, live.config), requestMeta(request)),
   )

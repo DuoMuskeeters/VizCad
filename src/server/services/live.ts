@@ -18,7 +18,7 @@ declare const caches: { readonly default: CacheBinding }
  * bindings. Handlers merge just the layers their program needs, so a page that only reads D1 does
  * not fail because, say, Turnstile is unconfigured. Layers sharing `config` build it once per request.
  */
-export const liveLayers = (env: Cloudflare.Env) => {
+export const liveLayers = (env: Cloudflare.Env, defer?: AuthLive.Defer) => {
   const config = AppConfigLive.fromEnv(env)
   const email = EmailLive.layer(env.EMAIL).pipe(Layer.provide(config))
   return {
@@ -26,7 +26,7 @@ export const liveLayers = (env: Cloudflare.Env) => {
     db: DbLive.layer(env.vizcad_auth),
     storage: StorageLive.layer(env.R2_FILES_BUCKET).pipe(Layer.provide(config)),
     email,
-    auth: AuthLive.layer(env.vizcad_auth).pipe(Layer.provide(Layer.merge(config, email))),
+    auth: AuthLive.layer(env.vizcad_auth, defer).pipe(Layer.provide(Layer.merge(config, email))),
     rateLimit: RateLimitLive.layer(env.RATE_LIMITER).pipe(Layer.provide(config)),
     turnstile: TurnstileLive.layer.pipe(Layer.provide(config)),
     cache: CacheLive.layer(caches.default).pipe(Layer.provide(config)),

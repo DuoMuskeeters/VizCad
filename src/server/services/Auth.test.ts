@@ -13,9 +13,9 @@ const ORIGIN = 'https://vizcad.test'
 const PASSWORD = 'correct-horse-battery'
 
 /** The real SDK on an in-memory D1 with every migration, with mail captured in the Email outbox. */
-const setup = () => {
+const setup = (defer?: AuthLive.Defer) => {
   const d1: MemoryD1 = openMemoryD1()
-  const layer = AuthLive.layer(d1.binding).pipe(Layer.provideMerge(emailMemory), Layer.provide(AppConfig.test()))
+  const layer = AuthLive.layer(d1.binding, defer).pipe(Layer.provideMerge(emailMemory), Layer.provide(AppConfig.test()))
   return { d1, layer }
 }
 
@@ -72,6 +72,20 @@ const google = (claims: { sub: string; email: string; email_verified: boolean })
 const rows = <T>(d1: MemoryD1, sql: string) => d1.sqlite.prepare(sql).all() as Array<T>
 
 describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
+  it.effect('mail is deferred: the response does not wait for the send', () => {
+    const deferred: Array<() => Promise<void>> = []
+    const { layer } = setup((run) => {
+      deferred.push(run)
+    })
+    return Effect.gen(function* () {
+      assert.strictEqual((yield* signUp('ada@example.com')).status, 200)
+      assert.strictEqual(deferred.length, 1)
+      assert.strictEqual((yield* Ref.get(yield* EmailOutbox)).length, 0, 'nothing sent before the deferred work runs')
+      yield* Effect.promise(() => Promise.all(deferred.map((run) => run())))
+      assert.strictEqual((yield* Ref.get(yield* EmailOutbox)).length, 1)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect('sign-up, verification, sign-in and session: verification is required and idempotent', () => {
     const { d1, layer } = setup()
     return Effect.gen(function* () {

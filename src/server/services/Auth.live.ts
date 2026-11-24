@@ -14,11 +14,18 @@ const fail = (operation: string) => (cause: unknown) => new AuthError({ operatio
 
 /**
  * Auth backed by better-auth 1.4.7 on D1 (the Worker's `vizcad_auth` binding). The SDK is constructed here and
- * nowhere else. Mail goes through the Email service; a failed send is logged by tag and swallowed so the
- * response is identical whether or not it was attempted (no account-existence signal). Resend is the
+ * nowhere else. Mail goes through the Email service; the send is deferred (`waitUntil`), and a failed send is logged by tag and
+ * swallowed, so neither the response nor its timing says whether a send was attempted (no account-existence signal). Resend is the
  * `/send-verification-email` endpoint.
  */
-export const layer = (d1: D1Database) =>
+export type Defer = (run: () => Promise<void>) => void
+
+/** Runs the work right away and does not wait for it (tests that do not care). Live code passes `waitUntil`. */
+export const detached: Defer = (run) => {
+  void run()
+}
+
+export const layer = (d1: D1Database, defer: Defer = detached) =>
   Layer.effect(
     Auth,
     Effect.gen(function* () {
@@ -29,12 +36,17 @@ export const layer = (d1: D1Database) =>
 
       const db = drizzle(d1, { schema })
 
-      const send = (operation: string, message: RenderedEmail, to: string) =>
-        email.send({ to, ...message }).pipe(
-          Effect.catch(() => Effect.logError('identity email failed').pipe(Effect.annotateLogs({ error: 'EmailError', operation }))),
-          Effect.asVoid,
-          Effect.runPromise,
+      // The send runs after the response (waitUntil), so response time never tells an existing account from an unknown one.
+      const send = (operation: string, message: RenderedEmail, to: string) => {
+        defer(() =>
+          email.send({ to, ...message }).pipe(
+            Effect.catch(() => Effect.logError('identity email failed').pipe(Effect.annotateLogs({ error: 'EmailError', operation }))),
+            Effect.asVoid,
+            Effect.runPromise,
+          ),
         )
+        return Promise.resolve()
+      }
 
       const mailer: AuthMailer = {
         verification: ({ user, url, request }) =>
