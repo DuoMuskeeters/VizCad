@@ -4,6 +4,11 @@
 /* Scan only src/: legacy/ is reference code and must not add classes to the bundle. */
 @import 'tailwindcss' source('.');
 
+/* Mockups switch between "mobile" and "app" layouts at 900px (CLAUDE.md D14); `app:` = min-width 900px. */
+@theme {
+  --breakpoint-app: 900px;
+}
+
 /* Only design tokens exist as utilities: Tailwind's default palette, type scale, radii and shadows are cleared. */
 @theme {
   --color-*: initial;
@@ -49,8 +54,7 @@
   --color-canvas-grid: var(--color-canvas-grid);
   --color-canvas-text: var(--color-canvas-text);
 
-  /* tokens.css names "Figtree" (Google Fonts); it is self-hosted here, where the family is "Figtree Variable". */
-  --font-sans: 'Figtree Variable', var(--font-sans);
+  --font-sans: var(--font-sans);
 
   --text-xs: var(--text-xs);
   --text-xs--line-height: var(--leading-xs);
@@ -115,4 +119,70 @@
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
+}
+
+/*
+ * Motion for layers that stand on top (src/components/ui). Components only set `data-motion`;
+ * Radix keeps the element mounted until the exit animation ends. Durations come from tokens.css.
+ * With reduced motion the animations are removed, so layers appear and disappear at once.
+ */
+@layer components {
+  [data-motion='overlay'][data-state='open'] { animation: ui-fade-in var(--dur-base) var(--ease-out); }
+  [data-motion='overlay'][data-state='closed'] { animation: ui-fade-out var(--dur-base) var(--ease-out) forwards; }
+
+  [data-motion='sheet'][data-state='open'] { animation: ui-sheet-in var(--dur-slow) var(--ease-out); }
+  [data-motion='sheet'][data-state='closed'] { animation: ui-sheet-out var(--dur-base) var(--ease-out) forwards; }
+
+  [data-motion='drawer'][data-state='open'] { animation: ui-drawer-in var(--dur-slow) var(--ease-out); }
+  [data-motion='drawer'][data-state='closed'] { animation: ui-drawer-out var(--dur-base) var(--ease-out) forwards; }
+
+  [data-motion='pop'][data-state='open'],
+  [data-motion='pop'][data-state='delayed-open'],
+  [data-motion='pop'][data-state='instant-open'] { animation: ui-pop-in var(--dur-base) var(--ease-out); }
+  [data-motion='pop'][data-state='closed'] { animation: ui-fade-out var(--dur-fast) var(--ease-out) forwards; }
+
+  [data-motion='toast'][data-state='open'] { animation: ui-toast-in var(--dur-slow) var(--ease-out); }
+  [data-motion='toast'][data-state='closed'] { animation: ui-fade-out var(--dur-base) var(--ease-out) forwards; }
+  [data-motion='toast'][data-swipe='move'] { translate: var(--radix-toast-swipe-move-x) 0; }
+  [data-motion='toast'][data-swipe='cancel'] { translate: 0 0; transition: translate var(--dur-base) var(--ease-out); }
+  [data-motion='toast'][data-swipe='end'] { animation: ui-toast-swipe-out var(--dur-base) var(--ease-out) forwards; }
+
+  /* Desktop: the dialog is centered and fades in instead of sliding up. */
+  @media (min-width: 900px) {
+    [data-motion='sheet'][data-state='open'] { animation: ui-pop-in var(--dur-slow) var(--ease-out); }
+    [data-motion='sheet'][data-state='closed'] { animation: ui-fade-out var(--dur-base) var(--ease-out) forwards; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-motion] { animation: none !important; transition: none !important; }
+  }
+}
+
+@keyframes ui-fade-in { from { opacity: 0; } }
+@keyframes ui-fade-out { to { opacity: 0; } }
+@keyframes ui-sheet-in { from { translate: 0 100%; } }
+@keyframes ui-sheet-out { to { translate: 0 100%; } }
+@keyframes ui-drawer-in { from { translate: -100% 0; } }
+@keyframes ui-drawer-out { to { translate: -100% 0; } }
+@keyframes ui-pop-in { from { opacity: 0; translate: 0 4px; } }
+@keyframes ui-toast-in { from { opacity: 0; translate: 0 8px; } }
+@keyframes ui-toast-swipe-out { to { translate: calc(var(--radix-toast-swipe-end-x, 100%)) 0; opacity: 0; } }
+
+/* Native <meter> without an inline style (Meter.tsx). The value drives the fill; tone only picks its colour. */
+@layer components {
+  meter[data-ui='meter'] {
+    appearance: none;
+    border: 0;
+    border-radius: 2px;
+    background: var(--color-line);
+    overflow: hidden;
+  }
+  meter[data-ui='meter'][data-tone='brand'] { --meter-fill: var(--color-brand); }
+  meter[data-ui='meter'][data-tone='warn'] { --meter-fill: var(--color-warn); }
+  meter[data-ui='meter'][data-tone='danger'] { --meter-fill: var(--color-danger); }
+  meter[data-ui='meter']::-webkit-meter-bar { height: 4px; border: 0; border-radius: 2px; background: var(--color-line); }
+  meter[data-ui='meter']::-webkit-meter-optimum-value,
+  meter[data-ui='meter']::-webkit-meter-suboptimum-value,
+  meter[data-ui='meter']::-webkit-meter-even-less-good-value { background: var(--meter-fill); border-radius: 2px; }
+  meter[data-ui='meter']::-moz-meter-bar { background: var(--meter-fill); border-radius: 2px; }
 }
