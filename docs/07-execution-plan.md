@@ -28,7 +28,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 |---|---|
 | Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 ve Faz 3a `rewrite`'ta. UI kit ve Faz 3b-1 (Auth) birleşti. Sürüyor: Faz 3b-2 (Opus medium), giriş ekranları (Antigravity Gemini) |
+| Geliştirme | Faz 1, 3a, 3b-1 (Auth), 3b-2 (workspace programları), UI kit ve giriş ekranları `rewrite`'ta ve staging'de. Sırada: onboarding, ekip, davet kabulü, workspace değiştirici ekranları |
 | Hosting | Staging yayında (Faz 1) |
 
 ## Dalgalar
@@ -45,10 +45,10 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [x] Bileşen seti + `/dev/ui` (PR #7; staging'de `/dev/ui`, `/dev/ui/shell`) (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
 - [x] Faz 3a: şema (0012), migration denetimi (izin listesi), `permissions.ts`; Opus incelemesi, 5 bulgu düzeltildi, `rewrite`'a birleşti (PR #6), staging D1'e uygulandı
 - [x] Faz 3b-1: `Auth` servisi (better-auth 1.4.7), uç allowlist'i, Google ele geçirme koruması, CSRF, rate limit (DO), staging e-posta allowlist'i; Opus incelemesi, 7 bulgu düzeltildi (PR #8), staging'de
-- [ ] (sürüyor, Opus medium) Faz 3b-2: workspace, üye, davet, proje, misafir programları + kişisel workspace backfill
+- [x] Faz 3b-2: workspace, üye, davet, proje, misafir programları, `Entitlements`, batch guard (0013); Sonnet incelemesi, 9 bulgu düzeltildi (PR #9), staging D1'e uygulandı
 - [ ] Faz 3b (kalan) backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
-- [ ] Mevcut kullanıcılar için kişisel workspace migration'ı; staging'de sahte veriyle test. Production kopyasında prova Dalga 6'da.
-- [ ] Faz 3 UI: giriş, kayıt, doğrulama, onboarding, ekip, davet kabulü, workspace değiştirici. *Sonnet high*
+- [ ] Mevcut kullanıcılar için kişisel workspace backfill'i: script hazır ve testli (`pnpm db:backfill:staging`), henüz çalıştırılmadı; ön koşul legacy admin panelinde kullanıcı silmenin kapatılması. Production kopyasında prova Dalga 6'da.
+- [ ] Faz 3 UI: ~~giriş, kayıt, doğrulama~~ (PR #10, staging'de), onboarding, ekip, davet kabulü, workspace değiştirici.
 
 ### Dalga 3: çekirdek (dosyalar ve paylaşım)
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
