@@ -68,7 +68,13 @@ export const authOptions = (input: AuthOptionsInput) => {
     database: drizzleAdapter(input.db, { provider: 'sqlite', schema, transaction: false }),
     // Our RateLimit service (Durable Object) counts per endpoint before the SDK; the SDK's own limiter is per isolate.
     rateLimit: { enabled: false },
-    logger: { level: 'error' },
+    // The SDK logs call arguments (e.g. the email address of a failed sign-in). Only its fixed message text may reach logs.
+    logger: {
+      level: 'error',
+      log: (level, message) => {
+        if (level === 'error') console.error(`[better-auth] ${message}`)
+      },
+    },
     // Failed OAuth callbacks redirect here (relative to the site); the UI route arrives with the auth screens.
     onAPIError: { errorURL: '/sign-in' },
     session: {
