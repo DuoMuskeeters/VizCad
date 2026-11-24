@@ -6,7 +6,6 @@ export const safeNext = (value: unknown): string | undefined => {
 }
 
 const NEXT_KEY = 'vizcad_next'
-const ONBOARDING_KEY = 'vizcad_onboarding_pending'
 const SUGGESTION_KEY = 'vizcad_team_suggestion_dismissed'
 
 const store = (): Storage | null => {
@@ -29,13 +28,6 @@ export const takeNext = (): string | undefined => {
   storage?.removeItem(NEXT_KEY)
   return value
 }
-
-/** D20: onboarding is for new sign-ups only. The sign-up form marks the address; returning users never match. */
-export const markOnboardingPending = (email: string) => store()?.setItem(ONBOARDING_KEY, email.trim().toLowerCase())
-
-export const onboardingPendingFor = (email: string): boolean => store()?.getItem(ONBOARDING_KEY) === email.trim().toLowerCase()
-
-export const clearOnboardingPending = () => store()?.removeItem(ONBOARDING_KEY)
 
 export const teamSuggestionDismissed = (): boolean => store()?.getItem(SUGGESTION_KEY) === '1'
 

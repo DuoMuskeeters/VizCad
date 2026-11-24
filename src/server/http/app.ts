@@ -8,7 +8,7 @@ import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../pr
 import { acceptInvitation, changeRole, inviteMember, listMembers, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
 import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
 import { type Caller, maxUnixSeconds } from '../programs/shared'
-import { createWorkspace, listMyWorkspaces, selectWorkspace, switchWorkspace } from '../programs/workspaces'
+import { completeOnboarding, createWorkspace, listMyWorkspaces, needsOnboarding, selectWorkspace, switchWorkspace } from '../programs/workspaces'
 import { AppConfig } from '../services/AppConfig'
 import { Auth } from '../services/Auth'
 import type { Background } from '../services/Background'
@@ -80,7 +80,12 @@ const operations: Readonly<Record<string, Operation>> = {
   // Workspaces
   createWorkspace: op({ name: Name }, (input, { caller }) => createWorkspace(caller, { name: input.name.trim() })),
   listMyWorkspaces: op({}, (_, { caller }) => listMyWorkspaces(caller)),
-  currentWorkspace: op({}, (_, { caller, activeWorkspaceId }) => selectWorkspace(caller, activeWorkspaceId).pipe(Effect.map((workspaceId) => ({ workspaceId })))),
+  currentWorkspace: op({}, (_, { caller, activeWorkspaceId }) =>
+    Effect.gen(function* () {
+      const workspaceId = yield* selectWorkspace(caller, activeWorkspaceId)
+      return { workspaceId, needsOnboarding: yield* needsOnboarding(caller) }
+    })),
+  completeOnboarding: op({}, (_, { caller }) => completeOnboarding(caller)),
   switchWorkspace: {
     run: (body, { caller, request }) =>
       decode(Schema.Struct(Workspace), body).pipe(

@@ -69,6 +69,8 @@ describe('personal workspace backfill', () => {
     expect(after.files.map((f) => [f['id'], f['workspaceId'], f['projectId']])).toEqual([
       ['f1', 'personal-uA', null], ['f2', 'personal-uA', null], ['f3', 'personal-ub', null], ['f4', 'personal-UB', null],
     ])
+    // D20: backfilled (existing) users are stamped as done, so onboarding never shows for them.
+    expect(d1.sqlite.prepare('SELECT id, onboardingCompletedAt AS done, createdAt FROM organization ORDER BY id').all().every((o) => o['done'] === o['createdAt'] && o['done'] !== null)).toBe(true)
     // Everything but workspaceId is untouched: R2 keys, owners, status, trash, versions, legacy shares.
     const strip = (rows: ReadonlyArray<Record<string, unknown>>) => rows.map(({ workspaceId: _, ...rest }) => rest)
     expect(strip(after.files)).toEqual(strip(before.files))

@@ -10,6 +10,7 @@ export type Scenario =
   | 'commenter'
   | 'guest'
   | 'personal'
+  | 'newuser'
   | 'empty-team'
   | 'anon'
   | 'invite-ok'
@@ -44,8 +45,8 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
   const company: WorkspaceSummary = { id: 'ws-dm', name: 'Demir Makina', kind: 'company', role: myRole }
   const guestOf: WorkspaceSummary = { id: 'ws-kaya', name: 'Kaya Hidrolik', kind: 'company', role: 'guest' }
   let workspaces: WorkspaceSummary[] =
-    name === 'personal' || name === 'empty-team' || inviteScenario ? [personal] : name === 'guest' ? [personal, guestOf] : [personal, company, guestOf]
-  let active = name === 'personal' || name === 'empty-team' || inviteScenario ? personal.id : name === 'guest' ? guestOf.id : company.id
+    name === 'personal' || name === 'newuser' || name === 'empty-team' || inviteScenario ? [personal] : name === 'guest' ? [personal, guestOf] : [personal, company, guestOf]
+  let active = name === 'personal' || name === 'newuser' || name === 'empty-team' || inviteScenario ? personal.id : name === 'guest' ? guestOf.id : company.id
   let members = people()
   if (name === 'guest') members = [{ userId: 'u-me', name: user.name, email: user.email, role: 'guest', joinedAt: now() - 4 * day }]
   if (myRole !== 'admin') members = members.map((m) => (m.userId === 'u-me' && name !== 'guest' ? { ...m, role: myRole } : m))
@@ -55,13 +56,17 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
     { id: 'inv-2', email: 'kerem@demirmakina.com', role: 'commenter', expiresAt: now() + 2 * day },
   ]
   let n = 0
+  let needsOnboarding = name === 'newuser'
 
   const app = (operation: string, body: Record<string, unknown>): Response => {
     switch (operation) {
       case 'listMyWorkspaces':
         return json(200, { ok: true, data: workspaces })
       case 'currentWorkspace':
-        return json(200, { ok: true, data: { workspaceId: active } })
+        return json(200, { ok: true, data: { workspaceId: active, needsOnboarding } })
+      case 'completeOnboarding':
+        needsOnboarding = false
+        return json(200, { ok: true, data: { completed: true } })
       case 'switchWorkspace': {
         const id = String(body['workspaceId'])
         if (!workspaces.some((w) => w.id === id)) return fail(404, 'WorkspaceUnavailable')

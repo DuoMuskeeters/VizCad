@@ -28,8 +28,8 @@ const screens = [
       const vw = page.viewportSize().width;
       await page.locator(vw < 900 ? 'header button[aria-haspopup="menu"]' : 'aside button[aria-haspopup="menu"]').first().click();
       await page.waitForTimeout(350); } },
-  { name: 'onboarding-kind', url: '/onboarding?fixture=personal', onboarding: true },
-  { name: 'onboarding-company', url: '/onboarding?fixture=personal', onboarding: true, setup: async (page) => {
+  { name: 'onboarding-kind', url: '/onboarding?fixture=newuser' },
+  { name: 'onboarding-company', url: '/onboarding?fixture=newuser', setup: async (page) => {
       await page.getByRole('radio', { name: /For my company|Firmam için/ }).click();
       await page.getByRole('button', { name: /Continue|Devam/ }).click(); await page.waitForTimeout(300); } },
   { name: 'invite-anonymous', url: '/invite/abc?fixture=anon' },
@@ -53,7 +53,6 @@ const viewports = [
     for (const vp of viewports) {
       for (const theme of ['light', 'dark']) {
         const context = await browser.newContext({ ...vp.ctx, colorScheme: theme, locale: 'tr-TR' });
-        if (s.onboarding) await context.addInitScript(() => localStorage.setItem('vizcad_onboarding_pending', 'ayse@demirmakina.com'));
         const page = await context.newPage();
         await page.goto(`${baseUrl}${s.url}`, { waitUntil: 'networkidle' });
         await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
@@ -71,7 +70,6 @@ const viewports = [
   for (const s of screens) {
     if (only && !s.name.includes(only)) continue;
     const context = await browser.newContext({ viewport: { width: 320, height: 640 }, locale: 'tr-TR' });
-    if (s.onboarding) await context.addInitScript(() => localStorage.setItem('vizcad_onboarding_pending', 'ayse@demirmakina.com'));
     const page = await context.newPage();
     await page.goto(`${baseUrl}${s.url}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(900);

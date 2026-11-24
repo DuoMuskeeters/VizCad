@@ -11,7 +11,6 @@ import { useToast } from '#/components/ui/Toast'
 import { useI18n, type I18nKey } from '#/i18n'
 import { type AppFailure, type InvitationDetails } from '../api'
 import { failureKey } from '../errors'
-import { clearOnboardingPending } from '../nav'
 import { roleHintKey, roleKey } from '../roles'
 import { SessionProvider, useSession } from '../session'
 
@@ -197,7 +196,8 @@ const Body = ({ invite }: { invite: InviteKind }) => {
     }
     // Land in the workspace that just opened; a failed switch still leaves the person in the app.
     await call('switchWorkspace', { workspaceId: result.data.workspaceId })
-    clearOnboardingPending()
+    // Someone who joins by invitation has no use for the sign-up onboarding.
+    await call('completeOnboarding')
     toast({ title: t('app.invite.joined'), tone: 'success' })
     void navigate({ to: '/app' })
   }

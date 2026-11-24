@@ -148,9 +148,18 @@ describe('POST /api/app/<operation>', () => {
       assert.isTrue(statuses.includes(429))
     })))
 
+  it.effect('currentWorkspace tells a new sign-up it needs onboarding; completeOnboarding clears it', () =>
+    run(Effect.gen(function* () {
+      const first = yield* call(post('currentWorkspace', {}, { cookie: 'session=tok-new' }))
+      assert.strictEqual((first.body.data as { needsOnboarding: boolean }).needsOnboarding, true)
+      assert.strictEqual((yield* call(post('completeOnboarding', {}, { cookie: 'session=tok-new' }))).status, 200)
+      const after = yield* call(post('currentWorkspace', {}, { cookie: 'session=tok-new' }))
+      assert.strictEqual((after.body.data as { needsOnboarding: boolean }).needsOnboarding, false)
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
-      'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'changeRole', 'createProject', 'createWorkspace', 'currentWorkspace',
+      'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'changeRole', 'completeOnboarding', 'createProject', 'createWorkspace', 'currentWorkspace',
       'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
       'removeMember', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
       'switchWorkspace', 'transferOwnership', 'updateProject',
