@@ -11,6 +11,7 @@
 # script refuses any SITE that is not the staging Worker and only names the staging bucket and database. It creates its own
 # small files (names start with "verify4b-") and purges them again.
 set -euo pipefail
+set +B  # no brace expansion: JSON bodies like {"a",...} are built inline
 
 : "${SITE:?set SITE to the staging Worker URL}"
 : "${COOKIE:?set COOKIE to a signed-in session Cookie header}"

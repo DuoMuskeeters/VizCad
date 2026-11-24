@@ -54,8 +54,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 ### Dalga 3: çekirdek (dosyalar ve paylaşım)
 - [x] Faz 4 teknik tasarımı `docs/09-files-sharing-design.md` (PR #12), açık sorular D21'de cevaplandı; staging R2 token, CORS, link anahtarları hazır
 - [x] 4a: şema 0014, Storage, yükleme (PR #14; Opus incelemesi, staging'de gerçek R2 kabulü 20/20)
-- [x] 4b liste/çöp/sürüm/yıldız/taşıma (PR #15; Opus incelemesi, 8 bulgu düzeltildi; legacy çöpü cutover'dan sayılır: `TRASH_RETENTION_FLOOR`). Staging kabulü CPU sorunu yüzünden bekliyor
-- [ ] (sürüyor) Worker CPU hafifletme: Free plan 10 ms sınırı (kullanıcı Paid istemiyor); isolate başına kurulum, better-auth'suz oturum okuma, kod bölme, uygulama sayfalarında SSR kapalı
+- [x] 4b liste/çöp/sürüm/yıldız/taşıma (PR #15; Opus incelemesi, 8 bulgu düzeltildi; legacy çöpü cutover'dan sayılır: `TRASH_RETENTION_FLOOR`). staging kabulü 39/39
+- [x] Worker CPU hafifletme (PR #16; Opus incelemesi, oturum çerezi yenileme düzeltildi): Free plan 10 ms sınırı (kullanıcı Paid istemiyor); isolate başına kurulum, better-auth'suz oturum okuma, kod bölme, uygulama sayfalarında SSR kapalı
 - [ ] Sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
 - [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*

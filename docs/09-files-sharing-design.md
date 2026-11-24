@@ -462,3 +462,7 @@ Liste, ayrıntı, ad değiştirme, yıldız, çöp kutusu, sürümler ve taşım
 - **Taşıma önizlemesi:** `previewMoveFile` sayıları, workspace’ten kaldırılmış kullanıcıların grant’lerini saymaz (zararsız: bu grant’ler zaten etkisizdir).
 - **`emptyTrash` çakışma:** `WriteConflict` alan dosya `purged` sayısına girmez ve atlanır; `more` yalnız çağrı en az bir dosya sildiyse ve grup doluysa `true` (sürekli çakışan dosya istemciyi sonsuz döngüye sokmaz).
 - **Ad kuralları:** U+200E/200F, U+202A–202E ve U+2066–2069 (yön değiştirici karakterler) yükleme ve yeniden adlandırmada reddedilir.
+
+### Staging kabul sonucu · Faz 4b (25 Kasım 2026)
+
+`scripts/staging-verify-files.sh` staging'de **39/39** geçti: liste ve projeksiyonlar (anahtar/kullanıcı kimliği sızmıyor), ad değiştirme (uzantı sabit, `/` reddi), yıldız, sürüm listesi ve geri yükleme, çöpe atma/listeleme/geri alma (`purgeAt` = 30 gün), kısıtlı projeye taşıma (eski önizleme 409), kalıcı silme ve R2 nesnelerinin kuyrukla silinmesi. İlk denemelerdeki 400'ler uygulamadan değil betikten geliyordu (bash küme genişletmesi JSON gövdesini bölüyordu; `set +B` ile düzeltildi). Bu denemelerden önce staging Free plan CPU sınırına takılıyordu; PR #16 sonrası ölçüm (ısınmış): sayfalar 4–8 ms, `get-session` 6 ms, `listFiles` ~14 ms, soğuk isolate ilk istekleri 30–70 ms.
