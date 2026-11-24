@@ -141,7 +141,8 @@ export const projectStill = (projectId: string, accessMode: string) =>
 
 export interface ActivityInput {
   readonly workspaceId: string
-  readonly caller: Caller
+  /** `null` for work the system does on its own (cron): the row is written with `actorKind = 'system'`. */
+  readonly caller: Caller | null
   readonly targetKind: 'workspace' | 'member' | 'invitation' | 'guest_invitation' | 'project' | 'file'
   readonly targetId: string
   readonly action: string
@@ -156,14 +157,14 @@ export const activity = (d: Database, input: ActivityInput, id: string) =>
   d.insert(schema.accessLog).values({
     id,
     workspaceId: input.workspaceId,
-    actorKind: 'user',
-    actorUserId: input.caller.userId,
+    actorKind: input.caller === null ? 'system' : 'user',
+    actorUserId: input.caller?.userId ?? null,
     linkId: null,
     targetKind: input.targetKind,
     targetId: input.targetId,
     action: input.action,
     outcome: 'allowed',
-    requestId: input.caller.requestId,
+    requestId: input.caller?.requestId ?? 'cron',
     createdAt: toDate(input.at),
     reason: null,
   })
