@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'comment'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -53,6 +53,8 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   // Upload requests (`requestUpload`): per user and per IP. A drag-and-drop of a few dozen files must fit; the open-session
   // count and the storage reservation (Entitlements) bound what is actually held.
   upload: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
+  // New comments (`addComment`): per user and per IP; generous for a review session, tight enough to stop a flood.
+  comment: { target: { limit: 60, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
 }
 
 /**

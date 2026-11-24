@@ -76,3 +76,78 @@ export interface VersionEntry {
   readonly createdAt: number
   readonly thumbnailAvailable: boolean
 }
+
+/** One comment of a file (docs/09 §6). No e-mail and no user id: the author is a display name only. */
+export interface CommentView {
+  readonly id: string
+  /** The top-level comment this replies to (one level only); null for a top-level comment. */
+  readonly parentId: string | null
+  /** `null` when the author's account is gone. */
+  readonly author: PersonName | null
+  /** Empty for a deleted comment (a tombstone: the UI shows "Yorum silindi"). */
+  readonly content: string
+  readonly deleted: boolean
+  /** Unix seconds. */
+  readonly createdAt: number
+  /** The file's version number when the comment was written; null for legacy comments. */
+  readonly versionNumber: number | null
+  /** The caller wrote it. */
+  readonly mine: boolean
+  /** The caller may delete it: its author, or an owner or admin. */
+  readonly canDelete: boolean
+}
+
+export interface CommentPage {
+  readonly items: ReadonlyArray<CommentView>
+  readonly nextCursor: string | null
+}
+
+/** One event of a file's activity tab (docs/09 §7.4). Names are resolved at read time; nothing personal is stored in the log. */
+export interface FileActivityItem {
+  readonly id: string
+  /** A fixed event name such as `file.renamed` or `comment.created`. */
+  readonly action: string
+  readonly outcome: 'allowed' | 'denied'
+  /** `link` actors carry no name (anyone with the link); `system` is the cron. */
+  readonly actor: { readonly kind: 'user' | 'link' | 'system'; readonly displayName: string | null }
+  readonly createdAt: number
+}
+
+export interface FileActivityPage {
+  readonly items: ReadonlyArray<FileActivityItem>
+  readonly nextCursor: string | null
+}
+
+/** A file somebody shared with the caller (a live file grant). Deliberately without project or version details: a guest sees it too. */
+export interface SharedWithMeItem {
+  readonly id: string
+  readonly name: string
+  readonly extension: string
+  readonly size: number
+  readonly updatedAt: number
+  readonly thumbnailAvailable: boolean
+  readonly level: 'view' | 'comment' | 'download' | 'edit'
+  /** Unix seconds; null for a grant that does not expire. */
+  readonly expiresAt: number | null
+  readonly sharedAt: number
+  readonly sharedBy: PersonName | null
+}
+
+/** A file the caller shared: how many live grants it gave and whether its own link is active. */
+export interface SharedByMeItem {
+  readonly id: string
+  readonly name: string
+  readonly extension: string
+  readonly size: number
+  readonly updatedAt: number
+  readonly thumbnailAvailable: boolean
+  readonly grants: number
+  readonly linkActive: boolean
+  /** Unix seconds of the caller's latest share of this file. */
+  readonly sharedAt: number
+}
+
+export interface SharedPage<T> {
+  readonly items: ReadonlyArray<T>
+  readonly nextCursor: string | null
+}

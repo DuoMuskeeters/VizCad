@@ -153,6 +153,9 @@ export class VersionTypeMismatch extends Data.TaggedError('VersionTypeMismatch')
 /** The version does not exist on this file (or belongs to another file). */
 export class VersionUnavailable extends Data.TaggedError('VersionUnavailable')<{}> {}
 
+/** The comment does not exist on this file, is deleted, or is not visible to the caller (one answer for all). */
+export class CommentUnavailable extends Data.TaggedError('CommentUnavailable')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -196,3 +199,4 @@ export type AppError =
   | UploadMismatch
   | VersionTypeMismatch
   | VersionUnavailable
+  | CommentUnavailable

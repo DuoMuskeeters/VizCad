@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
 import { AppConfig } from '../services/AppConfig'
+import { pruneAccessLog } from './accessLogCleanup'
 import { drainStorageDeletions, expireUploadSessions, pruneSecurityLog } from './storageCleanup'
 import { purgeExpiredTrash } from './trash'
 
@@ -17,7 +18,7 @@ const job = <A, E extends { readonly _tag: string }, R>(name: string, run: Effec
 /**
  * The scheduled work for one cron expression (docs/09 §9.2). Hourly: expire abandoned upload sessions, then drain the R2
  * deletion queue. Daily: purge trash past its retention (D21: 30 days; this runs as the system and queues
- * the R2 keys for the next hourly drain), then prune the security log (D21, 90 days). Access-log pruning arrives with 4d.
+ * the R2 keys for the next hourly drain), then prune the access log (per workspace `Entitlements.auditRetentionDays`, 365 by default) and the security log (D21, 90 days).
  */
 export const runCron = (cron: string) =>
   Effect.gen(function* () {
@@ -27,6 +28,7 @@ export const runCron = (cron: string) =>
     } else if (cron === DAILY) {
       const { securityLogRetentionDays } = yield* AppConfig
       yield* job('purgeExpiredTrash', purgeExpiredTrash())
+      yield* job('pruneAccessLog', pruneAccessLog())
       yield* job('pruneSecurityLog', pruneSecurityLog(securityLogRetentionDays))
     } else {
       yield* Effect.logWarning('unknown cron expression').pipe(Effect.annotateLogs({ cron }))
