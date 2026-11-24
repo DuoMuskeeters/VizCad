@@ -84,6 +84,10 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Misafirler birbirini görmez; misafire iç ekibin ve kendi yorumları görünür.
 - Link token'ı özetle aranır, ayrıca şifreli saklanır; yetkili kişi linki sonradan kopyalayabilir.
 
+**D20. Ekip görünürlüğü ve eski kullanıcıların ilk girişi (24 Kasım 2026).**
+- Üye ve yorumcu, workspace'in iç ekibini ve misafirlerini (ad, e-posta) görür; misafir yalnız kendini görür.
+- Mevcut kullanıcılar geçişten sonra onboarding görmez, doğrudan kişisel workspace'lerindeki dosyalarına gider; üstte bir kez "ekibini davet et / firma oluştur" önerisi çıkar. Onboarding yalnız yeni kayıtlar için.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
