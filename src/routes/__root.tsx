@@ -3,6 +3,7 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-r
 import { FileQuestion } from 'lucide-react'
 import appCss from '../styles.css?url'
 import { UiProvider } from '#/components/ui/UiProvider'
+import { I18nProvider } from '#/i18n'
 import { Button } from '#/components/ui/Button'
 import { EmptyState } from '#/components/ui/EmptyState'
 
@@ -32,9 +33,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <UiProvider>
-      <Outlet />
-    </UiProvider>
+    <I18nProvider>
+      <UiProvider>
+        <Outlet />
+      </UiProvider>
+    </I18nProvider>
   )
 }
 
