@@ -7,13 +7,16 @@ Tarih: 23 Kasım 2026. Bu dosya "şu an ne oluyor, sırada ne var, kim yapıyor"
 - **Orkestratör** (bu thread, Claude Opus): plan, tasarım kararları, işleri dağıtma, inceleme, birleştirme, staging'e yayın. Kullanıcıya yalnızca karar gerektiğinde soru gelir.
 - **Alt ajanlar** işin ağırlığına göre seçilir:
 
+Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun yapamadığını **Codex**, **Claude** yalnızca kritik işlerde. Bir sağlayıcının haftalık kullanımı %50'ye gelince ona iş verilmez; Claude ve Codex ikisi de %50'deyse işler durur ve kullanıcıya rapor verilir.
+
 | İş türü | Model | Efor |
 |---|---|---|
-| Mimari, güvenlik kritik kod (`permissions.ts`, migration, auth) incelemesi | Claude Opus 5.5 | xhigh |
-| Görsel tasarım, en görünür ekranlar (görüntüleyici, landing) | Claude Opus 5.5 | high |
-| Kalıbı belli ekranlar ve UI bileşenleri | Claude Sonnet 5.5 | high |
-| Effect programları, servisler, testler (kalıbı belli backend) | Codex GPT-6.2 Sol | high |
-| Mekanik işler (ekran görüntüsü, i18n anahtar çıkarma, taşıma) | Claude Haiku 5.5 | medium |
+| Güvenlik kritik inceleme (auth, migration, cutover öncesi son kontrol) | Claude Opus 5.5 | xhigh, yalnız kapılarda |
+| En görünür ekranların görsel tasarımı (görüntüleyici, landing) | Claude Opus 5.5 | high |
+| Kalıbı belli ekranlar, UI bileşenleri | Antigravity Gemini; olmazsa Codex GPT-6.2 Sol | high |
+| Effect programları, servisler, testler | Codex GPT-6.2 Sol | high |
+| Ara incelemeler (yazan model ≠ inceleyen) | Antigravity Gemini ya da Codex GPT-6.2 Astra | high |
+| Mekanik işler (ekran görüntüsü, i18n anahtarı, taşıma) | Antigravity Gemini Flash ya da Codex düşük efor | low–medium |
 
 - **Branch'ler:** `main` = canlı site (dokunulmaz, Faz 9'a kadar). `rewrite` = yeniden yazımın ana branch'i; dokümanlar ve tasarım burada. Her faz kendi branch'inde ve worktree'sinde (`rewrite-faz1`, `rewrite-faz3` …), bitince incelenip `rewrite`'a birleşir.
 - **Hosting:** `rewrite` branch'i ayrı bir Worker'a (`vizcad-rewrite`, workers.dev adresi) ve **ayrı staging kaynaklarına** (D1 `vizcad-staging`, R2 `vizcad-files-staging`) yayınlanır. Production D1/R2'ye dokunulmaz; staging'de sahte veri.
