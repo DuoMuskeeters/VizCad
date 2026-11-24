@@ -1,4 +1,5 @@
 import { Context, Layer, Option, Redacted } from 'effect'
+import type { RateLimitRule } from './rateLimitWindow'
 
 /** S3-API access to R2, used only to presign URLs (browser uploads/downloads go straight to R2). */
 export interface R2Presign {
@@ -18,11 +19,7 @@ export interface CachePurge {
 export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
-/** At most `limit` hits per fixed window of `windowSeconds`. */
-export interface RateLimitRule {
-  readonly limit: number
-  readonly windowSeconds: number
-}
+export type { RateLimitRule }
 
 export interface RateLimitRules {
   /** Counter keyed by the normalized target (email address, link id, ...). */
