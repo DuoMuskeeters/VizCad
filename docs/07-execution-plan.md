@@ -22,13 +22,13 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - **Hosting:** `rewrite` branch'i ayrı bir Worker'a (`vizcad-rewrite`, workers.dev adresi) ve **ayrı staging kaynaklarına** (D1 `vizcad-staging`, R2 `vizcad-files-staging`) yayınlanır. Production D1/R2'ye dokunulmaz; staging'de sahte veri.
 - **Kalite kapısı:** her birleştirmeden önce `pnpm check` + `pnpm build` yeşil, yeni her program için test, ekranlarda 390/1280 px ve açık/koyu kontrol.
 
-## Şu an (23 Kasım 2026)
+## Şu an (24 Kasım 2026)
 
 | İz | Durum |
 |---|---|
-| Kararlar | D1–D17 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
+| Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 (iskelet + Effect servisleri) `rewrite-faz1` branch'inde ayrı thread'de sürüyor |
+| Geliştirme | Faz 1 ve Faz 3a `rewrite`'ta. UI kit sürüyor (Antigravity Gemini). Sırada Faz 3b |
 | Hosting | Staging yayında (Faz 1) |
 
 ## Dalgalar
@@ -43,7 +43,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 
 ### Dalga 2: tasarım sistemi ve kimlik
 - [ ] (sürüyor) Bileşen seti + `/dev/ui` (düğme, alan, menü, pencere, tablo, sekme, rozet, avatar, boş durum); Radix ilkelleri + token'lar. *Sonnet high*
-- [ ] (sürüyor: 3a şema + migration güvenliği + `permissions.ts`; sonra 3b) Faz 3 backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
+- [x] Faz 3a: şema (0012), migration denetimi (izin listesi), `permissions.ts`; Opus incelemesi, 5 bulgu düzeltildi, `rewrite`'a birleşti (PR #6), staging D1'e uygulandı
+- [ ] Faz 3b backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
 - [ ] Mevcut kullanıcılar için kişisel workspace migration'ı; staging'de sahte veriyle test. Production kopyasında prova Dalga 6'da.
 - [ ] Faz 3 UI: giriş, kayıt, doğrulama, onboarding, ekip, davet kabulü, workspace değiştirici. *Sonnet high*
 
