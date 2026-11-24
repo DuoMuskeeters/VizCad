@@ -6,6 +6,7 @@ import {
   type PermissionActor,
   type PermissionInput,
   type PermissionLink,
+  type ProjectGrant,
 } from './permissions'
 
 const now = 100
@@ -198,11 +199,11 @@ describe('scope, role and lifecycle boundaries', () => {
     }, 'INSUFFICIENT_LEVEL'],
     ['a creator loses project access management after removal', {
       ...cellInput('creator', 'restricted', 'edit', null),
-      actor: { kind: 'removed' }, action: { kind: 'grantProjectAccess', recipient: targetGuest, level: 'comment' },
+      actor: { kind: 'removed' }, action: { kind: 'grantProjectAccess', recipient: targetGuest, level: 'comment', expiresAt: now + 1 },
     }, 'NO_MEMBERSHIP'],
     ['a creator loses project access management after downgrade to commenter', {
       ...cellInput('creator', 'restricted', 'edit', null),
-      actor: asMember('commenter'), action: { kind: 'grantProjectAccess', recipient: targetGuest, level: 'comment' },
+      actor: asMember('commenter'), action: { kind: 'grantProjectAccess', recipient: targetGuest, level: 'comment', expiresAt: now + 1 },
     }, 'PROJECT_MANAGER_REQUIRED'],
     ['a creator who rejoins without the creator marker cannot share', {
       ...scoped, action: { kind: 'shareFile' },
@@ -471,15 +472,16 @@ describe('management targets and guest comment visibility', () => {
 })
 
 describe('moveFile source and target permissions', () => {
-  const restrictedMode = { ...project, accessMode: 'restricted' } as const
-  const teamMode = { ...project, accessMode: 'team' } as const
-  const otherRestricted = { ...restrictedMode, id: 'other', creatorManagerUserId: 'u' } as const
-  const otherGrant = { ...projectGrant, projectId: 'other' } as const
-  const creatorMode = { ...restrictedMode, creatorManagerUserId: 'u' } as const
+  type Destination = NonNullable<Extract<PermissionAction, { kind: 'moveFile' }>['target']['project']>
+  const restrictedMode: Destination = { ...project, accessMode: 'restricted' }
+  const teamMode: Destination = { ...project, accessMode: 'team' }
+  const otherRestricted: Destination = { ...restrictedMode, id: 'other', creatorManagerUserId: 'u' }
+  const otherGrant: ProjectGrant = { ...projectGrant, projectId: 'other' }
+  const creatorMode: Destination = { ...restrictedMode, creatorManagerUserId: 'u' }
   const moveTo = (
-    target: { workspaceId?: string; project: typeof teamMode | typeof restrictedMode | null; projectGrant?: typeof projectGrant },
+    target: { workspaceId?: string; project: Destination | null; projectGrant?: ProjectGrant },
   ): PermissionAction => ({ kind: 'moveFile', target: { workspaceId: 'a', ...target } })
-  const ownStandalone = { actor: asMember('member'), file, fileGrant } as const
+  const ownStandalone: Partial<PermissionInput> = { actor: asMember('member'), file, fileGrant }
   const ownTeamFile = cellInput('member', 'team', null, 'edit')
 
   it.each([
