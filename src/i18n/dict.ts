@@ -49,6 +49,7 @@ export const en = {
 
   'auth.verifyEmail.title': 'Check your email',
   'auth.verifyEmail.lead': 'We sent a verification link to {email}. Tap the link to activate your account; you can close this page.',
+  'auth.verifyEmail.leadNoEmail': 'We sent a verification link to your email address. Tap the link to activate your account; you can close this page.',
   'auth.verifyEmail.resendBtn': 'Resend',
   'auth.verifyEmail.resendCountdown': 'Resend ({time})',
   'auth.verifyEmail.resending': 'Sending...',
@@ -162,6 +163,7 @@ export const tr: Record<I18nKey, string> = {
 
   'auth.verifyEmail.title': 'E-postanı kontrol et',
   'auth.verifyEmail.lead': '{email} adresine bir doğrulama linki gönderdik. Linke dokununca hesabın açılır; bu sayfayı kapatabilirsin.',
+  'auth.verifyEmail.leadNoEmail': 'E-posta adresine bir doğrulama linki gönderdik. Linke dokununca hesabın açılır; bu sayfayı kapatabilirsin.',
   'auth.verifyEmail.resendBtn': 'Yeniden gönder',
   'auth.verifyEmail.resendCountdown': 'Yeniden gönder ({time})',
   'auth.verifyEmail.resending': 'Gönderiliyor...',

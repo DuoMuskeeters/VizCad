@@ -495,7 +495,7 @@ export const CheckEmail = ({
       </Ring>
       <AuthHeading
         title={t('auth.verifyEmail.title')}
-        lead={email ? t('auth.verifyEmail.lead', { email }).split(email).flatMap((part, i, all) => (i < all.length - 1 ? [part, <b key={i} className="break-all font-semibold text-text">{email}</b>] : [part])) : null}
+        lead={email ? t('auth.verifyEmail.lead', { email }).split(email).flatMap((part, i, all) => (i < all.length - 1 ? [part, <b key={i} className="break-all font-semibold text-text">{email}</b>] : [part])) : t('auth.verifyEmail.leadNoEmail')}
       />
       {email ? (
         <Button
