@@ -8,7 +8,7 @@ import { activity, type Caller, liveGuestScope, newId, nowSeconds, runBatch, toD
 
 /** Deterministic personal workspace ids: the backfill script (scripts/backfillPersonalWorkspaces.ts) uses the same scheme. */
 export const personalWorkspaceId = (userId: string) => `personal-${userId}`
-export const personalSlug = (userId: string) => `personal-${userId.toLowerCase()}`
+export const personalSlug = (userId: string) => `personal-${userId}`
 export const personalOwnerMemberId = (userId: string) => `personal-owner-${userId}`
 
 /** URL slug from a display name plus a random suffix; never in the `personal-` namespace. */
