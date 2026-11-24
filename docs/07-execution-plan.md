@@ -49,9 +49,11 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [ ] Faz 3b (kalan) backend: better-auth `Auth` servisi, `organization` plugin (roller: owner, admin, member, commenter, guest), projeler ve proje erişimi tabloları, davetler, `permissions.ts` (D17'nin dört düzeyi), testler. *Codex high, Opus xhigh inceleme*
 - [ ] Mevcut kullanıcılar için kişisel workspace backfill'i: script hazır ve testli (`pnpm db:backfill:staging`), henüz çalıştırılmadı; ön koşul legacy admin panelinde kullanıcı silmenin kapatılması. Production kopyasında prova Dalga 6'da.
 - [x] Faz 3 UI: giriş/kayıt/doğrulama (PR #10), uygulama çerçevesi, onboarding, ekip, davet kabulü, workspace değiştirici (PR #11); staging'de
-- [ ] Faz 3 artıkları: davet ayrıntısı ucu (`getInvitation`), onboarding işaretinin sunucuda tutulması (`onboardingCompletedAt`), koltuk limitinin istemciye açılması, misafiri üyeye yükseltme arayüzü, üye kaldırmada etkilenenler önizlemesi
+- [x] Faz 3 artıkları (PR #13): davet ayrıntısı ucu (`getInvitation`), onboarding işaretinin sunucuda tutulması (`onboardingCompletedAt`), koltuk limitinin istemciye açılması, misafiri üyeye yükseltme arayüzü, üye kaldırmada etkilenenler önizlemesi
 
 ### Dalga 3: çekirdek (dosyalar ve paylaşım)
+- [x] Faz 4 teknik tasarımı `docs/09-files-sharing-design.md` (PR #12), açık sorular D21'de cevaplandı; staging R2 token, CORS, link anahtarları hazır
+- [ ] (sürüyor, Sonnet high) 4a: şema 0014, Storage, yükleme; sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
 - [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*
 - [ ] UI: Tüm dosyalar, Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, paylaşılan sayfa. *Sonnet high*
