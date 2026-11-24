@@ -35,6 +35,14 @@ export const STATUS: Record<AppError['_tag'], number> = {
   WorkspaceLimitReached: 409,
   AlreadyHasAccess: 409,
   WriteConflict: 409,
+  UnsupportedFileType: 415,
+  FileTooLarge: 413,
+  StorageQuotaExceeded: 409,
+  UploadLimitReached: 429,
+  UploadUnavailable: 404,
+  UploadIncomplete: 409,
+  UploadMismatch: 422,
+  VersionTypeMismatch: 422,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */

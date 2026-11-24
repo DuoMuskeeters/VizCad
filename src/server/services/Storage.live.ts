@@ -2,7 +2,7 @@ import { Effect, Layer, Option } from 'effect'
 import { ConfigError, StorageError } from '../errors'
 import { AppConfig } from './AppConfig'
 import { attachmentDisposition, presign } from './r2Presign'
-import { type ObjectInfo, Storage } from './Storage'
+import { type ObjectInfo, type ObjectRange, Storage } from './Storage'
 
 const info = (o: R2Object): ObjectInfo => ({
   key: o.key,
@@ -11,6 +11,8 @@ const info = (o: R2Object): ObjectInfo => ({
   contentType: o.httpMetadata?.contentType ?? null,
   uploadedAt: o.uploaded,
 })
+
+const r2Range = (range: ObjectRange): R2Range => ('suffix' in range ? { suffix: range.suffix } : { offset: range.offset, length: range.length })
 
 /** Storage backed by the R2 binding (`R2_FILES_BUCKET`); presigned URLs use the S3 API credentials in AppConfig. */
 export const layer = (bucket: R2Bucket) =>
@@ -26,8 +28,12 @@ export const layer = (bucket: R2Bucket) =>
 
       return Storage.of({
         head: (key) => r2('head', key, () => bucket.head(key)).pipe(Effect.map((o) => Option.fromNullishOr(o).pipe(Option.map(info)))),
-        get: (key) =>
-          r2('get', key, () => bucket.get(key)).pipe(
+        get: (key, options) =>
+          r2('get', key, () => (options?.range ? bucket.get(key, { range: r2Range(options.range) }) : bucket.get(key))).pipe(
+            Effect.map((o) => Option.fromNullishOr(o).pipe(Option.map((body) => ({ ...info(body), body: body.body })))),
+          ),
+        getRange: (key, range) =>
+          r2('get', key, () => bucket.get(key, { range: r2Range(range) })).pipe(
             Effect.map((o) => Option.fromNullishOr(o).pipe(Option.map((body) => ({ ...info(body), body: body.body })))),
           ),
         put: (key, body, options) =>
@@ -41,7 +47,12 @@ export const layer = (bucket: R2Bucket) =>
               method: 'PUT',
               key,
               expiresInSeconds: options.expiresInSeconds,
-              ...(options.contentType ? { headers: { 'content-type': options.contentType } } : {}),
+              // Every header here is part of the signature: the browser must send exactly these (docs/09 §2.4).
+              headers: {
+                'content-length': String(options.contentLength),
+                'if-none-match': options.ifNoneMatch,
+                ...(options.contentType ? { 'content-type': options.contentType } : {}),
+              },
             }),
           ),
         presignDownload: (key, options) =>

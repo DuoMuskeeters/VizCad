@@ -34,6 +34,18 @@ export const toDate = (seconds: number) => new Date(seconds * 1000)
 export const toSeconds = (date: Date) => Math.floor(date.getTime() / 1000)
 export const newId = Effect.sync(() => crypto.randomUUID())
 
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+
+/** A ULID (26 Crockford base32 characters: 48-bit millisecond time, 80 random bits). Sorts by creation time. */
+export const ulidAt = (millis: number) => {
+  let time = ''
+  for (let rest = Math.floor(millis), i = 0; i < 10; i++, rest = Math.floor(rest / 32)) time = CROCKFORD[rest % 32] + time
+  const random = crypto.getRandomValues(new Uint8Array(16))
+  return time + Array.from(random, (byte) => CROCKFORD[byte & 31]).join('')
+}
+
+export const newUlid = Clock.currentTimeMillis.pipe(Effect.map(ulidAt))
+
 export interface WorkspaceRow {
   readonly id: string
   readonly name: string

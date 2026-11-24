@@ -384,7 +384,7 @@ Orkestratör bunları `wrangler secret put R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS
 ```
 
   GET için CORS yok, çünkü teslim Worker’dan aynı origin ile yapılır. Prod CORS’u cutover adımıdır ve onay ister.
-- `wrangler.jsonc` üst düzeyine `triggers.crons` (`0 * * * *` yükleme oturumları ve silme kuyruğu, `30 3 * * *` çöp ve audit temizliği). `env.production` cron’u cutover’a kadar eklenmez.
+- `wrangler.jsonc` üst düzeyine `triggers.crons` (`0 * * * *` yükleme oturumları ve silme kuyruğu, `30 3 * * *` çöp ve audit temizliği). `env.production` içinde `"triggers": { "crons": [] }` ile boşaltılır (Wrangler `triggers`’ı env’lere miras verir); cutover’da doldurulur.
 - Bucket’ta `r2.dev` ve genel erişimin kapalı olduğunu doğrulamak (salt okunur komut).
 
 ## 10. Bölünme ve kabul ölçütleri
@@ -409,3 +409,28 @@ Her PR `rewrite`’a. Her birinde ortak kabul: `pnpm check` ve `pnpm build` yeş
 1. **Varsayılan plan değerleri:** workspace başına 5 GB depolama, dosya başına 100 MB, çöpte 30 gün, aktivite kaydı 365 gün, link sayısı sınırsız. Onay mı, değişiklik mi?
 2. **Yeni yüklemelerde küçük resim:** küçük resim üreteci Faz 5 pipeline’ında. O zamana kadar yeni dosyaların “yalnızca görüntüleme” linkinde görsel yerine dosya kartı görünür. Kabul mü, yoksa legacy’deki tarayıcı içi küçük resim üretimi 4e’ye mi taşınsın (vtk.js Faz 4’e girer)?
 3. **Legacy `activity_logs` kişisel verisi:** cutover’da `ipAddress` ve `userAgent` sütunları `NULL` yapılsın mı (KVKK/GDPR veri minimizasyonu, geri alınamaz), yoksa tablo olduğu gibi mi kalsın?
+
+## Uygulama notları · Faz 4a
+
+Şema, `Storage`, yükleme ve cron iskeleti uygulandı. Tasarımdan sapmalar ve eklenenler:
+
+- **`0014_files_sharing`:** §1.4 tablosunun tamamı. Legacy tablolara yalnız nullable `ADD COLUMN` ve benzersiz olmayan indeksler. Legacy tablolara trigger eklenmedi (§1.3 kural 2). `file_comments.authorScopeAtWrite` için `CHECK` SQL’de elle eklendi (Drizzle varolan tabloda sütun `CHECK`’i üretemez), FK’lerde `ON DELETE SET NULL` elle yazıldı. Test: legacy yazarın her satır şekli (yükleme, sürüm anlık görüntüsü, yinelenen sürüm numarası, yinelenen yıldız, çöp, yorum, paylaşım, silme) 0014 sonrası başarılı (`migration0014.test.ts`).
+- **`upload_sessions`:** tasarım sütunlarına ek olarak `fileId NOT NULL` (anahtar `…/f/{fileId}/…` istek anında lazım olduğundan yeni dosyanın kimliği oturumda üretilir; sürümde `targetFileId = fileId`). `fileId` ve `targetFileId` üzerinde FK yok (kalıcı silme oturumlara takılmasın); çalışma alanı, kullanıcı ve proje FK’leri `RESTRICT`. İptal edilen oturum `expired` olur (durum kümesi dört değerde kaldı), kuyruk nedeni `upload_canceled`.
+- **Silme işçisi emniyet ağı:** D1’de hâlâ başvurulan anahtar `files`, `file_versions` (anahtar ve küçük resim) ve **`pending`** oturumlarda aranır. §5.3 `completed` oturumu da sayıyordu; `completed` oturum zaten bir `files`/`file_versions` satırına karşılık gelir ve kalıcı silmeden sonra da kalan oturum satırı anahtarı sonsuza dek “başvurulan” yapardı. 4b `purgeFile` bu yüzden oturum satırlarına bağlı kalmaz. `blog/` önekli anahtarlara işçi hiç dokunmaz.
+- **Reddedilen nesne:** oturum `rejected` olur ve anahtar aynı D1 batch’inde kuyruğa girer; ardından hemen en iyi çaba ile silinir (`drainStorageDeletions({ keys })`), başarısızsa saatlik cron yeniden dener.
+- **Tamamlamada kota:** ön denetim aşılırsa oturum reddedilir ve nesne kuyruğa girer (`StorageQuotaExceeded`); aynı anda başka tamamlama yüzünden `batch_guard` düşerse oturum `completed` ise aynı dosya döner, `pending` ise `WriteConflict` (istemci yeniden `completeUpload` çağırır). Sürüm yarışında kaybeden çağrı `WriteConflict` alır, yeniden denemede sonraki numarayı alır (testli).
+- **Birimler:** 1 MB = 1024², 1 GB = 1024³ (legacy `storageQuotaGb` ile uyumlu). `Entitlements.live` kişisel workspace’te `max(plan, sahibin storageQuotaGb × GB)` hesabı için D1 okur.
+- **Yeni sürüm uzantısı:** `.stp` dosyasına `.step` sürümü `VersionTypeMismatch` (uzantı bire bir aynı olmalı, tasarım metni gibi).
+- **`Storage`:** `presignUpload` `contentLength` ve `ifNoneMatch: '*'` ister ve ikisini de imzalar (`content-length;content-type;host;if-none-match`, bağımsız SigV4 doğrulayıcısıyla test edildi). `get(key, { range })` ve `getRange`; `onlyIf` 4c’de. Memory layer’da `MemoryStorageControl.simulateBrowserPut` (boyut/başlık/süre → 403, var olan anahtar → 412) ve işlem sayacı. `Storage.live` yalnız binding kullanır, ağ çağrısı yoktur, bu yüzden enjekte edilecek `fetch` yok.
+- **Hız sınırı:** yalnız `upload` eklendi (kullanıcı başına 120/saat, IP başına 240/saat); diğer eylemler (`linkOpen` …) 4c/4d ile.
+- **Cron:** `scheduled` işleyicisi `src/server.ts`’te. Saatlik: oturum süresi doldurma ve silme kuyruğu. Günlük: `security_log` temizliği (90 gün, `AppConfig.securityLogRetentionDays`). Çöp ve `access_log` temizliği 4b/4d’de aynı dağıtıcıya eklenir. `triggers.crons` üst düzeyde; Wrangler miras verdiği için `env.production` boş listeyle geçersiz kılındı (`scripts/wranglerCrons.test.ts`).
+- **`SHARE_TOKEN_KEYS` biçimi (4c için):** `{"1":"<base64 32 bayt>"}` §4.1’deki `active` alanını taşımıyor. Öneri: `active` yoksa en yüksek sürüm aktif sayılır, varsa o kullanılır. 4a bu sırları okumaz.
+- **Staging gereksinimi:** presign için `R2_ACCOUNT_ID` (veya `R2_ENDPOINT`) de tanımlı olmalı; yoksa `requestUpload` `ConfigError` (500) verir.
+- **Gerçek R2 doğrulaması** (`scripts/staging-verify-uploads.sh`): sonuçlar staging’e yayınlandıktan sonra buraya yazılacak. Beklenen: imzalı `content-length` uyuşmazlığı 403, ikinci PUT 412; biri desteklenmezse §8.2’deki telafi (PUT süresi 5 dakika, teslimde boyut/ETag karşılaştırması).
+- **İleriye dönük notlar (4a incelemesi):**
+  - **4c teslimi:** nesne okunurken ETag (`onlyIf`) zorunlu; `scripts/staging-verify-uploads.sh` 4c’den önce gerçek R2’de çalıştırılmalı.
+  - **İmza denetimleri tür koklamasıdır**, içerik güvenliği sağlamaz. 4c’de teslim `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` ve `Content-Security-Policy: sandbox` ile yapılmalı.
+  - **`security_log`:** user agent insert öncesi 256 karaktere kısaltılmalı.
+  - **4b:** bir anahtara son başvuruyu düşüren her işlem (purge, sürüm silme, geri yükleme …) anahtarı aynı batch’te silme kuyruğuna yazmalı.
+  - **`upload_sessions`:** terminal durumdaki (`completed`, `expired`, `rejected`) oturumlar için budama işi gerekir; hesap ve proje silmede önce oturum satırları silinmeli (çalışma alanı, kullanıcı ve proje FK’leri `RESTRICT`).
+  - **İptal/red:** kuyruk satırı `notBefore = expiresAt + 5 dk` ile yazılır; anında silme en iyi çabadır, satır URL ölene kadar kalır ve işçi nesneyi son kez siler.

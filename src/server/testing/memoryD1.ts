@@ -150,8 +150,11 @@ export const applyMigrations = (db: DatabaseSync, range: { from?: number; to?: n
   }
 }
 
-export const openMemoryD1 = (options: { migrate?: boolean } = {}): MemoryD1 => {
+export const openMemoryD1 = (options: { migrate?: boolean; nowMillis?: () => number } = {}): MemoryD1 => {
   const sqlite = new DatabaseSync(':memory:')
+  // SQL `unixepoch()` follows the test clock instead of the wall clock (zero-argument form only).
+  const nowMillis = options.nowMillis
+  if (nowMillis !== undefined) sqlite.function('unixepoch', { varargs: true }, (...args) => (args.length === 0 ? Math.floor(nowMillis() / 1000) : null))
   sqlite.exec('PRAGMA foreign_keys = ON')
   if (options.migrate !== false) applyMigrations(sqlite)
 
