@@ -28,8 +28,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 |---|---|
 | Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Sırada: Faz 3 artıkları, sonra Faz 4 (dosyalar ve paylaşım) |
-| Hosting | Staging yayında (Faz 1) |
+| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Sırada: Faz 3 artıkları, sonra Faz 4 (dosyalar ve paylaşım). **Duraklatıldı** (24 Kasım): Claude %78, Codex %49, Antigravity kotası dolu |
+| Hosting | Staging yayında. Kullanıcı staging'de kayıt, doğrulama e-postası ve girişi denedi: çalışıyor (24 Kasım) |
 
 ## Dalgalar
 
