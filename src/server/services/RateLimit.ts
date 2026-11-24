@@ -9,6 +9,8 @@ export interface RateLimitHit {
   readonly target?: string | undefined
   /** Client IP (`cf-connecting-ip`). Omit when unknown. */
   readonly ip?: string | null | undefined
+  /** Replaces the configured target rule, for quotas that come from Entitlements (daily invitations). */
+  readonly targetRule?: RateLimitRule | undefined
 }
 
 /**
@@ -42,13 +44,13 @@ export const make = (counter: Counter) =>
   Effect.gen(function* () {
     const { rateLimits } = yield* AppConfig
     return RateLimit.of({
-      hit: ({ action, target, ip }) =>
+      hit: ({ action, target, ip, targetRule }) =>
         Effect.gen(function* () {
           const rules = rateLimits[action]
           // IP first: a client over its IP budget must not also burn the (victim's) target counter.
           const checks = [
             ...(ip ? [{ scope: 'ip' as const, value: ip.trim(), rule: rules.ip }] : []),
-            ...(target === undefined ? [] : [{ scope: 'target' as const, value: target.trim().toLowerCase(), rule: rules.target }]),
+            ...(target === undefined ? [] : [{ scope: 'target' as const, value: target.trim().toLowerCase(), rule: targetRule ?? rules.target }]),
           ]
           for (const { scope, value, rule } of checks) {
             const result = yield* counterName(action, scope, value).pipe(Effect.flatMap((name) => counter(name, rule)))

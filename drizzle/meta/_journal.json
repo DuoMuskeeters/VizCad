@@ -92,6 +92,13 @@
       "when": 1795443375743,
       "tag": "0012_workspace_access",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1795529475727,
+      "tag": "0013_batch_guard",
+      "breakpoints": true
     }
   ]
 }

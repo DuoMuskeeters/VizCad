@@ -533,3 +533,15 @@ export const legacyAccessMigration = sqliteTable("legacy_access_migration", {
   check("legacy_access_migration_outcome_check", sql`${t.outcome} IN (${sqlValues(migrationOutcomes)})`),
   check("legacy_access_migration_target_check", sql`${t.outcome} <> 'mapped' OR ${t.targetId} IS NOT NULL`),
 ]);
+
+/**
+ * Write guard for D1 batches (no interactive transactions). A program appends
+ * `INSERT INTO batch_guard (ok) SELECT CASE WHEN <precondition> THEN 1 ELSE 0 END` to its batch; a false
+ * precondition fails the CHECK and rolls the whole batch back. A trigger deletes every row right after it
+ * is inserted, so the table stays empty.
+ */
+export const batchGuard = sqliteTable("batch_guard", {
+  ok: integer("ok").notNull(),
+}, (t) => [
+  check("batch_guard_failed", sql`${t.ok} = 1`),
+]);
