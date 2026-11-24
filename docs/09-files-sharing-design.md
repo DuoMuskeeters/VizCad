@@ -82,6 +82,7 @@ Yazımlar dondurulmuşken, kopyada provadan sonra, 08 §3 sırasının içinde k
 6. **Legacy presign anahtarı iptali** ve eski indirme/paylaşım API’lerinin kapatılması (08 §3 adım 4). Faz 4’ün teslim uçları buna dayanır.
 7. `/shared/$token` → `/s/$token`, `/file/$id` → `/files/$id`, `/dashboard` ve `/app` → `/files` yönlendirmeleri (D15) yayına girer.
 8. `activity_logs.ipAddress` ve `userAgent` için karar §11 S3’te.
+9. Production’da `TRASH_RETENTION_FLOOR` cutover zamanına (unix saniye) ayarlanır (legacy çöp süresizdi; 30 gün cutover’dan sayılır: saklama başlangıcı `max(COALESCE(deletedAt, updatedAt), floor)`, `listTrash.purgeAt` aynı formülle). Kullanıcılara bildirim önerilir.
 
 ## 2. Yükleme
 

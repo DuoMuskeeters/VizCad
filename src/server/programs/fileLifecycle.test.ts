@@ -3,6 +3,7 @@ import { Effect } from 'effect'
 import { TestClock } from 'effect/testing'
 import { eq, sql } from 'drizzle-orm'
 import * as schema from '../db/schema'
+import * as AppConfig from '../services/AppConfig'
 import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
@@ -239,6 +240,19 @@ describe('purge', () => {
       assert.deepStrictEqual((yield* rows('files')).map((f) => f.id), ['c'])
       assert.deepStrictEqual(yield* emptyTrash(caller('ada'), ref), { purged: 0, more: false })
     })))
+
+  it.effect('the retention floor: trash counts from max(deletion time, floor), in the list and in the daily job', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* upload('legacy', 'max')
+      yield* trashFile(caller('max'), { ...ref, fileId: 'legacy' })
+      const floor = T0 + 20 * DAY
+      yield* TestClock.adjust(`${31 * DAY} seconds`) // 31 days after deletion, but only 11 after the floor
+      assert.deepStrictEqual((yield* listTrash(caller('max'), { ...ref, limit: 5, cursor: null })).items.map((i) => [i.id, i.deletedAt, i.purgeAt]), [['legacy', T0, floor + 30 * DAY]])
+      assert.deepStrictEqual(yield* purgeExpiredTrash(), { purged: 0 })
+      yield* TestClock.adjust(`${20 * DAY} seconds`)
+      assert.deepStrictEqual(yield* purgeExpiredTrash(), { purged: 1 })
+    }).pipe(Effect.provide(AppConfig.test({ trashRetentionFloor: T0 + 20 * DAY })))))
 
   it.effect('the daily job purges files past the workspace retention as the system and leaves younger ones', () =>
     run(Effect.gen(function* () {

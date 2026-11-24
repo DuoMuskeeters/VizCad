@@ -4,6 +4,7 @@ import * as schema from '../db/schema'
 import { ValidationError } from '../errors'
 import { decidePermission } from '../permissions'
 import type { TrashItem } from '../../shared/fileViews'
+import { AppConfig } from '../services/AppConfig'
 import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
 import { fileGrantsOf, loadScope, openFile, personOf, scopedInput } from './fileContext'
@@ -13,6 +14,9 @@ import {
 } from './shared'
 
 const DAY = 24 * 60 * 60
+
+/** When a trashed file's retention starts: `max(COALESCE(deletedAt, updatedAt), floor)` (legacy trash counts from the cutover floor). */
+const retentionStart = (floor: number) => sql<number>`MAX(COALESCE(${schema.files.deletedAt}, ${schema.files.updatedAt}), ${floor})`
 
 /** A unique, language-neutral `name (2).ext` (then 3, 4, ...) for a restored file whose name is taken at its old place. */
 const suffixOf = (name: string, extension: string) => name.toLowerCase().endsWith(`.${extension.toLowerCase()}`) ? name.slice(name.length - extension.length - 1) : ''
@@ -181,6 +185,7 @@ export const listTrash = Effect.fn('listTrash')(function* (
 ) {
   const scope = yield* loadScope(caller, input.workspaceId)
   const limits = yield* (yield* Entitlements).limits(input.workspaceId)
+  const { trashRetentionFloor } = yield* AppConfig
   const after = input.cursor === null ? null : yield* decodeCursor(input.cursor)
   const db = yield* Db
   const f = schema.files
@@ -213,7 +218,7 @@ export const listTrash = Effect.fn('listTrash')(function* (
         cursor: encodeCursor(row.id, row.deletedAt),
         item: {
           id: row.id, name: row.name, extension: row.extension, size: row.size, projectId: row.projectId, projectName: row.projectName,
-          deletedAt: row.deletedAt, deletedBy: personOf(row.deleter), purgeAt: row.deletedAt + limits.trashRetentionDays * DAY,
+          deletedAt: row.deletedAt, deletedBy: personOf(row.deleter), purgeAt: Math.max(row.deletedAt, trashRetentionFloor) + limits.trashRetentionDays * DAY,
           can: { restore: true, purge: decidePermission({ ...base, action: { kind: 'purgeFile' } }).allowed },
         },
       })
@@ -237,6 +242,7 @@ export const purgeExpiredTrash = Effect.fn('purgeExpiredTrash')(function* () {
   const db = yield* Db
   const entitlements = yield* Entitlements
   const now = yield* nowSeconds
+  const { trashRetentionFloor } = yield* AppConfig
   const f = schema.files
   const workspaces = yield* db.use((d) =>
     d.selectDistinct({ id: f.workspaceId }).from(f).where(and(eq(f.isDeleted, true), eq(f.status, 'uploaded'), sql`${f.workspaceId} IS NOT NULL`)).limit(PURGE_WORKSPACES_PER_RUN),
@@ -249,7 +255,7 @@ export const purgeExpiredTrash = Effect.fn('purgeExpiredTrash')(function* () {
     const due = yield* db.use((d) =>
       d.select({ id: f.id }).from(f).where(and(
         eq(f.workspaceId, workspaceId), eq(f.isDeleted, true), eq(f.status, 'uploaded'),
-        sql`COALESCE(${f.deletedAt}, ${f.updatedAt}) < ${cutoff}`,
+        sql`${retentionStart(trashRetentionFloor)} < ${cutoff}`,
       )).orderBy(asc(f.id)).limit(PURGE_FILES_PER_RUN - purged),
     )
     for (const row of due) {

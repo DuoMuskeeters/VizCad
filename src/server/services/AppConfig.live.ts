@@ -44,6 +44,8 @@ const EnvSchema = Schema.Struct({
   BETTER_AUTH_SECRET: Schema.optional(Schema.String.check(Schema.isMinLength(32))),
   GOOGLE_CLIENT_ID: optionalText,
   GOOGLE_CLIENT_SECRET: optionalText,
+  /** Unix seconds; trash retention counts from at least this time (legacy trash at cutover). Unset means 0. */
+  TRASH_RETENTION_FLOOR: Schema.optional(Schema.String.check(Schema.isPattern(/^\d{1,12}$/))),
 })
 type Env = typeof EnvSchema.Type
 
@@ -148,6 +150,7 @@ export const decodeEnv = Effect.fnUntraced(function* (env: object) {
     r2Presign: yield* r2Presign(e),
     cachePurge: yield* cachePurge(e),
     securityLogRetentionDays: 90,
+    trashRetentionFloor: e.TRASH_RETENTION_FLOOR === undefined ? 0 : Number(e.TRASH_RETENTION_FLOOR),
   })
 })
 

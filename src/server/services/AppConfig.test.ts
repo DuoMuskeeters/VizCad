@@ -32,6 +32,14 @@ describe('AppConfig.fromEnv', () => {
       assert.deepStrictEqual([...config.turnstile.hostnames], ['viz-cad.com'])
       assert.isTrue(Option.isNone(config.r2Presign))
       assert.isTrue(Option.isNone(config.cachePurge))
+      assert.strictEqual(config.trashRetentionFloor, 0)
+    }),
+  )
+
+  it.effect('TRASH_RETENTION_FLOOR is unix seconds; anything else is a ConfigError', () =>
+    Effect.gen(function* () {
+      assert.strictEqual((yield* decodeEnv({ ...base, TRASH_RETENTION_FLOOR: '1795514400' })).trashRetentionFloor, 1795514400)
+      assert.strictEqual((yield* failure({ ...base, TRASH_RETENTION_FLOOR: 'soon' }))._tag, 'ConfigError')
     }),
   )
 
