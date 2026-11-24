@@ -24,7 +24,10 @@ describe('AppConfig.fromEnv', () => {
     Effect.gen(function* () {
       const config = yield* decodeEnv(base)
       assert.strictEqual(config.siteUrl.href, 'https://viz-cad.com/')
-      assert.deepStrictEqual(config.email, { from: 'noreply@viz-cad.com', fromName: 'VizCad' })
+      assert.deepStrictEqual({ from: config.email.from, fromName: config.email.fromName }, { from: 'noreply@viz-cad.com', fromName: 'VizCad' })
+      assert.isTrue(Option.isNone(config.email.allowlist))
+      assert.isTrue(Option.isNone(config.auth))
+      assert.deepStrictEqual([...config.trustedOrigins], ['https://viz-cad.com'])
       assert.strictEqual(Redacted.value(config.turnstile.secret), 'turnstile-secret')
       assert.deepStrictEqual([...config.turnstile.hostnames], ['viz-cad.com'])
       assert.isTrue(Option.isNone(config.r2Presign))
@@ -113,6 +116,48 @@ describe('AppConfig.fromEnv', () => {
       assert.strictEqual(error._tag, 'ConfigError')
       assert.notInclude(error.message, 'r2-secret-value')
       assert.notInclude(error.message, 'turnstile-secret')
+    }),
+  )
+})
+
+describe('AppConfig: identity settings', () => {
+  const secret = 'x'.repeat(32)
+
+  it.effect('auth is on with a secret; Google is all-or-nothing', () =>
+    Effect.gen(function* () {
+      const plain = Option.getOrThrow((yield* decodeEnv({ ...base, BETTER_AUTH_SECRET: secret })).auth)
+      assert.strictEqual(Redacted.value(plain.secret), secret)
+      assert.isTrue(Option.isNone(plain.google))
+      const withGoogle = Option.getOrThrow(
+        Option.getOrThrow((yield* decodeEnv({ ...base, BETTER_AUTH_SECRET: secret, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'gs' })).auth).google,
+      )
+      assert.strictEqual(withGoogle.clientId, 'id')
+      assert.notInclude(String(withGoogle.clientSecret), 'gs')
+      assert.strictEqual((yield* failure({ ...base, BETTER_AUTH_SECRET: secret, GOOGLE_CLIENT_ID: 'id' }))._tag, 'ConfigError')
+      assert.strictEqual((yield* failure({ ...base, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'gs' }))._tag, 'ConfigError')
+      assert.strictEqual((yield* failure({ ...base, BETTER_AUTH_SECRET: 'short' }))._tag, 'ConfigError')
+    }),
+  )
+
+  it.effect('trusted origins always include the site origin; extras must be URLs', () =>
+    Effect.gen(function* () {
+      const config = yield* decodeEnv({ ...base, TRUSTED_ORIGINS: 'http://localhost:3000, https://app.viz-cad.com/path' })
+      assert.deepStrictEqual([...config.trustedOrigins].sort(), ['http://localhost:3000', 'https://app.viz-cad.com', 'https://viz-cad.com'])
+      assert.strictEqual((yield* failure({ ...base, TRUSTED_ORIGINS: 'not a url' }))._tag, 'ConfigError')
+    }),
+  )
+
+  it.effect('email allowlist: staging always restricts, production never does', () =>
+    Effect.gen(function* () {
+      const staging = yield* decodeEnv({ ...base, APP_ENV: 'staging', EMAIL_ALLOWLIST: 'Ada@Example.com, @team.test' })
+      assert.deepStrictEqual([...Option.getOrThrow(staging.email.allowlist)], ['ada@example.com', '@team.test'])
+      // Staging without the variable emails nobody.
+      assert.strictEqual(Option.getOrThrow((yield* decodeEnv({ ...base, APP_ENV: 'staging' })).email.allowlist).size, 0)
+      // Production ignores the variable even if it is set by mistake.
+      assert.isTrue(Option.isNone((yield* decodeEnv({ ...base, APP_ENV: 'production', EMAIL_ALLOWLIST: 'a@b.test' })).email.allowlist))
+      // Local dev (no APP_ENV): restricted only when a list is given.
+      assert.isTrue(Option.isNone((yield* decodeEnv(base)).email.allowlist))
+      assert.isTrue(Option.isSome((yield* decodeEnv({ ...base, EMAIL_ALLOWLIST: 'a@b.test' })).email.allowlist))
     }),
   )
 })

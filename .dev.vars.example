@@ -19,3 +19,13 @@ R2_BUCKET_NAME=vizcad-files-staging
 # Optional: edge cache purge across the zone (D4). Without these, purge only clears the local data center.
 # CF_ZONE_ID=<32 hex characters>
 # CF_PURGE_TOKEN=
+
+# Identity (Faz 3b). Required for /api/auth/*; at least 32 characters. Local only, never a real secret.
+BETTER_AUTH_SECRET=local-dev-only-secret-change-me-0123456789
+# Optional Google sign-in (set both or none). Redirect URI: <SITE_URL>/api/auth/callback/google
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+# Optional extra origins allowed to POST (CSRF check), comma-separated. SITE_URL's origin is always trusted.
+# TRUSTED_ORIGINS=http://127.0.0.1:3000
+# Locally mail is only simulated by Wrangler. To rehearse the staging recipient filter, set a list (APP_ENV is set in wrangler.jsonc):
+# EMAIL_ALLOWLIST=you@example.com,@yourcompany.test
