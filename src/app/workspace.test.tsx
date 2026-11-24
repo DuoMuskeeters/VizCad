@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import '../components/ui/test-utils'
 import { fixtureFetch } from './fixture'
 import { SessionProvider } from './session'
 import { useWorkspaceState, WorkspaceProvider } from './workspace'
