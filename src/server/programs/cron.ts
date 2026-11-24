@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import { AppConfig } from '../services/AppConfig'
 import { drainStorageDeletions, expireUploadSessions, pruneSecurityLog } from './storageCleanup'
+import { purgeExpiredTrash } from './trash'
 
 /** Must match `triggers.crons` in wrangler.jsonc (top level; `env.production` overrides it with an empty list before the cutover). */
 export const HOURLY = '0 * * * *'
@@ -15,8 +16,8 @@ const job = <A, E extends { readonly _tag: string }, R>(name: string, run: Effec
 
 /**
  * The scheduled work for one cron expression (docs/09 §9.2). Hourly: expire abandoned upload sessions, then drain the R2
- * deletion queue. Daily: prune the security log (D21, 90 days). The trash purge and access-log pruning jobs arrive with 4b
- * and 4d and are added here.
+ * deletion queue. Daily: purge trash past its retention (D21: 30 days; this runs as the system and queues
+ * the R2 keys for the next hourly drain), then prune the security log (D21, 90 days). Access-log pruning arrives with 4d.
  */
 export const runCron = (cron: string) =>
   Effect.gen(function* () {
@@ -25,6 +26,7 @@ export const runCron = (cron: string) =>
       yield* job('drainStorageDeletions', drainStorageDeletions())
     } else if (cron === DAILY) {
       const { securityLogRetentionDays } = yield* AppConfig
+      yield* job('purgeExpiredTrash', purgeExpiredTrash())
       yield* job('pruneSecurityLog', pruneSecurityLog(securityLogRetentionDays))
     } else {
       yield* Effect.logWarning('unknown cron expression').pipe(Effect.annotateLogs({ cron }))

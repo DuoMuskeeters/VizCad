@@ -6,7 +6,7 @@ import { decidePermission } from '../permissions'
 import type { TrashItem } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
-import { loadScope, openFile, personOf, scopedInput } from './fileContext'
+import { fileGrantsOf, loadScope, openFile, personOf, scopedInput } from './fileContext'
 import { drainStorageDeletions } from './storageCleanup'
 import {
   activity, authorize, type Caller, guard, newUlid, nowSeconds, runBatch, stillRole, toDate,
@@ -149,9 +149,10 @@ export const emptyTrash = Effect.fn('emptyTrash')(function* (caller: Caller, inp
         sql`(${f.projectId} IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = ${f.projectId} AND p.archivedAt IS NULL))`))
       .orderBy(asc(f.id)).limit(EMPTY_TRASH_GROUP),
   )
+  const grants = yield* fileGrantsOf(input.workspaceId, caller.userId, rows.map((r) => r.id))
   let purged = 0
   for (const row of rows) {
-    const base = scopedInput(scope, row, undefined)
+    const base = scopedInput(scope, row, grants.get(row.id))
     if (base === undefined) continue
     yield* authorize({ ...base, action: { kind: 'purgeFile' } })
     yield* drainKeys(yield* purgeOne(caller, input.workspaceId, row.id, scope.role, scope.now).pipe(Effect.catchTag('WriteConflict', () => Effect.succeed([] as ReadonlyArray<string>))))
@@ -200,9 +201,10 @@ export const listTrash = Effect.fn('listTrash')(function* (
         .orderBy(desc(deletedAt), desc(f.id)).limit(40),
     )
     if (rows.length < 40) exhausted = true
+    const grants = yield* fileGrantsOf(input.workspaceId, caller.userId, rows.map((r) => r.id))
     for (const row of rows) {
       cursorRow = { id: row.id, value: row.deletedAt }
-      const base = scopedInput(scope, row, undefined)
+      const base = scopedInput(scope, row, grants.get(row.id))
       if (base === undefined || !decidePermission({ ...base, action: { kind: 'restoreFile' } }).allowed) continue
       items.push({
         cursor: encodeCursor(row.id, row.deletedAt),

@@ -3,7 +3,7 @@ import { Effect, Layer, Ref } from 'effect'
 import { TestClock } from 'effect/testing'
 import { MemoryAuth, type SessionSummary } from '../services/Auth'
 import { defaultPlan } from '../services/Entitlements'
-import { programLayer, rows, seedMember, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { programLayer, rows, seedFile, seedMember, seedUploaderGrant, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { type AppServices, appResponse, operationNames } from './app'
 
 const ORIGIN = 'https://vizcad.test'
@@ -198,12 +198,35 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual(statuses[240], 429)
     })))
 
+  it.effect('file operations: list, detail, rename, trash, purge answer as the programs do; bad bodies are 400', () =>
+    run(Effect.gen(function* () {
+      yield* seedFile('f1', 'bob', 'acme')
+      yield* seedUploaderGrant('f1', 'ada', 'acme')
+      const bob = { cookie: 'session=tok-bob' }
+      const list = yield* call(post('listFiles', { workspaceId: 'acme' }))
+      assert.strictEqual(list.status, 200)
+      assert.deepStrictEqual((list.body.data as { items: Array<{ name: string }>; nextCursor: null }).items.map((i) => i.name), ['f1.step'])
+      assert.strictEqual((yield* call(post('listFiles', { workspaceId: 'acme', sort: 'weight' }))).status, 400)
+      assert.strictEqual((yield* call(post('listFiles', { workspaceId: 'acme', limit: 101 }))).status, 400)
+      assert.strictEqual((yield* call(post('getFile', { workspaceId: 'acme', fileId: 'f1', r2Key: 'x' }))).status, 400)
+      assert.strictEqual((yield* call(post('getFile', { workspaceId: 'acme', fileId: 'missing' }))).status, 404)
+      const renamed = yield* call(post('renameFile', { workspaceId: 'acme', fileId: 'f1', name: 'Bracket' }))
+      assert.deepStrictEqual([renamed.status, renamed.body.data], [200, { fileId: 'f1', name: 'Bracket.step' }])
+      assert.strictEqual((yield* call(post('trashFile', { workspaceId: 'acme', fileId: 'f1' }))).status, 200)
+      const denied = yield* call(post('purgeFile', { workspaceId: 'acme', fileId: 'f1' }))
+      assert.deepStrictEqual([denied.status, denied.body.error, denied.body.reason], [403, 'PermissionDenied', 'ROLE_LIMIT'])
+      assert.strictEqual((yield* call(post('purgeFile', { workspaceId: 'acme', fileId: 'f1' }, bob))).status, 200)
+      assert.strictEqual((yield* call(post('restoreVersion', { workspaceId: 'acme', fileId: 'f1', versionId: 'v' }, bob))).status, 404)
+      const trash = yield* call(post('listTrash', { workspaceId: 'acme' }, bob))
+      assert.deepStrictEqual([trash.status, trash.body.data], [200, { items: [], nextCursor: null }])
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
       'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload', 'createProject', 'createWorkspace', 'currentWorkspace',
-      'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
-      'previewMemberRemoval', 'removeMember', 'requestUpload', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
-      'switchWorkspace', 'transferOwnership', 'updateProject',
+      'emptyTrash', 'getFile', 'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listTrash', 'listVersions',
+      'moveFile', 'previewMemberRemoval', 'previewMoveFile', 'purgeFile', 'removeMember', 'renameFile', 'requestUpload', 'restoreFile', 'restoreVersion', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation',
+      'revokeProjectAccess', 'setProjectAccessMode', 'starFile', 'switchWorkspace', 'transferOwnership', 'trashFile', 'unstarFile', 'updateProject',
     ])
   })
 })
