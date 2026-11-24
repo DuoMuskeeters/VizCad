@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Building2, EllipsisVertical, Trash2, UserPlus, Users } from 'lucide-react'
+import { Building2, EllipsisVertical, Trash2, UserCheck, UserPlus, Users } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
 import { Button, IconButton } from '#/components/ui/Button'
@@ -29,6 +29,7 @@ const inviteColumns = 'app:grid-cols-[minmax(0,1fr)_120px_190px_auto]'
 type Pending =
   | { kind: 'remove'; member: MemberView }
   | { kind: 'role'; member: MemberView; role: InternalRole }
+  | { kind: 'promote'; member: MemberView; role: 'member' | 'commenter' }
 
 export const useTeam = (workspaceId: string) => {
   const { call, expire } = useSession()
@@ -72,11 +73,16 @@ const MemberRow = ({
   workspace,
   onRole,
   onRemove,
+  onPromote,
+  promoteDisabled,
 }: {
   member: MemberView
   you: boolean
   workspace: WorkspaceSummary
   onRole: (member: MemberView, role: InternalRole) => void
+  onPromote: (member: MemberView, role: 'member' | 'commenter') => void
+  /** Why promoting is not possible right now (no free seat), or undefined. */
+  promoteDisabled: string | undefined
   onRemove: (member: MemberView) => void
 }) => {
   const { t } = useI18n()
@@ -120,6 +126,17 @@ const MemberRow = ({
                     </MenuRadioItem>
                   ))}
                 </MenuRadioGroup>
+                <MenuSeparator />
+              </>
+            ) : null}
+            {member.role === 'guest' && ability.allowed ? (
+              <>
+                <MenuLabel>{t('app.team.promote.label')}</MenuLabel>
+                {(['member', 'commenter'] as const).map((r) => (
+                  <MenuItem key={r} icon={<UserCheck />} {...(promoteDisabled === undefined ? {} : { disabledReason: promoteDisabled })} onSelect={() => onPromote(member, r)}>
+                    {t(r === 'member' ? 'app.team.promote.member' : 'app.team.promote.commenter')}
+                  </MenuItem>
+                ))}
                 <MenuSeparator />
               </>
             ) : null}
@@ -237,6 +254,11 @@ export const TeamPage = () => {
     void applyRole(member, role)
   }
 
+  const requestPromote = (member: MemberView, role: 'member' | 'commenter') => {
+    setDialogError(null)
+    setPending({ kind: 'promote', member, role })
+  }
+
   const applyRemove = async (member: MemberView) => {
     setBusy(true)
     const result = await call('removeMember', { workspaceId: active.id, userId: member.userId })
@@ -279,6 +301,8 @@ export const TeamPage = () => {
   const commenters = members.filter((m) => m.role === 'commenter').length
   const iAmGuest = active.role === 'guest'
   const demote = pending?.kind === 'role' && pending
+  const promote = pending?.kind === 'promote' && pending
+  const promoteDisabled = seatsFull ? t('app.team.reason.seatsFull', { limit: seatLimit ?? 0 }) : undefined
   const manager = manage.allowed
 
   return (
@@ -366,7 +390,7 @@ export const TeamPage = () => {
                 </DataListHeader>
                 <DataListBody>
                   {members.map((m) => (
-                    <MemberRow key={m.userId} member={m} you={m.userId === user.id} workspace={active} onRole={requestRole} onRemove={(member) => { setDialogError(null); setPending({ kind: 'remove', member }) }} />
+                    <MemberRow key={m.userId} member={m} you={m.userId === user.id} workspace={active} onRole={requestRole} onPromote={requestPromote} promoteDisabled={promoteDisabled} onRemove={(member) => { setDialogError(null); setPending({ kind: 'remove', member }) }} />
                   ))}
                 </DataListBody>
               </DataList>
@@ -388,7 +412,7 @@ export const TeamPage = () => {
                   </DataListHeader>
                   <DataListBody>
                     {guests.map((m) => (
-                      <MemberRow key={m.userId} member={m} you={false} workspace={active} onRole={requestRole} onRemove={(member) => { setDialogError(null); setPending({ kind: 'remove', member }) }} />
+                      <MemberRow key={m.userId} member={m} you={false} workspace={active} onRole={requestRole} onPromote={requestPromote} promoteDisabled={promoteDisabled} onRemove={(member) => { setDialogError(null); setPending({ kind: 'remove', member }) }} />
                     ))}
                   </DataListBody>
                 </DataList>
@@ -421,13 +445,14 @@ export const TeamPage = () => {
         busy={busy}
         error={dialogError}
         onCancel={() => setPending(null)}
-        title={demote ? t('app.team.confirm.roleTitle', { name: demote.member.name }) : t('app.team.confirm.removeTitle', { name: pending?.member.name ?? '' })}
-        description={demote ? t('app.team.confirm.roleLead', { from: t(roleKey(demote.member.role)), to: t(roleKey(demote.role)) }) : t('app.team.confirm.removeLead', { name: pending?.member.name ?? '', workspace: active.name })}
-        warning={demote ? t('app.team.confirm.roleWarning') : t('app.team.confirm.removeWarning')}
-        confirmLabel={demote ? t('app.team.confirm.roleBtn') : t('app.team.confirm.removeBtn')}
+        title={promote ? t('app.team.promote.title', { name: promote.member.name, role: t(roleKey(promote.role)) }) : demote ? t('app.team.confirm.roleTitle', { name: demote.member.name }) : t('app.team.confirm.removeTitle', { name: pending?.member.name ?? '' })}
+        description={promote ? t('app.team.promote.lead', { name: promote.member.name, workspace: active.name }) : demote ? t('app.team.confirm.roleLead', { from: t(roleKey(demote.member.role)), to: t(roleKey(demote.role)) }) : t('app.team.confirm.removeLead', { name: pending?.member.name ?? '', workspace: active.name })}
+        warning={promote ? t('app.team.promote.warning', { used: seatsUsed + 1, limit: seatLimit ?? seatsUsed + 1 }) : demote ? t('app.team.confirm.roleWarning') : t('app.team.confirm.removeWarning')}
+        confirmLabel={promote ? t('app.team.promote.btn', { role: t(roleKey(promote.role)) }) : demote ? t('app.team.confirm.roleBtn') : t('app.team.confirm.removeBtn')}
+        {...(promote ? { confirmVariant: 'primary' as const, warningTone: 'info' as const } : {})}
         onConfirm={() => {
           if (!pending) return
-          if (pending.kind === 'role') void applyRole(pending.member, pending.role)
+          if (pending.kind === 'role' || pending.kind === 'promote') void applyRole(pending.member, pending.role)
           else void applyRemove(pending.member)
         }}
       />

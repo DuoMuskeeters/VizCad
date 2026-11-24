@@ -223,3 +223,36 @@ describe('seat limit', () => {
     expect(invite).toHaveAccessibleDescription(/All 7 seats are in use/)
   })
 })
+
+describe('guest promotion', () => {
+  const guestActions = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('tab', { name: /Guests/ }))
+    await user.click(await screen.findByRole('button', { name: 'Actions for Ömer Koç' }))
+  }
+
+  it('makes a guest a member after a confirmation that says it takes a seat', async () => {
+    const { calls, user } = setup('owner')
+    await guestActions(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'Make member' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Make Ömer Koç a Member?')).toBeInTheDocument()
+    expect(within(dialog).getByText(/takes a seat: 8 of 10 seats/)).toBeInTheDocument()
+    expect(calls.some((c) => c.operation === 'changeRole')).toBe(false)
+    await user.click(within(dialog).getByRole('button', { name: 'Make Member' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'changeRole')?.body).toEqual({ workspaceId: 'ws-dm', userId: 'u-omer', role: 'member' }))
+    expect(await screen.findByText('Ömer Koç is now Member.')).toBeInTheDocument()
+  })
+
+  it('offers commenter too, and disables both when no seat is free', async () => {
+    const { user } = setup('owner')
+    await guestActions(user)
+    expect(await screen.findByRole('menuitem', { name: 'Make commenter' })).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('disables promotion with the reason when all seats are taken', async () => {
+    const { user } = setup('seats-full')
+    await guestActions(user)
+    expect(await screen.findByRole('menuitem', { name: 'Make member' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getAllByText(/All 7 seats are in use/).length).toBeGreaterThan(0)
+  })
+})
