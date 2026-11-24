@@ -22,4 +22,12 @@ describe('invitationEmail', () => {
     assert.include(mail.html, '&quot;&gt;&lt;img src=x&gt;@evil.test')
     assert.include(mail.html, 'href="https://vizcad.test/invite/a&quot;b&lt;c"')
   })
+
+  it('inserts the inviter address literally, even with replacement patterns like $& or $1', () => {
+    const mail = invitationEmail({ kind: 'member', locale: 'en', inviterEmail: "a$&b$1$'@evil.test", url: 'https://vizcad.test/invite/1' })
+    assert.include(mail.text, "a$&b$1$'@evil.test")
+    assert.notInclude(mail.text, '{inviter}')
+    assert.include(mail.html, 'a$&amp;b$1$&#39;@evil.test')
+    assert.notInclude(mail.html, '{inviter}')
+  })
 })

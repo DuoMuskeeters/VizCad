@@ -106,8 +106,8 @@ const copy: Record<Kind, Record<Locale, Copy>> = {
 
 export const invitationEmail = (input: { readonly kind: Kind; readonly locale: Locale; readonly inviterEmail: string; readonly url: string }): RenderedEmail => {
   const c = copy[input.kind][input.locale]
-  const textBody = c.body.replace('{inviter}', input.inviterEmail)
-  const htmlBody = escapeHtml(c.body).replace('{inviter}', escapeHtml(input.inviterEmail))
+  const textBody = c.body.replace('{inviter}', () => input.inviterEmail)
+  const htmlBody = escapeHtml(c.body).replace('{inviter}', () => escapeHtml(input.inviterEmail))
   const safeUrl = escapeHtml(input.url)
   return {
     subject: c.subject,
