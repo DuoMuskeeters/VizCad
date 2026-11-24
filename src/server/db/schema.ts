@@ -1,4 +1,21 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+const workspaceKinds = ["personal", "company"] as const;
+const memberRoles = ["owner", "admin", "member", "commenter", "guest"] as const;
+const invitationRoles = ["admin", "member", "commenter"] as const;
+const invitationStatuses = ["pending", "accepted", "rejected", "canceled"] as const;
+const projectModes = ["team", "restricted"] as const;
+const guestLevels = ["view", "comment", "download"] as const;
+const accessLevels = [...guestLevels, "edit"] as const;
+const linkLevels = ["view", "download"] as const;
+const fileAccessSources = ["uploader", "grant"] as const;
+const actorKinds = ["user", "link", "system"] as const;
+const accessOutcomes = ["allowed", "denied"] as const;
+const migrationSources = ["file_shares", "file_invitations"] as const;
+const migrationOutcomes = ["mapped", "ineligible", "quarantined"] as const;
+
+const sqlValues = (values: readonly string[]) => sql.join(values.map((value) => sql.raw(`'${value}'`)), sql`, `);
 
 // Better Auth requires these core tables
 
@@ -19,6 +36,55 @@ export const user = sqliteTable("user", {
   storageQuotaGb: integer("storageQuotaGb").default(5).notNull(), // Default 5GB
 });
 
+// Better Auth organization plugin tables with VizCad constraints.
+export const organization = sqliteTable("organization", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  logo: text("logo"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  metadata: text("metadata"),
+  kind: text("kind", { enum: workspaceKinds }).notNull(),
+  personalOwnerUserId: text("personalOwnerUserId").unique().references(() => user.id, { onDelete: "restrict" }),
+  archivedAt: integer("archivedAt", { mode: "timestamp" }),
+  onboardingCompletedAt: integer("onboardingCompletedAt", { mode: "timestamp" }),
+}, (t) => [
+  check("organization_kind_check", sql`${t.kind} IN (${sqlValues(workspaceKinds)})`),
+  check("organization_personal_owner_check", sql`(${t.kind} = 'personal') = (${t.personalOwnerUserId} IS NOT NULL)`),
+]);
+
+export const member = sqliteTable("member", {
+  id: text("id").primaryKey(),
+  organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "restrict" }),
+  userId: text("userId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  role: text("role", { enum: memberRoles }).default("member").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  uniqueIndex("member_organization_user_uq").on(t.organizationId, t.userId),
+  uniqueIndex("member_single_owner_uq").on(t.organizationId).where(sql`${t.role} = 'owner'`),
+  index("member_user_organization_idx").on(t.userId, t.organizationId),
+  index("member_organization_role_idx").on(t.organizationId, t.role),
+  check("member_role_check", sql`${t.role} IN (${sqlValues(memberRoles)})`),
+]);
+
+export const invitation = sqliteTable("invitation", {
+  id: text("id").primaryKey(),
+  organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "restrict" }),
+  email: text("email").notNull(),
+  role: text("role", { enum: invitationRoles }).notNull(),
+  status: text("status", { enum: invitationStatuses }).default("pending").notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  inviterId: text("inviterId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  acceptedByUserId: text("acceptedByUserId").references(() => user.id, { onDelete: "restrict" }),
+}, (t) => [
+  uniqueIndex("invitation_pending_organization_email_uq").on(t.organizationId, t.email).where(sql`${t.status} = 'pending'`),
+  index("invitation_email_status_expiry_idx").on(t.email, t.status, t.expiresAt),
+  index("invitation_organization_status_expiry_idx").on(t.organizationId, t.status, t.expiresAt),
+  check("invitation_role_check", sql`${t.role} IN (${sqlValues(invitationRoles)})`),
+  check("invitation_status_check", sql`${t.status} IN (${sqlValues(invitationStatuses)})`),
+]);
+
 export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
   expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
@@ -30,7 +96,10 @@ export const session = sqliteTable("session", {
   userId: text("userId")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-});
+  activeOrganizationId: text("activeOrganizationId").references(() => organization.id, { onDelete: "set null" }),
+}, (t) => [
+  index("session_active_organization_idx").on(t.activeOrganizationId),
+]);
 
 export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
@@ -61,6 +130,30 @@ export const verification = sqliteTable("verification", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }),
 });
 
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull().references(() => organization.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  accessMode: text("accessMode", { enum: projectModes }).default("team").notNull(),
+  createdByUserId: text("createdByUserId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  creatorManagerUserId: text("creatorManagerUserId"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  archivedAt: integer("archivedAt", { mode: "timestamp" }),
+}, (t) => [
+  uniqueIndex("projects_workspace_id_uq").on(t.workspaceId, t.id),
+  index("projects_workspace_archive_name_idx").on(t.workspaceId, t.archivedAt, t.name, t.id),
+  foreignKey({
+    name: "projects_creator_membership_fk",
+    columns: [t.workspaceId, t.creatorManagerUserId],
+    foreignColumns: [member.organizationId, member.userId],
+  }).onDelete("restrict"),
+  check("projects_mode_check", sql`${t.accessMode} IN (${sqlValues(projectModes)})`),
+  check("projects_manager_check", sql`${t.creatorManagerUserId} = ${t.createdByUserId}`),
+  check("projects_name_check", sql`length(trim(${t.name})) > 0`),
+]);
+
 // Files table for CAD file metadata
 export const files = sqliteTable("files", {
   id: text("id").primaryKey(),
@@ -79,7 +172,13 @@ export const files = sqliteTable("files", {
   isDeleted: integer("isDeleted", { mode: "boolean" }).default(false).notNull(),
   deletedAt: integer("deletedAt", { mode: "timestamp" }),
   thumbnailR2Key: text("thumbnailR2Key"),
-});
+  workspaceId: text("workspaceId").references(() => organization.id, { onDelete: "restrict" }),
+  projectId: text("projectId").references(() => projects.id, { onDelete: "restrict" }),
+}, (t) => [
+  uniqueIndex("files_workspace_id_uq").on(t.workspaceId, t.id),
+  index("files_workspace_deleted_updated_idx").on(t.workspaceId, t.isDeleted, t.updatedAt, t.id),
+  index("files_workspace_project_deleted_updated_idx").on(t.workspaceId, t.projectId, t.isDeleted, t.updatedAt, t.id),
+]);
 
 // ============================================
 // COLLABORATION TABLES
@@ -276,3 +375,161 @@ export const activityLogs = sqliteTable("activity_logs", {
 
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type NewActivityLog = typeof activityLogs.$inferInsert;
+
+export const projectAccess = sqliteTable("project_access", {
+  workspaceId: text("workspaceId").notNull(),
+  projectId: text("projectId").notNull(),
+  userId: text("userId").notNull(),
+  level: text("level", { enum: accessLevels }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  grantedByUserId: text("grantedByUserId").references(() => user.id, { onDelete: "set null" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.projectId, t.userId] }),
+  index("project_access_membership_expiry_idx").on(t.workspaceId, t.userId, t.expiresAt),
+  foreignKey({
+    name: "project_access_project_fk",
+    columns: [t.workspaceId, t.projectId],
+    foreignColumns: [projects.workspaceId, projects.id],
+  }).onDelete("restrict"),
+  foreignKey({
+    name: "project_access_membership_fk",
+    columns: [t.workspaceId, t.userId],
+    foreignColumns: [member.organizationId, member.userId],
+  }).onDelete("cascade"),
+  check("project_access_level_check", sql`${t.level} IN (${sqlValues(accessLevels)})`),
+]);
+
+export const fileAccess = sqliteTable("file_access", {
+  workspaceId: text("workspaceId").notNull(),
+  fileId: text("fileId").notNull(),
+  userId: text("userId").notNull(),
+  level: text("level", { enum: accessLevels }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  grantedByUserId: text("grantedByUserId").references(() => user.id, { onDelete: "set null" }),
+  source: text("source", { enum: fileAccessSources }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.fileId, t.userId] }),
+  index("file_access_membership_expiry_idx").on(t.workspaceId, t.userId, t.expiresAt),
+  foreignKey({
+    name: "file_access_file_fk",
+    columns: [t.workspaceId, t.fileId],
+    foreignColumns: [files.workspaceId, files.id],
+  }).onDelete("restrict"),
+  foreignKey({
+    name: "file_access_membership_fk",
+    columns: [t.workspaceId, t.userId],
+    foreignColumns: [member.organizationId, member.userId],
+  }).onDelete("cascade"),
+  check("file_access_level_check", sql`${t.level} IN (${sqlValues(accessLevels)})`),
+  check("file_access_source_check", sql`${t.source} IN (${sqlValues(fileAccessSources)})`),
+]);
+
+export const resourceInvitations = sqliteTable("resource_invitations", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull(),
+  projectId: text("projectId"),
+  fileId: text("fileId"),
+  email: text("email").notNull(),
+  level: text("level", { enum: guestLevels }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  accessExpiresAt: integer("accessExpiresAt", { mode: "timestamp" }).notNull(),
+  status: text("status", { enum: invitationStatuses }).notNull(),
+  tokenDigest: text("tokenDigest").notNull().unique(),
+  inviterId: text("inviterId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  acceptedByUserId: text("acceptedByUserId").references(() => user.id, { onDelete: "restrict" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  uniqueIndex("resource_invitations_pending_project_email_uq").on(t.projectId, t.email)
+    .where(sql`${t.status} = 'pending' AND ${t.projectId} IS NOT NULL`),
+  uniqueIndex("resource_invitations_pending_file_email_uq").on(t.fileId, t.email)
+    .where(sql`${t.status} = 'pending' AND ${t.fileId} IS NOT NULL`),
+  index("resource_invitations_workspace_status_expiry_idx").on(t.workspaceId, t.status, t.expiresAt),
+  foreignKey({
+    name: "resource_invitations_project_fk",
+    columns: [t.workspaceId, t.projectId],
+    foreignColumns: [projects.workspaceId, projects.id],
+  }).onDelete("restrict"),
+  foreignKey({
+    name: "resource_invitations_file_fk",
+    columns: [t.workspaceId, t.fileId],
+    foreignColumns: [files.workspaceId, files.id],
+  }).onDelete("restrict"),
+  check("resource_invitations_target_check", sql`(${t.projectId} IS NULL) <> (${t.fileId} IS NULL)`),
+  check("resource_invitations_expiry_check", sql`${t.accessExpiresAt} > ${t.expiresAt}`),
+  check("resource_invitations_level_check", sql`${t.level} IN (${sqlValues(guestLevels)})`),
+  check("resource_invitations_status_check", sql`${t.status} IN (${sqlValues(invitationStatuses)})`),
+]);
+
+export const shareLinks = sqliteTable("share_links", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull(),
+  fileId: text("fileId").notNull(),
+  createdByUserId: text("createdByUserId").references(() => user.id, { onDelete: "set null" }),
+  tokenDigest: text("tokenDigest").notNull().unique(),
+  tokenCiphertext: text("tokenCiphertext").notNull(),
+  tokenKeyVersion: integer("tokenKeyVersion").notNull(),
+  publicSharerLabel: text("publicSharerLabel"),
+  level: text("level", { enum: linkLevels }).notNull(),
+  passwordHash: text("passwordHash"),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  legacyMaxExpiresAt: integer("legacyMaxExpiresAt", { mode: "timestamp" }),
+  revokedAt: integer("revokedAt", { mode: "timestamp" }),
+  revision: integer("revision").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  index("share_links_workspace_file_revoked_idx").on(t.workspaceId, t.fileId, t.revokedAt),
+  index("share_links_workspace_creator_revoked_idx").on(t.workspaceId, t.createdByUserId, t.revokedAt),
+  foreignKey({
+    name: "share_links_file_fk",
+    columns: [t.workspaceId, t.fileId],
+    foreignColumns: [files.workspaceId, files.id],
+  }).onDelete("restrict"),
+  check("share_links_level_check", sql`${t.level} IN (${sqlValues(linkLevels)})`),
+  check("share_links_revision_check", sql`${t.revision} >= 1`),
+  check("share_links_legacy_expiry_check", sql`${t.legacyMaxExpiresAt} IS NULL
+    OR (${t.expiresAt} IS NOT NULL AND ${t.expiresAt} <= ${t.legacyMaxExpiresAt})`),
+]);
+
+// Audit references are snapshots so deletion of the actor or target preserves the event.
+export const accessLog = sqliteTable("access_log", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull(),
+  actorKind: text("actorKind", { enum: actorKinds }).notNull(),
+  actorUserId: text("actorUserId"),
+  linkId: text("linkId"),
+  targetKind: text("targetKind").notNull(),
+  targetId: text("targetId").notNull(),
+  action: text("action").notNull(),
+  outcome: text("outcome", { enum: accessOutcomes }).notNull(),
+  requestId: text("requestId").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  reason: text("reason"),
+}, (t) => [
+  index("access_log_workspace_created_idx").on(t.workspaceId, t.createdAt, t.id),
+  index("access_log_workspace_target_created_idx").on(t.workspaceId, t.targetKind, t.targetId, t.createdAt, t.id),
+  check("access_log_actor_check", sql`
+    (${t.actorKind} = 'user' AND ${t.actorUserId} IS NOT NULL AND ${t.linkId} IS NULL)
+    OR (${t.actorKind} = 'link' AND ${t.actorUserId} IS NULL AND ${t.linkId} IS NOT NULL)
+    OR (${t.actorKind} = 'system' AND ${t.actorUserId} IS NULL AND ${t.linkId} IS NULL)`),
+  check("access_log_outcome_check", sql`${t.outcome} IN (${sqlValues(accessOutcomes)})`),
+]);
+
+export const legacyAccessMigration = sqliteTable("legacy_access_migration", {
+  sourceTable: text("sourceTable", { enum: migrationSources }).notNull(),
+  sourceId: text("sourceId").notNull(),
+  outcome: text("outcome", { enum: migrationOutcomes }).notNull(),
+  targetId: text("targetId"),
+  reason: text("reason"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.sourceTable, t.sourceId] }),
+  index("legacy_access_migration_source_outcome_idx").on(t.sourceTable, t.outcome),
+  check("legacy_access_migration_source_check", sql`${t.sourceTable} IN (${sqlValues(migrationSources)})`),
+  check("legacy_access_migration_outcome_check", sql`${t.outcome} IN (${sqlValues(migrationOutcomes)})`),
+  check("legacy_access_migration_target_check", sql`${t.outcome} <> 'mapped' OR ${t.targetId} IS NOT NULL`),
+]);
