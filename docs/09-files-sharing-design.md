@@ -427,3 +427,10 @@ Her PR `rewrite`’a. Her birinde ortak kabul: `pnpm check` ve `pnpm build` yeş
 - **`SHARE_TOKEN_KEYS` biçimi (4c için):** `{"1":"<base64 32 bayt>"}` §4.1’deki `active` alanını taşımıyor. Öneri: `active` yoksa en yüksek sürüm aktif sayılır, varsa o kullanılır. 4a bu sırları okumaz.
 - **Staging gereksinimi:** presign için `R2_ACCOUNT_ID` (veya `R2_ENDPOINT`) de tanımlı olmalı; yoksa `requestUpload` `ConfigError` (500) verir.
 - **Gerçek R2 doğrulaması** (`scripts/staging-verify-uploads.sh`): sonuçlar staging’e yayınlandıktan sonra buraya yazılacak. Beklenen: imzalı `content-length` uyuşmazlığı 403, ikinci PUT 412; biri desteklenmezse §8.2’deki telafi (PUT süresi 5 dakika, teslimde boyut/ETag karşılaştırması).
+- **İleriye dönük notlar (4a incelemesi):**
+  - **4c teslimi:** nesne okunurken ETag (`onlyIf`) zorunlu; `scripts/staging-verify-uploads.sh` 4c’den önce gerçek R2’de çalıştırılmalı.
+  - **İmza denetimleri tür koklamasıdır**, içerik güvenliği sağlamaz. 4c’de teslim `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` ve `Content-Security-Policy: sandbox` ile yapılmalı.
+  - **`security_log`:** user agent insert öncesi 256 karaktere kısaltılmalı.
+  - **4b:** bir anahtara son başvuruyu düşüren her işlem (purge, sürüm silme, geri yükleme …) anahtarı aynı batch’te silme kuyruğuna yazmalı.
+  - **`upload_sessions`:** terminal durumdaki (`completed`, `expired`, `rejected`) oturumlar için budama işi gerekir; hesap ve proje silmede önce oturum satırları silinmeli (çalışma alanı, kullanıcı ve proje FK’leri `RESTRICT`).
+  - **İptal/red:** kuyruk satırı `notBefore = expiresAt + 5 dk` ile yazılır; anında silme en iyi çabadır, satır URL ölene kadar kalır ve işçi nesneyi son kez siler.
