@@ -52,14 +52,8 @@ export const TabNavLink = ({ current = false, count, asChild = false, className,
   const Comp = asChild ? Slot.Root : 'a'
   return (
     <Comp {...(current ? { 'aria-current': 'page' as const } : {})} className={cx(tabClass, current && activeClass, className)} {...rest}>
-      {asChild ? (
-        children
-      ) : (
-        <>
-          {children}
-          {count === undefined ? null : <Count>{count}</Count>}
-        </>
-      )}
+      <Slot.Slottable>{children}</Slot.Slottable>
+      {count === undefined ? null : <Count>{count}</Count>}
     </Comp>
   )
 }

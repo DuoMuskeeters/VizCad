@@ -29,7 +29,7 @@ export type ButtonProps = Omit<ComponentProps<'button'>, 'children'> & {
   /** Disables the button and explains why (tooltip, plus a description for screen readers).
    * The button stays focusable, because a person who cannot act should still learn the reason. */
   disabledReason?: string
-  /** Render the child element (e.g. a router link) with button styling. Spinner is not injected. */
+  /** Render the child element (e.g. a router link) with button styling; its content is wrapped like a normal button's. */
   asChild?: boolean
   children?: ReactNode
 }
@@ -71,11 +71,15 @@ export const Button = ({
     ...rest,
   }
 
+  const spinner = loading ? <Loader2 aria-hidden className="size-4.5 motion-safe:animate-spin" /> : null
   const element = asChild ? (
-    <Slot.Root {...common}>{children}</Slot.Root>
+    <Slot.Root {...common}>
+      {spinner}
+      <Slot.Slottable>{children}</Slot.Slottable>
+    </Slot.Root>
   ) : (
     <button type={type ?? 'button'} {...common} disabled={Boolean(disabled) && !soft}>
-      {loading ? <Loader2 aria-hidden className="size-4.5 motion-safe:animate-spin" /> : null}
+      {spinner}
       {children}
     </button>
   )

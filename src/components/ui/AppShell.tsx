@@ -98,7 +98,7 @@ export type SidebarNavItemProps = ComponentProps<'a'> & {
   icon: ReactNode
   current?: boolean
   count?: number | string
-  /** Style the child (a router `Link`) instead of rendering an <a>. The child holds icon, label and count itself then. */
+  /** Style the child element (a router `Link` holding the label) instead of rendering an <a>. Icon and count are added around its content. */
   asChild?: boolean
 }
 
@@ -116,17 +116,11 @@ export const SidebarNavItem = ({ icon, current = false, count, asChild = false, 
       )}
       {...rest}
     >
-      {asChild ? (
-        children
-      ) : (
-        <>
-          <span aria-hidden className="grid shrink-0 [&>svg]:size-4.5">
-            {icon}
-          </span>
-          {children}
-          {count === undefined ? null : <span className="ml-auto text-xs text-text-3">{count}</span>}
-        </>
-      )}
+      <span aria-hidden className="grid shrink-0 [&>svg]:size-4.5">
+        {icon}
+      </span>
+      <Slot.Slottable>{children}</Slot.Slottable>
+      {count === undefined ? null : <span className="ml-auto text-xs text-text-3">{count}</span>}
     </Comp>
   )
 }

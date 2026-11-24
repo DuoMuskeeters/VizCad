@@ -23,6 +23,9 @@ const dropDeployRedirect: Plugin = {
 }
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VIZCAD_PRODUCTION': JSON.stringify(production),
+  },
   resolve: { tsconfigPaths: true },
   // Pre-bundle server deps at startup. Without this, Vite discovers them on the first API call,
   // re-optimizes mid-session and loads a second copy of effect/react (breaks Redacted and hooks in dev).

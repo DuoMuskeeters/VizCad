@@ -11,7 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as DevUiRouteImport } from './routes/dev/ui'
+import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
+import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +24,49 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DevUiRoute = DevUiRouteImport.update({
-  id: '/dev/ui',
-  path: '/dev/ui',
+const DevUiIndexRoute = DevUiIndexRouteImport.update({
+  id: '/dev/ui/',
+  path: '/dev/ui/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevUiShellRoute = DevUiShellRouteImport.update({
+  id: '/dev/ui/shell',
+  path: '/dev/ui/shell',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
-  '/dev/ui': typeof DevUiRoute
+  '/dev/ui/shell': typeof DevUiShellRoute
+  '/dev/ui/': typeof DevUiIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
-  '/dev/ui': typeof DevUiRoute
+  '/dev/ui/shell': typeof DevUiShellRoute
+  '/dev/ui': typeof DevUiIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
-  '/dev/ui': typeof DevUiRoute
+  '/dev/ui/shell': typeof DevUiShellRoute
+  '/dev/ui/': typeof DevUiIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/health' | '/dev/ui'
+  fullPaths: '/' | '/api/health' | '/dev/ui/shell' | '/dev/ui/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/health' | '/dev/ui'
-  id: '__root__' | '/' | '/api/health' | '/dev/ui'
+  to: '/' | '/api/health' | '/dev/ui/shell' | '/dev/ui'
+  id: '__root__' | '/' | '/api/health' | '/dev/ui/shell' | '/dev/ui/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHealthRoute: typeof ApiHealthRoute
-  DevUiRoute: typeof DevUiRoute
+  DevUiShellRoute: typeof DevUiShellRoute
+  DevUiIndexRoute: typeof DevUiIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,11 +85,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dev/ui': {
-      id: '/dev/ui'
+    '/dev/ui/': {
+      id: '/dev/ui/'
       path: '/dev/ui'
-      fullPath: '/dev/ui'
-      preLoaderRoute: typeof DevUiRouteImport
+      fullPath: '/dev/ui/'
+      preLoaderRoute: typeof DevUiIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/ui/shell': {
+      id: '/dev/ui/shell'
+      path: '/dev/ui/shell'
+      fullPath: '/dev/ui/shell'
+      preLoaderRoute: typeof DevUiShellRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -88,7 +105,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHealthRoute: ApiHealthRoute,
-  DevUiRoute: DevUiRoute,
+  DevUiShellRoute: DevUiShellRoute,
+  DevUiIndexRoute: DevUiIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

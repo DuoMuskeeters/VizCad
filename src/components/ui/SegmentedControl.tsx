@@ -8,10 +8,12 @@ export type SegmentedControlProps = Omit<ComponentProps<typeof RadioGroup.Root>,
   options: readonly SegmentOption[]
   /** Stretch to the container (settings on mobile). */
   fullWidth?: boolean
+  /** `sm` is for dense toolbars (view switch); touch still gets 44px. */
+  size?: 'md' | 'sm'
 }
 
 /** Exactly one option is always selected. Built on a radio group: arrow keys move and select. */
-export const SegmentedControl = ({ options, fullWidth = false, className, ...rest }: SegmentedControlProps) => (
+export const SegmentedControl = ({ options, fullWidth = false, size = 'md', className, ...rest }: SegmentedControlProps) => (
   <RadioGroup.Root
     orientation="horizontal"
     className={cx(
@@ -26,7 +28,8 @@ export const SegmentedControl = ({ options, fullWidth = false, className, ...res
         key={option.value}
         value={option.value}
         className={cx(
-          'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent px-4 text-md font-medium text-text-2 app:h-9.5 app:text-base',
+          'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent text-md font-medium text-text-2 app:text-base',
+          size === 'md' ? 'px-4 app:h-9.5' : 'px-3 app:h-7.5 app:px-2.5',
           'hover:text-text data-[state=checked]:border-line data-[state=checked]:bg-bg data-[state=checked]:text-text',
           '[&_svg]:size-4',
           fastTransition,

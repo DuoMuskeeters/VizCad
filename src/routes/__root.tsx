@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
+import { FileQuestion } from 'lucide-react'
 import appCss from '../styles.css?url'
+import { UiProvider } from '#/components/ui/UiProvider'
+import { Button } from '#/components/ui/Button'
+import { EmptyState } from '#/components/ui/EmptyState'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -21,9 +25,37 @@ export const Route = createRootRoute({
       { rel: 'manifest', href: '/manifest.json' },
     ],
   }),
-  component: Outlet,
+  component: RootComponent,
+  notFoundComponent: RootNotFound,
   shellComponent: RootDocument,
 })
+
+function RootComponent() {
+  return (
+    <UiProvider>
+      <Outlet />
+    </UiProvider>
+  )
+}
+
+function RootNotFound() {
+  return (
+    <UiProvider>
+      <main className="mx-auto flex min-h-[60vh] max-w-lg items-center justify-center px-4 py-16">
+        <EmptyState
+          icon={<FileQuestion aria-hidden />}
+          title="Bu sayfa yok"
+          description="Aradığın sayfa kaldırılmış, adı değiştirilmiş ya da geçici olarak kullanılamıyor olabilir."
+          actions={
+            <Button variant="primary" asChild>
+              <a href="/">Ana sayfaya dön</a>
+            </Button>
+          }
+        />
+      </main>
+    </UiProvider>
+  )
+}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

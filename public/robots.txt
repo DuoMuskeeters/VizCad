@@ -12,6 +12,7 @@ Disallow: /signup
 Disallow: /verify-email
 Disallow: /file/
 Disallow: /shared/
+Disallow: /dev/
 
 # Sitemap
 Sitemap: https://viz-cad.com/sitemap.xml
