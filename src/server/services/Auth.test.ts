@@ -342,6 +342,66 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
       }).pipe(Effect.provide(layer))
     })
 
+    const sessionCookies = (response: Response) => response.headers.getSetCookie()
+
+    it.effect('a refresh hands the session cookie out again, signed, with Max-Age from the new expiry; no refresh, no header', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        const token = tokenRows(d1)[0]?.token ?? ''
+        const fresh = yield* handle(get('get-session', cookie))
+        assert.deepStrictEqual(sessionCookies(fresh), [], 'a fresh session sets nothing')
+
+        d1.sqlite.exec(`update session set expiresAt = ${Math.floor(Date.now() / 1000) + 10 * 86400}`)
+        const refreshed = yield* handle(get('get-session', cookie))
+        const [header] = sessionCookies(refreshed)
+        assert.strictEqual(sessionCookies(refreshed).length, 1)
+        const [pair, ...attributes] = (header ?? '').split('; ')
+        const name = pair?.slice(0, pair.indexOf('=')) ?? ''
+        assert.strictEqual(name, '__Secure-better-auth.session_token')
+        assert.strictEqual(yield* Effect.promise(() => verifySignedCookie(readCookie(pair ?? '', name), secret)), token)
+        const maxAge = Number(attributes.find((a) => a.startsWith('Max-Age='))?.slice(8))
+        assert.approximately(maxAge, 30 * 86400, 5)
+        assert.includeMembers(attributes, ['Path=/', 'HttpOnly', 'Secure', 'SameSite=Lax'])
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('only a signed dont_remember stops the refresh', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        const soon = Math.floor(Date.now() / 1000) + 10 * 86400
+        const reset = () => d1.sqlite.exec(`update session set expiresAt = ${soon}`)
+        const dont = (value: string) => `${cookie}; __Secure-better-auth.dont_remember=${value}`
+        reset()
+        yield* Auth.use((a) => a.readSession(new Headers({ cookie: dont('true') })))
+        assert.isAbove(tokenRows(d1)[0]?.expiresAt ?? 0, soon, 'an unsigned dont_remember is ignored, the session is extended')
+        reset()
+        const signed = yield* Effect.promise(() => signCookieValue('true', secret))
+        yield* Auth.use((a) => a.readSession(new Headers({ cookie: dont(signed) })))
+        assert.strictEqual(tokenRows(d1)[0]?.expiresAt, soon, 'a signed dont_remember is respected')
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('a session deleted between the read and the refresh is none', () => {
+      const d1 = openMemoryD1()
+      const racing = {
+        ...d1.binding,
+        prepare: (sql: string) => {
+          if (/^update "session"/i.test(sql)) d1.sqlite.exec('delete from session')
+          return d1.binding.prepare(sql)
+        },
+      } as D1Database
+      const layer = AuthLive.layer(racing).pipe(Layer.provideMerge(emailMemory), Layer.provide(AppConfig.test()))
+      return Effect.gen(function* () {
+        const cookie = yield* signedIn()
+        d1.sqlite.exec(`update session set expiresAt = ${Math.floor(Date.now() / 1000) + 10 * 86400}`)
+        const response = yield* handle(get('get-session', cookie))
+        assert.isNull(yield* Effect.promise(() => response.json()))
+        assert.deepStrictEqual(sessionCookies(response), [])
+      }).pipe(Effect.provide(layer))
+    })
+
     it.effect('answers get-session itself, with no session token in the body, and null without a session', () => {
       const { layer } = setup()
       return Effect.gen(function* () {

@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
-import { Effect, Layer, Option, Redacted } from 'effect'
+import { Duration, Effect, Exit, Layer, Option, Redacted } from 'effect'
 import * as schema from '../db/schema'
 import { passwordResetEmail, localeFromHeader, verificationEmail, type RenderedEmail } from '../emails/auth'
 import { AuthError, ConfigError, Unauthenticated, WorkspaceUnavailable } from '../errors'
@@ -10,7 +10,7 @@ import { isBanned } from './accountStatus'
 import type { AuthMailer } from './authOptions'
 import { Email } from './Email'
 import { googleUserInfo } from './googleProfile'
-import { dontRememberCookieName, readCookie, SESSION_EXPIRES_IN, SESSION_UPDATE_AGE, sessionCookieName, verifySignedCookie } from './sessionCookie'
+import { dontRememberCookieName, readCookie, SESSION_EXPIRES_IN, SESSION_UPDATE_AGE, sessionCookieName, signCookieValue, verifySignedCookie } from './sessionCookie'
 
 const fail = (operation: string) => (cause: unknown) => new AuthError({ operation, cause })
 
@@ -66,7 +66,8 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
         }).pipe(Effect.map((rows) => Option.fromNullishOr(rows[0])))
 
       // Built once per layer, on the first identity request. The dynamic import keeps better-auth, kysely, zod and jose out of every other path.
-      const sdk = yield* Effect.cached(
+      // A failed setup (a chunk that did not load) is not kept: the next request tries again.
+      const sdk = yield* Effect.cachedWithTTL(
         Effect.tryPromise({
           try: () =>
             import('./authOptions').then(({ createAuth }) =>
@@ -81,6 +82,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
             ),
           catch: fail('init'),
         }),
+        (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
       )
 
       const secure = config.siteUrl.protocol === 'https:'
@@ -90,6 +92,8 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
         readonly sessionId: string
         readonly activeWorkspaceId: string | null
         readonly expiresAt: Date
+        /** The session was extended by this read; the response must hand out the cookie again. */
+        readonly refreshed: boolean
         readonly user: { readonly id: string; readonly name: string; readonly email: string; readonly emailVerified: boolean }
         readonly accountStatus: SessionSummary['accountStatus']
       }
@@ -134,25 +138,49 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
             return Option.none<Found>()
           }
           let expiresAt = row.expiresAt
-          const remember = readCookie(cookies, dontRememberCookieName(secure)) === undefined
-          if (remember && row.expiresAt.getTime() - SESSION_EXPIRES_IN * 1000 + SESSION_UPDATE_AGE * 1000 <= now) {
-            expiresAt = new Date(now + SESSION_EXPIRES_IN * 1000)
-            yield* Effect.tryPromise({
-              try: () => db.update(schema.session).set({ expiresAt, updatedAt: new Date(now) }).where(eq(schema.session.id, row.sessionId)),
+          let refreshed = false
+          // Only a signed `dont_remember` counts (better-auth reads it with getSignedCookie).
+          const dontRemember = yield* Effect.tryPromise({
+            try: () => verifySignedCookie(readCookie(cookies, dontRememberCookieName(secure)), secret),
+            catch: fail('readSession'),
+          })
+          if (dontRemember === null && row.expiresAt.getTime() - SESSION_EXPIRES_IN * 1000 + SESSION_UPDATE_AGE * 1000 <= now) {
+            const next = new Date(now + SESSION_EXPIRES_IN * 1000)
+            const updated = yield* Effect.tryPromise({
+              try: () =>
+                db
+                  .update(schema.session)
+                  .set({ expiresAt: next, updatedAt: new Date(now) })
+                  .where(eq(schema.session.id, row.sessionId))
+                  .returning({ id: schema.session.id }),
               catch: fail('readSession'),
             })
+            // Deleted in the meantime (sign-out, revoke): there is no session any more.
+            if (updated.length === 0) return Option.none<Found>()
+            expiresAt = next
+            refreshed = true
           }
           return Option.some<Found>({
             sessionId: row.sessionId,
             activeWorkspaceId: row.activeOrganizationId,
             expiresAt,
+            refreshed,
             user: { id: row.userId, name: row.name, email: row.email, emailVerified: row.emailVerified },
             accountStatus: isBanned(row, now) ? 'suspended' : 'active',
           })
         })
 
-      const sessionResponse = (found: Option.Option<Found>) =>
-        Response.json(
+      /** better-auth's `setSessionCookie` for a refresh: same name, attributes and signature; `Max-Age` counts down to the new expiry. */
+      const refreshedCookie = (token: string, expiresAt: Date) =>
+        Effect.tryPromise({ try: () => signCookieValue(token, secret), catch: fail('readSession') }).pipe(
+          Effect.map((value) => {
+            const maxAge = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+            return `${sessionCookieName(secure)}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly;${secure ? ' Secure;' : ''} SameSite=Lax`
+          }),
+        )
+
+      const sessionResponse = (found: Option.Option<Found>, cookie: string | null) => {
+        const response = Response.json(
           Option.isNone(found)
             ? null
             : {
@@ -160,12 +188,24 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
                 user: found.value.user,
               },
         )
+        if (cookie !== null) response.headers.append('set-cookie', cookie)
+        return response
+      }
 
       return Auth.of({
         handleIdentityRequest: (request) => {
           // The client reads the session here on every app load; it is answered without the SDK.
           if (request.method === 'GET' && new URL(request.url).pathname === '/api/auth/get-session') {
-            return find(request.headers).pipe(Effect.map(sessionResponse))
+            // A refresh extends the row, so the browser's cookie is renewed here too (otherwise it expires at the old date).
+            return Effect.gen(function* () {
+              const found = yield* find(request.headers)
+              if (Option.isNone(found) || !found.value.refreshed) return sessionResponse(found, null)
+              const token = yield* Effect.tryPromise({
+                try: () => verifySignedCookie(readCookie(request.headers.get('cookie'), sessionCookieName(secure)), secret),
+                catch: fail('readSession'),
+              })
+              return sessionResponse(found, token === null ? null : yield* refreshedCookie(token, found.value.expiresAt))
+            })
           }
           return sdk.pipe(Effect.flatMap((auth) => Effect.tryPromise({ try: () => auth.handler(request), catch: fail('handler') })))
         },
