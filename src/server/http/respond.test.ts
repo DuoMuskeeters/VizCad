@@ -107,6 +107,20 @@ describe('handle', () => {
     }).pipe(Effect.provide(logs.layer))
   })
 
+  it.effect('a 4xx captcha failure logs its reason at info level, and no 4xx log carries a payload', () => {
+    const logs = captureLogs()
+    return Effect.gen(function* () {
+      const response = yield* handle(Effect.fail(new CaptchaFailed({ reason: 'timeout-or-duplicate' })), Layer.empty, meta)
+      assert.strictEqual(response.status, 403)
+      assert.strictEqual(logs.lines.length, 1)
+      const line = JSON.parse(logs.lines[0] ?? '{}')
+      assert.include(line.logLevel, 'Info')
+      assert.deepInclude(line.annotations, { error: 'CaptchaFailed', reason: 'timeout-or-duplicate', requestId: 'ray-123' })
+      yield* handle(Effect.fail(new Unauthenticated()), Layer.empty, meta)
+      assert.strictEqual(logs.lines.length, 1, 'other 4xx stay silent')
+    }).pipe(Effect.provide(logs.layer))
+  })
+
   it.effect('a defect becomes a fixed 500 and logs no message or stack', () => {
     const logs = captureLogs()
     return Effect.gen(function* () {

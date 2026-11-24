@@ -44,6 +44,8 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
   Effect.gen(function* () {
     const status = STATUS[error._tag]
     if (status >= 500) yield* Effect.logError('request failed').pipe(Effect.annotateLogs(logFields(error, meta)))
+    // Turnstile's reason is a fixed, non-sensitive code (never the token); it tells a bad widget from an attack.
+    else if (error._tag === 'CaptchaFailed') yield* Effect.logInfo('captcha failed').pipe(Effect.annotateLogs({ ...logFields(error, meta), reason: error.reason }))
     const headers = error._tag === 'RateLimitExceeded' ? { ...noStore, 'retry-after': String(error.retryAfterSeconds) } : noStore
     return Response.json({ ok: false, error: error._tag }, { status, headers })
   })
