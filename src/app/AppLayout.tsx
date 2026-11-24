@@ -1,0 +1,194 @@
+import { useEffect, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
+import { Activity, Files, FolderKanban, LogOut, Plus, Settings, Share2, Trash2, Users } from 'lucide-react'
+import { AppShell, SidebarNav, SidebarNavItem, SidebarSection, SidebarUser } from '#/components/ui/AppShell'
+import { Avatar } from '#/components/ui/Avatar'
+import { Button } from '#/components/ui/Button'
+import { MenuItem } from '#/components/ui/Menu'
+import { InlineAlert } from '#/components/ui/Notice'
+import { Skeleton } from '#/components/ui/Skeleton'
+import { useToast } from '#/components/ui/Toast'
+import { Tooltip } from '#/components/ui/Tooltip'
+import { WorkspaceSwitcher, type WorkspaceOption } from '#/components/ui/WorkspaceSwitcher'
+import { useI18n } from '#/i18n'
+import { postAuth } from '#/auth/api'
+import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
+import { failureKey } from './errors'
+import { onboardingPendingFor } from './nav'
+import { roleKey } from './roles'
+import { RequireSession, SessionProvider, useUser } from './session'
+import { useWorkspace, useWorkspaceState, WorkspaceProvider } from './workspace'
+
+/** Sidebar entry for a section that does not exist yet: visible, inert, with the reason (docs/03 §1: never hidden). */
+const PendingNavItem = ({ icon, label, reason, later }: { icon: React.ReactNode; label: string; reason: string; later: string }) => (
+  <Tooltip content={reason} side="right">
+    <SidebarNavItem asChild icon={icon} count={later} className="cursor-not-allowed opacity-70 hover:bg-transparent hover:text-text-2">
+      <button type="button" aria-disabled="true" onClick={(e) => e.preventDefault()}>
+        {label}
+        <span className="sr-only">{`. ${reason}`}</span>
+      </button>
+    </SidebarNavItem>
+  </Tooltip>
+)
+
+const Frame = () => {
+  const { t } = useI18n()
+  const user = useUser()
+  const { state, switchTo } = useWorkspaceState()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { toast } = useToast()
+  const [creating, setCreating] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  // D20: only a brand-new sign-up lands in onboarding, once, while it still has just the personal workspace.
+  const ready = state.status === 'ready'
+  const onlyPersonal = state.status === 'ready' && state.workspaces.length === 1 && state.workspaces[0]?.kind === 'personal'
+  useEffect(() => {
+    if (ready && onlyPersonal && onboardingPendingFor(user.email)) void navigate({ to: '/onboarding' })
+  }, [ready, onlyPersonal, user.email, navigate])
+
+  if (state.status === 'loading')
+    return (
+      <div className="grid gap-4 p-8" aria-busy="true">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+        <Skeleton className="h-40 w-full max-w-3xl" />
+      </div>
+    )
+  if (state.status === 'error')
+    return (
+      <div className="px-4 py-16">
+        <InlineAlert title={t('app.error.loadTitle')} action={<Button onClick={() => window.location.reload()}>{t('common.retry')}</Button>}>
+          {t(failureKey(state.failure))}
+        </InlineAlert>
+      </div>
+    )
+  return (
+    <ReadyFrame
+      pathname={pathname}
+      creating={creating}
+      setCreating={setCreating}
+      signingOut={signingOut}
+      onSignOut={async () => {
+        setSigningOut(true)
+        await postAuth('/sign-out', {})
+        void navigate({ to: '/sign-in', search: { next: undefined } })
+      }}
+      onCreated={() => void navigate({ to: '/app/team' })}
+      onSwitch={async (id) => {
+        const result = await switchTo(id)
+        if (!result.ok) toast({ title: t(failureKey(result)), tone: 'danger' })
+        else void navigate({ to: '/app' })
+      }}
+    />
+  )
+}
+
+const ReadyFrame = ({
+  pathname,
+  creating,
+  setCreating,
+  signingOut,
+  onSignOut,
+  onSwitch,
+  onCreated,
+}: {
+  pathname: string
+  creating: boolean
+  setCreating: (open: boolean) => void
+  signingOut: boolean
+  onSignOut: () => Promise<void>
+  onSwitch: (id: string) => Promise<void>
+  onCreated: () => void
+}) => {
+  const { t } = useI18n()
+  const user = useUser()
+  const { active, workspaces } = useWorkspace()
+  const options: WorkspaceOption[] = workspaces.map((w) => ({
+    id: w.id,
+    name: w.kind === 'personal' ? user.name : w.name,
+    subtitle: w.kind === 'personal' ? t('app.workspace.personal') : t(roleKey(w.role)),
+    ...(w.role === 'guest' ? { guest: true } : {}),
+  }))
+  const later = t('app.nav.later')
+  const reason = t('app.nav.laterReason')
+  const nav = (
+    <>
+      <WorkspaceSwitcher
+        workspaces={options}
+        value={active.id}
+        onValueChange={(id) => void onSwitch(id)}
+        memberLabel={t('app.workspace.yours')}
+        guestLabel={t('app.workspace.guestOf')}
+        guestBadge={t('app.role.guest')}
+        footer={
+          <MenuItem icon={<Plus />} onSelect={() => setCreating(true)}>
+            {t('app.workspace.new')}
+          </MenuItem>
+        }
+      />
+      <SidebarNav aria-label={t('app.nav.label')} className="mt-2">
+        <PendingNavItem icon={<FolderKanban />} label={t('app.nav.projects')} reason={reason} later={later} />
+        <PendingNavItem icon={<Files />} label={t('app.nav.files')} reason={reason} later={later} />
+        <PendingNavItem icon={<Share2 />} label={t('app.nav.shared')} reason={reason} later={later} />
+        <SidebarNavItem asChild icon={<Users />} current={pathname.startsWith('/app/team')}>
+          <Link to="/app/team">{t('app.nav.team')}</Link>
+        </SidebarNavItem>
+        <PendingNavItem icon={<Activity />} label={t('app.nav.activity')} reason={reason} later={later} />
+        <PendingNavItem icon={<Settings />} label={t('app.nav.settings')} reason={reason} later={later} />
+      </SidebarNav>
+      <SidebarSection>
+        <SidebarNav aria-label={t('app.nav.other')}>
+          <PendingNavItem icon={<Trash2 />} label={t('app.nav.trash')} reason={reason} later={later} />
+        </SidebarNav>
+        <SidebarUser name={user.name} email={user.email} />
+        <Button variant="ghost" loading={signingOut} onClick={() => void onSignOut()} className="justify-start">
+          <LogOut aria-hidden className="size-4.5" />
+          {t('app.signOut')}
+        </Button>
+      </SidebarSection>
+    </>
+  )
+  return (
+    <>
+      <AppShell
+        menuLabel={t('app.nav.menu')}
+        skipLabel={t('app.nav.skip')}
+        sidebar={nav}
+        mobileBar={
+          <>
+            <WorkspaceSwitcher
+              variant="bar"
+              workspaces={options}
+              value={active.id}
+              onValueChange={(id) => void onSwitch(id)}
+              memberLabel={t('app.workspace.yours')}
+              guestLabel={t('app.workspace.guestOf')}
+              guestBadge={t('app.role.guest')}
+              footer={
+                <MenuItem icon={<Plus />} onSelect={() => setCreating(true)}>
+                  {t('app.workspace.new')}
+                </MenuItem>
+              }
+            />
+            <Avatar name={user.name} className="mr-1" />
+          </>
+        }
+      >
+        <Outlet />
+      </AppShell>
+      <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} onCreated={onCreated} />
+    </>
+  )
+}
+
+export const AppLayout = () => (
+  <SessionProvider>
+    <RequireSession>
+      <WorkspaceProvider>
+        <Frame />
+      </WorkspaceProvider>
+    </RequireSession>
+  </SessionProvider>
+)

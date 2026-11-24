@@ -1,4 +1,5 @@
 import type { Locale } from './locales'
+import { appEn, appTr } from './app'
 
 export const en = {
   'auth.signIn.title': 'Sign in',
@@ -107,9 +108,7 @@ export const en = {
   'common.language': 'Language',
   'common.genericError': 'Something went wrong. Please try again.',
   'common.passwordTooLong': 'Password must be at most 128 characters.',
-  'app.placeholder.title': 'Signed in',
-  'app.placeholder.lead': 'The workspace opens here soon.',
-  'app.placeholder.signOut': 'Sign out',
+  ...appEn,
 } as const
 
 export type I18nKey = keyof typeof en
@@ -221,9 +220,7 @@ export const tr: Record<I18nKey, string> = {
   'common.language': 'Dil',
   'common.genericError': 'Bir şeyler ters gitti. Lütfen tekrar deneyin.',
   'common.passwordTooLong': 'Şifre en fazla 128 karakter olabilir.',
-  'app.placeholder.title': 'Giriş yapıldı',
-  'app.placeholder.lead': 'Çalışma alanı yakında burada açılacak.',
-  'app.placeholder.signOut': 'Çıkış yap',
+  ...appTr,
 }
 
 export const translations: Record<Locale, Record<I18nKey, string>> = {
