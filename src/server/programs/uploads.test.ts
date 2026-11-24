@@ -496,6 +496,18 @@ describe('cancelUpload', () => {
       assert.deepStrictEqual(yield* rows('storageDeletions'), [])
     })))
 
+  it.effect('the completion guard uses the database clock: a session that expires during the R2 reads is not completed', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const uploaded = yield* upload('max', 'a.stl', stlBytes(3))
+      const storage = yield* Storage
+      const slow = { ...storage, getRange: (...args: Parameters<typeof storage.getRange>) =>
+        TestClock.adjust(`${uploadTtlSeconds(234) + 1} seconds`).pipe(Effect.andThen(storage.getRange(...args))) }
+      const error = yield* Effect.flip(finish('max', uploaded).pipe(Effect.provideService(Storage, slow)))
+      assert.strictEqual(error._tag, 'WriteConflict')
+      assert.strictEqual((yield* rows('files')).length, 0)
+    })))
+
   it.effect('a completed session cannot be cancelled', () =>
     run(Effect.gen(function* () {
       yield* world

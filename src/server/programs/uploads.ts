@@ -57,18 +57,19 @@ const committedBytes = (workspaceId: string) =>
     SELECT v.r2Key, v.size FROM file_versions v JOIN files f ON f.id = v.fileId WHERE f.workspaceId = ${workspaceId}))`
 
 /** Declared size of the open sessions; `except` leaves one session out (the one being completed holds its own space). */
-const reservedBytes = (workspaceId: string, now: number, except: string | null) =>
+const reservedBytes = (workspaceId: string, now: number | 'db', except: string | null) =>
   sql`(SELECT COALESCE(SUM(declaredSize), 0) FROM upload_sessions
-    WHERE workspaceId = ${workspaceId} AND status = 'pending' AND expiresAt > ${now} AND id <> ${except ?? ''})`
+    WHERE workspaceId = ${workspaceId} AND status = 'pending' AND expiresAt > ${now === 'db' ? sql`unixepoch()` : now} AND id <> ${except ?? ''})`
 
-const fitsQuota = (workspaceId: string, now: number, except: string | null, size: number, limit: number) =>
+const fitsQuota = (workspaceId: string, now: number | 'db', except: string | null, size: number, limit: number) =>
   sql`${committedBytes(workspaceId)} + ${reservedBytes(workspaceId, now, except)} + ${size} <= ${limit}`
 
 const openSessions = (userId: string, now: number) =>
   sql`(SELECT count(*) FROM upload_sessions WHERE userId = ${userId} AND status = 'pending' AND expiresAt > ${now})`
 
-const sessionPending = (sessionId: string, now: number) =>
-  sql`EXISTS (SELECT 1 FROM upload_sessions WHERE id = ${sessionId} AND status = 'pending' AND expiresAt > ${now})`
+/** Evaluated inside the batch guard with the database's own clock (`unixepoch()`), not the `now` read at the start of the call. */
+const sessionPending = (sessionId: string) =>
+  sql`EXISTS (SELECT 1 FROM upload_sessions WHERE id = ${sessionId} AND status = 'pending' AND expiresAt > unixepoch())`
 
 const usedBytes = Effect.fnUntraced(function* (workspaceId: string, now: number, except: string | null) {
   const db = yield* Db
@@ -277,9 +278,9 @@ export const completeUpload = Effect.fn('completeUpload')(function* (caller: Cal
 
   const guardConditions = (extra: ReadonlyArray<ReturnType<typeof sql>>) =>
     sql.join([
-      sessionPending(session.id, now),
+      sessionPending(session.id),
       stillRole(session.workspaceId, caller.userId, [access.role]),
-      fitsQuota(session.workspaceId, now, session.id, session.declaredSize, limits.storageBytes),
+      fitsQuota(session.workspaceId, 'db', session.id, session.declaredSize, limits.storageBytes),
       ...(access.projectId !== null && access.projectMode !== null ? [projectStill(access.projectId, access.projectMode)] : []),
       ...extra,
     ], sql` AND `)
