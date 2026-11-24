@@ -30,7 +30,7 @@ export const useUser = (): SessionUser => {
 
 /** Dev only: `?fixture=owner` swaps the network for an in-memory API (src/app/fixture.ts). Stripped from production builds. */
 const useFetcher = (given: typeof fetch | undefined): typeof fetch | null => {
-  const [fetcher, setFetcher] = useState<typeof fetch | null>(given ?? null)
+  const [fetcher, setFetcher] = useState<typeof fetch | null>(() => given ?? null)
   useEffect(() => {
     if (given) return
     let cancelled = false

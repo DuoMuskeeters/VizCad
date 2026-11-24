@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Building2, Ellipsis, Trash2, UserPlus, Users } from 'lucide-react'
+import { Building2, EllipsisVertical, Trash2, UserPlus, Users } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
 import { Button, IconButton } from '#/components/ui/Button'
@@ -106,7 +106,7 @@ const MemberRow = ({
         <Menu>
           <MenuTrigger asChild>
             <IconButton label={t('app.team.actionsOf', { name: member.name })} size="sm">
-              <Ellipsis aria-hidden className="size-4.5" />
+              <EllipsisVertical aria-hidden className="size-4.5 rotate-90" />
             </IconButton>
           </MenuTrigger>
           <MenuContent align="end" className="min-w-60">
@@ -153,13 +153,13 @@ const InvitationRow = ({
   const days = Math.max(1, Math.ceil((invitation.expiresAt * 1000 - Date.now()) / 86_400_000))
   const expires = t('app.team.expiresIn', { days })
   return (
-    <DataListRow>
+    <DataListRow className="max-app:grid-cols-1! max-app:gap-y-1 max-app:py-3">
       <DataListPrimary leading={<Avatar name={invitation.email} tone="slate" />} meta={`${t(roleKey(invitation.role))} · ${expires}`}>
         {invitation.email}
       </DataListPrimary>
       <DataListCell desktopOnly>{t(roleKey(invitation.role))}</DataListCell>
       <DataListCell desktopOnly>{expires}</DataListCell>
-      <DataListCell className="flex justify-end gap-1">
+      <DataListCell className="flex flex-wrap gap-1 app:justify-end max-app:-ml-1">
         <Button loading={busy} onClick={() => onResend(invitation)} className="h-11 app:h-8 app:text-sm">
           {t('app.team.resend')}
         </Button>
@@ -416,7 +416,7 @@ export const TeamPage = () => {
         error={dialogError}
         onCancel={() => setPending(null)}
         title={demote ? t('app.team.confirm.roleTitle', { name: demote.member.name }) : t('app.team.confirm.removeTitle', { name: pending?.member.name ?? '' })}
-        description={demote ? t('app.team.confirm.roleLead', { from: t(roleKey(demote.member.role)), to: t(roleKey(demote.role)) }) : t('app.team.confirm.removeLead', { workspace: active.name })}
+        description={demote ? t('app.team.confirm.roleLead', { from: t(roleKey(demote.member.role)), to: t(roleKey(demote.role)) }) : t('app.team.confirm.removeLead', { name: pending?.member.name ?? '', workspace: active.name })}
         warning={demote ? t('app.team.confirm.roleWarning') : t('app.team.confirm.removeWarning')}
         confirmLabel={demote ? t('app.team.confirm.roleBtn') : t('app.team.confirm.removeBtn')}
         onConfirm={() => {
