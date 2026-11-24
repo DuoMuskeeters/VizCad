@@ -517,3 +517,26 @@ describe('moveFile source and target permissions', () => {
     expect(decidePermission({ ...defaultInput, ...patch }).reason).toBe(expected)
   })
 })
+
+describe('manageProjectAccess', () => {
+  const decide = (role: string, mode: 'team' | 'restricted', creator: boolean) =>
+    decidePermission({
+      workspace,
+      now,
+      actor: asMember(role),
+      project: { ...project, accessMode: mode, creatorManagerUserId: creator ? 'u' : null },
+      action: { kind: 'manageProjectAccess' },
+    }).reason
+
+  it.each([
+    ['owner', 'team', false, 'ALLOWED'],
+    ['admin', 'restricted', false, 'ALLOWED'],
+    ['member', 'restricted', true, 'ALLOWED'],
+    ['member', 'restricted', false, 'PROJECT_MANAGER_REQUIRED'],
+    ['member', 'team', true, 'PROJECT_MANAGER_REQUIRED'],
+    ['commenter', 'restricted', true, 'PROJECT_MANAGER_REQUIRED'],
+    ['guest', 'restricted', false, 'PROJECT_MANAGER_REQUIRED'],
+  ] as const)('%s on a %s project (creator: %s) -> %s', (role, mode, creator, reason) => {
+    expect(decide(role, mode, creator)).toBe(reason)
+  })
+})

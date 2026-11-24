@@ -169,7 +169,7 @@ export const grantProjectAccess = Effect.fn('grantProjectAccess')(function* (cal
   const recipientRole = yield* memberRole(input.workspaceId, input.userId)
   const recipient = { workspaceId: input.workspaceId, userId: input.userId, role: recipientRole }
   yield* authorizeGrant(
-    { ...base, action: { kind: 'view' } },
+    { ...base, action: { kind: 'manageProjectAccess' } },
     checkExpiry(input.workspaceId, recipientRole, input.expiresAt, base.now),
     { ...base, action: { kind: 'grantProjectAccess', recipient, level: input.level, expiresAt: input.expiresAt } },
   )

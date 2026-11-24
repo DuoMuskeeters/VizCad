@@ -53,7 +53,7 @@ const guestGrantDecision = Effect.fnUntraced(function* (
   }
   const { role, base, still } = yield* projectContext(caller, workspaceId, target.projectId)
   yield* authorizeGrant(
-    { ...base, action: { kind: 'view' } },
+    { ...base, action: { kind: 'manageProjectAccess' } },
     checkExpiry(workspaceId, 'guest', accessExpiresAt, base.now),
     { ...base, action: { kind: 'grantProjectAccess', recipient, level, expiresAt: accessExpiresAt } },
   )

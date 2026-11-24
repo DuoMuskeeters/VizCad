@@ -88,7 +88,7 @@ export type PermissionAction =
       | 'shareFile' | 'trashFile' | 'restoreFile' | 'purgeFile' | 'uploadVersion'
       | 'createProject' | 'uploadFile' | 'uploadProjectFile' | 'updateProject'
       | 'manageMembers' | 'updateWorkspace' | 'listActivity' | 'listLinks'
-      | 'archiveWorkspace' | 'selectWorkspace'
+      | 'archiveWorkspace' | 'selectWorkspace' | 'manageProjectAccess'
   }
   | { kind: 'viewComment'; authorUserId: string; authorScopeAtWrite: 'internal' | 'guest' | null; authorRole: WorkspaceRole | null }
   | { kind: 'grantProjectAccess' | 'grantFileAccess'; recipient: MembershipTarget; level: string; expiresAt: number | null }
@@ -373,6 +373,9 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
       return roleAllows(workspaceManager || (restricted && projectManager)
         || (action.target.role === 'guest' && action.target.grantedByUserId === userId))
     }
+    case 'manageProjectAccess':
+      // Who manages a project's grants and guests: owner/admin, or the restricted project's creator-manager.
+      return projectSharing()
     case 'createProject':
       return roleAllows(writer)
     case 'uploadFile':
