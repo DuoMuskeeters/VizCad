@@ -6,8 +6,8 @@ import { cx } from './cx'
  * Structure: Table > TableHeader/TableBody/TableFooter > TableRow > TableHead/TableCell.
  */
 export const Table = ({ className, ...rest }: ComponentProps<'table'>) => (
-  <div className="w-full overflow-x-auto [scrollbar-width:thin]">
-    <table className={cx('w-full caption-bottom text-left text-base text-text', className)} {...rest} />
+  <div className="w-full min-w-0 max-w-full overflow-x-auto [scrollbar-width:thin]">
+    <table className={cx('w-full min-w-120 caption-bottom text-left text-base text-text', className)} {...rest} />
   </div>
 )
 

@@ -28,6 +28,7 @@ import { RadioCard, RadioCardGroup } from '#/components/ui/RadioCard'
 import { SwitchRow } from '#/components/ui/Switch'
 import { SegmentedControl } from '#/components/ui/SegmentedControl'
 import { ChipsInput } from '#/components/ui/ChipsInput'
+import { cx } from '#/components/ui/cx'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from '#/components/ui/Menu'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogTrigger } from '#/components/ui/Dialog'
 import { Tooltip } from '#/components/ui/Tooltip'
@@ -48,19 +49,19 @@ import { ThemeSwitch } from './ThemeSwitch'
 import { files, people, workspaces } from './sample'
 
 const Section = ({ id, title, note, children }: { id: string; title: string; note?: string; children: ReactNode }) => (
-  <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-28 border-t border-line py-8">
+  <section id={id} aria-labelledby={`${id}-h`} className="min-w-0 scroll-mt-28 border-t border-line py-8">
     <h2 id={`${id}-h`} className="text-xl font-heading tracking-heading">
       {title}
     </h2>
     {note ? <p className="mt-1 max-w-2xl text-md text-text-2">{note}</p> : null}
-    <div className="mt-5 grid gap-6">{children}</div>
+    <div className="mt-5 grid min-w-0 gap-6">{children}</div>
   </section>
 )
 
 const Group = ({ label, children, className }: { label: string; children: ReactNode; className?: string }) => (
-  <div className="grid gap-2.5">
+  <div className="grid min-w-0 max-w-full gap-2.5">
     <h3 className="text-sm font-medium text-text-3">{label}</h3>
-    <div className={className ?? 'flex flex-wrap items-center gap-3'}>{children}</div>
+    <div className={cx('min-w-0 max-w-full', className ?? 'flex flex-wrap items-center gap-3')}>{children}</div>
   </div>
 )
 
@@ -98,7 +99,7 @@ export const UiShowcase = () => {
   const [saving, setSaving] = useState(false)
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh min-w-0 max-w-full overflow-x-hidden">
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
           <Logo className="text-[24px]" />
@@ -123,7 +124,7 @@ export const UiShowcase = () => {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-24">
+      <main className="mx-auto max-w-5xl min-w-0 px-4 pb-24">
         <Section id="buttons" title="Düğmeler" note="Devre dışı düğme nedenini söyler: dokununca ya da odaklanınca görünür, ekran okuyucu açıklama olarak okur.">
           <Group label="Türler">
             <Button variant="primary">
@@ -567,8 +568,8 @@ export const UiShowcase = () => {
         </Section>
 
         <Section id="lists" title="Tablo ve liste" note="Semantik <table> ve CSS grid DataList. Masaüstünde tam sütunlar, 900 px altında duyarlı görünüm. Tüm durumlar: varsayılan dolu, yükleniyor (iskelet), boş, hata.">
-          <Group label="Semantik tablo (varsayılan dolu durum)" className="grid">
-            <div className="rounded-lg border border-line bg-bg">
+          <Group label="Semantik tablo (varsayılan dolu durum)" className="grid min-w-0 max-w-full">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-line bg-bg">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -639,8 +640,8 @@ export const UiShowcase = () => {
             </div>
           </Group>
 
-          <Group label="Tablo: yükleniyor durumu (iskelet)" className="grid">
-            <div className="rounded-lg border border-line bg-bg" aria-busy="true">
+          <Group label="Tablo: yükleniyor durumu (iskelet)" className="grid min-w-0 max-w-full">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-line bg-bg" aria-busy="true">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -700,7 +701,7 @@ export const UiShowcase = () => {
           </Group>
 
           <Group label="Dosya listesi (DataList: masaüstü ızgara, mobil 2 satır)">
-            <div className="w-full">
+            <div className="w-full min-w-0 max-w-full overflow-hidden">
               <FilesTable
                 files={files.slice(0, 4)}
                 selected={selected}
