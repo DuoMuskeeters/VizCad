@@ -287,6 +287,10 @@ Link olayları `actorKind = 'link'`, `linkId` ile yazılır: `link.opened` (çö
 
 Saklanan: kimlikler, eylem, sonuç, `requestId` (`cf-ray`), zaman, sabit `reason` kodu. **Saklanmayan:** e-posta, ad, dosya adı, yorum içeriği, IP, user agent, URL, token, parola. Arayüz adları okuma anında güncel tablolardan çözer. Silinmiş hedef “silinmiş dosya” olarak görünür.
 
+### 7.2a Güvenlik kaydı (D21)
+
+IP ve user agent `access_log`'a hiç girmez. Ayrı bir `security_log` tablosu (yeni tablo, 0014'te) yalnız şu olaylarda yazılır: giriş başarılı/başarısız, parola sıfırlama isteği, `link.opened`, `link.password_failed`, `file.downloaded`. Alanlar: zaman, olay, `userId` (varsa), `workspaceId` (varsa), hedef kimliği, `cf-connecting-ip`, kısaltılmış user agent (en çok 256 karakter), `requestId`. Saklama 90 gün (`AppConfig`, plan bağımsız), günlük cron siler. Yalnız platform yöneticisi okur (Faz 7 admin ekranı); workspace aktivite ekranında görünmez, hiçbir workspace ucu bu tabloyu okumaz. Gizlilik politikasına eklenir. Legacy `activity_logs` içindeki IP/user agent değerleri cutover'da 90 günden eskiyse `NULL` yapılır (§1.5, cutover günü onay).
+
 ### 7.3 Saklama
 
 `Entitlements.auditRetentionDays` (varsayılan 365). Günlük cron eski satırları 1000’lik gruplarla siler. **Gerekçe:** “kim neyi açtı” iddiası bir yıllık geçmişle anlamlı, sınırsız tutmak D1 boyutunu ve veri minimizasyonu ilkesini zorlar. **Alternatif:** 90 gün. Kurumsal denetimler için kısa bulundu, plan bazlı uzatma için alan zaten `Entitlements`’ta.
@@ -398,6 +402,9 @@ Her PR `rewrite`’a. Her birinde ortak kabul: `pnpm check` ve `pnpm build` yeş
 4a ve 4b sıralı, 4c ve 4d 4b’den sonra paralel gidebilir. 4e’nin ekranları ilgili API PR’ı birleşince başlar.
 
 ## 11. Açık sorular (kullanıcı kararı)
+
+**Cevaplandı (D21, 24 Kasım 2026):** 1 onaylandı; 2 Faz 5'e kadar dosya kartı; 3 ayrı güvenlik kaydı, 90 gün (§7.2a).
+
 
 1. **Varsayılan plan değerleri:** workspace başına 5 GB depolama, dosya başına 100 MB, çöpte 30 gün, aktivite kaydı 365 gün, link sayısı sınırsız. Onay mı, değişiklik mi?
 2. **Yeni yüklemelerde küçük resim:** küçük resim üreteci Faz 5 pipeline’ında. O zamana kadar yeni dosyaların “yalnızca görüntüleme” linkinde görsel yerine dosya kartı görünür. Kabul mü, yoksa legacy’deki tarayıcı içi küçük resim üretimi 4e’ye mi taşınsın (vtk.js Faz 4’e girer)?

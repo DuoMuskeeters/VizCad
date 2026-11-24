@@ -88,6 +88,11 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Üye ve yorumcu, workspace'in iç ekibini ve misafirlerini (ad, e-posta) görür; misafir yalnız kendini görür.
 - Mevcut kullanıcılar geçişten sonra onboarding görmez, doğrudan kişisel workspace'lerindeki dosyalarına gider; üstte bir kez "ekibini davet et / firma oluştur" önerisi çıkar. Onboarding yalnız yeni kayıtlar için.
 
+**D21. Faz 4 açık soruları (24 Kasım 2026).** `09-files-sharing-design.md` §11.
+- Varsayılan plan: workspace başına 5 GB, dosya başına 100 MB, çöpte 30 gün, aktivite kaydı 365 gün, link sayısı sınırsız (hepsi `Entitlements`'ta).
+- Yeni yüklemelerin küçük resmi Faz 5'te üretilir; o zamana kadar "yalnızca görüntüleme" linkinde dosya kartı görünür.
+- IP ve tarayıcı bilgisi workspace aktivite kaydına girmez; ayrı bir **güvenlik kaydında** (giriş, link açma, indirme olayları) tutulur, 90 gün sonra silinir, yalnız platform yöneticisi görür; gizlilik politikasına eklenir. Legacy `activity_logs` içindeki IP/tarayıcı değerleri cutover'da 90 günden eskiyse temizlenir (cutover günü ayrıca onay).
+
 ## Açık sorular
 
 | # | Soru | Notlar |
