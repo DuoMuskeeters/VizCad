@@ -1,5 +1,6 @@
 import { Effect, Layer } from 'effect'
 import { liveLayers } from '../services/live'
+import { runCron } from '../programs/cron'
 import { appResponse } from './app'
 import { identityResponse } from './auth'
 import { healthResponse } from './health'
@@ -23,8 +24,14 @@ export const handleApp = (request: Request, env: Cloudflare.Env, waitUntil: (pro
   return Effect.runPromise(
     appResponse(
       request,
-      Layer.mergeAll(live.db, live.auth, live.email, live.rateLimit, live.config, live.entitlements, live.background),
+      Layer.mergeAll(live.db, live.auth, live.email, live.rateLimit, live.config, live.entitlements, live.background, live.storage),
       requestMeta(request),
     ),
   )
+}
+
+/** Cron triggers (`scheduled` in src/server.ts): hourly upload/deletion cleanup, daily security-log pruning. */
+export const handleScheduled = (cron: string, env: Cloudflare.Env): Promise<void> => {
+  const live = liveLayers(env)
+  return Effect.runPromise(runCron(cron).pipe(Effect.provide(Layer.mergeAll(live.db, live.storage, live.config))))
 }

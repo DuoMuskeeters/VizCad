@@ -147,6 +147,7 @@ export const decodeEnv = Effect.fnUntraced(function* (env: object) {
     },
     r2Presign: yield* r2Presign(e),
     cachePurge: yield* cachePurge(e),
+    securityLogRetentionDays: 90,
   })
 })
 

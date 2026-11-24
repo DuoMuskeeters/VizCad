@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -50,6 +50,9 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   inviteLookup: { target: { limit: 60, windowSeconds: 15 * 60 }, ip: { limit: 120, windowSeconds: 15 * 60 } },
   // Workspace creation. The target is the user; its daily quota comes from Entitlements (`targetRule`), this is the fallback.
   createWorkspace: { target: { limit: 10, windowSeconds: 24 * 60 * 60 }, ip: { limit: 20, windowSeconds: 60 * 60 } },
+  // Upload requests (`requestUpload`): per user and per IP. A drag-and-drop of a few dozen files must fit; the open-session
+  // count and the storage reservation (Entitlements) bound what is actually held.
+  upload: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
 }
 
 /**
@@ -83,6 +86,8 @@ export class AppConfig extends Context.Service<
     readonly r2Presign: Option.Option<R2Presign>
     /** None when not configured: purge only clears the local data center's cache. */
     readonly cachePurge: Option.Option<CachePurge>
+    /** Days `security_log` rows are kept (D21: 90, not plan dependent). The daily job deletes older rows. */
+    readonly securityLogRetentionDays: number
   }
 >()('vizcad/AppConfig') {}
 
@@ -104,6 +109,7 @@ export const testConfig: AppConfig['Service'] = {
     secretAccessKey: Redacted.make('wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'),
   }),
   cachePurge: Option.none(),
+  securityLogRetentionDays: 90,
 }
 
 export const test = (overrides: Partial<AppConfig['Service']> = {}) =>

@@ -126,6 +126,30 @@ export class AlreadyHasAccess extends Data.TaggedError('AlreadyHasAccess')<{}> {
 /** A batch precondition (actor role, previous state, quota) changed between read and write; nothing was written. */
 export class WriteConflict extends Data.TaggedError('WriteConflict')<{}> {}
 
+/** The file's extension is not a supported CAD type, or its bytes do not match it (docs/09 §2.2). */
+export class UnsupportedFileType extends Data.TaggedError('UnsupportedFileType')<{}> {}
+
+/** The file is larger than the plan's per-file limit (Entitlements.maxFileBytes). */
+export class FileTooLarge extends Data.TaggedError('FileTooLarge')<{}> {}
+
+/** The upload would take the workspace over its storage quota. */
+export class StorageQuotaExceeded extends Data.TaggedError('StorageQuotaExceeded')<{}> {}
+
+/** The user already holds the maximum number of open upload sessions. */
+export class UploadLimitReached extends Data.TaggedError('UploadLimitReached')<{}> {}
+
+/** The upload session does not exist for this user, is not open, or has expired. */
+export class UploadUnavailable extends Data.TaggedError('UploadUnavailable')<{}> {}
+
+/** The browser reported completion but R2 holds no object under the session's key yet. */
+export class UploadIncomplete extends Data.TaggedError('UploadIncomplete')<{}> {}
+
+/** The stored object's size or ETag differs from what was declared and reported; the object is queued for deletion. */
+export class UploadMismatch extends Data.TaggedError('UploadMismatch')<{}> {}
+
+/** A new version must have the same extension as the file. */
+export class VersionTypeMismatch extends Data.TaggedError('VersionTypeMismatch')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -160,3 +184,11 @@ export type AppError =
   | WorkspaceLimitReached
   | AlreadyHasAccess
   | WriteConflict
+  | UnsupportedFileType
+  | FileTooLarge
+  | StorageQuotaExceeded
+  | UploadLimitReached
+  | UploadUnavailable
+  | UploadIncomplete
+  | UploadMismatch
+  | VersionTypeMismatch

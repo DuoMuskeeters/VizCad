@@ -9,6 +9,7 @@ import * as DbMemory from '../services/Db.memory'
 import * as Email from '../services/Email'
 import * as Entitlements from '../services/Entitlements'
 import * as RateLimit from '../services/RateLimit'
+import * as Storage from '../services/Storage'
 
 /** Fixed test clock start: 2026-11-24T10:00:00Z. Tests move it with TestClock.adjust. */
 export const T0 = 1795514400
@@ -22,6 +23,7 @@ export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements
     RateLimit.memory,
     Entitlements.fixed(limits),
     Background.inline,
+    Storage.memory,
   ).pipe(Layer.provideMerge(AppConfig.test()))
 
 const at = (seconds: number) => new Date(seconds * 1000)
@@ -104,5 +106,9 @@ const tables = {
   accessLog: schema.accessLog,
   shareLinks: schema.shareLinks,
   files: schema.files,
+  fileVersions: schema.fileVersions,
+  uploadSessions: schema.uploadSessions,
+  storageDeletions: schema.storageDeletions,
+  securityLog: schema.securityLog,
 } as const
 

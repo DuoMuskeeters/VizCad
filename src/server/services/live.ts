@@ -32,7 +32,7 @@ export const liveLayers = (env: Cloudflare.Env, defer?: AuthLive.Defer) => {
     rateLimit: RateLimitLive.layer(env.RATE_LIMITER).pipe(Layer.provide(config)),
     turnstile: TurnstileLive.layer.pipe(Layer.provide(config)),
     cache: CacheLive.layer(caches.default).pipe(Layer.provide(config)),
-    entitlements: Entitlements.live,
+    entitlements: Entitlements.live.pipe(Layer.provide(DbLive.layer(env.vizcad_auth))),
     background: Background.layer(defer ?? AuthLive.detached),
   }
 }

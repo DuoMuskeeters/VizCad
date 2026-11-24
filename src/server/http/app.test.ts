@@ -157,11 +157,52 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual((after.body.data as { needsOnboarding: boolean }).needsOnboarding, false)
     })))
 
+  it.effect('requestUpload: validates the body, signs a key the server picks, and reads no client key, MIME or etag', () =>
+    run(Effect.gen(function* () {
+      const bob = { cookie: 'session=tok-bob' }
+      const body = { workspaceId: 'acme', name: 'Bracket v2.step', size: 5_000_000 }
+      const ok = yield* call(post('requestUpload', body, bob))
+      assert.strictEqual(ok.status, 200)
+      const ticket = ok.body.data as { uploadId: string; url: string; headers: Record<string, string>; expiresAt: number }
+      assert.deepStrictEqual(ticket.headers, { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' })
+      assert.strictEqual(ticket.expiresAt, T0 + 600)
+      const url = new URL(ticket.url)
+      assert.match(decodeURIComponent(url.pathname), /^\/w\/acme\/f\/[0-9A-Z]{26}\/[0-9A-Z]{26}$/)
+      assert.notInclude(ticket.url, 'Bracket')
+      assert.strictEqual(ok.headers.get('cache-control'), 'private, no-store')
+
+      for (const extra of [{ key: 'u/other/key' }, { r2Key: 'x' }, { mimeType: 'text/html' }, { contentType: 'text/html' }, { fileId: 'f1' }]) {
+        assert.strictEqual((yield* call(post('requestUpload', { ...body, ...extra }, bob))).status, 400, JSON.stringify(extra))
+      }
+      for (const bad of [{ size: 0 }, { size: -1 }, { size: 1.5 }, { size: '10' }, { name: '' }, { name: 'a/b.stl' }, { name: 'x'.repeat(256) + '.stl' }]) {
+        assert.strictEqual((yield* call(post('requestUpload', { ...body, ...bad }, bob))).status, 400, JSON.stringify(bad))
+      }
+      const dwg = yield* call(post('requestUpload', { ...body, name: 'plan.dwg' }, bob))
+      assert.deepStrictEqual([dwg.status, dwg.body.error], [415, 'UnsupportedFileType'])
+      const big = yield* call(post('requestUpload', { ...body, size: 101 * 1024 * 1024 }, bob))
+      assert.deepStrictEqual([big.status, big.body.error], [413, 'FileTooLarge'])
+      assert.strictEqual((yield* call(post('requestUpload', { ...body, projectId: 'p', targetFileId: 'f' }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('requestUpload', body, { cookie: 'session=nobody' }))).status, 401)
+      assert.strictEqual((yield* call(post('requestUpload', body, bob, 'GET'))).status, 403)
+      assert.strictEqual((yield* call(post('requestUpload', body, { ...bob, origin: 'https://evil.test' }))).status, 403)
+    })))
+
+  it.effect('requestUpload is rate limited; completeUpload and cancelUpload answer 404 for an unknown session', () =>
+    run(Effect.gen(function* () {
+      const bob = { cookie: 'session=tok-bob', 'cf-connecting-ip': '198.51.100.20' }
+      assert.deepStrictEqual((yield* call(post('completeUpload', { uploadId: 'nope', etag: 'x' }, bob))).body.error, 'UploadUnavailable')
+      assert.deepStrictEqual((yield* call(post('cancelUpload', { uploadId: 'nope' }, bob))).status, 404)
+      // Eleven calls over the open-session limit would hit UploadLimitReached first; use a tiny file to stay below it and check the counter.
+      const statuses: Array<number> = []
+      for (let i = 0; i < 241; i++) statuses.push((yield* call(post('requestUpload', { workspaceId: 'other', name: 'a.stl', size: 100 }, bob))).status)
+      assert.strictEqual(statuses[240], 429)
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
-      'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'changeRole', 'completeOnboarding', 'createProject', 'createWorkspace', 'currentWorkspace',
+      'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload', 'createProject', 'createWorkspace', 'currentWorkspace',
       'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listMembers', 'listMyWorkspaces',
-      'previewMemberRemoval', 'removeMember', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
+      'previewMemberRemoval', 'removeMember', 'requestUpload', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation', 'revokeProjectAccess', 'setProjectAccessMode',
       'switchWorkspace', 'transferOwnership', 'updateProject',
     ])
   })

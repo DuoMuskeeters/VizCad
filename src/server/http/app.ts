@@ -3,24 +3,26 @@ import { type Locale, localeFromHeader, locales } from '../emails/auth'
 import { type AppError, ResourceUnavailable, Unauthenticated, ValidationError } from '../errors'
 import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
 import { listActivity } from '../programs/activity'
+import { cancelUpload, completeUpload, requestUpload } from '../programs/uploads'
 import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
 import { acceptInvitation, changeRole, inviteMember, listMembers, previewMemberRemoval, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
 import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
 import { type Caller, maxUnixSeconds } from '../programs/shared'
 import { completeOnboarding, createWorkspace, listMyWorkspaces, needsOnboarding, selectWorkspace, switchWorkspace } from '../programs/workspaces'
-import { AppConfig } from '../services/AppConfig'
+import { AppConfig, type RateLimitAction } from '../services/AppConfig'
 import { Auth } from '../services/Auth'
 import type { Background } from '../services/Background'
 import type { Db } from '../services/Db'
 import type { Email } from '../services/Email'
 import type { Entitlements } from '../services/Entitlements'
+import type { Storage } from '../services/Storage'
 import { RateLimit } from '../services/RateLimit'
 import { readBody } from './body'
 import { checkMutationRequest } from './csrf'
 import { handle, type RequestMeta } from './respond'
 
-export type AppServices = Db | Auth | Email | RateLimit | AppConfig | Entitlements | Background
+export type AppServices = Db | Auth | Email | RateLimit | AppConfig | Entitlements | Background | Storage
 
 // Boundary schemas (docs/08 §1 "İstek sınırı"): every body is validated before a program runs.
 const Id = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128))
@@ -34,6 +36,7 @@ const GuestLevel = Schema.Literals(['view', 'comment', 'download'])
 const AccessMode = Schema.Literals(['team', 'restricted'])
 const Seconds = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: maxUnixSeconds }))
 const LocaleField = Schema.optional(Schema.Literals(locales))
+const FileSize = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }))
 const Workspace = { workspaceId: Id }
 const Grant = { ...Workspace, userId: Id, level: Level, expiresAt: Schema.NullOr(Seconds) }
 
@@ -52,8 +55,8 @@ interface Result {
 }
 
 interface Operation {
-  /** Invitation acceptance is throttled per IP and account before the token is hashed or the row is read. */
-  readonly limit?: 'inviteAccept' | 'inviteLookup'
+  /** Throttled per IP and account before the body is read (invitation acceptance, upload requests). */
+  readonly limit?: Extract<RateLimitAction, 'inviteAccept' | 'inviteLookup' | 'upload'>
   readonly run: (body: unknown, ctx: Context) => Effect.Effect<Result, AppError, AppServices>
 }
 
@@ -66,7 +69,7 @@ type Fields = { readonly [key: string]: Schema.Top & { readonly DecodingServices
 const op = <F extends Fields>(
   fields: F,
   run: (input: Schema.Struct<F>['Type'], ctx: Context) => Effect.Effect<unknown, AppError, AppServices>,
-  limit?: 'inviteAccept' | 'inviteLookup',
+  limit?: Operation['limit'],
 ): Operation => ({
   ...(limit === undefined ? {} : { limit }),
   run: (body, ctx) =>
@@ -142,6 +145,19 @@ const operations: Readonly<Record<string, Operation>> = {
   revokeProjectAccess: op({ ...Workspace, projectId: Id, userId: Id }, (input, { caller }) => revokeProjectAccess(caller, input)),
   grantFileAccess: op({ ...Grant, fileId: Id }, (input, { caller }) => grantFileAccess(caller, input)),
   revokeFileAccess: op({ ...Workspace, fileId: Id, userId: Id }, (input, { caller }) => revokeFileAccess(caller, input)),
+  // Files: uploads (docs/09 §2). Unknown properties fail the schema, so a client cannot offer a key, MIME type or etag-less completion.
+  requestUpload: op(
+    { ...Workspace, projectId: Schema.optional(Id), targetFileId: Schema.optional(Id), name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)), size: FileSize },
+    (input, { caller }) =>
+      requestUpload(caller, {
+        workspaceId: input.workspaceId, name: input.name, size: input.size,
+        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+        ...(input.targetFileId === undefined ? {} : { targetFileId: input.targetFileId }),
+      }),
+    'upload',
+  ),
+  completeUpload: op({ uploadId: Id, etag: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128)) }, (input, { caller }) => completeUpload(caller, input)),
+  cancelUpload: op({ uploadId: Id }, (input, { caller }) => cancelUpload(caller, input)),
   listActivity: op({ ...Workspace, limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))), cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))) }, (input, { caller }) =>
     listActivity(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
 }
@@ -158,7 +174,7 @@ const sealed = (data: unknown, extra?: Headers) => {
 }
 
 /**
- * `POST /api/app/<operation>`: product API for workspaces, members, invitations, projects, access and activity.
+ * `POST /api/app/<operation>`: product API for workspaces, members, invitations, projects, access, activity and uploads.
  * Order: known operation (else 404) -> CSRF (POST, trusted Origin, same-origin fetch, JSON) -> session (401; a
  * suspended account counts as none) -> rate limit where needed -> body schema (400) -> program. Responses are never
  * cached. better-auth's `/organization/*` stays closed; programs write the organization tables themselves.
