@@ -115,12 +115,9 @@ const isObj = ({ head, size }: SignatureSample) => {
     const expected = lead >= 0xf0 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc0 ? 2 : 1
     if (expected > back + 1) end = end - back - 1
   }
-  let text: string
-  try {
-    text = new TextDecoder('utf-8', { fatal: true }).decode(head.subarray(0, end))
-  } catch {
-    return false
-  }
+  // Non-fatal decode: invalid UTF-8 becomes U+FFFD, which makes the sample invalid.
+  const text = new TextDecoder('utf-8').decode(head.subarray(0, end))
+  if (text.includes('\uFFFD')) return false
   return /^[ \t]*(?:v |f |o |g |mtllib)/m.test(text)
 }
 
