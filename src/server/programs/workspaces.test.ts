@@ -5,7 +5,9 @@ import { MemoryAuth } from '../services/Auth'
 import { defaultPlan } from '../services/Entitlements'
 import { caller, programLayer, rows, seedFile, seedMember, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { grantFileAccess } from './access'
-import { createWorkspace, ensurePersonalWorkspace, listMyWorkspaces, selectWorkspace, slugFrom, switchWorkspace } from './workspaces'
+import * as schema from '../db/schema'
+import { Db } from '../services/Db'
+import { completeOnboarding, createWorkspace, ensurePersonalWorkspace, needsOnboarding, listMyWorkspaces, selectWorkspace, slugFrom, switchWorkspace } from './workspaces'
 
 const setup = <A, E, R>(body: Effect.Effect<A, E, R>, limits = defaultPlan) =>
   TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(limits)))
@@ -138,5 +140,44 @@ describe('listMyWorkspaces / switchWorkspace / selectWorkspace', () => {
       assert.strictEqual(yield* selectWorkspace(caller('ada'), 'acme'), 'acme')
       assert.strictEqual(yield* selectWorkspace(caller('ada'), 'beta'), 'pers-ada')
       assert.strictEqual(yield* selectWorkspace(caller('bob'), null), 'personal-bob')
+    })))
+})
+
+describe('onboarding mark (D20)', () => {
+  it.effect('a new sign-up needs onboarding until it is completed; completing twice changes nothing more', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('ada')
+      yield* seedUser('bob')
+      assert.isFalse(yield* needsOnboarding(caller('ada'))) // no personal workspace yet
+      yield* ensurePersonalWorkspace(caller('ada'))
+      assert.isTrue(yield* needsOnboarding(caller('ada')))
+      assert.deepStrictEqual(yield* completeOnboarding(caller('ada')), { completed: true })
+      assert.isFalse(yield* needsOnboarding(caller('ada')))
+      const first = (yield* rows('organization'))[0]?.onboardingCompletedAt?.getTime()
+      assert.strictEqual(first, T0 * 1000)
+      yield* TestClock.adjust('1 hour')
+      yield* completeOnboarding(caller('ada'))
+      assert.strictEqual((yield* rows('organization'))[0]?.onboardingCompletedAt?.getTime(), first)
+      // Another account is not affected.
+      yield* ensurePersonalWorkspace(caller('bob'))
+      assert.isTrue(yield* needsOnboarding(caller('bob')))
+    })))
+
+  it.effect('an existing user whose personal workspace was stamped by the backfill never needs it', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('eve')
+      yield* seedWorkspace('personal-eve', 'eve', 'personal')
+      yield* Db.use((db) => db.use((d) => d.update(schema.organization).set({ onboardingCompletedAt: new Date((T0 - 86400) * 1000) })))
+      assert.isFalse(yield* needsOnboarding(caller('eve')))
+      assert.deepStrictEqual(yield* selectWorkspace(caller('eve'), null), 'personal-eve')
+      assert.isFalse(yield* needsOnboarding(caller('eve')))
+    })))
+
+  it.effect('completing creates the personal workspace if the account has none yet (invitation-first sign-up)', () =>
+    setup(Effect.gen(function* () {
+      yield* seedUser('ivy')
+      yield* completeOnboarding(caller('ivy'))
+      assert.isFalse(yield* needsOnboarding(caller('ivy')))
+      assert.strictEqual((yield* rows('organization')).length, 1)
     })))
 })

@@ -21,21 +21,29 @@ const screens = [
   { name: 'team-personal', url: '/app/team?fixture=empty-team' },
   { name: 'team-invite-dialog', url: '/app/team?fixture=owner', setup: click(/Invite members|Üye davet et/) },
   { name: 'team-confirm-remove', url: '/app/team?fixture=owner', setup: async (page) => {
-      await page.getByRole('button', { name: /Actions for Zeynep|Zeynep Arslan için/ }).click();
+      await page.getByRole('button', { name: /Actions for Mehmet|Mehmet Kaya için/ }).click();
       await page.getByRole('menuitem', { name: /Remove from workspace|Workspace’ten çıkar/ }).click();
+      await page.waitForTimeout(350); } },
+  { name: 'team-seats-full', url: '/app/team?fixture=seats-full' },
+  { name: 'team-confirm-promote', url: '/app/team?fixture=owner', setup: async (page) => {
+      await page.getByRole('tab', { name: /Guests|Misafirler/ }).click();
+      await page.getByRole('button', { name: /Actions for Ömer|Ömer Koç için/ }).click();
+      await page.getByRole('menuitem', { name: /Make member|Üye yap/ }).click();
       await page.waitForTimeout(350); } },
   { name: 'switcher-open', url: '/app/team?fixture=owner', setup: async (page) => {
       const vw = page.viewportSize().width;
       await page.locator(vw < 900 ? 'header button[aria-haspopup="menu"]' : 'aside button[aria-haspopup="menu"]').first().click();
       await page.waitForTimeout(350); } },
-  { name: 'onboarding-kind', url: '/onboarding?fixture=personal', onboarding: true },
-  { name: 'onboarding-company', url: '/onboarding?fixture=personal', onboarding: true, setup: async (page) => {
+  { name: 'onboarding-kind', url: '/onboarding?fixture=newuser' },
+  { name: 'onboarding-company', url: '/onboarding?fixture=newuser', setup: async (page) => {
       await page.getByRole('radio', { name: /For my company|Firmam için/ }).click();
       await page.getByRole('button', { name: /Continue|Devam/ }).click(); await page.waitForTimeout(300); } },
   { name: 'invite-anonymous', url: '/invite/abc?fixture=anon' },
   { name: 'invite-signed-in', url: '/invite/abc?fixture=invite-ok' },
-  { name: 'invite-expired', url: '/invite/abc?fixture=invite-expired', setup: click(/Accept invitation|Daveti kabul et/) },
-  { name: 'invite-other-account', url: '/invite/abc?fixture=invite-other', setup: click(/Accept invitation|Daveti kabul et/) },
+  { name: 'invite-expired', url: '/invite/abc?fixture=invite-expired' },
+  { name: 'invite-canceled', url: '/invite/abc?fixture=invite-canceled' },
+  { name: 'invite-other-account', url: '/invite/abc?fixture=invite-other' },
+  { name: 'invite-guest-wrong-account', url: '/guest-invite/abcdefghijklmnopqrstuvwxyz?fixture=invite-guest-other' },
   { name: 'invite-guest', url: '/guest-invite/abcdefghijklmnopqrstuvwxyz?fixture=invite-ok' },
 ];
 
@@ -53,7 +61,6 @@ const viewports = [
     for (const vp of viewports) {
       for (const theme of ['light', 'dark']) {
         const context = await browser.newContext({ ...vp.ctx, colorScheme: theme, locale: 'tr-TR' });
-        if (s.onboarding) await context.addInitScript(() => localStorage.setItem('vizcad_onboarding_pending', 'ayse@demirmakina.com'));
         const page = await context.newPage();
         await page.goto(`${baseUrl}${s.url}`, { waitUntil: 'networkidle' });
         await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
@@ -71,7 +78,6 @@ const viewports = [
   for (const s of screens) {
     if (only && !s.name.includes(only)) continue;
     const context = await browser.newContext({ viewport: { width: 320, height: 640 }, locale: 'tr-TR' });
-    if (s.onboarding) await context.addInitScript(() => localStorage.setItem('vizcad_onboarding_pending', 'ayse@demirmakina.com'));
     const page = await context.newPage();
     await page.goto(`${baseUrl}${s.url}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(900);

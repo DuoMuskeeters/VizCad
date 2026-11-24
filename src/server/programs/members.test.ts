@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect, Ref } from 'effect'
+import { eq } from 'drizzle-orm'
 import { TestClock } from 'effect/testing'
 import * as schema from '../db/schema'
 import { Db } from '../services/Db'
@@ -7,7 +8,7 @@ import { EmailOutbox } from '../services/Email'
 import { defaultPlan } from '../services/Entitlements'
 import { caller, programLayer, rows, seedFile, seedMember, seedProject, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { grantFileAccess } from './access'
-import { acceptInvitation, changeRole, inviteMember, listMembers, removeMember, revokeInvitation, transferOwnership } from './members'
+import { acceptInvitation, changeRole, inviteMember, listMembers, previewMemberRemoval, removeMember, revokeInvitation, transferOwnership } from './members'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>, limits = defaultPlan) =>
   TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(limits)))
@@ -336,6 +337,51 @@ describe('transferOwnership', () => {
     })))
 })
 
+describe('previewMemberRemoval', () => {
+  const at = (seconds: number) => new Date(seconds * 1000)
+
+  it.effect('counts what removal would touch, as numbers only, and writes nothing', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedFile('f1', 'max', 'acme')
+      yield* seedFile('f2', 'max', 'acme')
+      yield* seedFile('f3', 'cat', 'acme')
+      yield* seedProject('p1', 'acme', 'max', 'restricted', 'max')
+      yield* seedMember('acme', 'eve', 'guest')
+      const db = yield* Db
+      yield* db.use((d) => d.batch([
+        d.update(schema.files).set({ isDeleted: true }).where(eq(schema.files.id, 'f2')),
+        // a live and an ended grant to the guest, both given by max; a grant given by someone else
+        d.insert(schema.fileAccess).values({ workspaceId: 'acme', fileId: 'f1', userId: 'eve', level: 'view', expiresAt: at(T0 + 100), grantedByUserId: 'max', source: 'grant', createdAt: at(T0), updatedAt: at(T0) }),
+        d.insert(schema.fileAccess).values({ workspaceId: 'acme', fileId: 'f3', userId: 'eve', level: 'view', expiresAt: at(T0 - 100), grantedByUserId: 'max', source: 'grant', createdAt: at(T0), updatedAt: at(T0) }),
+        d.insert(schema.projectAccess).values({ workspaceId: 'acme', projectId: 'p1', userId: 'eve', level: 'view', expiresAt: at(T0 + 100), grantedByUserId: 'max', createdAt: at(T0), updatedAt: at(T0) }),
+        d.insert(schema.shareLinks).values({ id: 'l1', workspaceId: 'acme', fileId: 'f1', createdByUserId: 'max', tokenDigest: 'dg1', tokenCiphertext: 'ct', tokenKeyVersion: 1, level: 'view', revision: 1, createdAt: at(T0), updatedAt: at(T0) }),
+        d.insert(schema.shareLinks).values({ id: 'l2', workspaceId: 'acme', fileId: 'f1', createdByUserId: 'max', tokenDigest: 'dg2', tokenCiphertext: 'ct', tokenKeyVersion: 1, level: 'view', revision: 1, createdAt: at(T0), updatedAt: at(T0), revokedAt: at(T0) }),
+        d.insert(schema.invitation).values({ id: 'i1', organizationId: 'acme', email: 'q@example.com', role: 'member', status: 'pending', expiresAt: at(T0 + 100), createdAt: at(T0), inviterId: 'max' }),
+        d.insert(schema.invitation).values({ id: 'i2', organizationId: 'acme', email: 'r@example.com', role: 'member', status: 'canceled', expiresAt: at(T0 + 100), createdAt: at(T0), inviterId: 'max' }),
+      ]))
+      const before = [yield* rows('member'), yield* rows('shareLinks'), yield* rows('invitation'), yield* rows('accessLog')]
+      assert.deepStrictEqual(yield* previewMemberRemoval(caller('ada'), { workspaceId: 'acme', userId: 'max' }), {
+        role: 'member', uploadedFiles: 1, guestGrants: 2, activeLinks: 1, pendingInvitations: 1, managedProjects: 1,
+      })
+      assert.deepStrictEqual([yield* rows('member'), yield* rows('shareLinks'), yield* rows('invitation'), yield* rows('accessLog')], before)
+      const empty = yield* previewMemberRemoval(caller('ada'), { workspaceId: 'acme', userId: 'cat' })
+      assert.deepStrictEqual(empty, { role: 'commenter', uploadedFiles: 1, guestGrants: 0, activeLinks: 0, pendingInvitations: 0, managedProjects: 0 })
+    })))
+
+  it.effect('is judged like the removal itself: non-managers, the owner and unknown people learn nothing', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      for (const who of ['max', 'cat']) {
+        assert.strictEqual((yield* Effect.flip(previewMemberRemoval(caller(who), { workspaceId: 'acme', userId: 'ada' })))._tag, 'PermissionDenied')
+        assert.strictEqual((yield* Effect.flip(previewMemberRemoval(caller(who), { workspaceId: 'acme', userId: 'nobody' })))._tag, 'PermissionDenied')
+      }
+      assert.strictEqual((yield* Effect.flip(previewMemberRemoval(caller('ada'), { workspaceId: 'acme', userId: 'bob' })))._tag, 'LastOwner')
+      assert.strictEqual((yield* Effect.flip(previewMemberRemoval(caller('ada'), { workspaceId: 'acme', userId: 'nobody' })))._tag, 'MemberUnavailable')
+      assert.strictEqual((yield* Effect.flip(previewMemberRemoval(caller('eve'), { workspaceId: 'acme', userId: 'max' })))._tag, 'WorkspaceUnavailable')
+    })))
+})
+
 describe('listMembers', () => {
   it.effect('internal members see everyone; managers also see pending invitations', () =>
     run(Effect.gen(function* () {
@@ -348,6 +394,17 @@ describe('listMembers', () => {
       const asAdmin = yield* listMembers(caller('ada'), { workspaceId: 'acme' })
       assert.deepStrictEqual(asAdmin.invitations.map((i) => i.email), ['new@example.com'])
     })))
+
+  it.effect('the internal team sees seat and guest usage against the plan; pending invitations take seats; a guest sees none', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedMember('acme', 'eve', 'guest')
+      yield* invite('ada', 'new@example.com', 'member')
+      const asMember = yield* listMembers(caller('max'), { workspaceId: 'acme' })
+      // bob, ada, max, cat + one pending invitation; the seeded guest has no live grant.
+      assert.deepStrictEqual(asMember.usage, { seats: { used: 5, limit: 5 }, guests: { used: 0, limit: 7 } })
+      assert.isNull((yield* listMembers(caller('eve'), { workspaceId: 'acme' })).usage)
+    }), { ...defaultPlan, seats: 5, guests: 7 }))
 
   it.effect('a guest with a live grant sees only themself, not the internal team or other guests', () =>
     run(Effect.gen(function* () {

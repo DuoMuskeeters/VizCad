@@ -10,12 +10,16 @@ export type Scenario =
   | 'commenter'
   | 'guest'
   | 'personal'
+  | 'newuser'
   | 'empty-team'
   | 'anon'
+  | 'seats-full'
   | 'invite-ok'
   | 'invite-expired'
   | 'invite-other'
   | 'invite-full'
+  | 'invite-canceled'
+  | 'invite-guest-other'
 
 const day = 86_400
 const now = () => Math.floor(Date.now() / 1000)
@@ -36,14 +40,14 @@ const fail = (status: number, error: string, reason?: string) => json(status, { 
 export const fixtureFetch = (scenario: string): typeof fetch => {
   const name = scenario as Scenario
   const inviteScenario = name.startsWith('invite-')
-  const myRole: Role = name === 'owner' ? 'owner' : name === 'commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
+  const myRole: Role = name === 'owner' || name === 'seats-full' ? 'owner' : name === 'commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
   const user = { id: 'u-me', name: 'Ayşe Yılmaz', email: 'ayse@demirmakina.com' }
   const personal: WorkspaceSummary = { id: 'ws-personal', name: 'Personal', kind: 'personal', role: 'owner' }
   const company: WorkspaceSummary = { id: 'ws-dm', name: 'Demir Makina', kind: 'company', role: myRole }
   const guestOf: WorkspaceSummary = { id: 'ws-kaya', name: 'Kaya Hidrolik', kind: 'company', role: 'guest' }
   let workspaces: WorkspaceSummary[] =
-    name === 'personal' || name === 'empty-team' || inviteScenario ? [personal] : name === 'guest' ? [personal, guestOf] : [personal, company, guestOf]
-  let active = name === 'personal' || name === 'empty-team' || inviteScenario ? personal.id : name === 'guest' ? guestOf.id : company.id
+    name === 'personal' || name === 'newuser' || name === 'empty-team' || inviteScenario ? [personal] : name === 'guest' ? [personal, guestOf] : [personal, company, guestOf]
+  let active = name === 'personal' || name === 'newuser' || name === 'empty-team' || inviteScenario ? personal.id : name === 'guest' ? guestOf.id : company.id
   let members = people()
   if (name === 'guest') members = [{ userId: 'u-me', name: user.name, email: user.email, role: 'guest', joinedAt: now() - 4 * day }]
   if (myRole !== 'admin') members = members.map((m) => (m.userId === 'u-me' && name !== 'guest' ? { ...m, role: myRole } : m))
@@ -53,13 +57,17 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
     { id: 'inv-2', email: 'kerem@demirmakina.com', role: 'commenter', expiresAt: now() + 2 * day },
   ]
   let n = 0
+  let needsOnboarding = name === 'newuser'
 
   const app = (operation: string, body: Record<string, unknown>): Response => {
     switch (operation) {
       case 'listMyWorkspaces':
         return json(200, { ok: true, data: workspaces })
       case 'currentWorkspace':
-        return json(200, { ok: true, data: { workspaceId: active } })
+        return json(200, { ok: true, data: { workspaceId: active, needsOnboarding } })
+      case 'completeOnboarding':
+        needsOnboarding = false
+        return json(200, { ok: true, data: { completed: true } })
       case 'switchWorkspace': {
         const id = String(body['workspaceId'])
         if (!workspaces.some((w) => w.id === id)) return fail(404, 'WorkspaceUnavailable')
@@ -76,7 +84,9 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
       case 'listMembers': {
         const manager = myRole === 'owner' || myRole === 'admin'
         const visible = (workspaces.find((w) => w.id === body['workspaceId'])?.role ?? myRole) === 'guest' ? members.filter((m) => m.userId === 'u-me') : members
-        return json(200, { ok: true, data: { members: visible, invitations: manager ? invitations : [] } })
+        const seatsUsed = members.filter((m) => m.role !== 'guest').length + invitations.length
+        const usage = myRole === 'guest' ? null : { seats: { used: seatsUsed, limit: name === 'seats-full' ? seatsUsed : 10 }, guests: { used: members.filter((m) => m.role === 'guest').length, limit: 20 } }
+        return json(200, { ok: true, data: { members: visible, invitations: manager ? invitations : [], usage } })
       }
       case 'inviteMember': {
         const email = String(body['email']).trim().toLowerCase()
@@ -98,9 +108,26 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
         members = members.map((m) => (m === target ? { ...m, role: body['role'] as Role } : m))
         return json(200, { ok: true, data: { userId: target.userId, role: body['role'] } })
       }
+      case 'previewMemberRemoval': {
+        if (body['userId'] === 'u-mehmet') return json(200, { ok: true, data: { role: 'member', uploadedFiles: 14, guestGrants: 3, activeLinks: 2, pendingInvitations: 1, managedProjects: 1 } })
+        return json(200, { ok: true, data: { role: 'member', uploadedFiles: 0, guestGrants: 0, activeLinks: 0, pendingInvitations: 0, managedProjects: 0 } })
+      }
       case 'removeMember':
         members = members.filter((m) => m.userId !== body['userId'])
         return json(200, { ok: true, data: { removed: true } })
+      case 'getInvitation': {
+        const guest = body['token'] !== undefined
+        if (name === 'invite-other' && !guest) return json(200, { ok: true, data: { state: 'other_account' } })
+        const state = name === 'invite-expired' ? 'expired' : name === 'invite-canceled' ? 'canceled' : 'pending'
+        return json(200, {
+          ok: true,
+          data: {
+            state, kind: guest ? 'guest' : 'member', workspaceName: 'Demir Makina', inviterEmail: 'mehmet@demirmakina.com',
+            role: guest ? null : 'member', level: guest ? 'download' : null, target: guest ? 'project' : null,
+            expiresAt: now() + 5 * day, accessExpiresAt: guest ? now() + 30 * day : null, emailMatches: name !== 'invite-guest-other',
+          },
+        })
+      }
       case 'acceptInvitation':
       case 'acceptGuestInvitation':
         if (name === 'invite-expired') return fail(410, 'InvitationExpired')

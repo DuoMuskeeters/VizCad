@@ -11,8 +11,11 @@ export const ConfirmDialog = ({
   description,
   warning,
   confirmLabel,
+  confirmVariant = 'danger',
+  warningTone = 'warn',
   busy,
   error,
+  extra,
   onConfirm,
   onCancel,
 }: {
@@ -21,8 +24,12 @@ export const ConfirmDialog = ({
   description?: ReactNode
   warning: string
   confirmLabel: string
+  confirmVariant?: 'danger' | 'primary'
+  warningTone?: 'warn' | 'info'
   busy: boolean
   error: string | null
+  /** Extra facts shown above the warning (the removal preview). */
+  extra?: ReactNode
   onConfirm: () => void
   onCancel: () => void
 }) => {
@@ -36,13 +43,14 @@ export const ConfirmDialog = ({
         footer={
           <DialogFooter>
             <Button onClick={onCancel}>{t('common.cancel')}</Button>
-            <Button variant="danger" loading={busy} onClick={onConfirm}>
+            <Button variant={confirmVariant} loading={busy} onClick={onConfirm}>
               {confirmLabel}
             </Button>
           </DialogFooter>
         }
       >
-        <Notice tone="warn">{warning}</Notice>
+        {extra}
+        <Notice tone={warningTone}>{warning}</Notice>
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger">
             {error}

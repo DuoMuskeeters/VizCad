@@ -12,7 +12,6 @@ import { Avatar } from '#/components/ui/Avatar'
 import { useI18n } from '#/i18n'
 import type { WorkspaceSummary } from '../api'
 import { failureKey } from '../errors'
-import { clearOnboardingPending, onboardingPendingFor } from '../nav'
 import { RequireSession, SessionProvider, useSession, useUser } from '../session'
 import { assignableRoles, roleHintKey, roleKey, type InternalRole } from '../roles'
 import { validateCompanyName } from '../validation'
@@ -39,7 +38,7 @@ const Flow = () => {
   const { t, locale } = useI18n()
   const user = useUser()
   const { call } = useSession()
-  const { state, adopt } = useWorkspaceState()
+  const { state, adopt, completeOnboarding } = useWorkspaceState()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('kind')
@@ -53,19 +52,23 @@ const Flow = () => {
   const [error, setError] = useState<string | null>(null)
 
   // D20: only new sign-ups see this; anyone else is sent to the app.
-  const [allowed] = useState(() => onboardingPendingFor(user.email))
+  const [allowed, setAllowed] = useState<boolean | null>(null)
   useEffect(() => {
-    if (!allowed) void navigate({ to: '/app' })
-  }, [allowed, navigate])
+    if (state.status === 'ready' && allowed === null) setAllowed(state.needsOnboarding)
+    if (state.status === 'ready' && state.needsOnboarding === false && allowed === false) void navigate({ to: '/app' })
+  }, [state, allowed, navigate])
 
-  const finish = (to: '/app' | '/app/team' = '/app') => {
-    clearOnboardingPending()
+  const finish = async (to: '/app' | '/app/team' = '/app') => {
+    setBusy(true)
+    const result = await completeOnboarding()
+    setBusy(false)
+    if (!result.ok) return setError(t(failureKey(result)))
     void navigate({ to })
   }
 
   const chooseKind = (event: FormEvent) => {
     event.preventDefault()
-    if (kind === 'personal') return finish()
+    if (kind === 'personal') return void finish()
     setStep('company')
   }
 
@@ -92,7 +95,7 @@ const Flow = () => {
   const sendInvites = async (event: FormEvent) => {
     event.preventDefault()
     if (!created) return
-    if (emails.length === 0) return finish()
+    if (emails.length === 0) return void finish()
     setBusy(true)
     setError(null)
     const left: string[] = []
@@ -108,7 +111,7 @@ const Flow = () => {
     }
     setBusy(false)
     if (sent > 0) toast({ title: t('app.team.invite.sent', { count: sent }), tone: 'success' })
-    if (left.length === 0) return finish('/app/team')
+    if (left.length === 0) return void finish('/app/team')
     setEmails(left)
     setError(firstError)
   }
@@ -137,7 +140,12 @@ const Flow = () => {
               <RadioCard value="personal" title={t('app.onboarding.kind.personal')} icon={<User aria-hidden />} description={t('app.onboarding.kind.personalLead')} />
               <RadioCard value="company" title={t('app.onboarding.kind.company')} icon={<Building2 aria-hidden />} description={t('app.onboarding.kind.companyLead')} />
             </RadioCardGroup>
-            <Button variant="primary" type="submit" className="h-12 w-full text-base">
+            {error ? (
+              <p role="alert" className="text-sm font-medium text-danger">
+                {error}
+              </p>
+            ) : null}
+            <Button variant="primary" type="submit" loading={busy} className="h-12 w-full text-base">
               {t('common.continue')}
             </Button>
           </form>
@@ -186,7 +194,7 @@ const Flow = () => {
               <Button variant="primary" type="submit" loading={busy} className="h-12 text-base app:order-2">
                 {emails.length > 0 ? t('app.team.invite.send') : t('app.onboarding.team.done')}
               </Button>
-              <Button onClick={() => finish()} disabled={busy} className="h-12 text-base app:order-1">
+              <Button onClick={() => void finish()} disabled={busy} className="h-12 text-base app:order-1">
                 {t('app.onboarding.team.skip')}
               </Button>
             </div>

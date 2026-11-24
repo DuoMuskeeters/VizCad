@@ -206,3 +206,85 @@ describe('views by role', () => {
     expect(screen.getByRole('button', { name: 'Create company workspace' })).toBeInTheDocument()
   })
 })
+
+describe('seat limit', () => {
+  it('shows seats and guests as used / limit', async () => {
+    setup('owner')
+    expect(await screen.findByText('7 / 10')).toBeInTheDocument()
+    expect(screen.getByText('2 / 20')).toBeInTheDocument()
+    expect(await inviteButton()).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('disables the invite button with the reason when every seat is taken', async () => {
+    setup('seats-full')
+    expect(await screen.findByText('7 / 7')).toBeInTheDocument()
+    const invite = await inviteButton()
+    expect(invite).toHaveAttribute('aria-disabled', 'true')
+    expect(invite).toHaveAccessibleDescription(/All 7 seats are in use/)
+  })
+})
+
+describe('guest promotion', () => {
+  const guestActions = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('tab', { name: /Guests/ }))
+    await user.click(await screen.findByRole('button', { name: 'Actions for Ömer Koç' }))
+  }
+
+  it('makes a guest a member after a confirmation that says it takes a seat', async () => {
+    const { calls, user } = setup('owner')
+    await guestActions(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'Make member' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Make Ömer Koç a Member?')).toBeInTheDocument()
+    expect(within(dialog).getByText(/takes a seat: 8 of 10 seats/)).toBeInTheDocument()
+    expect(calls.some((c) => c.operation === 'changeRole')).toBe(false)
+    await user.click(within(dialog).getByRole('button', { name: 'Make Member' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'changeRole')?.body).toEqual({ workspaceId: 'ws-dm', userId: 'u-omer', role: 'member' }))
+    expect(await screen.findByText('Ömer Koç is now Member.')).toBeInTheDocument()
+  })
+
+  it('offers commenter too when a seat is free', async () => {
+    const { user } = setup('owner')
+    await guestActions(user)
+    expect(await screen.findByRole('menuitem', { name: 'Make commenter' })).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('disables promotion with the reason when all seats are taken', async () => {
+    const { user } = setup('seats-full')
+    await guestActions(user)
+    expect(await screen.findByRole('menuitem', { name: /Make member/ })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getAllByText(/All 7 seats are in use/).length).toBeGreaterThan(0)
+  })
+})
+
+describe('removal preview', () => {
+  const openRemove = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(await screen.findByRole('button', { name: `Actions for ${name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: /Remove from workspace/ }))
+    return screen.findByRole('dialog')
+  }
+
+  it('shows the counts of what removal touches before the person confirms', async () => {
+    const { calls, user } = setup('owner')
+    const dialog = await openRemove(user, 'Mehmet Kaya')
+    expect(await within(dialog).findByText('Files they uploaded (stay in the workspace)')).toBeInTheDocument()
+    expect(within(dialog).getByText('14')).toBeInTheDocument()
+    expect(within(dialog).getByText('Share links (revoked)')).toBeInTheDocument()
+    expect(calls.find((c) => c.operation === 'previewMemberRemoval')?.body).toEqual({ workspaceId: 'ws-dm', userId: 'u-mehmet' })
+    expect(calls.some((c) => c.operation === 'removeMember')).toBe(false)
+  })
+
+  it('says so when nothing depends on the person, and still removes when the preview fails', async () => {
+    const empty = setup('owner')
+    const dialog = await openRemove(empty.user, 'Zeynep Arslan')
+    expect(await within(dialog).findByText(/Nothing else depends on this person/)).toBeInTheDocument()
+  })
+
+  it('lets the removal go ahead when the preview cannot load', async () => {
+    const { calls, user } = setup('owner', (op) => (op === 'previewMemberRemoval' ? failure(500, 'DbError') : undefined))
+    const dialog = await openRemove(user, 'Zeynep Arslan')
+    expect(await within(dialog).findByText(/could not be loaded/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(calls.some((c) => c.operation === 'removeMember')).toBe(true))
+  })
+})

@@ -139,3 +139,27 @@ export const selectWorkspace = Effect.fn('selectWorkspace')(function* (caller: C
   if (activeWorkspaceId !== null && (yield* canSelect(caller, activeWorkspaceId))) return activeWorkspaceId
   return yield* ensurePersonalWorkspace(caller)
 })
+
+/**
+ * Whether the sign-up onboarding still has to run for this account (D20): the personal workspace exists and was never
+ * marked done. Accounts that existed before the cutover were stamped by the backfill; a brand-new sign-up has no stamp.
+ */
+export const needsOnboarding = Effect.fn('needsOnboarding')(function* (caller: Caller) {
+  const db = yield* Db
+  const found = yield* db.use((d) =>
+    d.select({ done: schema.organization.onboardingCompletedAt }).from(schema.organization)
+      .where(and(eq(schema.organization.personalOwnerUserId, caller.userId), eq(schema.organization.kind, 'personal'))).limit(1),
+  )
+  return found[0] !== undefined && found[0].done === null
+})
+
+/** Marks onboarding done (finished, skipped, or made pointless by joining through an invitation). Idempotent. */
+export const completeOnboarding = Effect.fn('completeOnboarding')(function* (caller: Caller) {
+  yield* ensurePersonalWorkspace(caller)
+  const now = yield* nowSeconds
+  yield* runBatch((d) => [
+    d.update(schema.organization).set({ onboardingCompletedAt: toDate(now) })
+      .where(and(eq(schema.organization.personalOwnerUserId, caller.userId), isNull(schema.organization.onboardingCompletedAt))),
+  ])
+  return { completed: true }
+})

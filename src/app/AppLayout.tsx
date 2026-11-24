@@ -14,7 +14,6 @@ import { useI18n } from '#/i18n'
 import { postAuth } from '#/auth/api'
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
 import { failureKey } from './errors'
-import { onboardingPendingFor } from './nav'
 import { roleKey } from './roles'
 import { RequireSession, SessionProvider, useUser } from './session'
 import { useWorkspace, useWorkspaceState, WorkspaceProvider } from './workspace'
@@ -33,7 +32,6 @@ const PendingNavItem = ({ icon, label, reason, later }: { icon: React.ReactNode;
 
 const Frame = () => {
   const { t } = useI18n()
-  const user = useUser()
   const { state, switchTo } = useWorkspaceState()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -41,12 +39,13 @@ const Frame = () => {
   const [creating, setCreating] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
-  // D20: only a brand-new sign-up lands in onboarding, once, while it still has just the personal workspace.
+  // D20: only a brand-new sign-up lands in onboarding, once (the server keeps the mark), while it still has just the personal workspace.
   const ready = state.status === 'ready'
+  const needsOnboarding = state.status === 'ready' && state.needsOnboarding
   const onlyPersonal = state.status === 'ready' && state.workspaces.length === 1 && state.workspaces[0]?.kind === 'personal'
   useEffect(() => {
-    if (ready && onlyPersonal && onboardingPendingFor(user.email)) void navigate({ to: '/onboarding' })
-  }, [ready, onlyPersonal, user.email, navigate])
+    if (ready && onlyPersonal && needsOnboarding) void navigate({ to: '/onboarding' })
+  }, [ready, onlyPersonal, needsOnboarding, navigate])
 
   if (state.status === 'loading')
     return (

@@ -3,6 +3,8 @@
  *   1. every user without a personal workspace gets one (`personal-<userId>`, slug `personal-<userId>`, name `Personal`);
  *   2. every personal workspace gets its owner membership (`personal-owner-<userId>`) if missing;
  *   3. every file with `workspaceId IS NULL` points at its owner's personal workspace (`projectId` stays NULL).
+ * A backfilled personal workspace is stamped `onboardingCompletedAt = <user's createdAt>`: that is the "existing user" mark (D20), so the
+ * sign-up onboarding is only ever shown for workspaces created after the backfill (new sign-ups), which start with NULL.
  * Nothing else is written: no ACL/link/invitation mapping (that runs only at the frozen cutover), no R2 key, no
  * `files.userId`, no row deleted. A file whose workspace is already set to something else is left alone and shows
  * up in the review query. The ids match src/server/programs/workspaces.ts (`ensurePersonalWorkspace`).
@@ -17,7 +19,7 @@ import { writeFileSync } from 'node:fs'
 
 export const backfillStatements: ReadonlyArray<string> = [
   `INSERT INTO organization (id, name, slug, logo, createdAt, metadata, kind, personalOwnerUserId, archivedAt, onboardingCompletedAt)
-SELECT 'personal-' || u.id, 'Personal', 'personal-' || u.id, NULL, u.createdAt, NULL, 'personal', u.id, NULL, NULL
+SELECT 'personal-' || u.id, 'Personal', 'personal-' || u.id, NULL, u.createdAt, NULL, 'personal', u.id, NULL, u.createdAt
 FROM user u
 WHERE NOT EXISTS (SELECT 1 FROM organization o WHERE o.personalOwnerUserId = u.id);`,
   `INSERT INTO member (id, organizationId, userId, role, createdAt)

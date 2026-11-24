@@ -6,7 +6,6 @@ import { Input } from '#/components/ui/Input'
 import { TextLink } from '#/components/ui/Link'
 import { Notice } from '#/components/ui/Notice'
 import { useI18n, type I18nKey } from '#/i18n'
-import { markOnboardingPending } from '#/app/nav'
 import { postAuth, rememberPendingEmail, TURNSTILE_HEADER, type AuthFailure } from './api'
 import { AuthHeading } from './AuthLayout'
 import { requestMessage, signInMessage, signUpMessage } from './messages'
@@ -207,7 +206,6 @@ export const SignUpForm = ({ onSuccess, fetcher, next, google = googleEnabled() 
       )
       if (result.ok) {
         rememberPendingEmail(normalizeEmail(email))
-        markOnboardingPending(email)
         return onSuccess()
       }
       // A Turnstile token is single use: get a fresh one for the next attempt.
