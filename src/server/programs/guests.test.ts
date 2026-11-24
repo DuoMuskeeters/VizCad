@@ -200,6 +200,19 @@ describe('inviteGuest / acceptGuestInvitation', () => {
 })
 
 describe('grantFileAccess / grantProjectAccess / revoke', () => {
+  it.effect('granting access to the file\'s uploader is refused (AlreadyHasAccess), writes nothing and logs nothing', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      const at = new Date(T0 * 1000)
+      yield* Db.use((db) => db.use((d) => d.insert(schema.fileAccess).values({
+        workspaceId: 'acme', fileId: 'f1', userId: 'max', level: 'edit', expiresAt: null, grantedByUserId: null, source: 'uploader', createdAt: at, updatedAt: at,
+      })))
+      const failure = yield* Effect.flip(grantFileAccess(caller('ada'), { workspaceId: 'acme', fileId: 'f1', userId: 'max', level: 'view', expiresAt: null }))
+      assert.strictEqual(failure._tag, 'AlreadyHasAccess')
+      assert.deepStrictEqual((yield* rows('fileAccess')).map((g) => [g.userId, g.source, g.level]), [['max', 'uploader', 'edit']])
+      assert.deepStrictEqual(yield* rows('accessLog'), [])
+    })))
+
   it.effect('guests need a finite expiry and stay at download or below', () =>
     run(Effect.gen(function* () {
       yield* acme

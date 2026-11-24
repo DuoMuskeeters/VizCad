@@ -117,6 +117,9 @@ export class InvalidAccessLevel extends Data.TaggedError('InvalidAccessLevel')<{
 /** The access expiry is missing (guest), in the past or beyond the Entitlements ceiling. */
 export class AccessExpiryInvalid extends Data.TaggedError('AccessExpiryInvalid')<{}> {}
 
+/** The recipient already holds this file through ownership (the uploader row); a grant would change nothing. */
+export class AlreadyHasAccess extends Data.TaggedError('AlreadyHasAccess')<{}> {}
+
 /** A batch precondition (actor role, previous state, quota) changed between read and write; nothing was written. */
 export class WriteConflict extends Data.TaggedError('WriteConflict')<{}> {}
 
@@ -151,4 +154,5 @@ export type AppError =
   | SlugTaken
   | InvalidAccessLevel
   | AccessExpiryInvalid
+  | AlreadyHasAccess
   | WriteConflict

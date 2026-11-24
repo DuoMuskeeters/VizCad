@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
-import { AccessExpiryInvalid, InvalidAccessLevel, MemberUnavailable } from '../errors'
+import { AccessExpiryInvalid, AlreadyHasAccess, InvalidAccessLevel, MemberUnavailable } from '../errors'
 import type { AccessLevel, PermissionInput } from '../permissions'
 import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
@@ -116,10 +116,14 @@ export const grantFileAccess = Effect.fn('grantFileAccess')(function* (caller: C
     checkExpiry(input.workspaceId, recipientRole, input.expiresAt, base.now),
     { ...base, action: { kind: 'grantFileAccess', recipient, level: input.level, expiresAt: input.expiresAt } },
   )
+  // The uploader row is ownership, not a grant: refuse instead of writing an activity row for a no-op.
+  const held = yield* fileGrantOf(input.workspaceId, input.fileId, input.userId)
+  if (held?.source === 'uploader') return yield* new AlreadyHasAccess()
   const at = toDate(base.now)
   const activityId = yield* newId
   yield* runBatch((d) => [
-    guard(d, sql`${stillRole(input.workspaceId, caller.userId, [role])} AND ${stillRole(input.workspaceId, input.userId, [recipientRole])} AND ${still}`),
+    guard(d, sql`${stillRole(input.workspaceId, caller.userId, [role])} AND ${stillRole(input.workspaceId, input.userId, [recipientRole])} AND ${still}
+      AND NOT EXISTS (SELECT 1 FROM file_access WHERE fileId = ${input.fileId} AND userId = ${input.userId} AND source = 'uploader')`),
     d.insert(schema.fileAccess)
       .values({
         workspaceId: input.workspaceId, fileId: input.fileId, userId: input.userId, level: input.level,
