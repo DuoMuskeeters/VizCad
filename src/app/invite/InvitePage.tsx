@@ -45,7 +45,7 @@ const Card = ({ children }: { children: ReactNode }) => (
       <Logo alt="VizCad" className="text-[26px]" />
     </header>
     <main className="mx-auto w-full max-w-120 px-4 pb-16 pt-6 app:pt-14">
-      <div className="grid gap-6 rounded-xl border border-line bg-bg p-5 app:p-8">{children}</div>
+      <div className="grid min-w-0 gap-6 rounded-xl border border-line bg-bg p-5 app:p-8 [&>*]:min-w-0">{children}</div>
     </main>
   </div>
 )
@@ -55,7 +55,7 @@ const Heading = ({ icon, title, lead }: { icon: ReactNode; title: string; lead: 
     <span aria-hidden className="grid size-13 place-items-center rounded-full bg-accent-soft text-accent [&_svg]:size-6">
       {icon}
     </span>
-    <h1 className="text-2xl font-heading tracking-heading">{title}</h1>
+    <h1 className="text-2xl font-heading tracking-heading [overflow-wrap:anywhere]">{title}</h1>
     <p className="text-text-2">{lead}</p>
   </div>
 )
@@ -92,7 +92,7 @@ const DetailsCard = ({ details }: { details: Extract<InvitationDetails, { kind: 
         <Avatar name={details.workspaceName} decorative />
         <span className="min-w-0 truncate font-medium">{details.workspaceName}</span>
       </div>
-      <h1 className="text-2xl font-heading tracking-heading">{title}</h1>
+      <h1 className="text-2xl font-heading tracking-heading [overflow-wrap:anywhere]">{title}</h1>
       <dl className="divide-y divide-line rounded-lg border border-line px-4">
         {guest ? (
           <>

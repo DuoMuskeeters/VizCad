@@ -21,8 +21,14 @@ const screens = [
   { name: 'team-personal', url: '/app/team?fixture=empty-team' },
   { name: 'team-invite-dialog', url: '/app/team?fixture=owner', setup: click(/Invite members|Üye davet et/) },
   { name: 'team-confirm-remove', url: '/app/team?fixture=owner', setup: async (page) => {
-      await page.getByRole('button', { name: /Actions for Zeynep|Zeynep Arslan için/ }).click();
+      await page.getByRole('button', { name: /Actions for Mehmet|Mehmet Kaya için/ }).click();
       await page.getByRole('menuitem', { name: /Remove from workspace|Workspace’ten çıkar/ }).click();
+      await page.waitForTimeout(350); } },
+  { name: 'team-seats-full', url: '/app/team?fixture=seats-full' },
+  { name: 'team-confirm-promote', url: '/app/team?fixture=owner', setup: async (page) => {
+      await page.getByRole('tab', { name: /Guests|Misafirler/ }).click();
+      await page.getByRole('button', { name: /Actions for Ömer|Ömer Koç için/ }).click();
+      await page.getByRole('menuitem', { name: /Make member|Üye yap/ }).click();
       await page.waitForTimeout(350); } },
   { name: 'switcher-open', url: '/app/team?fixture=owner', setup: async (page) => {
       const vw = page.viewportSize().width;
@@ -34,8 +40,10 @@ const screens = [
       await page.getByRole('button', { name: /Continue|Devam/ }).click(); await page.waitForTimeout(300); } },
   { name: 'invite-anonymous', url: '/invite/abc?fixture=anon' },
   { name: 'invite-signed-in', url: '/invite/abc?fixture=invite-ok' },
-  { name: 'invite-expired', url: '/invite/abc?fixture=invite-expired', setup: click(/Accept invitation|Daveti kabul et/) },
-  { name: 'invite-other-account', url: '/invite/abc?fixture=invite-other', setup: click(/Accept invitation|Daveti kabul et/) },
+  { name: 'invite-expired', url: '/invite/abc?fixture=invite-expired' },
+  { name: 'invite-canceled', url: '/invite/abc?fixture=invite-canceled' },
+  { name: 'invite-other-account', url: '/invite/abc?fixture=invite-other' },
+  { name: 'invite-guest-wrong-account', url: '/guest-invite/abcdefghijklmnopqrstuvwxyz?fixture=invite-guest-other' },
   { name: 'invite-guest', url: '/guest-invite/abcdefghijklmnopqrstuvwxyz?fixture=invite-ok' },
 ];
 
