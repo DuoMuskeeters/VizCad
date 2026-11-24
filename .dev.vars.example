@@ -9,8 +9,11 @@ TURNSTILE_HOSTNAMES=localhost,127.0.0.1
 
 # Required. Presigned URLs are signed for this bucket; locally it is the staging bucket.
 R2_BUCKET_NAME=vizcad-files-staging
-# Optional: R2 S3 API credentials for presigned URLs. Use a token scoped to vizcad-files-staging only.
-# Set all of them or none.
+# R2 S3 API credentials for presigned upload URLs (Faz 4a: file uploads need them; without them requestUpload fails
+# with ConfigError). Use a token scoped to vizcad-files-staging only. Set all of them or none.
+# R2_ACCOUNT_ID is the Cloudflare account id (32 hex characters, not a secret but not in the repo either); R2_ENDPOINT
+# overrides the default https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com.
+# The bucket's CORS must allow PUT from the site origin with the headers content-type and if-none-match, and expose ETag.
 # R2_ACCOUNT_ID=<32 hex characters>
 # R2_ACCESS_KEY_ID=
 # R2_SECRET_ACCESS_KEY=
@@ -29,3 +32,7 @@ BETTER_AUTH_SECRET=local-dev-only-secret-change-me-0123456789
 # TRUSTED_ORIGINS=http://127.0.0.1:3000
 # Locally mail is only simulated by Wrangler. To rehearse the staging recipient filter, set a list (APP_ENV is set in wrangler.jsonc):
 # EMAIL_ALLOWLIST=you@example.com,@yourcompany.test
+
+# Faz 4c (not read yet by Faz 4a code), staging secrets: SHARE_PROOF_KEY (>= 32 bytes) and SHARE_TOKEN_KEYS (JSON {"1":"<base64 of 32 bytes>"}).
+# Cron triggers do not run under `pnpm dev`; test one with `wrangler dev --test-scheduled` and
+# curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*".
