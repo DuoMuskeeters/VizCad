@@ -94,13 +94,9 @@ const AccessTab = ({ project, workspaceId, onModeChanged }: { project: ProjectVi
   )
 }
 
-const ProjectActivity = ({ project, workspaceId }: { project: ProjectView; workspaceId: string }) => {
+const ProjectActivityLog = ({ project, workspaceId }: { project: ProjectView; workspaceId: string }) => {
   const { t } = useI18n()
-  const { active } = useWorkspace()
-  const manager = active.role === 'owner' || active.role === 'admin'
-  const [limit] = useState(100)
-  const log = useLoad<{ items: ActivityItem[]; nextCursor: string | null }>('listActivity', { workspaceId, limit })
-  if (!manager) return <Notice>{t('project.activity.reason')}</Notice>
+  const log = useLoad<{ items: ActivityItem[]; nextCursor: string | null }>('listActivity', { workspaceId, limit: 100 })
   if (log.state.status === 'loading') return <Skeleton className="h-40 w-full" />
   if (log.state.status === 'error')
     return (
@@ -111,6 +107,14 @@ const ProjectActivity = ({ project, workspaceId }: { project: ProjectView; works
   const items = log.state.data.items.filter((item) => item.targetKind === 'project' && item.targetId === project.id)
   if (items.length === 0) return <EmptyState icon={<Archive />} title={t('project.activity.empty')} description={t('project.activity.emptyLead')} />
   return <ActivityList items={items} />
+}
+
+/** Project events from the workspace log (owners and admins only; everybody else gets the reason and no request). */
+const ProjectActivity = ({ project, workspaceId }: { project: ProjectView; workspaceId: string }) => {
+  const { t } = useI18n()
+  const { active } = useWorkspace()
+  if (active.role !== 'owner' && active.role !== 'admin') return <Notice>{t('project.activity.reason')}</Notice>
+  return <ProjectActivityLog project={project} workspaceId={workspaceId} />
 }
 
 export const ProjectPage = () => {

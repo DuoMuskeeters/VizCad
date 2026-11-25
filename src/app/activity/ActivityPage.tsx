@@ -20,12 +20,11 @@ const TYPES: readonly ActivityCategory[] = ['all', 'views', 'uploads', 'sharing'
 const EVERYONE = '__all__'
 const LINKS = '__links__'
 
-export const ActivityPage = () => {
+const ActivityLog = () => {
   const { t } = useI18n()
   const { call } = useSession()
   const { active } = useWorkspace()
   const uploads = useUploads()
-  const manager = active.role === 'owner' || active.role === 'admin'
   const first = useLoad<Page>('listActivity', { workspaceId: active.id, limit: 50 })
   const [more, setMore] = useState<{ items: ActivityItem[]; nextCursor: string | null } | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -51,14 +50,6 @@ export const ActivityPage = () => {
     setLoadingMore(false)
     if (result.ok) setMore({ items: [...(more?.items ?? []), ...result.data.items], nextCursor: result.data.nextCursor })
   }
-
-  if (!manager)
-    return (
-      <>
-        <PageHeader title={t('activity.title')} subtitle={t('activity.lead')} />
-        <EmptyState icon={<ShieldAlert />} title={t('activity.denied.title')} description={t('activity.denied.lead')} />
-      </>
-    )
 
   return (
     <>
@@ -167,6 +158,19 @@ export const ActivityPage = () => {
           </Button>
         </div>
       ) : null}
+    </>
+  )
+}
+
+/** Owners and admins only (docs/08 §6): any other role gets the explanation and no request is sent. */
+export const ActivityPage = () => {
+  const { t } = useI18n()
+  const { active } = useWorkspace()
+  if (active.role === 'owner' || active.role === 'admin') return <ActivityLog />
+  return (
+    <>
+      <PageHeader title={t('activity.title')} subtitle={t('activity.lead')} />
+      <EmptyState icon={<ShieldAlert />} title={t('activity.denied.title')} description={t('activity.denied.lead')} />
     </>
   )
 }
