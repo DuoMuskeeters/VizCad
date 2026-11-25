@@ -38,6 +38,9 @@ export const parseRange = (header: string | null, size: number): ByteRange => {
   return { kind: 'partial', start, end: Math.min(end, size - 1) }
 }
 
+/** Control characters and bidirectional marks a legacy name may hold: they would hide the real extension or break the header. */
+const CONTROL_OR_BIDI = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g
+
 /** Response headers every delivery of user content carries (docs/09 §3.1): never rendered, never cached, never sniffed. */
 export const safeHeaders = (extra: Readonly<Record<string, string>> = {}): Record<string, string> => ({
   'x-content-type-options': 'nosniff',
@@ -52,7 +55,7 @@ export const contentHeaders = (name: string, size: number, range: ByteRange): Re
   const partial = range.kind === 'partial'
   return safeHeaders({
     'content-type': 'application/octet-stream',
-    'content-disposition': attachmentDisposition(name.replace(LONE_SURROGATE, '\uFFFD')),
+    'content-disposition': attachmentDisposition(name.replace(LONE_SURROGATE, '\uFFFD').replace(CONTROL_OR_BIDI, '_')),
     'accept-ranges': 'bytes',
     'content-length': String(partial ? range.end - range.start + 1 : size),
     ...(partial ? { 'content-range': `bytes ${range.start}-${range.end}/${size}` } : {}),

@@ -32,6 +32,11 @@ describe('parseRange', () => {
 describe('response headers', () => {
   const unsafe = ['<script>', 'a"b', 'line\r\nSet-Cookie: x=1', 'ç ğ.step', '\ud800broken.step', '..\\..\\x']
 
+  it('control and bidirectional characters in a legacy name become underscores, in both filename forms', () => {
+    const disposition = contentHeaders('a\u0000b\r\nc\u007fd\u0085e\u202Efdp.exe\u200F\u2066x\u2069.step', 1, { kind: 'full' })['content-disposition'] ?? ''
+    assert.strictEqual(disposition, `attachment; filename="a_b__c_d_e_fdp.exe__x_.step"; filename*=UTF-8''a_b__c_d_e_fdp.exe__x_.step`)
+  })
+
   it('a 200 download carries the five safe headers and an attachment name', () => {
     const headers = contentHeaders('Bracket v1.step', 5000, { kind: 'full' })
     assert.deepStrictEqual(headers, {
