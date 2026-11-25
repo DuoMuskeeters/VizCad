@@ -12,12 +12,13 @@ import * as Entitlements from '../services/Entitlements'
 import * as RateLimit from '../services/RateLimit'
 import * as Storage from '../services/Storage'
 import { Storage as StorageService } from '../services/Storage'
+import { encryptToken, hashPassword, tokenDigest, tokenKeyOf } from '../shareCrypto'
 
 /** Fixed test clock start: 2026-11-24T10:00:00Z. Tests move it with TestClock.adjust. */
 export const T0 = 1795514400
 
 /** Every layer a product program may need, all in memory (node only). */
-export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements.defaultPlan) =>
+export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements.defaultPlan, config: Partial<AppConfig.AppConfig['Service']> = {}) =>
   Layer.mergeAll(
     DbMemory.memory,
     Auth.memory,
@@ -26,7 +27,7 @@ export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements
     Entitlements.fixed(limits),
     Background.inline,
     Storage.memory,
-  ).pipe(Layer.provideMerge(AppConfig.test()))
+  ).pipe(Layer.provideMerge(AppConfig.test(config)))
 
 const at = (seconds: number) => new Date(seconds * 1000)
 
@@ -160,3 +161,44 @@ export const seedFileGrant = (fileId: string, userId: string, workspaceId: strin
       }),
     ),
   )
+
+/** A link row written the way the cutover mapping would (legacy ceiling set), or a plain one; the token is returned. */
+export const seedLink = (
+  id: string,
+  fileId: string,
+  workspaceId: string,
+  options: {
+    token?: string
+    level?: 'view' | 'download'
+    password?: string
+    expiresAt?: number | null
+    legacyMaxExpiresAt?: number | null
+    revokedAt?: number | null
+    revision?: number
+    keyVersion?: number
+    createdBy?: string | null
+    label?: string | null
+  } = {},
+) =>
+  Effect.gen(function* () {
+    const token = options.token ?? 'abcdefghijklmnopqrstuvwxyz012345'
+    const keyVersion = options.keyVersion ?? 2
+    const key = yield* tokenKeyOf(keyVersion)
+    const digest = yield* tokenDigest(token)
+    const ciphertext = yield* encryptToken(key, token, id, workspaceId)
+    const passwordHash = options.password === undefined ? null : yield* hashPassword(options.password)
+    yield* Db.use((db) =>
+      db.use((d) =>
+        d.insert(schema.shareLinks).values({
+          id, workspaceId, fileId, createdByUserId: options.createdBy === undefined ? 'bob' : options.createdBy, tokenDigest: digest,
+          tokenCiphertext: ciphertext, tokenKeyVersion: keyVersion, publicSharerLabel: options.label === undefined ? 'Workspace acme' : options.label,
+          level: options.level ?? 'download', passwordHash,
+          expiresAt: options.expiresAt === undefined || options.expiresAt === null ? null : at(options.expiresAt),
+          legacyMaxExpiresAt: options.legacyMaxExpiresAt === undefined || options.legacyMaxExpiresAt === null ? null : at(options.legacyMaxExpiresAt),
+          revokedAt: options.revokedAt === undefined || options.revokedAt === null ? null : at(options.revokedAt),
+          revision: options.revision ?? 1, createdAt: at(T0 - 3600), updatedAt: at(T0 - 3600),
+        }),
+      ),
+    )
+    return token
+  })
