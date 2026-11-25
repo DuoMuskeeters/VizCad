@@ -122,6 +122,16 @@ describe('HMAC domains', () => {
   )
 })
 
+describe('WebCrypto failures', () => {
+  it.effect('surface as a tagged ConfigError, not a defect', () =>
+    Effect.gen(function* () {
+      const empty = new Uint8Array(0)
+      assert.strictEqual((yield* Effect.flip(signProof(empty, 'link-1', 1, 700)))._tag, 'ConfigError')
+      assert.strictEqual((yield* Effect.flip(auditId(empty, 'download', 'user-1', 'file-1', 'k/1', 1)))._tag, 'ConfigError')
+    }),
+  )
+})
+
 describe('password proof cookie', () => {
   const NOW = 1_795_514_400
   const cookieFor = (linkId: string, value: string) => `theme=dark; ${proofCookieName(linkId)}=${value}; other=1`

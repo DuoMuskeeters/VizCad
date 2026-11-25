@@ -39,7 +39,9 @@ export const isTokenFormat = (token: string) => /^[A-Za-z0-9_-]{43}$/.test(token
 
 /** SHA-256 hex of the token: the lookup value stored in `share_links.tokenDigest`. */
 export const tokenDigest = (token: string) =>
-  Effect.promise(() => crypto.subtle.digest('SHA-256', encoder.encode(token))).pipe(Effect.map((d) => hex(new Uint8Array(d))))
+  Effect.tryPromise({ try: () => crypto.subtle.digest('SHA-256', encoder.encode(token)), catch: () => cryptoFailed('token digest failed') }).pipe(
+    Effect.map((d) => hex(new Uint8Array(d))),
+  )
 
 const aesKey = (key: Uint8Array, usage: 'encrypt' | 'decrypt') =>
   crypto.subtle.importKey('raw', key.slice(), 'AES-GCM', false, [usage])
@@ -88,10 +90,10 @@ export const decryptToken = Effect.fnUntraced(function* (key: Uint8Array, cipher
  */
 export const PASSWORD_ITERATIONS = 100_000
 
-const derive = (password: string, salt: Uint8Array, iterations: number) =>
-  crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']).then((key) =>
-    crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt.slice(), iterations }, key, 256),
-  ).then((bits) => new Uint8Array(bits))
+const derive = async (password: string, salt: Uint8Array, iterations: number) => {
+  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt.slice(), iterations }, key, 256))
+}
 
 export const hashPassword = (password: string) =>
   Effect.tryPromise({
@@ -120,10 +122,13 @@ export const verifyPassword = (stored: string, password: string) => {
 
 // ── HMAC: audit ids and proof cookies ───────────────────────────────────────────────────────────────────────────
 
+const hmacRaw = async (key: Uint8Array, message: string) => {
+  const imported = await crypto.subtle.importKey('raw', key.slice(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return new Uint8Array(await crypto.subtle.sign('HMAC', imported, encoder.encode(message)))
+}
+
 const hmac = (key: Uint8Array, message: string) =>
-  crypto.subtle.importKey('raw', key.slice(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']).then((k) =>
-    crypto.subtle.sign('HMAC', k, encoder.encode(message)),
-  ).then((mac) => new Uint8Array(mac))
+  Effect.tryPromise({ try: () => hmacRaw(key, message), catch: () => cryptoFailed('HMAC failed') })
 
 /** Delivery audit window (docs/09 §3.4): one audit row per actor, object and purpose in ten minutes. */
 export const AUDIT_WINDOW_SECONDS = 600
@@ -133,7 +138,7 @@ export const AUDIT_WINDOW_SECONDS = 600
  * one delivery, so `INSERT … ON CONFLICT DO NOTHING` keeps one row per window. The actor is a user id or `link:<id>`.
  */
 export const auditId = (key: Uint8Array, purpose: string, actor: string, fileId: string, objectKey: string, now: number) =>
-  Effect.promise(() => hmac(key, ['audit', purpose, actor, fileId, objectKey, Math.floor(now / AUDIT_WINDOW_SECONDS)].join('\n'))).pipe(
+  hmac(key, ['audit', purpose, actor, fileId, objectKey, Math.floor(now / AUDIT_WINDOW_SECONDS)].join('\n')).pipe(
     Effect.map(hex),
   )
 
@@ -149,7 +154,7 @@ const proofMessage = (linkId: string, revision: number, expiresAt: number) => `p
 
 /** `v1.<expiresAt>.<mac>` where the MAC covers the `proof` domain, the link, its revision and the expiry (docs/09 §4.2). */
 export const signProof = (key: Uint8Array, linkId: string, revision: number, expiresAt: number) =>
-  Effect.promise(() => hmac(key, proofMessage(linkId, revision, expiresAt))).pipe(
+  hmac(key, proofMessage(linkId, revision, expiresAt)).pipe(
     Effect.map((mac) => `v1.${expiresAt}.${toBase64Url(mac)}`),
   )
 
@@ -187,7 +192,7 @@ export const readProof = (key: Uint8Array, cookieHeader: string | null, linkId: 
     const expiresAt = Number(parts[1])
     const given = fromBase64Url(parts[2] ?? '')
     if (given === undefined || now >= expiresAt) return undefined
-    const expected = yield* Effect.promise(() => hmac(key, proofMessage(linkId, revision, expiresAt)))
+    const expected = yield* hmac(key, proofMessage(linkId, revision, expiresAt))
     return timingSafeEqual(expected, given) ? ({ linkId, revision, expiresAt } satisfies PasswordProof) : undefined
   })
 
