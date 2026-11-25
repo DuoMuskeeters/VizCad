@@ -9,7 +9,7 @@ S=public/samples
 get() { [ -f "$S/$1" ] || curl -fL --retry 3 -o "$S/$1" "$2"; }
 
 # CAx-IF AS1 assembly with colours (0.4 MB), via the occt-import-js test files.
-get as1-oc-214.stp "https://github.com/kovacsv/occt-import-js/raw/v0.0.23/test/testfiles/cax-if/as1-oc-214.stp"
+get as1-oc-214.stp "https://github.com/kovacsv/occt-import-js/raw/0.0.23/test/testfiles/cax-if/as1-oc-214.stp"
 # NIST MBE PMI test case FTC-10, AP242 (1.9 MB). NIST, free to use with acknowledgement.
 if [ ! -f "$S/nist_ftc_10_asme1_ap242-e2.stp" ]; then
 	curl -fL -o /tmp/nist-pmi-step-files.zip "https://www.nist.gov/document/nist-pmi-step-files"

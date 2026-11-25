@@ -1,0 +1,130 @@
+[
+ {
+  "file": "as1-oc-214.stp",
+  "exportMs": 11,
+  "inputMB": 0.4,
+  "glbMB": 0.2,
+  "glbGzipMB": 0,
+  "exportBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "threeGlbTtffMs": 214,
+  "threeGlbNamedNodes": 24,
+  "threeGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "vtkGlbTtffMs": 41,
+  "vtkGlbActors": 36,
+  "vtkGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "workerThumbMs": 230,
+  "workerThumbInnerMs": 180,
+  "workerThumbKB": 8,
+  "workerThumbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "ok": true,
+  "throttle": 1
+ },
+ {
+  "file": "nist_ftc_10_asme1_ap242-e2.stp",
+  "exportMs": 11,
+  "inputMB": 1.9,
+  "glbMB": 0.5,
+  "glbGzipMB": 0.2,
+  "exportBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "threeGlbTtffMs": 22,
+  "threeGlbNamedNodes": 18,
+  "threeGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "vtkGlbTtffMs": 38,
+  "vtkGlbActors": 26,
+  "vtkGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "workerThumbMs": 91,
+  "workerThumbInnerMs": 46,
+  "workerThumbKB": 6,
+  "workerThumbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "ok": true,
+  "throttle": 1
+ },
+ {
+  "file": "MiniSB_Bowden.step",
+  "exportMs": 24,
+  "inputMB": 13.5,
+  "glbMB": 3.9,
+  "glbGzipMB": 1.9,
+  "exportBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "threeGlbTtffMs": 29,
+  "threeGlbNamedNodes": 52,
+  "threeGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "vtkGlbTtffMs": 82,
+  "vtkGlbActors": 88,
+  "vtkGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "workerThumbMs": 83,
+  "workerThumbInnerMs": 53,
+  "workerThumbKB": 7,
+  "workerThumbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "ok": true,
+  "throttle": 1
+ },
+ {
+  "file": "Stealthburner_CW2.5_Assembly.step",
+  "exportMs": 70,
+  "inputMB": 39.5,
+  "glbMB": 14.9,
+  "glbGzipMB": 6.2,
+  "exportBlocking": {
+   "tbtMs": 121,
+   "maxLongTaskMs": 171
+  },
+  "threeGlbTtffMs": 49,
+  "threeGlbNamedNodes": 461,
+  "threeGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "vtkGlbTtffMs": 385,
+  "vtkGlbActors": 910,
+  "vtkGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "workerThumbMs": 99,
+  "workerThumbInnerMs": 70,
+  "workerThumbKB": 5,
+  "workerThumbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "ok": true,
+  "throttle": 1
+ }
+]
