@@ -2,7 +2,6 @@ import { Star } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Checkbox } from '#/components/ui/Checkbox'
 import { DataList, DataListBody, DataListCell, DataListHead, DataListHeader, DataListPrimary, DataListRow, DataListSelectCell, FileTile } from '#/components/ui/DataList'
-import { TextLink } from '#/components/ui/Link'
 import { Link } from '@tanstack/react-router'
 import { useI18n } from '#/i18n'
 import { FileMenu, type FileMenuHandlers } from './FileMenu'
@@ -54,11 +53,9 @@ export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, han
                 meta={[owner, formatWhen(file.updatedAt, locale), formatBytes(file.size, locale)].filter(Boolean).join(' · ')}
                 trailing={starred ? <Star aria-label={t('files.starred')} className="size-3.5 fill-warn text-warn" /> : null}
               >
-                <TextLink asChild className="font-medium text-text no-underline hover:text-text hover:underline">
-                  <Link to="/app/files/$id" params={{ id: file.id }}>
-                    {file.name}
-                  </Link>
-                </TextLink>
+                <Link to="/app/files/$id" params={{ id: file.id }} className="rounded-sm font-medium text-text hover:underline">
+                  {file.name}
+                </Link>
               </DataListPrimary>
               <DataListCell desktopOnly className="truncate">
                 {project ?? <span className="text-text-3">{t('files.noProject')}</span>}

@@ -288,6 +288,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       <input
         ref={input}
         type="file"
+        multiple
         hidden
         tabIndex={-1}
         aria-label={t('upload.input')}
