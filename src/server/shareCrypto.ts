@@ -84,11 +84,15 @@ export const decryptToken = Effect.fnUntraced(function* (key: Uint8Array, cipher
 // ── passwords ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * PBKDF2-HMAC-SHA-256, 100 000 iterations, 16-byte salt: `p1$<iterations>$<salt>$<hash>` (base64url). 100 000 is the most
- * the Workers runtime accepts. The hash only matters next to a 256-bit token that D1 holds as a digest, so an offline
- * attack on a leaked row has nothing to open; online guessing is bounded by RateLimit and Turnstile (docs/09 §4.2).
+ * PBKDF2-HMAC-SHA-256, 16-byte salt: `p1$<iterations>$<salt>$<hash>` (base64url). New hashes use 10 000 iterations: on the
+ * Workers Free plan (10 ms CPU per request) 100 000 measured 28–41 ms on staging, so password-protected links would fail
+ * under load. The hash only matters next to a 256-bit token that D1 holds as a digest, so an offline attack on a leaked row
+ * has nothing to open; online guessing is bounded by RateLimit (per IP and per link) and Turnstile (docs/09 §4.2). The
+ * count travels in the hash, so raising it later (Workers Paid) needs no migration: verification accepts any stored count
+ * up to MAX_PASSWORD_ITERATIONS (100 000, the most the Workers runtime accepts).
  */
-export const PASSWORD_ITERATIONS = 100_000
+export const PASSWORD_ITERATIONS = 10_000
+export const MAX_PASSWORD_ITERATIONS = 100_000
 
 const derive = async (password: string, salt: Uint8Array, iterations: number) => {
   const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
@@ -111,7 +115,7 @@ export const verifyPassword = (stored: string, password: string) => {
   const expected = hashText === undefined ? undefined : fromBase64Url(hashText)
   const count = Number(iterations)
   if (version !== 'p1' || extra !== undefined || salt === undefined || expected === undefined || !Number.isInteger(count)
-    || count < 1 || count > PASSWORD_ITERATIONS) {
+    || count < 1 || count > MAX_PASSWORD_ITERATIONS) {
     return Effect.succeed(false)
   }
   return Effect.tryPromise({ try: () => derive(password, salt, count), catch: () => cryptoFailed('password check failed') }).pipe(

@@ -96,7 +96,7 @@ code="$(get "/api/files/$FILE/content" -H "Cookie: $COOKIE" -H "Origin: $SITE")"
 check "content 200" "$code" 200
 check "content size" "$(wc -c < "$WORK/b" | tr -d ' ')" "$SIZE"
 check "content-type is opaque" "$(hdr content-type)" application/octet-stream
-check "content-disposition is an attachment" "$(hdr content-disposition | cut -c1-40)" 'attachment; filename="verify4c-part.stl'
+check "content-disposition is an attachment" "$(hdr content-disposition | cut -c1-41)" 'attachment; filename="verify4c-part.stl"'
 check "nosniff" "$(hdr x-content-type-options)" nosniff
 check "CSP sandbox" "$(hdr content-security-policy)" sandbox
 check "no-store" "$(hdr cache-control)" 'private, no-store'

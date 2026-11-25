@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import {
-  auditId, cookieValue, decryptToken, encryptToken, fromBase64Url, hashPassword, isTokenFormat, newToken, PASSWORD_ITERATIONS,
+  auditId, cookieValue, decryptToken, encryptToken, fromBase64Url, hashPassword, isTokenFormat, newToken, MAX_PASSWORD_ITERATIONS, PASSWORD_ITERATIONS,
   proofCookieName, proofSetCookie, readProof, signProof, timingSafeEqual, toBase64Url, tokenDigest, verifyPassword,
 } from './shareCrypto'
 
@@ -177,4 +177,14 @@ describe('password proof cookie', () => {
     assert.isUndefined(cookieValue('a=1', 'b'))
     assert.isUndefined(cookieValue(null, 'b'))
   })
+})
+
+describe('password hash cost', () => {
+  it.effect('verifies hashes stored with a higher iteration count (up to the runtime maximum) and refuses one above it', () =>
+    Effect.gen(function* () {
+      const stored = yield* hashPassword('correct horse')
+      const [, , salt, hash] = stored.split('$')
+      assert.isTrue(yield* verifyPassword(stored, 'correct horse'))
+      assert.isFalse(yield* verifyPassword(`p1$${MAX_PASSWORD_ITERATIONS + 1}$${salt}$${hash}`, 'correct horse'))
+    }))
 })
