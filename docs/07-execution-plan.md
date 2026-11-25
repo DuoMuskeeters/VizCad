@@ -26,7 +26,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 
 | İz | Durum |
 |---|---|
-| Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
+| Kararlar | D1–D22 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
 | Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Faz 4 (dosyalar ve paylaşım) bitti, staging'de. Sırada: 4e artıkları, sonra Dalga 4 (görüntüleyici motor araştırması). Claude kullanımı `~/.claude/bin/usage-pace.py` ile ölçülüp hıza göre çalışılıyor (25 Kasım) |
 | Hosting | Staging yayında. Kullanıcı staging'de kayıt, doğrulama e-postası ve girişi denedi: çalışıyor (24 Kasım) |
@@ -66,9 +66,9 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [ ] UI: Tüm dosyalar, Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, paylaşılan sayfa. *Sonnet high*
 
 ### Dalga 4: görüntüleyici
-- [ ] Motor araştırması: three.js + `occt-import-js` (ağaç, renk korunur) vs mevcut vtk.js; 50 MB STEP ile ölçüm. *Opus high, araştırma*
+- [x] Motor araştırması (PR #22, `docs/10-viewer-engine.md`): three.js seçildi, STEP yüklemede GLB'ye çevrilir (D22)
 - [ ] Faz 5: görüntüleyici, Web Worker dönüşüm, küçük resim, mobil dokunma. *Opus high*
-- **Kullanıcı kararı:** motor seçimi (rapor sonrası)
+- [x] **Kullanıcı kararı:** motor three.js, orijinal STEP indirilebilir, kopya yoksa küçük resim + İndir, eski dosyalar ilk açılışta (D22)
 
 ### Dalga 5: içerik, admin, ödeme
 - [ ] Faz 6: CMS (yazılar, yazarlar, site metinleri, SEO), blog, pazarlama sayfaları SSR + edge cache. *Codex + Sonnet*

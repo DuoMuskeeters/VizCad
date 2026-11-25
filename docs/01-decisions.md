@@ -93,6 +93,12 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Yeni yüklemelerin küçük resmi Faz 5'te üretilir; o zamana kadar "yalnızca görüntüleme" linkinde dosya kartı görünür.
 - IP ve tarayıcı bilgisi workspace aktivite kaydına girmez; ayrı bir **güvenlik kaydında** (giriş, link açma, indirme olayları) tutulur, 90 gün sonra silinir, yalnız platform yöneticisi görür; gizlilik politikasına eklenir. Legacy `activity_logs` içindeki IP/tarayıcı değerleri cutover'da 90 günden eskiyse temizlenir (cutover günü ayrıca onay).
 
+**D22. Görüntüleyici (25 Kasım 2026).** `10-viewer-engine.md` §8.
+- Motor three.js; vtk.js bırakılır. STEP, `occt-import-js` ile Web Worker'da çevrilir.
+- STEP yüklenirken yükleyenin tarayıcısında bir kez GLB kopyası üretilir ve R2'de saklanır; görüntüleyici bu kopyayı açar. Orijinal STEP her zaman saklanır ve indirilebilir kalır (indirme yetkisine göre). Kullanıcı: "orijinal step indirilebilir olmalı".
+- Kopya yoksa (telefondan yükleme, çevirme hatası, yaklaşık 50 MB üstü): küçük resim + İndir; düzenleme yetkisi olan biri masaüstünde ilk açtığında kopya üretilir. 0 üçgenli sonuç hata sayılır. Tarayıcıda çevirme sınırı `Entitlements`'ta ayrı bir değer (50 MB); yükleme sınırı 100 MB kalır.
+- Canlıdaki eski dosyaların kopyası ilk açılışta üretilir; toplu script isteğe bağlı, production R2'yi okuyacağı için ayrıca onay ister.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
