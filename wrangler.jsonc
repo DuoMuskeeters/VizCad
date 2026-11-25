@@ -45,6 +45,8 @@
 		"EMAIL_FROM": "noreply@viz-cad.com",
 		"EMAIL_FROM_NAME": "VizCad",
 		"APP_ENV": "staging",
+		// Rewrites legacy scrypt login hashes as PBKDF2 on sign-in. Never set in env.production before the cutover (docs/08, "Giriş parolaları").
+		"PASSWORD_REHASH": "1",
 		// Must match r2_buckets below; presigned URLs are signed for this bucket (AppConfig requires it).
 		"R2_BUCKET_NAME": "vizcad-files-staging"
 	},

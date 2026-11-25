@@ -1,4 +1,6 @@
 import { assert, describe, it } from '@effect/vitest'
+import { hashPassword as scryptHash } from 'better-auth/crypto'
+import { drizzle } from 'drizzle-orm/d1'
 import { Effect, Layer, Option, Redacted, Ref } from 'effect'
 import { vi } from 'vitest'
 import * as schema from '../db/schema'
@@ -14,9 +16,9 @@ const ORIGIN = 'https://vizcad.test'
 const PASSWORD = 'correct-horse-battery'
 
 /** The real SDK on an in-memory D1 with every migration, with mail captured in the Email outbox. */
-const setup = (defer?: AuthLive.Defer) => {
+const setup = (defer?: AuthLive.Defer, config: Partial<AppConfig.AppConfig['Service']> = {}) => {
   const d1: MemoryD1 = openMemoryD1()
-  const layer = AuthLive.layer(d1.binding, defer).pipe(Layer.provideMerge(emailMemory), Layer.provide(AppConfig.test()))
+  const layer = AuthLive.layer(d1.binding, defer).pipe(Layer.provideMerge(emailMemory), Layer.provide(AppConfig.test(config)))
   return { d1, layer }
 }
 
@@ -433,6 +435,177 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
       const user = rows<{ role: string; banned: number; storageQuotaGb: number; emailVerified: number }>(d1, 'select role, banned, storageQuotaGb, emailVerified from user')[0]
       assert.deepStrictEqual(user, { role: 'user', banned: 0, storageQuotaGb: 5, emailVerified: 0 })
     }).pipe(Effect.provide(layer))
+  })
+})
+
+describe('login passwords: PBKDF2 for new hashes, scrypt verify, one-time rehash', () => {
+  const storedHash = (d1: MemoryD1) => rows<{ password: string }>(d1, "select password from account where providerId = 'credential'")[0]?.password ?? ''
+  const setStored = (d1: MemoryD1, value: string) => d1.sqlite.prepare("update account set password = ? where providerId = 'credential'").run(value)
+  const withRehash = (rehashPasswords: boolean) => ({ auth: Option.some({ ...Option.getOrThrow(AppConfig.testConfig.auth), rehashPasswords }) })
+  /** An account the way the legacy app wrote it: better-auth scrypt `<salt>:<key>`. */
+  const legacyAccount = (d1: MemoryD1) =>
+    Effect.gen(function* () {
+      yield* signUp('ada@example.com')
+      yield* verify
+      const legacy = yield* Effect.promise(() => scryptHash(PASSWORD))
+      setStored(d1, legacy)
+      return legacy
+    })
+
+  it.effect('sign-up writes p1$10000$; sign-in works with it; a wrong password is 401', () => {
+    const { d1, layer } = setup()
+    return Effect.gen(function* () {
+      yield* signUp('ada@example.com')
+      yield* verify
+      assert.match(storedHash(d1), /^p1\$10000\$[A-Za-z0-9_-]{22}\$[A-Za-z0-9_-]{43}$/)
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200)
+      assert.strictEqual((yield* signIn('ada@example.com', 'wrong-password-1')).status, 401)
+      assert.match(storedHash(d1), /^p1\$10000\$/, 'a wrong password changes nothing')
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('the same password in a different Unicode form signs in (NFKC), as with the SDK scrypt', () => {
+    const { layer } = setup()
+    return Effect.gen(function* () {
+      yield* handle(post('/sign-up/email', { email: 'eve@example.com', password: 'café-password-1', name: 'Eve' }))
+      yield* verify
+      assert.strictEqual((yield* signIn('eve@example.com', 'café-password-1')).status, 200)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('a legacy scrypt account signs in and its hash becomes p1$ (flag on); it keeps signing in', () => {
+    const { d1, layer } = setup(undefined, withRehash(true))
+    return Effect.gen(function* () {
+      const legacy = yield* legacyAccount(d1)
+      assert.strictEqual((yield* signIn('ada@example.com', 'wrong-password-1')).status, 401)
+      assert.strictEqual(storedHash(d1), legacy, 'a wrong password does not rehash')
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200)
+      const rewritten = storedHash(d1)
+      assert.match(rewritten, /^p1\$10000\$/)
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200)
+      assert.strictEqual(storedHash(d1), rewritten, 'rewritten once, not on every sign-in')
+      assert.strictEqual((yield* signIn('ada@example.com', 'wrong-password-1')).status, 401)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('flag off: a legacy scrypt hash verifies and is left exactly as it was', () => {
+    const { d1, layer } = setup(undefined, withRehash(false))
+    return Effect.gen(function* () {
+      const legacy = yield* legacyAccount(d1)
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200)
+      assert.strictEqual((yield* signIn('ada@example.com')).status, 200)
+      assert.strictEqual(storedHash(d1), legacy)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('malformed stored hashes are a plain 401, never a 500 and never a rewrite', () => {
+    const { d1, layer } = setup(undefined, withRehash(true))
+    return Effect.gen(function* () {
+      yield* signUp('ada@example.com')
+      yield* verify
+      const salt = 'AAAAAAAAAAAAAAAAAAAAAA'
+      const hash = 'A'.repeat(43)
+      for (const bad of [
+        'garbage',
+        'abc:zz',
+        ':',
+        'p1$',
+        'p1$10000',
+        `p1$0$${salt}$${hash}`,
+        `p1$-5$${salt}$${hash}`,
+        `p1$1.5$${salt}$${hash}`,
+        `p1$100001$${salt}$${hash}`,
+        `p1$10000$${salt}$${hash}$extra`,
+        `p2$10000$${salt}$${hash}`,
+        `p1$10000$!!!$${hash}`,
+        `p1$10000$${salt}$${hash}`,
+      ]) {
+        setStored(d1, bad)
+        assert.strictEqual((yield* signIn('ada@example.com')).status, 401, bad)
+        assert.strictEqual(storedHash(d1), bad)
+      }
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('a password reset and a password change write p1$', () => {
+    const { d1, layer } = setup(undefined, withRehash(true))
+    return Effect.gen(function* () {
+      yield* legacyAccount(d1)
+      yield* handle(post('/request-password-reset', { email: 'ada@example.com', redirectTo: '/reset' }))
+      const token = /reset-password\/([A-Za-z0-9_-]+)/.exec((yield* Ref.get(yield* EmailOutbox)).at(-1)?.text ?? '')?.[1] ?? ''
+      assert.strictEqual((yield* handle(post('/reset-password', { newPassword: 'a-brand-new-password', token }))).status, 200)
+      assert.match(storedHash(d1), /^p1\$10000\$/)
+      const cookie = jar(yield* signIn('ada@example.com', 'a-brand-new-password'))
+      const change = yield* handle(post('/change-password', { currentPassword: 'a-brand-new-password', newPassword: 'and-a-third-password' }, cookie))
+      assert.strictEqual(change.status, 200)
+      assert.match(storedHash(d1), /^p1\$10000\$/)
+      assert.strictEqual((yield* signIn('ada@example.com', 'a-brand-new-password')).status, 401)
+      assert.strictEqual((yield* signIn('ada@example.com', 'and-a-third-password')).status, 200)
+    }).pipe(Effect.provide(layer))
+  })
+
+  it.effect('changing a legacy password: the rewrite of the old hash never overwrites the new one', () => {
+    const { d1, layer } = setup(undefined, withRehash(true))
+    return Effect.gen(function* () {
+      yield* legacyAccount(d1)
+      const cookie = jar(yield* signIn('ada@example.com'))
+      // Back to scrypt, so change-password verifies (and, with the flag on, rewrites) the legacy hash before it stores the new one.
+      setStored(d1, yield* Effect.promise(() => scryptHash(PASSWORD)))
+      const change = yield* handle(post('/change-password', { currentPassword: PASSWORD, newPassword: 'and-a-third-password' }, cookie))
+      assert.strictEqual(change.status, 200)
+      assert.strictEqual((yield* signIn('ada@example.com', PASSWORD)).status, 401)
+      assert.strictEqual((yield* signIn('ada@example.com', 'and-a-third-password')).status, 200)
+    }).pipe(Effect.provide(layer))
+  })
+
+  describe('rehash race (the SDK option, called directly)', () => {
+    const verifyWith = (d1: MemoryD1, rehashPasswords: boolean) =>
+      authOptions({
+        db: drizzle(d1.binding, { schema }),
+        settings: { ...Option.getOrThrow(AppConfig.testConfig.auth), rehashPasswords },
+        siteUrl: AppConfig.testConfig.siteUrl,
+        trustedOrigins: AppConfig.testConfig.trustedOrigins,
+        mailer: { verification: () => Promise.resolve(), passwordReset: () => Promise.resolve() },
+        googleUserInfo: () => Promise.resolve(null),
+      }).emailAndPassword.password.verify
+
+    it.effect('two sign-ins at once both succeed and leave one valid p1$ hash', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const legacy = yield* legacyAccount(d1)
+        const verifyPassword = verifyWith(d1, true)
+        const results = yield* Effect.promise(() =>
+          Promise.all([verifyPassword({ hash: legacy, password: PASSWORD }), verifyPassword({ hash: legacy, password: PASSWORD })]),
+        )
+        assert.deepStrictEqual(results, [true, true])
+        const final = storedHash(d1)
+        assert.match(final, /^p1\$10000\$/)
+        assert.isTrue(yield* Effect.promise(() => verifyPassword({ hash: final, password: PASSWORD })))
+        assert.isFalse(yield* Effect.promise(() => verifyPassword({ hash: final, password: 'wrong-password-1' })))
+        assert.strictEqual(rows<{ n: number }>(d1, "select count(*) as n from account where providerId = 'credential'")[0]?.n, 1)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('a password that changed in between is not overwritten by the old rewrite', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const legacy = yield* legacyAccount(d1)
+        const newer = `p1$10000$AAAAAAAAAAAAAAAAAAAAAA$${'B'.repeat(43)}`
+        setStored(d1, newer) // a reset landed after the sign-in read the old hash
+        assert.isTrue(yield* Effect.promise(() => verifyWith(d1, true)({ hash: legacy, password: PASSWORD })))
+        assert.strictEqual(storedHash(d1), newer)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('an account that is not a credential account is never touched', () => {
+      const { d1, layer } = setup()
+      return Effect.gen(function* () {
+        const legacy = yield* legacyAccount(d1)
+        d1.sqlite.prepare("update account set providerId = 'google' where providerId = 'credential'").run()
+        assert.isTrue(yield* Effect.promise(() => verifyWith(d1, true)({ hash: legacy, password: PASSWORD })))
+        assert.strictEqual(rows<{ password: string }>(d1, 'select password from account')[0]?.password, legacy)
+      }).pipe(Effect.provide(layer))
+    })
   })
 })
 
