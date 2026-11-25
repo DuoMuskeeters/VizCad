@@ -43,6 +43,8 @@ const EnvSchema = Schema.Struct({
   TRUSTED_ORIGINS: Schema.optional(Schema.String),
   /** Min 32 characters; production keeps the old app's secret so existing sessions survive. */
   BETTER_AUTH_SECRET: Schema.optional(Schema.String.check(Schema.isMinLength(32))),
+  /** `1` rewrites legacy scrypt login hashes as PBKDF2 on sign-in; `0` or unset leaves them (production until the cutover). */
+  PASSWORD_REHASH: Schema.optional(Schema.Literals(['0', '1'])),
   GOOGLE_CLIENT_ID: optionalText,
   GOOGLE_CLIENT_SECRET: optionalText,
   /** JSON `{"<version>": "<base64 of 32 bytes>"}`; the highest version is the active one (docs/09 §4.1). */
@@ -144,6 +146,7 @@ const trustedOrigins = (e: Env) =>
   ).pipe(Effect.map((extra) => new Set([e.SITE_URL.origin, ...extra]) as ReadonlySet<string>))
 
 const authSettings = (e: Env) => {
+  const rehashPasswords = e.PASSWORD_REHASH === '1'
   const { BETTER_AUTH_SECRET: secret, GOOGLE_CLIENT_ID: clientId, GOOGLE_CLIENT_SECRET: clientSecret } = e
   if (!secret) {
     return clientId || clientSecret
@@ -154,12 +157,13 @@ const authSettings = (e: Env) => {
     return Effect.succeed(
       Option.some<AuthSettings>({
         secret: Redacted.make(secret),
+        rehashPasswords,
         google: Option.some({ clientId, clientSecret: Redacted.make(clientSecret) }),
       }),
     )
   }
   if (!clientId && !clientSecret) {
-    return Effect.succeed(Option.some<AuthSettings>({ secret: Redacted.make(secret), google: Option.none() }))
+    return Effect.succeed(Option.some<AuthSettings>({ secret: Redacted.make(secret), rehashPasswords, google: Option.none() }))
   }
   return partial('Google sign-in (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)')
 }

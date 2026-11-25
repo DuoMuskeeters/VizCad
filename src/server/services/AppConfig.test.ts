@@ -43,6 +43,18 @@ describe('AppConfig.fromEnv', () => {
     }),
   )
 
+  it.effect('PASSWORD_REHASH: only "1" turns the login rehash on; unset and "0" leave it off; anything else is a ConfigError', () =>
+    Effect.gen(function* () {
+      const rehash = (extra: Record<string, unknown>) =>
+        decodeEnv({ ...base, BETTER_AUTH_SECRET: 'x'.repeat(32), ...extra }).pipe(Effect.map((c) => Option.getOrThrow(c.auth).rehashPasswords))
+      assert.isFalse(yield* rehash({}))
+      assert.isFalse(yield* rehash({ PASSWORD_REHASH: '0' }))
+      assert.isFalse(yield* rehash({ PASSWORD_REHASH: '' }))
+      assert.isTrue(yield* rehash({ PASSWORD_REHASH: '1' }))
+      assert.strictEqual((yield* failure({ ...base, PASSWORD_REHASH: 'yes' }))._tag, 'ConfigError')
+    }),
+  )
+
   it.effect('share keys: the highest SHARE_TOKEN_KEYS version is active, SHARE_PROOF_KEY needs 32 bytes, both are optional', () =>
     Effect.gen(function* () {
       const none = yield* decodeEnv(base)

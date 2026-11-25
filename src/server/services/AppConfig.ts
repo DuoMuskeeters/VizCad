@@ -32,6 +32,11 @@ export interface RateLimitRules {
 export interface AuthSettings {
   /** `BETTER_AUTH_SECRET` (the production secret keeps its old name so existing sessions stay valid). */
   readonly secret: Redacted.Redacted<string>
+  /**
+   * `PASSWORD_REHASH`: a successful sign-in with a legacy scrypt hash rewrites it as PBKDF2 `p1$` (loginPassword.ts). Off
+   * in production until the cutover, because the legacy app cannot read `p1$` (docs/08, "Giriş parolaları").
+   */
+  readonly rehashPasswords: boolean
   /** None when Google sign-in is not configured. */
   readonly google: Option.Option<{ readonly clientId: string; readonly clientSecret: Redacted.Redacted<string> }>
 }
@@ -131,6 +136,7 @@ export const testConfig: AppConfig['Service'] = {
   trustedOrigins: new Set(['https://vizcad.test']),
   auth: Option.some({
     secret: Redacted.make('test-better-auth-secret-0123456789abcdef'),
+    rehashPasswords: true,
     google: Option.some({ clientId: 'test-google-client', clientSecret: Redacted.make('test-google-secret') }),
   }),
   rateLimits: defaultRateLimits,
