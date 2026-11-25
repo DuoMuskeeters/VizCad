@@ -249,10 +249,43 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual((yield* call(post('copyShareLink', { workspaceId: 'acme', fileId: 'f1' }, bob))).status, 404)
     })))
 
+  it.effect('comments over HTTP: write, list, reply, delete; links and tokens have no way in; limits and bad bodies are 400; the rate limit answers 429', () =>
+    run(Effect.gen(function* () {
+      yield* seedFile('f1', 'bob', 'acme')
+      const bob = { cookie: 'session=tok-bob', 'cf-connecting-ip': '198.51.100.30' }
+      const ada = { cookie: 'session=tok-ada' }
+      const added = yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: ' hello ' }, bob))
+      assert.strictEqual(added.status, 200)
+      const comment = added.body.data as { id: string; content: string; mine: boolean }
+      assert.deepStrictEqual([comment.content, comment.mine], ['hello', true])
+      assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'reply', parentId: comment.id }, ada))).status, 200)
+      const listed = yield* call(post('listComments', { workspaceId: 'acme', fileId: 'f1' }, ada))
+      assert.deepStrictEqual((listed.body.data as { items: Array<{ content: string }> }).items.map((i) => i.content).sort(), ['hello', 'reply'])
+      for (const body of [
+        { workspaceId: 'acme', fileId: 'f1', content: '' },
+        { workspaceId: 'acme', fileId: 'f1', content: 'x'.repeat(8001) },
+        { workspaceId: 'acme', fileId: 'f1', content: 'x', token: 'share-token' },
+        { workspaceId: 'acme', fileId: 'f1', content: 'x', authorScopeAtWrite: 'internal' },
+      ]) assert.strictEqual((yield* call(post('addComment', body, bob))).status, 400)
+      assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: '   ' }, bob))).body.error, 'ValidationError')
+      assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'x', parentId: 'nope' }, bob))).body.error, 'CommentUnavailable')
+      assert.strictEqual((yield* call(post('listComments', { workspaceId: 'acme', fileId: 'f1', limit: 101 }, bob))).status, 400)
+      const denied = yield* call(post('deleteComment', { workspaceId: 'acme', commentId: comment.id }, ada))
+      assert.deepStrictEqual([denied.status, denied.body.reason], [403, 'ROLE_LIMIT'])
+      assert.strictEqual((yield* call(post('deleteComment', { workspaceId: 'acme', commentId: comment.id }, bob))).status, 200)
+      assert.strictEqual((yield* call(post('listFileActivity', { workspaceId: 'acme', fileId: 'f1' }, ada))).status, 403)
+      const activity = yield* call(post('listFileActivity', { workspaceId: 'acme', fileId: 'f1' }, bob))
+      assert.deepStrictEqual((activity.body.data as { items: Array<{ action: string }> }).items.map((i) => i.action).sort(), ['comment.created', 'comment.created', 'comment.deleted'])
+      for (let i = 0; i < 119; i++) yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'again' }, bob))
+      assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'again' }, bob))).status, 429)
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
-      'acceptGuestInvitation', 'acceptInvitation', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload', 'copyShareLink', 'createProject', 'createShareLink', 'createWorkspace', 'currentWorkspace',
-      'emptyTrash', 'getFile', 'getInvitation', 'getShareSettings', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listTrash', 'listVersions',
+      'acceptGuestInvitation', 'acceptInvitation', 'addComment', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload',
+      'copyShareLink', 'createProject', 'createShareLink', 'createWorkspace', 'currentWorkspace', 'deleteComment', 'emptyTrash', 'getFile',
+      'getInvitation', 'getShareSettings', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listComments',
+      'listFileActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listSharedByMe', 'listSharedWithMe', 'listTrash', 'listVersions',
       'moveFile', 'previewMemberRemoval', 'previewMoveFile', 'purgeFile', 'removeMember', 'renameFile', 'requestUpload', 'restoreFile', 'restoreVersion', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation',
       'revokeProjectAccess', 'revokeShareLink', 'setProjectAccessMode', 'starFile', 'switchWorkspace', 'transferOwnership', 'trashFile', 'unstarFile', 'updateProject', 'updateShareLink',
     ])

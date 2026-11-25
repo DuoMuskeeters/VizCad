@@ -53,6 +53,7 @@ export const STATUS: Record<AppError['_tag'], number> = {
   LinkExpired: 410,
   LinkPasswordRequired: 401,
   LinkPasswordInvalid: 401,
+  CommentUnavailable: 404,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */

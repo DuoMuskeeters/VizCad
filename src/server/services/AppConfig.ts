@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkPassword', 'thumbnailPut'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkPassword', 'thumbnailPut', 'comment'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -53,6 +53,8 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   // Upload requests (`requestUpload`): per user and per IP. A drag-and-drop of a few dozen files must fit; the open-session
   // count and the storage reservation (Entitlements) bound what is actually held.
   upload: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
+  // New comments (`addComment`): per user and per IP; generous for a review session, tight enough to stop a flood.
+  comment: { target: { limit: 60, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
   // Opening a share link page (docs/09 §4.5): per IP, before the token is hashed and looked up. The target (a link) is not used.
   linkOpen: { target: { limit: 600, windowSeconds: 15 * 60 }, ip: { limit: 120, windowSeconds: 15 * 60 } },
   // Link password tries. The target is `<ip>|<link digest>` (one visitor on one link), so a stranger cannot lock the real

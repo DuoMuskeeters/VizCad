@@ -183,6 +183,8 @@ export class LinkPasswordRequired extends Data.TaggedError('LinkPasswordRequired
 export class LinkPasswordInvalid extends Data.TaggedError('LinkPasswordInvalid')<{
   readonly captchaRequired: boolean
 }> {}
+/** The comment does not exist on this file, is deleted, or is not visible to the caller (one answer for all). */
+export class CommentUnavailable extends Data.TaggedError('CommentUnavailable')<{}> {}
 
 /** Every error a route handler may have to map to a response. */
 export type AppError =
@@ -236,3 +238,4 @@ export type AppError =
   | LinkExpired
   | LinkPasswordRequired
   | LinkPasswordInvalid
+  | CommentUnavailable

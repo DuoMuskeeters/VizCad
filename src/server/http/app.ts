@@ -2,7 +2,9 @@ import { Effect, type Layer, Schema } from 'effect'
 import { type Locale, localeFromHeader, locales } from '../emails/auth'
 import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
 import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
-import { listActivity } from '../programs/activity'
+import { listActivity, listFileActivity } from '../programs/activity'
+import { addComment, deleteComment, listComments, MAX_COMMENT_LENGTH } from '../programs/comments'
+import { listSharedByMe, listSharedWithMe } from '../programs/sharedFiles'
 import { getFile, listFiles, renameFile, starFile, unstarFile } from '../programs/files'
 import { moveFile, previewMoveFile } from '../programs/move'
 import { emptyTrash, listTrash, purgeFile, restoreFile, trashFile } from '../programs/trash'
@@ -48,6 +50,11 @@ const FileSize = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number
 const Count = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100000 }))
 const MoveEffects = Schema.Struct({ links: Count, invitations: Count, guestGrants: Count, memberGrants: Count })
 const Workspace = { workspaceId: Id }
+/** `limit` and `cursor` of a paged list. */
+const Page = (max: number) => ({
+  limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: max }))),
+  cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))),
+})
 const Grant = { ...Workspace, userId: Id, level: Level, expiresAt: Schema.NullOr(Seconds) }
 
 interface Context {
@@ -66,7 +73,7 @@ interface Result {
 
 interface Operation {
   /** Throttled per IP and account before the body is read (invitation acceptance, upload requests). */
-  readonly limit?: Extract<RateLimitAction, 'inviteAccept' | 'inviteLookup' | 'upload'>
+  readonly limit?: Extract<RateLimitAction, 'inviteAccept' | 'inviteLookup' | 'upload' | 'comment'>
   readonly run: (body: unknown, ctx: Context) => Effect.Effect<Result, AppError, AppServices>
 }
 
@@ -171,7 +178,7 @@ const operations: Readonly<Record<string, Operation>> = {
   // Files: list, detail, rename, stars, trash, versions, move (docs/09 §5).
   listFiles: op(
     {
-      ...Workspace, projectId: Schema.optional(Id), filter: Schema.optional(Schema.Literals(['all', 'starred', 'mine'])),
+      ...Workspace, projectId: Schema.optional(Id), filter: Schema.optional(Schema.Literals(['all', 'recent', 'starred', 'mine'])),
       query: Schema.optional(Schema.String.check(Schema.isMaxLength(200))), sort: Schema.optional(Schema.Literals(['updated', 'created', 'name', 'size'])),
       direction: Schema.optional(Schema.Literals(['asc', 'desc'])), limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
       cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(600)))),
@@ -229,6 +236,24 @@ const operations: Readonly<Record<string, Operation>> = {
     revokeShareLink(caller, { workspaceId: input.workspaceId, fileId: input.fileId, ...(input.linkId === undefined ? {} : { linkId: input.linkId }) })),
   copyShareLink: op({ ...Workspace, fileId: Id, linkId: Schema.optional(Id) }, (input, { caller }) =>
     copyShareLink(caller, { workspaceId: input.workspaceId, fileId: input.fileId, ...(input.linkId === undefined ? {} : { linkId: input.linkId }) })),
+  // Comments, file activity and the shared lists (docs/09 §6, §7.4, §5.1).
+  listComments: op({ ...Workspace, fileId: Id, ...Page(100) }, (input, { caller }) =>
+    listComments(caller, { workspaceId: input.workspaceId, fileId: input.fileId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
+  addComment: op(
+    { ...Workspace, fileId: Id, content: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_COMMENT_LENGTH * 2)), parentId: Schema.optional(Id) },
+    (input, { caller }) => addComment(caller, {
+      workspaceId: input.workspaceId, fileId: input.fileId, content: input.content,
+      ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
+    }),
+    'comment',
+  ),
+  deleteComment: op({ ...Workspace, commentId: Id }, (input, { caller }) => deleteComment(caller, input)),
+  listFileActivity: op({ ...Workspace, fileId: Id, ...Page(100) }, (input, { caller }) =>
+    listFileActivity(caller, { workspaceId: input.workspaceId, fileId: input.fileId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
+  listSharedWithMe: op({ ...Workspace, ...Page(50) }, (input, { caller }) =>
+    listSharedWithMe(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 30, cursor: input.cursor ?? null })),
+  listSharedByMe: op({ ...Workspace, ...Page(50) }, (input, { caller }) =>
+    listSharedByMe(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 30, cursor: input.cursor ?? null })),
   listActivity: op({ ...Workspace, limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))), cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))) }, (input, { caller }) =>
     listActivity(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
 }
