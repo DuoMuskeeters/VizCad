@@ -485,3 +485,7 @@ Yorumlar, dosya aktivitesi, paylaşım listeleri, `recent` süzgeci ve `access_l
 - **HTTP:** `POST /api/app/` altında `listComments, addComment, deleteComment, listFileActivity, listSharedWithMe, listSharedByMe`; `listFiles.filter` artık `recent` da kabul eder. Bilinmeyen alan 400 (istemci kapsam veya token veremez). Yeni hata `CommentUnavailable` → 404. Yeni hız sınırı eylemi `comment`.
 - **CPU:** her liste tek ana sorgu (+ `openFile`/`loadScope` bağlamı ve `fileGrantsOf`); yorum sayfası tek JOIN, misafir filtresi aynı sorguda. `recent` bir alt sorgu (50 satırlık GROUP BY, indeksli).
 - **Staging kabulü:** `scripts/staging-verify-comments.sh` (yükleme, yorum, yanıt, silme/mezar taşı, aktivite, `recent`, paylaşım listeleri, temizlik). Misafir görünürlük matrisi ikinci kullanıcı gerektirdiğinden program testlerinde (`comments.test.ts`). Sonuç staging'e yayınlandıktan sonra buraya yazılacak.
+
+### Staging kabul sonucu · Faz 4d (25 Kasım 2026)
+
+`scripts/staging-verify-comments.sh` staging'de (test kullanıcısının firma workspace'i) **32/32** geçti: yorum ekleme/listeleme/silme, dosya aktivitesi, paylaşılan listeler ve `recent` süzgeci. Misafir görünürlük matrisi program testlerinde (`comments.test.ts`, `viewComment` eşdeğerliği).
