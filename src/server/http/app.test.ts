@@ -221,6 +221,34 @@ describe('POST /api/app/<operation>', () => {
       assert.deepStrictEqual([trash.status, trash.body.data], [200, { items: [], nextCursor: null }])
     })))
 
+  it.effect('link sharing: the owner creates, copies and revokes; a member cannot copy; passwords travel in the body only', () =>
+    run(Effect.gen(function* () {
+      yield* seedFile('f1', 'bob', 'acme')
+      const bob = { cookie: 'session=tok-bob' }
+      const created = yield* call(post('createShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'download', password: 'correct horse', expiresAt: T0 + 86400 }, bob))
+      assert.strictEqual(created.status, 200)
+      const url = (created.body.data as { url: string }).url
+      assert.match(url, /^https:\/\/vizcad\.test\/s\/[A-Za-z0-9_-]{43}$/)
+      assert.notInclude(JSON.stringify(created.body.data), 'correct horse')
+      assert.strictEqual((yield* call(post('createShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'view' }, bob))).body.error, 'LinkConflict')
+
+      const copied = yield* call(post('copyShareLink', { workspaceId: 'acme', fileId: 'f1' }, bob))
+      assert.strictEqual((copied.body.data as { url: string }).url, url)
+      const member = yield* call(post('copyShareLink', { workspaceId: 'acme', fileId: 'f1' }))
+      assert.deepStrictEqual([member.status, member.body.error], [403, 'PermissionDenied'])
+      assert.notInclude(JSON.stringify(member.body), url)
+      assert.strictEqual((yield* call(post('getShareSettings', { workspaceId: 'acme', fileId: 'f1' }))).status, 403)
+
+      assert.strictEqual((yield* call(post('createShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'comment' }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('createShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'view', password: 'short' }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('createShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'view', token: 'x' }, bob))).status, 400)
+      assert.strictEqual((yield* call(post('updateShareLink', { workspaceId: 'acme', fileId: 'f1', level: 'view', password: null }, bob))).status, 200)
+      const settings = yield* call(post('getShareSettings', { workspaceId: 'acme', fileId: 'f1' }, bob))
+      assert.deepStrictEqual((settings.body.data as { links: Array<{ level: string; hasPassword: boolean }> }).links.map((l) => [l.level, l.hasPassword]), [['view', false]])
+      assert.strictEqual((yield* call(post('revokeShareLink', { workspaceId: 'acme', fileId: 'f1' }, bob))).status, 200)
+      assert.strictEqual((yield* call(post('copyShareLink', { workspaceId: 'acme', fileId: 'f1' }, bob))).status, 404)
+    })))
+
   it.effect('comments over HTTP: write, list, reply, delete; links and tokens have no way in; limits and bad bodies are 400; the rate limit answers 429', () =>
     run(Effect.gen(function* () {
       yield* seedFile('f1', 'bob', 'acme')
@@ -254,10 +282,12 @@ describe('POST /api/app/<operation>', () => {
 
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
-      'acceptGuestInvitation', 'acceptInvitation', 'addComment', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload', 'createProject', 'createWorkspace', 'currentWorkspace',
-      'deleteComment', 'emptyTrash', 'getFile', 'getInvitation', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listComments', 'listFileActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listSharedByMe', 'listSharedWithMe', 'listTrash', 'listVersions',
+      'acceptGuestInvitation', 'acceptInvitation', 'addComment', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload',
+      'copyShareLink', 'createProject', 'createShareLink', 'createWorkspace', 'currentWorkspace', 'deleteComment', 'emptyTrash', 'getFile',
+      'getInvitation', 'getShareSettings', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listComments',
+      'listFileActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listSharedByMe', 'listSharedWithMe', 'listTrash', 'listVersions',
       'moveFile', 'previewMemberRemoval', 'previewMoveFile', 'purgeFile', 'removeMember', 'renameFile', 'requestUpload', 'restoreFile', 'restoreVersion', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation',
-      'revokeProjectAccess', 'setProjectAccessMode', 'starFile', 'switchWorkspace', 'transferOwnership', 'trashFile', 'unstarFile', 'updateProject',
+      'revokeProjectAccess', 'revokeShareLink', 'setProjectAccessMode', 'starFile', 'switchWorkspace', 'transferOwnership', 'trashFile', 'unstarFile', 'updateProject', 'updateShareLink',
     ])
   })
 })

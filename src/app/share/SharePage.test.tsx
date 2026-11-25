@@ -1,0 +1,99 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import '../../components/ui/test-utils'
+import { I18nProvider } from '#/i18n'
+import { UiProvider } from '#/components/ui/UiProvider'
+import { formatSize } from './api'
+import { SharePage } from './SharePage'
+
+const TOKEN = 'A'.repeat(43)
+const file = {
+  name: 'Bracket.step', extension: 'step', size: 1536, updatedAt: 1, currentVersion: { number: 1 }, thumbnailAvailable: false,
+  can: { download: true, comment: false as const }, sharer: { displayName: 'Ada', workspaceLabel: 'Acme' }, expiresAt: null,
+}
+
+type Reply = { status: number; body: unknown }
+const answer = (...replies: ReadonlyArray<Reply>) => {
+  const calls: Array<{ url: string; body: string }> = []
+  let i = 0
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    calls.push({ url, body: String(init?.body ?? '') })
+    const reply = replies[Math.min(i++, replies.length - 1)] ?? { status: 500, body: {} }
+    return new Response(JSON.stringify(reply.body), { status: reply.status })
+  }))
+  return calls
+}
+
+const mount = () => render(<I18nProvider><UiProvider><SharePage token={TOKEN} /></UiProvider></I18nProvider>)
+
+afterEach(() => vi.unstubAllGlobals())
+
+describe('formatSize', () => {
+  it.each([[0, '0 B'], [1023, '1023 B'], [1536, '1.5 KB'], [5 * 1024 * 1024, '5.0 MB'], [150 * 1024 * 1024, '150 MB']])('%d -> %s', (bytes, text) => {
+    expect(formatSize(bytes)).toBe(text)
+  })
+})
+
+describe('SharePage', () => {
+  it('shows the file card with a download link from the content route; the token only travels in the body', async () => {
+    const calls = answer({ status: 200, body: { ok: true, data: { kind: 'file', file } } })
+    mount()
+    expect(await screen.findByRole('heading', { name: 'Bracket.step' })).toBeInTheDocument()
+    expect(screen.getByText('Shared by Ada · Acme')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute('href', `/s/${TOKEN}/content`)
+    expect(calls).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
+  })
+
+  it('a view-only link has no download button', async () => {
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false } } } } })
+    mount()
+    expect(await screen.findByText('This file can be viewed but not downloaded.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /download/i })).toBeNull()
+  })
+
+  it('a password link shows only the gate; a wrong password says so, the right one opens the card (password in the body only)', async () => {
+    const calls = answer(
+      { status: 200, body: { ok: true, data: { kind: 'password' } } },
+      { status: 401, body: { ok: false, error: 'LinkPasswordInvalid', captchaRequired: false } },
+      { status: 200, body: { ok: true, data: { verified: true } } },
+      { status: 200, body: { ok: true, data: { kind: 'file', file } } },
+    )
+    mount()
+    const input = await screen.findByLabelText('Password')
+    expect(screen.queryByText('Bracket.step')).toBeNull()
+    const user = userEvent.setup()
+    await user.type(input, 'wrong one 1')
+    await user.click(screen.getByRole('button', { name: 'Open file' }))
+    expect(await screen.findByText('That password is not right.')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Password'))
+    await user.type(screen.getByLabelText('Password'), 'right one 1')
+    await user.click(screen.getByRole('button', { name: 'Open file' }))
+    expect(await screen.findByRole('heading', { name: 'Bracket.step' })).toBeInTheDocument()
+    expect(calls.map((c) => c.url)).toEqual(['/api/s/resolve', '/api/s/password', '/api/s/password', '/api/s/resolve'])
+    expect(calls.every((c) => !c.url.includes('password=') && !c.url.includes('right'))).toBe(true)
+    expect(JSON.parse(calls[2]?.body ?? '{}')).toEqual({ token: TOKEN, password: 'right one 1' })
+  })
+
+  it.each([
+    [{ status: 404, body: { ok: false, error: 'LinkUnavailable' } }, 'This link is no longer valid'],
+    [{ status: 410, body: { ok: false, error: 'LinkExpired', sharer: 'Ada' } }, 'This link has expired'],
+  ])('explains a refused link (%j)', async (reply, title) => {
+    answer(reply)
+    mount()
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button')).toBeNull())
+  })
+
+  it('names the sharer of an expired link and can retry a network failure', async () => {
+    answer({ status: 410, body: { ok: false, error: 'LinkExpired', sharer: 'Ada' } })
+    const first = mount()
+    expect(await screen.findByText('Ask Ada for a new link.')).toBeInTheDocument()
+    first.unmount()
+    answer({ status: 500, body: { ok: false, error: 'InternalError' } }, { status: 200, body: { ok: true, data: { kind: 'file', file } } })
+    mount()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Bracket.step' })).toBeInTheDocument()
+  })
+})

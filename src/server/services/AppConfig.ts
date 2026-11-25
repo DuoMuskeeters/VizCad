@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'comment'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -55,6 +55,27 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   upload: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
   // New comments (`addComment`): per user and per IP; generous for a review session, tight enough to stop a flood.
   comment: { target: { limit: 60, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
+  // Opening a share link page (docs/09 §4.5): per IP, before the token is hashed and looked up. The target (a link) is not used.
+  linkOpen: { target: { limit: 600, windowSeconds: 15 * 60 }, ip: { limit: 120, windowSeconds: 15 * 60 } },
+  // Link password tries. The target is `<ip>|<link digest>` (one visitor on one link), so a stranger cannot lock the real
+  // recipient out; the IP counter bounds guessing across links. Turnstile joins in after three failures (programs/shareLinks.ts).
+  linkPassword: { target: { limit: 10, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
+  // Link password tries across every visitor (target = link digest, no IP), counted before PBKDF2 so parallel requests
+  // cannot slip past the failure-log threshold of Turnstile. Past it the answer is 429 for everyone until the window ends.
+  linkPasswordLink: { target: { limit: 30, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
+  // Thumbnail uploads (`putThumbnail`): per user.
+  thumbnailPut: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
+}
+
+/**
+ * Keys that protect share links (docs/09 §4.1, §4.2). Both are optional in the environment; the programs that need
+ * them fail with ConfigError when they are missing, the rest of the app keeps working.
+ */
+export interface ShareTokenKeys {
+  /** The version new links are encrypted with: the highest version in `SHARE_TOKEN_KEYS`. */
+  readonly active: number
+  /** Version to 32-byte AES-GCM key. Old versions stay until no link row uses them any more. */
+  readonly keys: ReadonlyMap<number, Redacted.Redacted<Uint8Array>>
 }
 
 /**
@@ -88,6 +109,10 @@ export class AppConfig extends Context.Service<
     readonly r2Presign: Option.Option<R2Presign>
     /** None when not configured: purge only clears the local data center's cache. */
     readonly cachePurge: Option.Option<CachePurge>
+    /** `SHARE_TOKEN_KEYS`: versioned AES-GCM keys that encrypt the copyable link token. None when not configured. */
+    readonly shareTokenKeys: Option.Option<ShareTokenKeys>
+    /** `SHARE_PROOF_KEY` (at least 32 bytes): HMAC key for link password proof cookies and delivery audit ids. None when not configured. */
+    readonly shareProofKey: Option.Option<Redacted.Redacted<Uint8Array>>
     /** Days `security_log` rows are kept (D21: 90, not plan dependent). The daily job deletes older rows. */
     readonly securityLogRetentionDays: number
     /**
@@ -117,6 +142,14 @@ export const testConfig: AppConfig['Service'] = {
     secretAccessKey: Redacted.make('wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'),
   }),
   cachePurge: Option.none(),
+  shareTokenKeys: Option.some({
+    active: 2,
+    keys: new Map([
+      [1, Redacted.make(new Uint8Array(32).fill(1))],
+      [2, Redacted.make(new Uint8Array(32).fill(2))],
+    ]),
+  }),
+  shareProofKey: Option.some(Redacted.make(new Uint8Array(32).fill(7))),
   securityLogRetentionDays: 90,
   trashRetentionFloor: 0,
 }

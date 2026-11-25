@@ -20,9 +20,32 @@ export interface Caller {
   readonly emailVerified: boolean
   /** `cf-ray`, stored on activity rows. */
   readonly requestId: string
-  /** `cf-connecting-ip`, for rate limits only (never stored). */
+  /** `cf-connecting-ip`: rate limits, and the security log of link and download events (docs/09 §7.2a); never the access log. */
   readonly ip: string | null
+  /** `User-Agent`, for the security log only (truncated to 256 characters before it is written). */
+  readonly userAgent?: string | null
 }
+
+/** What the security log records about a request (D21). Everything else about the request stays out of storage. */
+export interface Trace {
+  readonly requestId: string
+  readonly ip: string | null
+  readonly userAgent: string | null
+}
+
+/** At most 256 characters (the table's CHECK), cut on a whole code point; empty becomes null. */
+export const truncateUserAgent = (userAgent: string | null | undefined) => {
+  const text = Array.from(userAgent ?? '').slice(0, 256).join('').trim()
+  return text === '' ? null : text
+}
+
+/** IP as sent by Cloudflare, bounded (an IPv6 address is at most 45 characters). */
+export const truncateIp = (ip: string | null | undefined) => {
+  const text = (ip ?? '').trim().slice(0, 64)
+  return text === '' ? null : text
+}
+
+export const traceOf = (caller: Caller): Trace => ({ requestId: caller.requestId, ip: truncateIp(caller.ip), userAgent: truncateUserAgent(caller.userAgent) })
 
 export const internalRoles = ['owner', 'admin', 'member', 'commenter'] as const satisfies ReadonlyArray<WorkspaceRole>
 

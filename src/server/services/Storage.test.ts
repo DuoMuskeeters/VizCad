@@ -187,6 +187,20 @@ describe('Storage.live', () => {
     }).pipe(Effect.provide(StorageLive.layer(fake).pipe(Layer.provide(AppConfig.test()))))
   })
 
+  it.effect('passes onlyIf to R2 as etagMatches and fails with ContentIntegrity when R2 answers without a body', () => {
+    const calls: Array<unknown> = []
+    const withBody = { key: 'k', size: 4, etag: 'abc', httpMetadata: {}, uploaded: new Date(0), body: new Blob(['hi']).stream() }
+    const withoutBody = { key: 'k', size: 4, etag: 'zzz', httpMetadata: {}, uploaded: new Date(0) }
+    const fake = { get: async (_key: string, options?: unknown) => { calls.push(options); return calls.length === 1 ? withBody : withoutBody } } as unknown as R2Bucket
+    return Effect.gen(function* () {
+      const storage = yield* Storage
+      Option.getOrThrow(yield* storage.get('k', { onlyIf: { etagMatches: '"abc"' }, range: { offset: 0, length: 2 } }))
+      const failed = yield* storage.get('k', { onlyIf: { etagMatches: 'abc' } }).pipe(Effect.flip)
+      assert.strictEqual(failed._tag, 'ContentIntegrity')
+      assert.deepStrictEqual(calls, [{ range: { offset: 0, length: 2 }, onlyIf: { etagMatches: 'abc' } }, { onlyIf: { etagMatches: 'abc' } }])
+    }).pipe(Effect.provide(StorageLive.layer(fake).pipe(Layer.provide(AppConfig.test()))))
+  })
+
   it.effect('fails with ConfigError when R2 credentials are missing', () =>
     Effect.gen(function* () {
       const storage = yield* Storage
@@ -244,6 +258,17 @@ layer(StorageMemory.memory)('Storage (in-memory)', (it) => {
       assert.deepStrictEqual(yield* text(yield* storage.getRange('r/obj', { suffix: 99 })), { size: 10, bytes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] })
       assert.deepStrictEqual(yield* text(yield* storage.get('r/obj', { range: { offset: 8, length: 99 } })), { size: 10, bytes: [8, 9] })
       assert.isTrue(Option.isNone(yield* storage.getRange('r/missing', { suffix: 1 })))
+    }),
+  )
+
+  it.effect('onlyIf compares the ETag (quotes and weak marker ignored) and refuses a changed object', () =>
+    Effect.gen(function* () {
+      const storage = yield* Storage
+      const put = yield* storage.put('o/obj', 'version one')
+      Option.getOrThrow(yield* storage.get('o/obj', { onlyIf: { etagMatches: put.etag } }))
+      Option.getOrThrow(yield* storage.get('o/obj', { onlyIf: { etagMatches: `W/"${put.etag}"` }, range: { offset: 0, length: 3 } }))
+      assert.strictEqual((yield* storage.get('o/obj', { onlyIf: { etagMatches: 'deadbeef' } }).pipe(Effect.flip))._tag, 'ContentIntegrity')
+      assert.isTrue(Option.isNone(yield* storage.get('o/missing', { onlyIf: { etagMatches: put.etag } })))
     }),
   )
 

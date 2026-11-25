@@ -153,6 +153,36 @@ export class VersionTypeMismatch extends Data.TaggedError('VersionTypeMismatch')
 /** The version does not exist on this file (or belongs to another file). */
 export class VersionUnavailable extends Data.TaggedError('VersionUnavailable')<{}> {}
 
+/** The file has no thumbnail, or the stored one is not a verified image (docs/09 §3.1). */
+export class PreviewUnavailable extends Data.TaggedError('PreviewUnavailable')<{}> {}
+
+/** The stored object no longer matches what D1 recorded (size or ETag); nothing was delivered. */
+export class ContentIntegrity extends Data.TaggedError('ContentIntegrity')<{}> {}
+
+/** The uploaded thumbnail is not a well-formed PNG or WebP within the limits (docs/09 §3.1). */
+export class InvalidThumbnail extends Data.TaggedError('InvalidThumbnail')<{}> {}
+
+/** The workspace has reached its active share link limit (Entitlements). */
+export class ShareLinkLimitReached extends Data.TaggedError('ShareLinkLimitReached')<{}> {}
+
+/** The file already has an active link (or only a legacy one, which cannot be edited); revoke or create a new one. */
+export class LinkConflict extends Data.TaggedError('LinkConflict')<{}> {}
+
+/** The share link does not exist, was revoked, or its file is gone: one answer for all (docs/09 §4.3). */
+export class LinkUnavailable extends Data.TaggedError('LinkUnavailable')<{}> {}
+
+/** The share link has expired. `sharer` is the sharer's display name (the token holder may know it), or null. */
+export class LinkExpired extends Data.TaggedError('LinkExpired')<{
+  readonly sharer: string | null
+}> {}
+
+/** The link needs a password and the request carries no valid proof cookie. */
+export class LinkPasswordRequired extends Data.TaggedError('LinkPasswordRequired')<{}> {}
+
+/** Wrong link password. `captchaRequired`: the next attempt must carry a Turnstile token (after three failures). */
+export class LinkPasswordInvalid extends Data.TaggedError('LinkPasswordInvalid')<{
+  readonly captchaRequired: boolean
+}> {}
 /** The comment does not exist on this file, is deleted, or is not visible to the caller (one answer for all). */
 export class CommentUnavailable extends Data.TaggedError('CommentUnavailable')<{}> {}
 
@@ -199,4 +229,13 @@ export type AppError =
   | UploadMismatch
   | VersionTypeMismatch
   | VersionUnavailable
+  | PreviewUnavailable
+  | ContentIntegrity
+  | InvalidThumbnail
+  | ShareLinkLimitReached
+  | LinkConflict
+  | LinkUnavailable
+  | LinkExpired
+  | LinkPasswordRequired
+  | LinkPasswordInvalid
   | CommentUnavailable

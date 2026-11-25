@@ -21,6 +21,9 @@
  * GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET (Google sign-in), TURNSTILE_SECRET, and EMAIL_ALLOWLIST (staging
  * emails only these recipients; unset means nobody). APP_ENV below selects the allowlist behavior.
  *
+ * Faz 4c adds staging secrets SHARE_TOKEN_KEYS (JSON {"1": "<base64 of 32 bytes>"}; the highest version is active) and SHARE_PROOF_KEY (base64, >= 32 bytes); set
+ * both before the cutover (docs/09 Uygulama notları · Faz 4c). Never commit them.
+ *
  * Durable Objects: RATE_LIMITER (class RateLimiter, SQLite-backed) holds the shared rate-limit counters.
  * Bindings and migrations are not inherited by `env.production`, so both blocks declare them. The migration tag
  * is applied on that Worker's first deploy; do not deploy production before the cutover.

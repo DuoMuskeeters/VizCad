@@ -7,7 +7,7 @@ import { CsrfRejected } from '../errors'
  * body must be JSON (a cross-site form cannot send that without a preflight). GET never mutates product
  * state, so opening an invitation link never accepts it. `trustedOrigins` comes from AppConfig.
  */
-export const checkMutationRequest = (request: Request, trustedOrigins: ReadonlySet<string>) =>
+export const checkMutationRequest = (request: Request, trustedOrigins: ReadonlySet<string>, contentTypes: ReadonlyArray<string> = ['application/json']) =>
   Effect.gen(function* () {
     if (request.method !== 'POST') return yield* new CsrfRejected({ reason: 'method' })
     const origin = request.headers.get('origin')
@@ -15,5 +15,27 @@ export const checkMutationRequest = (request: Request, trustedOrigins: ReadonlyS
     const site = request.headers.get('sec-fetch-site')
     if (site !== null && site !== 'same-origin') return yield* new CsrfRejected({ reason: 'fetch-site' })
     const type = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase()
-    if (type !== 'application/json') return yield* new CsrfRejected({ reason: 'content-type' })
+    if (type === undefined || !contentTypes.includes(type)) return yield* new CsrfRejected({ reason: 'content-type' })
+  })
+
+/**
+ * Boundary of the GET endpoints that audit on the caller's behalf (file content and thumbnails, docs/09 §3.1): a request
+ * another site could trigger must not write an audit row for the user. The browser's `Sec-Fetch-Site` must be
+ * `same-origin` (a page of ours) or `none` together with `Sec-Fetch-Mode: navigate` and `Sec-Fetch-User: ?1` (the user typed or opened
+ * the URL themself; a web page cannot cause that).
+ * Without the header (not a browser) a trusted `Origin` is required instead.
+ */
+export const checkReadRequest = (request: Request, trustedOrigins: ReadonlySet<string>) =>
+  Effect.gen(function* () {
+    if (request.method !== 'GET') return yield* new CsrfRejected({ reason: 'method' })
+    const site = request.headers.get('sec-fetch-site')
+    if (site !== null) {
+      if (site === 'same-origin') return
+      // `none` is a navigation the user started (address bar, bookmark, opened link), never a script's fetch or an embed.
+      const navigation = request.headers.get('sec-fetch-mode') === 'navigate' && request.headers.get('sec-fetch-user') === '?1'
+      if (site !== 'none' || !navigation) return yield* new CsrfRejected({ reason: 'fetch-site' })
+      return
+    }
+    const origin = request.headers.get('origin')
+    if (origin === null || !trustedOrigins.has(origin)) return yield* new CsrfRejected({ reason: 'origin' })
   })
