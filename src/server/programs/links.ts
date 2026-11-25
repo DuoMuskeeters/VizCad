@@ -187,11 +187,20 @@ export const updateShareLink = Effect.fn('updateShareLink')(function* (
   if (typeof input.password === 'string') yield* checkPassword(input.password)
   const passwordHash = typeof input.password === 'string' ? yield* hashPassword(input.password) : undefined
 
+  // An expired link is not counted as live; moving its end forward makes it live again, so the plan's cap applies once more.
+  const revives = summaryOf(link, now).expired && input.expiresAt !== undefined && (input.expiresAt === null || input.expiresAt > now)
+  const cap = revives ? limits.activeShareLinks : null
+  if (cap !== null) {
+    const counted = yield* (yield* Db).use((d) => d.get<{ n: number }>(sql`SELECT ${liveCountOf(input.workspaceId, now)} AS n`))
+    if ((counted?.n ?? 0) >= cap) return yield* new ShareLinkLimitReached()
+  }
+
   const at = toDate(now)
   const activityId = yield* newUlid
   yield* runBatch((d) => [
     guard(d, sql`${stillRole(input.workspaceId, caller.userId, [role])} AND ${still(false)} AND EXISTS (
-      SELECT 1 FROM share_links WHERE id = ${link.id} AND revision = ${link.revision} AND revokedAt IS NULL)`),
+      SELECT 1 FROM share_links WHERE id = ${link.id} AND revision = ${link.revision} AND revokedAt IS NULL)
+      AND ${cap === null ? sql`1` : sql`${liveCountOf(input.workspaceId, now)} < ${cap}`}`),
     d.update(schema.shareLinks).set({
       ...(input.level === undefined ? {} : { level: input.level }),
       ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt === null ? null : toDate(input.expiresAt) }),

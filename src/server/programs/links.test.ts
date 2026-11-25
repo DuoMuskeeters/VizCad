@@ -137,6 +137,22 @@ describe('createShareLink', () => {
     })),
   )
 
+  it.effect('extending an expired link revives it, so the plan cap applies again', () =>
+    runWith({ ...defaultPlan, activeShareLinks: 1, linkMaxLifetimeSeconds: 86400 })(Effect.gen(function* () {
+      yield* world
+      yield* seedFile('f2', 'bob', 'acme')
+      yield* createShareLink(caller('bob'), { ...ids, level: 'view', expiresAt: T0 + 60 })
+      yield* TestClock.adjust('2 minutes')
+      yield* createShareLink(caller('bob'), { workspaceId: 'acme', fileId: 'f2', level: 'view', expiresAt: T0 + 3600 })
+      const before = yield* rows('shareLinks')
+      assert.strictEqual((yield* failure(updateShareLink(caller('bob'), { ...ids, expiresAt: T0 + 600 })))._tag, 'ShareLinkLimitReached')
+      assert.deepStrictEqual(yield* rows('shareLinks'), before, 'nothing written')
+      // Still expired links can change other things, and a free slot lets the extension through.
+      yield* revokeShareLink(caller('bob'), { workspaceId: 'acme', fileId: 'f2' })
+      assert.strictEqual((yield* updateShareLink(caller('bob'), { ...ids, expiresAt: T0 + 600 })).links[0]?.expired, false)
+    })),
+  )
+
   it.effect('refuses short, long or control-character passwords and a trashed file', () =>
     run(Effect.gen(function* () {
       yield* world
