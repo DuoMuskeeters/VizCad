@@ -44,6 +44,7 @@ export const STATUS: Record<AppError['_tag'], number> = {
   UploadMismatch: 422,
   VersionTypeMismatch: 422,
   VersionUnavailable: 404,
+  CommentUnavailable: 404,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */

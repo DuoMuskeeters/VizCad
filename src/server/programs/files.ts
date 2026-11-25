@@ -11,12 +11,16 @@ import {
 } from './fileContext'
 import { activity, authorize, type Caller, guard, newUlid, opt, projectForPermission, requireMembership, runBatch, stillRole, toDate } from './shared'
 
-export type FileFilter = 'all' | 'starred' | 'mine'
+export type FileFilter = 'all' | 'recent' | 'starred' | 'mine'
 export type FileSort = 'updated' | 'created' | 'name' | 'size'
 
 /** Rows read from the database per round; below D1's 100 bound parameters for the grant look-up. */
 const SCAN_BATCH = 40
 const MAX_ROUNDS = 10
+
+/** `recent` (docs/09 §5.1): the caller's last 50 distinct files by logged activity of their own (opened, downloaded, uploaded). */
+export const RECENT_FILES = 50
+const RECENT_ACTIONS = sql`('file.previewed', 'file.downloaded', 'file.uploaded', 'file.version_uploaded')`
 
 const sortColumn = (sort: FileSort) => {
   const f = schema.files
@@ -79,6 +83,10 @@ export const listFiles = Effect.fn('listFiles')(function* (caller: Caller, input
   const conditions: Array<SQL | undefined> = [
     eq(f.workspaceId, input.workspaceId), eq(f.isDeleted, false), eq(f.status, 'uploaded'),
     input.projectId === undefined ? undefined : eq(f.projectId, input.projectId),
+    input.filter === 'recent'
+      ? sql`${f.id} IN (SELECT targetId FROM (SELECT targetId FROM access_log WHERE workspaceId = ${input.workspaceId} AND actorUserId = ${me}
+        AND targetKind = 'file' AND action IN ${RECENT_ACTIONS} AND outcome = 'allowed' GROUP BY targetId ORDER BY max(createdAt) DESC LIMIT ${RECENT_FILES}))`
+      : undefined,
     input.filter === 'starred' ? sql`EXISTS (SELECT 1 FROM file_stars s WHERE s.fileId = ${f.id} AND s.userId = ${me})` : undefined,
     input.filter === 'mine'
       ? sql`(${f.userId} = ${me} OR EXISTS (SELECT 1 FROM file_access u WHERE u.fileId = ${f.id} AND u.userId = ${me} AND u.source = 'uploader'))`
