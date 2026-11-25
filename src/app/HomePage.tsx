@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Building2, FolderOpen, UserPlus, X } from 'lucide-react'
+import { Building2, UserPlus, X } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
-import { EmptyState } from '#/components/ui/EmptyState'
-import { PageHeader } from '#/components/ui/PageHeader'
 import { useI18n } from '#/i18n'
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
+import { FilesPage } from './files/FilesPage'
 import { dismissTeamSuggestion, teamSuggestionDismissed } from './nav'
 import { useWorkspace } from './workspace'
 
@@ -49,23 +48,12 @@ const TeamSuggestion = ({ onCreate }: { onCreate: () => void }) => {
 }
 
 export const HomePage = () => {
-  const { t } = useI18n()
   const { active } = useWorkspace()
   const [creating, setCreating] = useState(false)
   return (
     <>
-      <PageHeader title={t('app.home.title')} subtitle={active.kind === 'personal' ? t('app.workspace.personal') : active.name} />
       {active.kind === 'personal' && active.role === 'owner' ? <TeamSuggestion onCreate={() => setCreating(true)} /> : null}
-      <EmptyState
-        icon={<FolderOpen />}
-        title={t('app.home.empty.title')}
-        description={t('app.home.empty.lead')}
-        actions={
-          <Button asChild>
-            <Link to="/app/team">{t('app.home.empty.team')}</Link>
-          </Button>
-        }
-      />
+      <FilesPage />
       <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} />
     </>
   )

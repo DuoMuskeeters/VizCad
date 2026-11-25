@@ -129,7 +129,9 @@ const ReadyFrame = ({
       />
       <SidebarNav aria-label={t('app.nav.label')} className="mt-2">
         <PendingNavItem icon={<FolderKanban />} label={t('app.nav.projects')} reason={reason} later={later} />
-        <PendingNavItem icon={<Files />} label={t('app.nav.files')} reason={reason} later={later} />
+        <SidebarNavItem asChild icon={<Files />} current={pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/files')}>
+          <Link to="/app">{t('app.nav.files')}</Link>
+        </SidebarNavItem>
         <PendingNavItem icon={<Share2 />} label={t('app.nav.shared')} reason={reason} later={later} />
         <SidebarNavItem asChild icon={<Users />} current={pathname.startsWith('/app/team')}>
           <Link to="/app/team">{t('app.nav.team')}</Link>
