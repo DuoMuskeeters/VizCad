@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { FileSearch, FolderOpen, LayoutGrid, List, RefreshCw, Search, Star, Trash2, FolderInput, X } from 'lucide-react'
+import { FileSearch, FolderInput, FolderOpen, LayoutGrid, List, RefreshCw, Search, Star, Trash2, Upload, X } from 'lucide-react'
 import { Button } from '#/components/ui/Button'
 import { EmptyState } from '#/components/ui/EmptyState'
 import { Input } from '#/components/ui/Input'
@@ -22,6 +22,7 @@ import type { FileMenuHandlers } from './FileMenu'
 import { FilesGrid } from './FilesGrid'
 import { FilesTable } from './FilesTable'
 import { startDownload } from './download'
+import { useUploads } from './UploadProvider'
 import { abilitiesOf, isFullView, type AnyFileView, type FileFilter, type FileSort } from './types'
 import { useFileList } from './useFileList'
 
@@ -58,7 +59,7 @@ const emptyKeys: Record<Exclude<FileFilter, 'all'>, { title: I18nKey; lead: I18n
   mine: { title: 'files.empty.mine.title', lead: 'files.empty.mine.lead' },
 }
 
-export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
+export const FilesPage = () => {
   const { t } = useI18n()
   const { call } = useSession()
   const { toast } = useToast()
@@ -72,6 +73,7 @@ export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [renaming, setRenaming] = useState<AnyFileView | null>(null)
   const [moving, setMoving] = useState<readonly AnyFileView[]>([])
+  const uploads = useUploads()
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(text), 300)
@@ -80,6 +82,13 @@ export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
 
   const list = useFileList(active.id, { filter, query: debounced, sort, direction: sort === 'name' ? 'asc' : 'desc' })
   const items = list.state.status === 'ready' ? list.state.items : []
+
+  // A finished upload shows up in the list without a manual refresh.
+  const { reload } = list
+  useEffect(() => {
+    if (uploads.finished > 0) void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploads.finished])
 
   // Selection only keeps files that are still in the list (filters and deletions change it).
   useEffect(() => {
@@ -183,7 +192,18 @@ export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
 
   return (
     <>
-      <PageHeader title={t('files.title')} subtitle={countText ? `${subtitle} · ${countText}` : subtitle} {...(header ? { actions: header } : {})} />
+      <PageHeader
+        title={t('files.title')}
+        subtitle={countText ? `${subtitle} · ${countText}` : subtitle}
+        actions={
+          <div className="hidden app:block">
+            <Button variant="primary" onClick={() => uploads.pick()} {...(uploads.allowed ? {} : { disabledReason: t('files.uploadDenied') })}>
+              <Upload aria-hidden className="size-4.5" />
+              {t('files.upload')}
+            </Button>
+          </div>
+        }
+      />
 
       <div className="mb-1 flex flex-wrap items-center gap-x-3 border-b border-line">
         <TabNav aria-label={t('files.filter.label')} className="min-w-0 flex-1 border-b-0">
@@ -237,7 +257,21 @@ export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
             }
           />
         ) : filter === 'all' ? (
-          <EmptyState icon={<FolderOpen />} title={t('files.empty.title')} description={t('files.empty.lead', { types: supportedTypesText })} />
+          <EmptyState
+            icon={<FolderOpen />}
+            title={t('files.empty.title')}
+            description={uploads.allowed ? t('files.empty.lead', { types: supportedTypesText }) : t('files.empty.noUpload')}
+            {...(uploads.allowed
+              ? {
+                  actions: (
+                    <Button variant="primary" onClick={() => uploads.pick()}>
+                      <Upload aria-hidden className="size-4.5" />
+                      {t('files.empty.upload')}
+                    </Button>
+                  ),
+                }
+              : {})}
+          />
         ) : (
           <EmptyState icon={filter === 'starred' ? <Star /> : <FolderOpen />} title={t(emptyKeys[filter].title)} description={t(emptyKeys[filter].lead)} />
         )
@@ -273,6 +307,15 @@ export const FilesPage = ({ header }: { header?: React.ReactNode }) => {
             {t('files.bulk.trash')}
           </SelectionBarAction>
         </SelectionBar>
+      ) : null}
+
+      {uploads.allowed && selected.size === 0 ? (
+        <div className="fixed bottom-4 right-4 z-10 app:hidden">
+          <Button variant="primary" onClick={() => uploads.pick()} className="h-12 rounded-full px-5 shadow-pop">
+            <Upload aria-hidden className="size-4.5" />
+            {t('files.upload')}
+          </Button>
+        </div>
       ) : null}
 
       {renaming ? (

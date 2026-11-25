@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { FilesPage } from './FilesPage'
+import { UploadProvider } from './UploadProvider'
 import { renderApp } from './testApp'
 
 vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).routerMock)
@@ -10,13 +11,13 @@ const rowOf = async (name: string) => (await screen.findByRole('link', { name })
 
 describe('all files', () => {
   it('lists the workspace files and loads the next page on request', async () => {
-    const { calls } = renderApp(<FilesPage />, 'admin')
+    const { calls } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     expect(await screen.findByRole('link', { name: 'Flanş_DN100_rev3.step' })).toBeInTheDocument()
     expect(calls.find((c) => c.operation === 'listFiles')?.body).toMatchObject({ workspaceId: 'ws-dm', filter: 'all', sort: 'updated' })
   })
 
   it('asks for the chosen filter and shows the starred empty text', async () => {
-    const { calls, user } = renderApp(<FilesPage />, 'files-empty')
+    const { calls, user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'files-empty')
     expect(await screen.findByText('No files yet')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Starred' }))
     expect(await screen.findByText('No starred files')).toBeInTheDocument()
@@ -24,7 +25,7 @@ describe('all files', () => {
   })
 
   it('searches by name after a pause and shows the no-match text with a way to clear it', async () => {
-    const { calls, user } = renderApp(<FilesPage />, 'admin')
+    const { calls, user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     await screen.findByRole('link', { name: 'Flanş_DN100_rev3.step' })
     await user.type(screen.getByRole('searchbox', { name: 'Search files' }), 'zzz')
     expect(await screen.findByText('No file matches “zzz”')).toBeInTheDocument()
@@ -34,14 +35,14 @@ describe('all files', () => {
   })
 
   it('shows the error text with a retry that loads again', async () => {
-    const { user } = renderApp(<FilesPage />, 'files-error')
+    const { user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'files-error')
     expect(await screen.findByText('Files could not be loaded')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Try again/ }))
     expect(await screen.findByText('Files could not be loaded')).toBeInTheDocument()
   })
 
   it('stars a file and moves it to trash with an undo', async () => {
-    const { calls, user } = renderApp(<FilesPage />, 'admin')
+    const { calls, user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     const row = await rowOf('Konveyör_şase.iges')
     await user.click(within(row).getByRole('button', { name: 'Konveyör_şase.iges: more actions' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Add star' }))
@@ -56,7 +57,7 @@ describe('all files', () => {
 
 describe('row menu follows the permissions', () => {
   it('a commenter sees rename, share, move and trash disabled with the reason, download enabled', async () => {
-    const { user } = renderApp(<FilesPage />, 'files-commenter')
+    const { user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'files-commenter')
     const row = await rowOf('Flanş_DN100_rev3.step')
     await user.click(within(row).getByRole('button', { name: 'Flanş_DN100_rev3.step: more actions' }))
     const rename = await screen.findByRole('menuitem', { name: /Rename/ })
@@ -68,7 +69,7 @@ describe('row menu follows the permissions', () => {
   })
 
   it('a member can use every action; a file without a project cannot be moved yet', async () => {
-    const { user } = renderApp(<FilesPage />, 'admin')
+    const { user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     const row = await rowOf('Konveyör_şase.iges')
     await user.click(within(row).getByRole('button', { name: 'Konveyör_şase.iges: more actions' }))
     expect(await screen.findByRole('menuitem', { name: /Rename/ })).not.toHaveAttribute('aria-disabled')
@@ -80,7 +81,7 @@ describe('row menu follows the permissions', () => {
 
 describe('selection', () => {
   it('selects rows and offers the bulk bar, trashing them in one go', async () => {
-    const { calls, user } = renderApp(<FilesPage />, 'admin')
+    const { calls, user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     await user.click(await screen.findByRole('checkbox', { name: 'Select Konveyör_şase.iges' }))
     await user.click(screen.getByRole('checkbox', { name: 'Select Rulman_yuvası_6205.stl' }))
     const bar = await screen.findByRole('region', { name: 'Selected files' })
