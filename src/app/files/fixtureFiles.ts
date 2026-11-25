@@ -241,11 +241,11 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
           ...('expiresAt' in body ? { expiresAt: typeof body['expiresAt'] === 'number' ? body['expiresAt'] : null } : {}),
           ...('password' in body ? { hasPassword: typeof body['password'] === 'string' } : {}),
         }
-        return ok({ link })
+        return ok({ links: [link] })
       }
       case 'revokeShareLink':
         link = null
-        return ok({ revoked: 1 })
+        return ok({ links: [] })
       case 'copyShareLink':
         return link ? ok({ link, url: 'https://viz-cad.com/s/k8F2mQ-example-token' }) : fail(404, 'ResourceUnavailable')
       case 'grantFileAccess': {
@@ -254,6 +254,8 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
         grants = [...grants.filter((g) => g.userId !== grant.userId), grant]
         return ok({ fileId: body['fileId'], ...grant })
       }
+      case 'revokeGuestInvitation':
+        return ok({ canceled: true })
       case 'revokeFileAccess':
         grants = grants.filter((g) => g.userId !== body['userId'])
         return ok({ revoked: true })
@@ -261,7 +263,7 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
         const email = String(body['email']).toLowerCase()
         if (email.startsWith('full')) return fail(409, 'GuestLimitReached')
         if (typeof body['accessExpiresAt'] !== 'number') return fail(400, 'ValidationError')
-        return ok({ email, invited: true })
+        return ok({ invitationId: `inv-${++counter}`, email, level: body['level'] ?? 'comment', expiresAt: now() + 7 * day, accessExpiresAt: body['accessExpiresAt'], resent: false })
       }
       default:
         return undefined

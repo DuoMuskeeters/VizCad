@@ -22,6 +22,7 @@ import type { FileMenuHandlers } from './FileMenu'
 import { FilesGrid } from './FilesGrid'
 import { FilesTable } from './FilesTable'
 import { startDownload } from './download'
+import { ShareDialog } from './ShareDialog'
 import { useUploads } from './UploadProvider'
 import { abilitiesOf, isFullView, type AnyFileView, type FileFilter, type FileSort } from './types'
 import { useFileList } from './useFileList'
@@ -72,6 +73,7 @@ export const FilesPage = () => {
   const [view, setView] = useState<'list' | 'grid'>(readView)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [renaming, setRenaming] = useState<AnyFileView | null>(null)
+  const [sharing, setSharing] = useState<AnyFileView | null>(null)
   const [moving, setMoving] = useState<readonly AnyFileView[]>([])
   const uploads = useUploads()
 
@@ -166,12 +168,12 @@ export const FilesPage = () => {
       onRename: () => setRenaming(file),
       onStar: () => void toggleStar(file),
       onMove: () => setMoving([file]),
-      onShare: () => void navigate({ to: '/app/files/$id', params: { id: file.id }, search: { share: true } }),
+      onShare: () => setSharing(file),
       onDownload: () => startDownload(file.id),
       onTrash: () => void trash([file]),
       onSelect: () => setSelected((current) => new Set(current).add(file.id)),
     }),
-    [openFile, toggleStar, trash, navigate],
+    [openFile, toggleStar, trash],
   )
 
   const toggleSelected = (id: string, on: boolean) =>
@@ -317,6 +319,8 @@ export const FilesPage = () => {
           </Button>
         </div>
       ) : null}
+
+      {sharing ? <ShareDialog key={sharing.id} file={sharing} workspaceId={active.id} onClose={() => setSharing(null)} /> : null}
 
       {renaming ? (
         <RenameDialog

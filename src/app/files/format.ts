@@ -34,3 +34,17 @@ export const formatDay = (seconds: number, locale: string): string =>
 
 /** Upper-case type tile text: "STEP", "STL". */
 export const tileText = (extension: string): string => extension.toUpperCase().slice(0, 4)
+
+/** `YYYY-MM-DD` for an `<input type="date">`, in the person's time zone. */
+export const toDateInput = (seconds: number): string => {
+  const date = new Date(seconds * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** The end of that local day in Unix seconds, or null for an empty or invalid value. */
+export const fromDateInput = (value: string): number | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const time = new Date(`${value}T23:59:59`).getTime()
+  return Number.isNaN(time) ? null : Math.floor(time / 1000)
+}
