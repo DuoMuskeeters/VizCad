@@ -1,13 +1,18 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react'
-import { CircleAlert, Clock, Download, FileBox, LockKeyhole } from 'lucide-react'
+import { CircleAlert, Clock, Download, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { Turnstile, turnstileSiteKey } from '#/auth/Turnstile'
+import { Avatar } from '#/components/ui/Avatar'
+import { Badge } from '#/components/ui/Badge'
 import { Button } from '#/components/ui/Button'
+import { FileTile } from '#/components/ui/DataList'
 import { Field } from '#/components/ui/Field'
 import { Input } from '#/components/ui/Input'
 import { Logo } from '#/components/ui/Logo'
 import { Notice } from '#/components/ui/Notice'
 import { Skeleton } from '#/components/ui/Skeleton'
+import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { type I18nKey, useI18n } from '#/i18n'
+import { tileText } from '../files/format'
 import { formatSize, type LinkFileView, resolveLink, type ShareFailure, sendPassword } from './api'
 
 /** Public page of a share link (docs/09 §4.3): a file card for a live link, the password gate, or one plain explanation. */
@@ -17,15 +22,41 @@ type State =
   | { readonly status: 'password' }
   | { readonly status: 'failed'; readonly failure: ShareFailure }
 
+const Frame = ({ company, children }: { company?: string | null; children: ReactNode }) => {
+  const { t } = useI18n()
+  return (
+    <div className="flex min-h-dvh flex-col bg-bg">
+      <header className="border-b border-line">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
+          {company ? (
+            <p className="flex min-w-0 items-center gap-2.5">
+              <Avatar name={company} size="sm" decorative />
+              <span className="truncate text-md font-medium">{company}</span>
+            </p>
+          ) : (
+            <span className="sr-only">{t('sp.header')}</span>
+          )}
+          <Logo alt="VizCad" className="ml-auto shrink-0 text-[24px]" />
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 pt-5 app:pt-8">{children}</main>
+      <footer className="border-t border-line">
+        <p className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm text-text-3">
+          {t('sp.footer')}
+          <a href="/" className="inline-flex min-h-11 items-center rounded-sm font-medium text-accent hover:underline">
+            {t('sp.footerLink')}
+          </a>
+        </p>
+      </footer>
+    </div>
+  )
+}
+
+/** A narrow, single-purpose card for the gate and the refusals. */
 const Shell = ({ children }: { children: ReactNode }) => (
-  <div className="min-h-dvh bg-bg">
-    <header className="flex h-16 items-center px-4">
-      <Logo alt="VizCad" className="text-[26px]" />
-    </header>
-    <main className="mx-auto w-full max-w-120 px-4 pb-16 pt-4">
-      <div className="grid min-w-0 gap-5 rounded-xl border border-line bg-bg p-5 [&>*]:min-w-0">{children}</div>
-    </main>
-  </div>
+  <Frame>
+    <div className="mx-auto grid w-full max-w-110 min-w-0 gap-5 [&>*]:min-w-0">{children}</div>
+  </Frame>
 )
 
 const Heading = ({ icon, title, lead }: { icon: ReactNode; title: string; lead?: string }) => (
@@ -38,7 +69,7 @@ const Heading = ({ icon, title, lead }: { icon: ReactNode; title: string; lead?:
   </div>
 )
 
-const PasswordGate = ({ token, onOpened }: { token: string; onOpened: () => void }) => {
+const PasswordGate = ({ token, fetcher, onOpened }: { token: string; fetcher?: typeof fetch; onOpened: () => void }) => {
   const { t } = useI18n()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,13 +77,14 @@ const PasswordGate = ({ token, onOpened }: { token: string; onOpened: () => void
   const [captcha, setCaptcha] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [widgetKey, setWidgetKey] = useState(0)
+  const [shown, setShown] = useState(false)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (busy || password === '') return
     setBusy(true)
     setMessage(null)
-    const result = await sendPassword({ token, password, turnstileToken })
+    const result = await sendPassword({ token, password, turnstileToken }, fetcher)
     setBusy(false)
     if (result.ok) {
       onOpened()
@@ -81,52 +113,107 @@ const PasswordGate = ({ token, onOpened }: { token: string; onOpened: () => void
       <Heading icon={<LockKeyhole />} title={t('share.password.title')} lead={t('share.password.lead')} />
       <form className="grid gap-4" onSubmit={(event) => void submit(event)} noValidate>
         <Field label={t('share.password.label')} error={message === null ? undefined : t(message)}>
-          <Input type="password" autoComplete="off" value={password} maxLength={128} onChange={(event) => setPassword(event.target.value)} />
+          <div className="flex gap-2">
+            <Input type={shown ? 'text' : 'password'} autoComplete="off" value={password} maxLength={128} onChange={(event) => setPassword(event.target.value)} className="min-w-0 flex-1" />
+            <Button type="button" variant="secondary" aria-pressed={shown} onClick={() => setShown((value) => !value)} className="shrink-0">
+              {shown ? <EyeOff aria-hidden className="size-4.5" /> : <Eye aria-hidden className="size-4.5" />}
+              {shown ? t('common.hidePassword') : t('common.showPassword')}
+            </Button>
+          </div>
         </Field>
         {captcha && turnstileSiteKey() !== null ? (
           <Turnstile key={widgetKey} action="share-password" onToken={setTurnstileToken} onError={() => setMessage('share.password.captchaFailed')} />
         ) : null}
-        <Button type="submit" variant="primary" disabled={busy || password === ''}>
+        <Button type="submit" variant="primary" disabled={busy || password === ''} className="h-12 app:h-11">
           {busy ? t('share.password.checking') : t('share.password.submit')}
         </Button>
+        <p className="text-sm text-text-3">{t('sp.password.help')}</p>
       </form>
     </Shell>
   )
 }
 
+const Detail = ({ label, children }: { label: string; children: ReactNode }) => (
+  <>
+    <dt className="text-base text-text-3">{label}</dt>
+    <dd className="min-w-0 text-base [overflow-wrap:anywhere]">{children}</dd>
+  </>
+)
+
 const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   const { t, locale } = useI18n()
   const [thumbnailFailed, setThumbnailFailed] = useState(false)
   const company = file.sharer.workspaceLabel
-  const sharedBy = company === null ? t('share.sharedBy', { name: file.sharer.displayName }) : t('share.sharedByCompany', { name: file.sharer.displayName, company })
+  const label = fileTypeOfExtension(file.extension)?.label ?? file.extension.toUpperCase()
+  const size = formatSize(file.size)
+  const day = (seconds: number) => new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(seconds * 1000))
+  const showThumbnail = file.thumbnailAvailable && !thumbnailFailed
   return (
-    <Shell>
-      <Heading icon={<FileBox />} title={file.name} lead={sharedBy} />
-      <p className="text-sm text-text-3">{t('share.fileMeta', { type: file.extension.toUpperCase(), size: formatSize(file.size) })}</p>
-      {file.thumbnailAvailable && !thumbnailFailed ? (
-        <img
-          src={`/s/${encodeURIComponent(token)}/thumbnail`}
-          alt={t('share.thumbnailAlt', { name: file.name })}
-          className="max-h-80 w-full rounded-md border border-line bg-surface object-contain"
-          onError={() => setThumbnailFailed(true)}
-        />
-      ) : null}
-      {file.can.download ? (
-        <Button variant="primary" asChild>
-          <a href={`/s/${encodeURIComponent(token)}/content`} download>
-            <Download aria-hidden /> {t('share.download')}
-          </a>
-        </Button>
-      ) : (
-        <Notice>{t('share.viewOnly')}</Notice>
-      )}
-      {file.expiresAt === null ? null : (
-        <p className="flex items-center gap-2 text-sm text-text-3">
-          <Clock aria-hidden className="size-4" />
-          {t('share.expires', { date: new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(file.expiresAt * 1000)) })}
-        </p>
-      )}
-    </Shell>
+    <Frame company={company}>
+      <div className="grid gap-5 app:grid-cols-[minmax(0,1fr)_340px] app:gap-x-8 [&>*]:min-w-0">
+        <div className="grid gap-4 app:col-start-2 app:row-start-1">
+          <p className="flex items-center gap-3">
+            <Avatar name={file.sharer.displayName} size="md" decorative />
+            <span className="text-md text-text-2">{t('sp.sender', { name: file.sharer.displayName })}</span>
+          </p>
+          <div className="grid gap-1.5">
+            <h1 className="text-2xl font-heading tracking-heading [overflow-wrap:anywhere]">{file.name}</h1>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-text-3">
+              <Badge>{file.extension.toUpperCase()}</Badge>
+              <span>{size}</span>
+              <span aria-hidden>·</span>
+              <span>{t('sp.version')} {file.currentVersion.number}</span>
+            </p>
+          </div>
+        </div>
+
+        <section aria-label={t('sp.stage')} className="grid place-items-center overflow-hidden rounded-lg border border-line bg-surface app:col-start-1 app:row-span-3 app:row-start-1 app:min-h-96">
+          {showThumbnail ? (
+            <img
+              src={`/s/${encodeURIComponent(token)}/thumbnail`}
+              alt={t('share.thumbnailAlt', { name: file.name })}
+              className="max-h-[60dvh] w-full object-contain"
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : (
+            <div className="grid justify-items-center gap-3 px-4 py-12 text-center">
+              <FileTile ext={tileText(file.extension)} className="size-20 text-sm" />
+              <p className="text-md font-medium [overflow-wrap:anywhere]">{file.name}</p>
+              <p className="text-sm text-text-3">{t('sp.previewNone')}</p>
+            </div>
+          )}
+        </section>
+
+        <div className="grid gap-3 app:col-start-2 app:row-start-2">
+          {file.can.download ? (
+            <Button variant="primary" asChild className="h-12 text-lg app:h-11 app:text-base">
+              <a href={`/s/${encodeURIComponent(token)}/content`} download>
+                <Download aria-hidden /> {t('sp.downloadSize', { size })}
+              </a>
+            </Button>
+          ) : (
+            <Notice>
+              <strong className="block font-medium">{t('sp.viewOnly')}</strong>
+              {file.sharer.displayName ? t('sp.viewOnlyLead', { name: file.sharer.displayName }) : t('sp.viewOnlyLeadNoName')}
+            </Notice>
+          )}
+        </div>
+
+        <section aria-labelledby="sp-details" className="grid gap-3 app:col-start-2 app:row-start-3">
+          <h2 id="sp-details" className="text-lg font-heading tracking-heading">
+            {t('sp.details')}
+          </h2>
+          <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-2">
+            <Detail label={t('sp.format')}>{label}</Detail>
+            <Detail label={t('sp.size')}>{size}</Detail>
+            <Detail label={t('sp.version')}>{file.currentVersion.number}</Detail>
+            <Detail label={t('sp.updated')}>{day(file.updatedAt)}</Detail>
+            <Detail label={t('sp.linkUntil')}>{file.expiresAt === null ? t('sp.linkNoEnd') : t('sp.linkOpenUntil', { date: day(file.expiresAt) })}</Detail>
+          </dl>
+          <p className="text-sm text-text-3">{company ? t('sp.note', { company }) : t('sp.noteGeneric')}</p>
+        </section>
+      </div>
+    </Frame>
   )
 }
 
@@ -160,14 +247,36 @@ const Problem = ({ failure, onRetry }: { failure: ShareFailure; onRetry: () => v
   )
 }
 
-export const SharePage = ({ token }: { token: string }) => {
+/** Development only: `?fixture=share-<state>` answers from memory (src/app/share/fixtureShare.ts). Stripped from production builds. */
+const useFetcher = (given: typeof fetch | undefined): typeof fetch | null => {
+  const [fetcher, setFetcher] = useState<typeof fetch | null>(() => given ?? null)
+  useEffect(() => {
+    if (given) return
+    const fixture = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('fixture') : null
+    if (import.meta.env.DEV && fixture) {
+      let cancelled = false
+      void import('./fixtureShare').then((m) => {
+        if (!cancelled) setFetcher(() => m.shareFixtureFetch(fixture))
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    setFetcher(() => (...args: Parameters<typeof fetch>) => fetch(...args))
+  }, [given])
+  return fetcher
+}
+
+export const SharePage = ({ token, fetcher: given }: { token: string; fetcher?: typeof fetch }) => {
   const { t } = useI18n()
+  const fetcher = useFetcher(given)
   const [state, setState] = useState<State>({ status: 'loading' })
   const load = useCallback(async () => {
-    const result = await resolveLink(token)
+    if (fetcher === null) return
+    const result = await resolveLink(token, fetcher)
     if (!result.ok) setState({ status: 'failed', failure: result })
     else setState(result.data.kind === 'file' ? { status: 'file', file: result.data.file } : { status: 'password' })
-  }, [token])
+  }, [token, fetcher])
   useEffect(() => {
     void load()
   }, [load])
@@ -183,7 +292,7 @@ export const SharePage = ({ token }: { token: string }) => {
       </Shell>
     )
   }
-  if (state.status === 'password') return <PasswordGate token={token} onOpened={() => void load()} />
+  if (state.status === 'password') return <PasswordGate token={token} {...(fetcher ? { fetcher } : {})} onOpened={() => void load()} />
   if (state.status === 'file') return <FileCard token={token} file={state.file} />
   return <Problem failure={state.failure} onRetry={() => { setState({ status: 'loading' }); void load() }} />
 }
