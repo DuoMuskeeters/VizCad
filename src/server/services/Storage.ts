@@ -1,5 +1,5 @@
 import { Clock, Context, Effect, Layer, Option, Ref } from 'effect'
-import { type ConfigError, StorageError } from '../errors'
+import { type ConfigError, ContentIntegrity, StorageError } from '../errors'
 import { attachmentDisposition, checkExpiry, checkKey } from './r2Presign'
 
 export interface ObjectInfo {
@@ -31,6 +31,11 @@ export type ObjectRange = { readonly offset: number; readonly length: number } |
 
 export interface GetOptions {
   readonly range?: ObjectRange
+  /**
+   * Read only when the object's ETag still equals `etagMatches` (R2's `onlyIf`); otherwise the call fails with
+   * ContentIntegrity and no body is returned. Delivery uses it to compare the object with the ETag recorded in D1.
+   */
+  readonly onlyIf?: { readonly etagMatches: string }
 }
 
 export interface DownloadUrlOptions {
@@ -50,7 +55,7 @@ export class Storage extends Context.Service<
   {
     readonly head: (key: string) => Effect.Effect<Option.Option<ObjectInfo>, StorageError>
     /** `size` is always the whole object's size, also for a range read. */
-    readonly get: (key: string, options?: GetOptions) => Effect.Effect<Option.Option<ObjectBody>, StorageError>
+    readonly get: (key: string, options?: GetOptions) => Effect.Effect<Option.Option<ObjectBody>, StorageError | ContentIntegrity>
     /** Reads a byte range (signature checks, 4c delivery). */
     readonly getRange: (key: string, range: ObjectRange) => Effect.Effect<Option.Option<ObjectBody>, StorageError>
     readonly put: (key: string, body: PutBody, options?: { readonly contentType?: string }) => Effect.Effect<ObjectInfo, StorageError>
@@ -155,19 +160,25 @@ export const memory = Layer.effectContext(
       for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
       return url
     }
-    const lookup = (key: string, range: ObjectRange | undefined) =>
+    const lookup = (key: string, range: ObjectRange | undefined, onlyIf?: GetOptions['onlyIf']) =>
       Ref.get(state).pipe(
-        Effect.map((s) =>
-          Option.fromNullishOr(s.objects.get(key)).pipe(
+        Effect.flatMap((s) => {
+          const found = s.objects.get(key)
+          if (found !== undefined && onlyIf !== undefined && normalizeEtag(onlyIf.etagMatches) !== normalizeEtag(found.info.etag)) {
+            return Effect.fail(new ContentIntegrity())
+          }
+          return Effect.succeed(Option.fromNullishOr(found).pipe(
             Option.map(({ info, bytes }) => ({ ...info, body: new Blob([slice(bytes, range).slice()]).stream() })),
-          ),
-        ),
+          ))
+        }),
       )
 
     const storage = Storage.of({
       head: (key) => call('head').pipe(Effect.andThen(Ref.get(state)), Effect.map((s) => Option.fromNullishOr(s.objects.get(key)?.info))),
-      get: (key, options) => call('get').pipe(Effect.andThen(lookup(key, options?.range))),
-      getRange: (key, range) => call('getRange').pipe(Effect.andThen(lookup(key, range))),
+      get: (key, options) => call('get').pipe(Effect.andThen(lookup(key, options?.range, options?.onlyIf))),
+      getRange: (key, range) =>
+        // No precondition here, so ContentIntegrity cannot happen; the catch only narrows the error type.
+        call('getRange').pipe(Effect.andThen(lookup(key, range)), Effect.catchTag('ContentIntegrity', () => Effect.succeed(Option.none<ObjectBody>()))),
       put: (key, body, options) =>
         call('put').pipe(Effect.andThen(toBytes(key, body)), Effect.flatMap((bytes) => store(key, bytes, options?.contentType ?? null))),
       delete: (keys) =>

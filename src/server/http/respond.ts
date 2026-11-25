@@ -44,6 +44,15 @@ export const STATUS: Record<AppError['_tag'], number> = {
   UploadMismatch: 422,
   VersionTypeMismatch: 422,
   VersionUnavailable: 404,
+  PreviewUnavailable: 404,
+  ContentIntegrity: 409,
+  InvalidThumbnail: 422,
+  ShareLinkLimitReached: 409,
+  LinkConflict: 409,
+  LinkUnavailable: 404,
+  LinkExpired: 410,
+  LinkPasswordRequired: 401,
+  LinkPasswordInvalid: 401,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */
@@ -79,7 +88,11 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
     else if (error._tag === 'CaptchaFailed') yield* Effect.logInfo('captcha failed').pipe(Effect.annotateLogs({ ...logFields(error, meta), reason: error.reason }))
     const headers = error._tag === 'RateLimitExceeded' ? { ...noStore, 'retry-after': String(error.retryAfterSeconds) } : noStore
     const reason = error._tag === 'PermissionDenied' && SAFE_REASONS.has(error.reason) ? { reason: error.reason } : {}
-    return Response.json({ ok: false, error: error._tag, ...reason }, { status, headers })
+    // Link answers the page needs: who shared an expired link, and whether the next password try needs Turnstile.
+    const extra = error._tag === 'LinkExpired' ? { sharer: error.sharer }
+      : error._tag === 'LinkPasswordInvalid' ? { captchaRequired: error.captchaRequired }
+      : {}
+    return Response.json({ ok: false, error: error._tag, ...reason, ...extra }, { status, headers })
   })
 
 /**

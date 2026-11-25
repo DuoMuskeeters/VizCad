@@ -43,6 +43,28 @@ describe('AppConfig.fromEnv', () => {
     }),
   )
 
+  it.effect('share keys: the highest SHARE_TOKEN_KEYS version is active, SHARE_PROOF_KEY needs 32 bytes, both are optional', () =>
+    Effect.gen(function* () {
+      const none = yield* decodeEnv(base)
+      assert.isTrue(Option.isNone(none.shareTokenKeys))
+      assert.isTrue(Option.isNone(none.shareProofKey))
+      const k = (fill: number, n = 32) => btoa(String.fromCharCode(...new Uint8Array(n).fill(fill)))
+      const config = yield* decodeEnv({ ...base, SHARE_TOKEN_KEYS: JSON.stringify({ '1': k(1), '12': k(2), '3': k(3) }), SHARE_PROOF_KEY: k(9, 48) })
+      const ring = Option.getOrThrow(config.shareTokenKeys)
+      assert.strictEqual(ring.active, 12)
+      assert.deepStrictEqual([...ring.keys.keys()].sort((a, b) => a - b), [1, 3, 12])
+      assert.deepStrictEqual([...Redacted.value(ring.keys.get(12) ?? Redacted.make(new Uint8Array()))].slice(0, 2), [2, 2])
+      assert.strictEqual(Redacted.value(Option.getOrThrow(config.shareProofKey)).byteLength, 48)
+      assert.notInclude(String(Option.getOrThrow(config.shareProofKey)), '9')
+      for (const SHARE_TOKEN_KEYS of ['', '{', '[]', '"x"', '{}', JSON.stringify({ '0': k(1) }), JSON.stringify({ a: k(1) }), JSON.stringify({ '1': k(1, 16) }), JSON.stringify({ '1': 'not base64!' }), JSON.stringify({ '1': 5 })]) {
+        if (SHARE_TOKEN_KEYS === '') continue // blank means unset
+        assert.strictEqual((yield* failure({ ...base, SHARE_TOKEN_KEYS }))._tag, 'ConfigError', SHARE_TOKEN_KEYS)
+      }
+      assert.strictEqual((yield* failure({ ...base, SHARE_PROOF_KEY: k(1, 31) }))._tag, 'ConfigError')
+      assert.strictEqual((yield* failure({ ...base, SHARE_PROOF_KEY: '!!!' }))._tag, 'ConfigError')
+    }),
+  )
+
   it.effect('derives the R2 endpoint from the account, as the old app did', () =>
     Effect.gen(function* () {
       const presign = Option.getOrThrow((yield* decodeEnv({ ...base, ...r2 })).r2Presign)

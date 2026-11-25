@@ -1,6 +1,7 @@
 import { Effect, Layer, Option, Redacted, Schema } from 'effect'
 import { ConfigError } from '../errors'
-import { AppConfig, type AuthSettings, type CachePurge, defaultRateLimits, type R2Presign } from './AppConfig'
+import { fromBase64Url } from '../shareCrypto'
+import { AppConfig, type AuthSettings, type CachePurge, defaultRateLimits, type R2Presign, type ShareTokenKeys } from './AppConfig'
 
 const Text = Schema.Trimmed.check(Schema.isMinLength(1))
 const optionalText = Schema.optional(Text)
@@ -44,6 +45,10 @@ const EnvSchema = Schema.Struct({
   BETTER_AUTH_SECRET: Schema.optional(Schema.String.check(Schema.isMinLength(32))),
   GOOGLE_CLIENT_ID: optionalText,
   GOOGLE_CLIENT_SECRET: optionalText,
+  /** JSON `{"<version>": "<base64 of 32 bytes>"}`; the highest version is the active one (docs/09 §4.1). */
+  SHARE_TOKEN_KEYS: optionalText,
+  /** Base64 of at least 32 random bytes (`openssl rand -base64 32`). */
+  SHARE_PROOF_KEY: optionalText,
   /** Unix seconds; trash retention counts from at least this time (legacy trash at cutover). Unset means 0. */
   TRASH_RETENTION_FLOOR: Schema.optional(Schema.String.check(Schema.isPattern(/^\d{1,12}$/))),
 })
@@ -83,6 +88,38 @@ const cachePurge = (e: Env) => {
   if (zoneId && token) return Effect.succeed(Option.some({ zoneId, token: Redacted.make(token) }))
   if (!zoneId && !token) return Effect.succeed(Option.none<CachePurge>())
   return partial('Cache purge (CF_ZONE_ID, CF_PURGE_TOKEN)')
+}
+
+const badKeys = (name: string, why: string) => Effect.fail(new ConfigError({ message: `${name}: ${why}` }))
+
+const KeyRingJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String))
+
+/** `{"1": "<base64 32 bytes>", "2": ...}`; versions are positive integers, the highest one is active (docs/09 §4.1). */
+const shareTokenKeys = (e: Env) =>
+  Effect.gen(function* () {
+    if (e.SHARE_TOKEN_KEYS === undefined) return Option.none<ShareTokenKeys>()
+    const ring = yield* Schema.decodeUnknownEffect(KeyRingJson)(e.SHARE_TOKEN_KEYS).pipe(
+      Effect.catch(() => badKeys('SHARE_TOKEN_KEYS', 'must be a JSON object of version to base64 key')),
+    )
+    const keys = new Map<number, Redacted.Redacted<Uint8Array>>()
+    for (const [version, value] of Object.entries(ring)) {
+      const bytes = fromBase64Url(value)
+      if (!/^[1-9]\d{0,5}$/.test(version) || bytes === undefined || bytes.byteLength !== 32) {
+        return yield* badKeys('SHARE_TOKEN_KEYS', 'every entry must be "<version>": "<base64 of 32 bytes>"')
+      }
+      keys.set(Number(version), Redacted.make(bytes))
+    }
+    const active = Math.max(0, ...keys.keys())
+    if (active === 0) return yield* badKeys('SHARE_TOKEN_KEYS', 'needs at least one key')
+    return Option.some<ShareTokenKeys>({ active, keys })
+  })
+
+const shareProofKey = (e: Env) => {
+  if (e.SHARE_PROOF_KEY === undefined) return Effect.succeed(Option.none<Redacted.Redacted<Uint8Array>>())
+  const bytes = fromBase64Url(e.SHARE_PROOF_KEY.trim())
+  return bytes === undefined || bytes.byteLength < 32
+    ? badKeys('SHARE_PROOF_KEY', 'must be base64 of at least 32 bytes')
+    : Effect.succeed(Option.some(Redacted.make(bytes)))
 }
 
 const list = (value: string | undefined) =>
@@ -149,6 +186,8 @@ export const decodeEnv = Effect.fnUntraced(function* (env: object) {
     },
     r2Presign: yield* r2Presign(e),
     cachePurge: yield* cachePurge(e),
+    shareTokenKeys: yield* shareTokenKeys(e),
+    shareProofKey: yield* shareProofKey(e),
     securityLogRetentionDays: 90,
     trashRetentionFloor: e.TRASH_RETENTION_FLOOR === undefined ? 0 : Number(e.TRASH_RETENTION_FLOOR),
   })

@@ -1,8 +1,8 @@
 import { Effect, Layer, Option } from 'effect'
-import { ConfigError, StorageError } from '../errors'
+import { ConfigError, ContentIntegrity, StorageError } from '../errors'
 import { AppConfig } from './AppConfig'
 import { attachmentDisposition, presign } from './r2Presign'
-import { type ObjectInfo, type ObjectRange, Storage } from './Storage'
+import { normalizeEtag, type ObjectInfo, type ObjectRange, Storage } from './Storage'
 
 const info = (o: R2Object): ObjectInfo => ({
   key: o.key,
@@ -29,8 +29,19 @@ export const layer = (bucket: R2Bucket) =>
       return Storage.of({
         head: (key) => r2('head', key, () => bucket.head(key)).pipe(Effect.map((o) => Option.fromNullishOr(o).pipe(Option.map(info)))),
         get: (key, options) =>
-          r2('get', key, () => (options?.range ? bucket.get(key, { range: r2Range(options.range) }) : bucket.get(key))).pipe(
-            Effect.map((o) => Option.fromNullishOr(o).pipe(Option.map((body) => ({ ...info(body), body: body.body })))),
+          r2('get', key, () => {
+            const getOptions: R2GetOptions = {
+              ...(options?.range ? { range: r2Range(options.range) } : {}),
+              ...(options?.onlyIf ? { onlyIf: { etagMatches: normalizeEtag(options.onlyIf.etagMatches) } } : {}),
+            }
+            return bucket.get(key, getOptions)
+          }).pipe(
+            // A failed `onlyIf` makes R2 return the object's metadata without a body.
+            Effect.flatMap((o) =>
+              o === null ? Effect.succeed(Option.none())
+              : 'body' in o ? Effect.succeed(Option.some({ ...info(o), body: o.body }))
+              : Effect.fail(new ContentIntegrity()),
+            ),
           ),
         getRange: (key, range) =>
           r2('get', key, () => bucket.get(key, { range: r2Range(range) })).pipe(
