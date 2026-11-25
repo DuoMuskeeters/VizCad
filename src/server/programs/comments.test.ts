@@ -210,7 +210,7 @@ describe('addComment', () => {
     run(Effect.gen(function* () {
       yield* world
       yield* trashFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })
-      assert.notStrictEqual(yield* tag(addComment(caller('max'), { workspaceId: 'acme', fileId: 'f1', content: 'late' })), 'ok')
+      assert.strictEqual(yield* tag(addComment(caller('max'), { workspaceId: 'acme', fileId: 'f1', content: 'late' })), 'ResourceUnavailable')
       assert.strictEqual((yield* rows('fileComments')).length, 0)
     })))
 })
