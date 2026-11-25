@@ -129,11 +129,11 @@ const hmac = (key: Uint8Array, message: string) =>
 export const AUDIT_WINDOW_SECONDS = 600
 
 /**
- * `HMAC(proofKey, purpose ‖ actor ‖ fileId ‖ objectKey ‖ floor(now / 600))` as hex: the primary key of the audit rows of
+ * `HMAC(proofKey, "audit" ‖ purpose ‖ actor ‖ fileId ‖ objectKey ‖ floor(now / 600))` as hex: the primary key of the audit rows of
  * one delivery, so `INSERT … ON CONFLICT DO NOTHING` keeps one row per window. The actor is a user id or `link:<id>`.
  */
 export const auditId = (key: Uint8Array, purpose: string, actor: string, fileId: string, objectKey: string, now: number) =>
-  Effect.promise(() => hmac(key, [purpose, actor, fileId, objectKey, Math.floor(now / AUDIT_WINDOW_SECONDS)].join('\n'))).pipe(
+  Effect.promise(() => hmac(key, ['audit', purpose, actor, fileId, objectKey, Math.floor(now / AUDIT_WINDOW_SECONDS)].join('\n'))).pipe(
     Effect.map(hex),
   )
 
@@ -145,9 +145,9 @@ const safeLinkId = (linkId: string) => /^[A-Za-z0-9_-]{1,64}$/.test(linkId)
 
 export const proofCookieName = (linkId: string) => (safeLinkId(linkId) ? `__Host-vizcad-share-${linkId}` : undefined)
 
-const proofMessage = (linkId: string, revision: number, expiresAt: number) => `${linkId}\n${revision}\n${expiresAt}`
+const proofMessage = (linkId: string, revision: number, expiresAt: number) => `proof\n${linkId}\n${revision}\n${expiresAt}`
 
-/** `v1.<expiresAt>.<mac>` where the MAC covers the link, its revision and the expiry (docs/09 §4.2). */
+/** `v1.<expiresAt>.<mac>` where the MAC covers the `proof` domain, the link, its revision and the expiry (docs/09 §4.2). */
 export const signProof = (key: Uint8Array, linkId: string, revision: number, expiresAt: number) =>
   Effect.promise(() => hmac(key, proofMessage(linkId, revision, expiresAt))).pipe(
     Effect.map((mac) => `v1.${expiresAt}.${toBase64Url(mac)}`),

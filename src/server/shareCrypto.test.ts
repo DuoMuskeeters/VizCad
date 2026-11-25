@@ -105,6 +105,23 @@ describe('audit ids', () => {
   )
 })
 
+describe('HMAC domains', () => {
+  const mac = (message: string) =>
+    Effect.promise(async () => {
+      const k = await crypto.subtle.importKey('raw', proofKey.slice(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      return toBase64Url(new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(message))))
+    })
+
+  it.effect('proofs are signed over a `proof` prefix and audit ids over an `audit` prefix', () =>
+    Effect.gen(function* () {
+      assert.strictEqual(yield* signProof(proofKey, 'link-1', 3, 700), `v1.700.${yield* mac('proof\nlink-1\n3\n700')}`)
+      const id = yield* auditId(proofKey, 'download', 'user-1', 'file-1', 'k/1', 1_795_514_400)
+      const expected = Array.from(fromBase64Url(yield* mac(['audit', 'download', 'user-1', 'file-1', 'k/1', Math.floor(1_795_514_400 / 600)].join('\n'))) ?? [], (b) => b.toString(16).padStart(2, '0')).join('')
+      assert.strictEqual(id, expected)
+    }),
+  )
+})
+
 describe('password proof cookie', () => {
   const NOW = 1_795_514_400
   const cookieFor = (linkId: string, value: string) => `theme=dark; ${proofCookieName(linkId)}=${value}; other=1`
