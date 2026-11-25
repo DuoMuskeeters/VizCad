@@ -10,6 +10,7 @@ import * as schema from '../db/schema'
 import type { AuthSettings } from './AppConfig'
 import { isBanned } from './accountStatus'
 import type { GoogleUserInfo } from './googleProfile'
+import { loginPasswordOptions } from './loginPassword'
 import { SESSION_EXPIRES_IN, SESSION_UPDATE_AGE } from './sessionCookie'
 
 /**
@@ -101,6 +102,8 @@ export const authOptions = (input: AuthOptionsInput) => {
       resetPasswordTokenExpiresIn: 60 * 60,
       // A reset ends every other session (docs/08 §1); it never marks the email verified by itself.
       revokeSessionsOnPasswordReset: true,
+      // New hashes are PBKDF2 (Workers Free CPU); legacy scrypt hashes still verify and are rewritten when the flag is on (loginPassword.ts).
+      password: loginPasswordOptions(input.db, input.settings.rehashPasswords),
       sendResetPassword: ({ user, url }, request) => input.mailer.passwordReset({ user, url, request }),
     },
     emailVerification: {
