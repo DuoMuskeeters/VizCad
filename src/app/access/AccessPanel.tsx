@@ -223,7 +223,7 @@ export const AccessPanel = ({ workspaceId, target }: { workspaceId: string; targ
     )
 
   return (
-    <section aria-labelledby="share-people" className="grid gap-3">
+    <section aria-labelledby="share-people" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
       <h3 id="share-people" className="text-lg font-heading tracking-heading">
         {t('share.people.title')}
       </h3>
@@ -262,7 +262,7 @@ export const AccessPanel = ({ workspaceId, target }: { workspaceId: string; targ
                   <li key={entry.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
                     <Avatar name={entry.name} size="sm" decorative />
                     <div className="min-w-0 flex-1 basis-44">
-                      <p className="flex items-center gap-2 text-md">
+                      <p className="flex min-w-0 items-center gap-2 text-md">
                         <span className="truncate">{entry.name}</span>
                         {entry.self ? <span className="shrink-0 text-sm text-text-3">({t('access.you')})</span> : null}
                         {entry.role === 'guest' ? <Badge tone="guest">{t('share.people.guest')}</Badge> : null}
@@ -306,14 +306,14 @@ export const AccessPanel = ({ workspaceId, target }: { workspaceId: string; targ
             </ul>
           ) : null}
           {state.list.invitations.length > 0 ? (
-            <div className="grid gap-1">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
               <h4 className="text-md font-medium">{t('access.invitations')}</h4>
               <ul className="divide-y divide-line">
                 {state.list.invitations.map((invitation) => (
                   <li key={invitation.id} className="flex items-center gap-3 py-2.5">
                     <Avatar name={invitation.email} size="sm" decorative />
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-2 text-md">
+                      <p className="flex min-w-0 items-center gap-2 text-md">
                         <span className="truncate">{invitation.email}</span>
                         <Badge tone="guest">{t('share.people.guest')}</Badge>
                       </p>

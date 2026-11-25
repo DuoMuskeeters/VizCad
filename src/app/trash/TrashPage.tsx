@@ -178,7 +178,7 @@ export const TrashPage = () => {
                 <DataListCell className="flex items-center justify-end gap-1">
                   <Button loading={busyId === item.id} onClick={() => void restore(item)} {...(item.can.restore ? {} : { disabledReason: t('trash.cannotRestore') })}>
                     <RotateCcw aria-hidden className="size-4" />
-                    {t('trash.restore')}
+                    <span className="sr-only app:not-sr-only">{t('trash.restore')}</span>
                   </Button>
                   <Menu>
                     <MenuTrigger asChild>

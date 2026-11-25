@@ -46,7 +46,7 @@ const AccessTab = ({ project, workspaceId, onModeChanged }: { project: ProjectVi
   }
 
   return (
-    <div className="grid max-w-160 gap-8">
+    <div className="grid min-w-0 max-w-160 grid-cols-[minmax(0,1fr)] gap-8">
       <section aria-labelledby="project-mode" className="grid gap-3">
         <div>
           <h3 id="project-mode" className="text-lg font-heading tracking-heading">
