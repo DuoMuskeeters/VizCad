@@ -98,6 +98,7 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - STEP yüklenirken yükleyenin tarayıcısında bir kez GLB kopyası üretilir ve R2'de saklanır; görüntüleyici bu kopyayı açar. Orijinal STEP her zaman saklanır ve indirilebilir kalır (indirme yetkisine göre). Kullanıcı: "orijinal step indirilebilir olmalı".
 - Kopya yoksa (telefondan yükleme, çevirme hatası, yaklaşık 50 MB üstü): küçük resim + İndir; düzenleme yetkisi olan biri masaüstünde ilk açtığında kopya üretilir. 0 üçgenli sonuç hata sayılır. Tarayıcıda çevirme sınırı `Entitlements`'ta ayrı bir değer (50 MB); yükleme sınırı 100 MB kalır.
 - Canlıdaki eski dosyaların kopyası ilk açılışta üretilir; toplu script isteğe bağlı, production R2'yi okuyacağı için ayrıca onay ister.
+- Montaj ağacı ve renkler düzenlenebilir (kullanıcı, 25 Kasım): STEP arka planda (Worker) yaprak parçalara kadar çevrilir, sonra bir **sahne hazırlama alanı** açılır: ağaç, parça adı, renk/malzeme, görünürlük, kayıtlı görünümler. Düzenlemeler GLB'yi ve STEP'i değiştirmez; dosya sürümüne bağlı ayrı bir sahne kaydında (`scene.json`) tutulur, görüntüleyici GLB + sahne kaydını birlikte açar. Faz 5 tasarımında ayrıntılanır.
 
 ## Açık sorular
 
