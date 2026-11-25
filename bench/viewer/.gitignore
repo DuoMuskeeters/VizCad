@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/samples/
+public/occt-import-js.js
+public/occt-import-js.wasm
+results/*.webp
+results/smoke.json

@@ -104,6 +104,7 @@ Yön: genel ton, açık tema varsayılan, mevcut marka (D11–D13). Süreç sır
 - [ ] Paylaşım modalı ve `/shared/$token`
 
 ### Faz 5: Görüntüleyici / stüdyo
+- [x] Motor araştırması ve ölçümler: `10-viewer-engine.md` (öneri three.js + GLB türevi; kararlar §8)
 - [ ] `app.tsx` parçalanır: `ViewerCanvas`, `useVtkScene`, sekme panelleri, araç çubuğu; durum tek `useReducer`
 - [ ] vtk temizliği (`.delete()`), bellek sızıntısı kontrolü
 - [ ] STEP/IGES dönüşümü Web Worker'da, ilerleme göstergesi; küçük resim aynı pipeline'dan

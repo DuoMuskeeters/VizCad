@@ -1,0 +1,34 @@
+[
+ {
+  "file": "Stealthburner_CW2.5_Assembly.step",
+  "exportMs": 200,
+  "inputMB": 39.5,
+  "glbMB": 14.9,
+  "glbGzipMB": 6.2,
+  "exportBlocking": {
+   "tbtMs": 660,
+   "maxLongTaskMs": 710
+  },
+  "threeGlbTtffMs": 162,
+  "threeGlbNamedNodes": 461,
+  "threeGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "vtkGlbTtffMs": 1424,
+  "vtkGlbActors": 910,
+  "vtkGlbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "workerThumbMs": 179,
+  "workerThumbInnerMs": 122,
+  "workerThumbKB": 5,
+  "workerThumbBlocking": {
+   "tbtMs": 0,
+   "maxLongTaskMs": 0
+  },
+  "ok": true,
+  "throttle": 4
+ }
+]
