@@ -322,6 +322,19 @@ describe('deliverLinkContent', () => {
     })),
   )
 
+  it.effect('two addresses in one window: one access row, two security rows (one per IP)', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const { token } = yield* share()
+      yield* deliverLinkContent(visitor(), token, null)
+      yield* deliverLinkContent(visitor(null, '203.0.113.9'), token, null)
+      yield* deliverLinkContent(visitor(), token, 'bytes=0-9')
+      assert.strictEqual((yield* accessRows).length, 1)
+      const security = yield* linkRows('securityLog')
+      assert.deepStrictEqual(security.map((r) => r.ip).sort(), ['198.51.100.5', '203.0.113.9'])
+    })),
+  )
+
   it.effect('Range answers 206 with the same headers', () =>
     run(Effect.gen(function* () {
       yield* world
