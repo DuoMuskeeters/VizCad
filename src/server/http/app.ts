@@ -1,7 +1,7 @@
 import { Effect, type Layer, Schema } from 'effect'
 import { type Locale, localeFromHeader, locales } from '../emails/auth'
 import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
-import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
+import { grantFileAccess, grantProjectAccess, listFileAccess, listProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
 import { listActivity, listFileActivity } from '../programs/activity'
 import { addComment, deleteComment, listComments, MAX_COMMENT_LENGTH } from '../programs/comments'
 import { listSharedByMe, listSharedWithMe } from '../programs/sharedFiles'
@@ -14,7 +14,7 @@ import { listVersions, restoreVersion } from '../programs/versions'
 import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
 import { acceptInvitation, changeRole, inviteMember, listMembers, previewMemberRemoval, removeMember, revokeInvitation, transferOwnership } from '../programs/members'
-import { archiveProject, createProject, setProjectAccessMode, updateProject } from '../programs/projects'
+import { archiveProject, createProject, listProjects, setProjectAccessMode, updateProject } from '../programs/projects'
 import { type Caller, maxUnixSeconds } from '../programs/shared'
 import { completeOnboarding, createWorkspace, listMyWorkspaces, needsOnboarding, selectWorkspace, switchWorkspace } from '../programs/workspaces'
 import { AppConfig, type RateLimitAction } from '../services/AppConfig'
@@ -160,6 +160,9 @@ const operations: Readonly<Record<string, Operation>> = {
   setProjectAccessMode: op({ ...Workspace, projectId: Id, accessMode: AccessMode }, (input, { caller }) => setProjectAccessMode(caller, input)),
   grantProjectAccess: op({ ...Grant, projectId: Id }, (input, { caller }) => grantProjectAccess(caller, input)),
   revokeProjectAccess: op({ ...Workspace, projectId: Id, userId: Id }, (input, { caller }) => revokeProjectAccess(caller, input)),
+  listProjects: op(Workspace, (input, { caller }) => listProjects(caller, input)),
+  listProjectAccess: op({ ...Workspace, projectId: Id }, (input, { caller }) => listProjectAccess(caller, input)),
+  listFileAccess: op({ ...Workspace, fileId: Id }, (input, { caller }) => listFileAccess(caller, input)),
   grantFileAccess: op({ ...Grant, fileId: Id }, (input, { caller }) => grantFileAccess(caller, input)),
   revokeFileAccess: op({ ...Workspace, fileId: Id, userId: Id }, (input, { caller }) => revokeFileAccess(caller, input)),
   // Files: uploads (docs/09 §2). Unknown properties fail the schema, so a client cannot offer a key, MIME type or etag-less completion.

@@ -20,7 +20,11 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppActivityRouteImport } from './routes/app.activity'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppSharedRouteImport } from './routes/app.shared'
 import { Route as AppTeamRouteImport } from './routes/app.team'
+import { Route as AppTrashRouteImport } from './routes/app.trash'
 import { Route as GuestInviteTokenRouteImport } from './routes/guest-invite.$token'
 import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as SharedTokenRouteImport } from './routes/shared/$token'
@@ -28,6 +32,8 @@ import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiSSplatRouteImport } from './routes/api/s/$'
 import { Route as AppFilesIdRouteImport } from './routes/app.files.$id'
+import { Route as AppProjectsIndexRouteImport } from './routes/app.projects.index'
+import { Route as AppProjectsIdRouteImport } from './routes/app.projects.$id'
 import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
 import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
 import { Route as STokenIndexRouteImport } from './routes/s/$token/index'
@@ -91,9 +97,29 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSharedRoute = AppSharedRouteImport.update({
+  id: '/shared',
+  path: '/shared',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTeamRoute = AppTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrashRoute = AppTrashRouteImport.update({
+  id: '/trash',
+  path: '/trash',
   getParentRoute: () => AppRoute,
 } as any)
 const GuestInviteTokenRoute = GuestInviteTokenRouteImport.update({
@@ -129,6 +155,16 @@ const ApiSSplatRoute = ApiSSplatRouteImport.update({
 const AppFilesIdRoute = AppFilesIdRouteImport.update({
   id: '/files/$id',
   path: '/files/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProjectsIdRoute = AppProjectsIdRouteImport.update({
+  id: '/projects/$id',
+  path: '/projects/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const DevUiIndexRoute = DevUiIndexRouteImport.update({
@@ -178,7 +214,11 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
+  '/app/trash': typeof AppTrashRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -187,9 +227,11 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
@@ -205,7 +247,11 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
+  '/app/trash': typeof AppTrashRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -214,9 +260,11 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/app/projects': typeof AppProjectsIndexRoute
   '/dev/ui': typeof DevUiIndexRoute
   '/s/$token': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
@@ -234,7 +282,11 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
+  '/app/trash': typeof AppTrashRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -243,9 +295,11 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
@@ -264,7 +318,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/activity'
+    | '/app/settings'
+    | '/app/shared'
     | '/app/team'
+    | '/app/trash'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -273,9 +331,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/s/$'
     | '/app/files/$id'
+    | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
+    | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
     | '/api/files/$fileId/content'
@@ -291,7 +351,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/activity'
+    | '/app/settings'
+    | '/app/shared'
     | '/app/team'
+    | '/app/trash'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -300,9 +364,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/s/$'
     | '/app/files/$id'
+    | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
+    | '/app/projects'
     | '/dev/ui'
     | '/s/$token'
     | '/api/files/$fileId/content'
@@ -319,7 +385,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/api/health'
+    | '/app/activity'
+    | '/app/settings'
+    | '/app/shared'
     | '/app/team'
+    | '/app/trash'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -328,9 +398,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/s/$'
     | '/app/files/$id'
+    | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
+    | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
     | '/api/files/$fileId/content'
@@ -442,11 +514,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/activity': {
+      id: '/app/activity'
+      path: '/activity'
+      fullPath: '/app/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/shared': {
+      id: '/app/shared'
+      path: '/shared'
+      fullPath: '/app/shared'
+      preLoaderRoute: typeof AppSharedRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/team': {
       id: '/app/team'
       path: '/team'
       fullPath: '/app/team'
       preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/trash': {
+      id: '/app/trash'
+      path: '/trash'
+      fullPath: '/app/trash'
+      preLoaderRoute: typeof AppTrashRouteImport
       parentRoute: typeof AppRoute
     }
     '/guest-invite/$token': {
@@ -496,6 +596,20 @@ declare module '@tanstack/react-router' {
       path: '/files/$id'
       fullPath: '/app/files/$id'
       preLoaderRoute: typeof AppFilesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/projects/': {
+      id: '/app/projects/'
+      path: '/projects'
+      fullPath: '/app/projects/'
+      preLoaderRoute: typeof AppProjectsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/projects/$id': {
+      id: '/app/projects/$id'
+      path: '/projects/$id'
+      fullPath: '/app/projects/$id'
+      preLoaderRoute: typeof AppProjectsIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/dev/ui/': {
@@ -551,15 +665,27 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppSharedRoute: typeof AppSharedRoute
   AppTeamRoute: typeof AppTeamRoute
+  AppTrashRoute: typeof AppTrashRoute
   AppIndexRoute: typeof AppIndexRoute
   AppFilesIdRoute: typeof AppFilesIdRoute
+  AppProjectsIdRoute: typeof AppProjectsIdRoute
+  AppProjectsIndexRoute: typeof AppProjectsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppSharedRoute: AppSharedRoute,
   AppTeamRoute: AppTeamRoute,
+  AppTrashRoute: AppTrashRoute,
   AppIndexRoute: AppIndexRoute,
   AppFilesIdRoute: AppFilesIdRoute,
+  AppProjectsIdRoute: AppProjectsIdRoute,
+  AppProjectsIndexRoute: AppProjectsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

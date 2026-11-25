@@ -20,6 +20,7 @@ export type UploadItem = {
   readonly reason?: UploadFailureReason
   readonly fileId?: string
   readonly targetFileId?: string
+  readonly projectId?: string
 }
 
 type Uploads = {
@@ -28,11 +29,22 @@ type Uploads = {
   readonly allowed: boolean
   readonly pick: (targetFileId?: string) => void
   readonly start: (files: readonly File[], targetFileId?: string) => void
+  /** Where new files (not new versions) go: a project page sets its project while it is open. */
+  readonly setProject: (projectId: string | undefined) => void
   /** Counts finished uploads: pages reload their lists when it changes. */
   readonly finished: number
 }
 
 const Ctx = createContext<Uploads | null>(null)
+
+/** Makes uploads started while the calling page is open land in this project. */
+export const useUploadProject = (projectId: string | undefined) => {
+  const { setProject } = useUploads()
+  useEffect(() => {
+    setProject(projectId)
+    return () => setProject(undefined)
+  }, [setProject, projectId])
+}
 
 export const useUploads = (): Uploads => {
   const ctx = use(Ctx)
@@ -166,6 +178,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const pickTarget = useRef<string | undefined>(undefined)
+  const projectRef = useRef<string | undefined>(undefined)
   const controllers = useRef(new Map<number, AbortController>())
   const nextId = useRef(1)
   const allowed = active.role === 'owner' || active.role === 'admin' || active.role === 'member'
@@ -184,6 +197,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
         workspaceId,
         file: item.file,
         ...(item.targetFileId === undefined ? {} : { targetFileId: item.targetFileId }),
+        ...(item.projectId === undefined ? {} : { projectId: item.projectId }),
         signal: controller.signal,
         onProgress: (progress) => update(item.id, { progress }),
       })
@@ -210,7 +224,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
   const start = useCallback(
     (files: readonly File[], targetFileId?: string) => {
       if (!allowed || files.length === 0) return
-      const added = files.map((file): UploadItem => ({ id: nextId.current++, file, name: file.name, status: 'queued', progress: 0, ...(targetFileId === undefined ? {} : { targetFileId }) }))
+      const added = files.map((file): UploadItem => ({ id: nextId.current++, file, name: file.name, status: 'queued', progress: 0, ...(targetFileId === undefined ? {} : { targetFileId }), ...(targetFileId === undefined && projectRef.current !== undefined ? { projectId: projectRef.current } : {}) }))
       setItems((current) => [...current, ...added])
     },
     [allowed],
@@ -224,6 +238,10 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     },
     [],
   )
+
+  const setProject = useCallback((projectId: string | undefined) => {
+    projectRef.current = projectId
+  }, [])
 
   const retry = useCallback((id: number) => update(id, { status: 'queued', progress: 0 }), [update])
 
@@ -280,7 +298,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     return () => window.removeEventListener('beforeunload', warn)
   }, [busy])
 
-  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, finished }), [items, allowed, pick, start, finished])
+  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, setProject, finished }), [items, allowed, pick, start, setProject, finished])
 
   return (
     <Ctx value={value}>

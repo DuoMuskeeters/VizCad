@@ -19,10 +19,10 @@ import { UploadProvider } from './files/UploadProvider'
 import { RequireSession, SessionProvider, useUser } from './session'
 import { useWorkspace, useWorkspaceState, WorkspaceProvider } from './workspace'
 
-/** Sidebar entry for a section that does not exist yet: visible, inert, with the reason (docs/03 §1: never hidden). */
-const PendingNavItem = ({ icon, label, reason, later }: { icon: React.ReactNode; label: string; reason: string; later: string }) => (
+/** Sidebar entry the role may not open: visible, inert, with the reason (docs/03 §1: never hidden). */
+const DisabledNavItem = ({ icon, label, reason }: { icon: React.ReactNode; label: string; reason: string }) => (
   <Tooltip content={reason} side="right">
-    <SidebarNavItem asChild icon={icon} count={later} className="cursor-not-allowed opacity-70 hover:bg-transparent hover:text-text-2">
+    <SidebarNavItem asChild icon={icon} className="cursor-not-allowed opacity-70 hover:bg-transparent hover:text-text-2">
       <button type="button" aria-disabled="true" onClick={(e) => e.preventDefault()}>
         {label}
         <span className="sr-only">{`. ${reason}`}</span>
@@ -111,8 +111,7 @@ const ReadyFrame = ({
     subtitle: w.kind === 'personal' ? t('app.workspace.personal') : t(roleKey(w.role)),
     ...(w.role === 'guest' ? { guest: true } : {}),
   }))
-  const later = t('app.nav.later')
-  const reason = t('app.nav.laterReason')
+  const manager = active.role === 'owner' || active.role === 'admin'
   const nav = (
     <>
       <WorkspaceSwitcher
@@ -129,20 +128,34 @@ const ReadyFrame = ({
         }
       />
       <SidebarNav aria-label={t('app.nav.label')} className="mt-2">
-        <PendingNavItem icon={<FolderKanban />} label={t('app.nav.projects')} reason={reason} later={later} />
+        <SidebarNavItem asChild icon={<FolderKanban />} current={pathname.startsWith('/app/projects')}>
+          <Link to="/app/projects">{t('app.nav.projects')}</Link>
+        </SidebarNavItem>
         <SidebarNavItem asChild icon={<Files />} current={pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/files')}>
           <Link to="/app">{t('app.nav.files')}</Link>
         </SidebarNavItem>
-        <PendingNavItem icon={<Share2 />} label={t('app.nav.shared')} reason={reason} later={later} />
+        <SidebarNavItem asChild icon={<Share2 />} current={pathname.startsWith('/app/shared')}>
+          <Link to="/app/shared">{t('app.nav.shared')}</Link>
+        </SidebarNavItem>
         <SidebarNavItem asChild icon={<Users />} current={pathname.startsWith('/app/team')}>
           <Link to="/app/team">{t('app.nav.team')}</Link>
         </SidebarNavItem>
-        <PendingNavItem icon={<Activity />} label={t('app.nav.activity')} reason={reason} later={later} />
-        <PendingNavItem icon={<Settings />} label={t('app.nav.settings')} reason={reason} later={later} />
+        {manager ? (
+          <SidebarNavItem asChild icon={<Activity />} current={pathname.startsWith('/app/activity')}>
+            <Link to="/app/activity">{t('app.nav.activity')}</Link>
+          </SidebarNavItem>
+        ) : (
+          <DisabledNavItem icon={<Activity />} label={t('app.nav.activity')} reason={t('nav.activityReason')} />
+        )}
+        <SidebarNavItem asChild icon={<Settings />} current={pathname.startsWith('/app/settings')}>
+          <Link to="/app/settings">{t('app.nav.settings')}</Link>
+        </SidebarNavItem>
       </SidebarNav>
       <SidebarSection>
         <SidebarNav aria-label={t('app.nav.other')}>
-          <PendingNavItem icon={<Trash2 />} label={t('app.nav.trash')} reason={reason} later={later} />
+          <SidebarNavItem asChild icon={<Trash2 />} current={pathname.startsWith('/app/trash')}>
+            <Link to="/app/trash">{t('app.nav.trash')}</Link>
+          </SidebarNavItem>
         </SidebarNav>
         <SidebarUser name={user.name} email={user.email} />
         <Button variant="ghost" loading={signingOut} onClick={() => void onSignOut()} className="justify-start">

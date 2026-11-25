@@ -60,7 +60,8 @@ const emptyKeys: Record<Exclude<FileFilter, 'all'>, { title: I18nKey; lead: I18n
   mine: { title: 'files.empty.mine.title', lead: 'files.empty.mine.lead' },
 }
 
-export const FilesPage = () => {
+/** `project` turns the page into the files tab of a project: no page header, the list is that project's, and the empty text is the project's. */
+export const FilesPage = ({ project }: { project?: { readonly id: string } }) => {
   const { t } = useI18n()
   const { call } = useSession()
   const { toast } = useToast()
@@ -82,7 +83,7 @@ export const FilesPage = () => {
     return () => clearTimeout(id)
   }, [text])
 
-  const list = useFileList(active.id, { filter, query: debounced, sort, direction: sort === 'name' ? 'asc' : 'desc' })
+  const list = useFileList(active.id, { filter, query: debounced, sort, direction: sort === 'name' ? 'asc' : 'desc' }, project?.id)
   const items = list.state.status === 'ready' ? list.state.items : []
 
   // A finished upload shows up in the list without a manual refresh.
@@ -186,7 +187,7 @@ export const FilesPage = () => {
 
   const chosen = useMemo(() => items.filter((item) => selected.has(item.id)), [items, selected])
   const canTrashAll = chosen.length > 0 && chosen.every((file) => abilitiesOf(file).trash)
-  const canMoveAll = chosen.length > 0 && chosen.every((file) => isFullView(file) && file.projectId !== null && file.can.edit)
+  const canMoveAll = chosen.length > 0 && chosen.every((file) => isFullView(file) && file.can.edit)
   const searching = debounced.trim() !== ''
 
   const subtitle = active.kind === 'personal' ? t('app.workspace.personal') : active.name
@@ -194,18 +195,20 @@ export const FilesPage = () => {
 
   return (
     <>
-      <PageHeader
-        title={t('files.title')}
-        subtitle={countText ? `${subtitle} · ${countText}` : subtitle}
-        actions={
-          <div className="hidden app:block">
-            <Button variant="primary" onClick={() => uploads.pick()} {...(uploads.allowed ? {} : { disabledReason: t('files.uploadDenied') })}>
-              <Upload aria-hidden className="size-4.5" />
-              {t('files.upload')}
-            </Button>
-          </div>
-        }
-      />
+      {project ? null : (
+        <PageHeader
+          title={t('files.title')}
+          subtitle={countText ? `${subtitle} · ${countText}` : subtitle}
+          actions={
+            <div className="hidden app:block">
+              <Button variant="primary" onClick={() => uploads.pick()} {...(uploads.allowed ? {} : { disabledReason: t('files.uploadDenied') })}>
+                <Upload aria-hidden className="size-4.5" />
+                {t('files.upload')}
+              </Button>
+            </div>
+          }
+        />
+      )}
 
       <div className="mb-1 flex flex-wrap items-center gap-x-3 border-b border-line">
         <TabNav aria-label={t('files.filter.label')} className="min-w-0 flex-1 border-b-0">
@@ -261,8 +264,8 @@ export const FilesPage = () => {
         ) : filter === 'all' ? (
           <EmptyState
             icon={<FolderOpen />}
-            title={t('files.empty.title')}
-            description={uploads.allowed ? t('files.empty.lead', { types: supportedTypesText }) : t('files.empty.noUpload')}
+            title={project ? t('project.files.empty') : t('files.empty.title')}
+            description={uploads.allowed ? (project ? t('project.files.emptyLead') : t('files.empty.lead', { types: supportedTypesText })) : t('files.empty.noUpload')}
             {...(uploads.allowed
               ? {
                   actions: (

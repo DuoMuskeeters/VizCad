@@ -1,8 +1,10 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import { AccessExpiryInvalid, AlreadyHasAccess, InvalidAccessLevel, MemberUnavailable } from '../errors'
-import type { AccessLevel, PermissionInput } from '../permissions'
+import { type AccessLevel, decidePermission, type PermissionInput } from '../permissions'
+import type { FileAccessEntry, FileAccessList } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
 import {
@@ -25,6 +27,7 @@ import {
   runBatch,
   stillRole,
   toDate,
+  toSeconds,
 } from './shared'
 
 /** The recipient's role in the workspace, or MemberUnavailable. */
@@ -215,4 +218,91 @@ export const revokeProjectAccess = Effect.fn('revokeProjectAccess')(function* (
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'project', targetId: input.projectId, action: 'project.access_revoked', at: base.now }, activityId),
   ])
   return { revoked: true }
+})
+
+type Target = { readonly kind: 'file'; readonly id: string } | { readonly kind: 'project'; readonly id: string }
+
+const isLevel = (level: string): level is FileAccessEntry['level'] => level === 'view' || level === 'comment' || level === 'download' || level === 'edit'
+const isRole = (role: string): role is FileAccessEntry['role'] => role === 'owner' || role === 'admin' || role === 'member' || role === 'commenter' || role === 'guest'
+
+/**
+ * The access list of a file or project (docs/09 §5.1, D20). Who may see the other people is the sharing right itself
+ * (`shareFile` / `manageProjectAccess`): without it, and always for a guest, the answer holds only the caller's own row.
+ * Expired grants stay in the list (flagged) until somebody removes them; pending guest invitations come with it. Rows are
+ * allow-listed field by field; no token or invitation digest leaves here.
+ */
+const accessList = (caller: Caller, workspaceId: string, target: Target, base: Omit<PermissionInput, 'action'>, role: string) =>
+  Effect.gen(function* () {
+    const input = base
+    const manage = decidePermission({ ...input, action: { kind: target.kind === 'file' ? 'shareFile' : 'manageProjectAccess' } }).allowed && role !== 'guest'
+    const db = yield* Db
+    const granter = alias(schema.user, 'granter')
+    const rows = target.kind === 'file'
+      ? yield* db.use((d) =>
+        d.select({
+          userId: schema.fileAccess.userId, name: schema.user.name, email: schema.user.email, role: schema.member.role, level: schema.fileAccess.level,
+          source: schema.fileAccess.source, expiresAt: schema.fileAccess.expiresAt, grantedBy: granter.name, grantedByUserId: schema.fileAccess.grantedByUserId,
+        }).from(schema.fileAccess)
+          .innerJoin(schema.member, and(eq(schema.member.organizationId, schema.fileAccess.workspaceId), eq(schema.member.userId, schema.fileAccess.userId)))
+          .innerJoin(schema.user, eq(schema.user.id, schema.fileAccess.userId))
+          .leftJoin(granter, eq(granter.id, schema.fileAccess.grantedByUserId))
+          .where(and(eq(schema.fileAccess.workspaceId, workspaceId), eq(schema.fileAccess.fileId, target.id), manage ? undefined : eq(schema.fileAccess.userId, caller.userId)))
+          .orderBy(sql`CASE ${schema.fileAccess.source} WHEN 'uploader' THEN 0 ELSE 1 END`, asc(schema.fileAccess.createdAt), asc(schema.fileAccess.userId))
+          .limit(200),
+      )
+      : yield* db.use((d) =>
+        d.select({
+          userId: schema.projectAccess.userId, name: schema.user.name, email: schema.user.email, role: schema.member.role, level: schema.projectAccess.level,
+          source: sql<string>`'grant'`, expiresAt: schema.projectAccess.expiresAt, grantedBy: granter.name, grantedByUserId: schema.projectAccess.grantedByUserId,
+        }).from(schema.projectAccess)
+          .innerJoin(schema.member, and(eq(schema.member.organizationId, schema.projectAccess.workspaceId), eq(schema.member.userId, schema.projectAccess.userId)))
+          .innerJoin(schema.user, eq(schema.user.id, schema.projectAccess.userId))
+          .leftJoin(granter, eq(granter.id, schema.projectAccess.grantedByUserId))
+          .where(and(eq(schema.projectAccess.workspaceId, workspaceId), eq(schema.projectAccess.projectId, target.id), manage ? undefined : eq(schema.projectAccess.userId, caller.userId)))
+          .orderBy(asc(schema.projectAccess.createdAt), asc(schema.projectAccess.userId))
+          .limit(200),
+      )
+    const people: FileAccessEntry[] = []
+    for (const row of rows) {
+      if (!isLevel(row.level) || !isRole(row.role)) continue
+      const expiresAt = row.expiresAt === null ? null : toSeconds(row.expiresAt)
+      const grant = { workspaceId, resourceId: target.id, role: row.role, grantedByUserId: row.grantedByUserId }
+      const canRevoke = row.source === 'grant' && decidePermission({ ...input, action: { kind: target.kind === 'file' ? 'revokeFileAccess' : 'revokeProjectAccess', target: grant } }).allowed
+      people.push({
+        userId: row.userId, name: row.name, email: row.email, role: row.role, level: row.level, source: row.source === 'uploader' ? 'uploader' : 'grant',
+        expiresAt, expired: expiresAt !== null && expiresAt <= input.now, grantedBy: row.grantedBy === null ? null : { displayName: row.grantedBy },
+        self: row.userId === caller.userId, canRevoke,
+      })
+    }
+    const invites = manage
+      ? yield* db.use((d) =>
+        d.select({ id: schema.resourceInvitations.id, email: schema.resourceInvitations.email, level: schema.resourceInvitations.level, accessExpiresAt: schema.resourceInvitations.accessExpiresAt })
+          .from(schema.resourceInvitations)
+          .where(and(
+            eq(schema.resourceInvitations.workspaceId, workspaceId), eq(schema.resourceInvitations.status, 'pending'),
+            target.kind === 'file' ? eq(schema.resourceInvitations.fileId, target.id) : eq(schema.resourceInvitations.projectId, target.id),
+            sql`${schema.resourceInvitations.expiresAt} > ${input.now}`,
+          ))
+          .orderBy(asc(schema.resourceInvitations.createdAt), asc(schema.resourceInvitations.id))
+          .limit(100),
+      )
+      : []
+    return {
+      canManage: manage, people,
+      invitations: invites.map((i) => ({ id: i.id, email: i.email, level: i.level, accessExpiresAt: toSeconds(i.accessExpiresAt) })),
+    } satisfies FileAccessList
+  })
+
+/** Who can open this file (docs/09 §5.1): needs `view`; the other people only with the right to share (D20). */
+export const listFileAccess = Effect.fn('listFileAccess')(function* (caller: Caller, input: { readonly workspaceId: string; readonly fileId: string }) {
+  const { role, base } = yield* fileContext(caller, input.workspaceId, input.fileId)
+  yield* authorize({ ...base, action: { kind: 'view' } })
+  return yield* accessList(caller, input.workspaceId, { kind: 'file', id: input.fileId }, base, role)
+})
+
+/** Who holds a grant on this project; same rules as `listFileAccess`. */
+export const listProjectAccess = Effect.fn('listProjectAccess')(function* (caller: Caller, input: { readonly workspaceId: string; readonly projectId: string }) {
+  const { role, base } = yield* projectContext(caller, input.workspaceId, input.projectId)
+  yield* authorize({ ...base, action: { kind: 'view' } })
+  return yield* accessList(caller, input.workspaceId, { kind: 'project', id: input.projectId }, base, role)
 })

@@ -9,7 +9,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).rou
 
 const file: FileView = {
   id: 'f1', name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, projectId: null, projectName: null, createdAt: 1, updatedAt: 2, starred: false,
-  thumbnailAvailable: false, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } },
+  thumbnailAvailable: false, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } }, access: { people: 0, link: 'none' },
   can: { edit: true, comment: true, download: true, viewHistory: true, trash: true, share: true },
 }
 
@@ -53,20 +53,54 @@ describe('people', () => {
     const { user } = open()
     const d = await dialog()
     await user.type(await d.findByRole('textbox', { name: 'Add a person or email' }), 'Ömer')
-    await user.click(await d.findByRole('button', { name: /Ömer Koç/ }))
+    await user.click(await d.findByRole('button', { name: /^Ömer Koç/ }))
     expect(d.getByText('Guests cannot edit. Make them a member to allow editing.')).toBeInTheDocument()
     await user.click(d.getByRole('combobox', { name: 'Access' }))
     expect(await screen.findByRole('option', { name: 'Can edit' })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('removes a person added in this window', async () => {
+  it('removes a person from the access list', async () => {
     const { calls, user } = open()
     const d = await dialog()
-    await user.type(await d.findByRole('textbox', { name: 'Add a person or email' }), 'Selin')
-    await user.click(await d.findByRole('button', { name: /Selin Er/ }))
+    await user.type(await d.findByRole('textbox', { name: 'Add a person or email' }), 'Mehmet')
+    await user.click(await d.findByRole('button', { name: /^Mehmet Kaya/ }))
     await user.click(d.getByRole('button', { name: 'Add' }))
-    await user.click(await d.findByRole('button', { name: 'Remove access of Selin Er' }))
-    await waitFor(() => expect(calls.some((c) => c.operation === 'revokeFileAccess' && c.body['userId'] === 'u-selin')).toBe(true))
+    await user.click(await d.findByRole('button', { name: 'Remove access of Mehmet Kaya' }))
+    await waitFor(() => expect(calls.some((c) => c.operation === 'revokeFileAccess' && c.body['userId'] === 'u-mehmet')).toBe(true))
+    await waitFor(() => expect(d.queryByRole('button', { name: 'Remove access of Mehmet Kaya' })).not.toBeInTheDocument())
+  })
+})
+
+describe('people with access', () => {
+  it('lists who already has access (uploader, grants, waiting invitations) from the server, not only what was added here', async () => {
+    const { calls } = open()
+    const d = await dialog()
+    expect(await d.findByText('Selin Er')).toBeInTheDocument()
+    expect(d.getByText('Ömer Koç')).toBeInTheDocument()
+    expect(d.getByText('Uploaded this file')).toBeInTheDocument()
+    expect(d.getByText('satinalma@kayahidrolik.com')).toBeInTheDocument()
+    expect(calls.find((c) => c.operation === 'listFileAccess')?.body).toEqual({ workspaceId: 'ws-dm', fileId: 'f1' })
+    // The uploader row cannot be removed; a guest's end date is shown.
+    expect(d.queryByRole('button', { name: /Remove access of Ayşe Yılmaz/ })).not.toBeInTheDocument()
+    expect(d.getByRole('button', { name: 'Remove access of Ömer Koç' })).toBeInTheDocument()
+  })
+
+  it('changes a level with the same grant operation and cancels a waiting invitation', async () => {
+    const { calls, user } = open()
+    const d = await dialog()
+    await user.click(await d.findByRole('combobox', { name: 'Access of Selin Er' }))
+    await user.click(await screen.findByRole('option', { name: 'Can download' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'grantFileAccess')?.body).toMatchObject({ userId: 'u-selin', level: 'download', expiresAt: null }))
+    await user.click(await d.findByRole('button', { name: 'Cancel the invitation to satinalma@kayahidrolik.com' }))
+    await waitFor(() => expect(calls.some((c) => c.operation === 'revokeGuestInvitation' && c.body['invitationId'] === 'ginv-1')).toBe(true))
+    await waitFor(() => expect(d.queryByText('satinalma@kayahidrolik.com')).not.toBeInTheDocument())
+  })
+
+  it('a member who may not share sees only their own row and no add form', async () => {
+    open('files-commenter')
+    const d = await dialog()
+    expect(await d.findByText('Only people who manage sharing see everyone with access.')).toBeInTheDocument()
+    expect(d.queryByRole('textbox', { name: 'Add a person or email' })).not.toBeInTheDocument()
   })
 })
 

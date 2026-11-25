@@ -112,7 +112,7 @@ export const listFiles = Effect.fn('listFiles')(function* (caller: Caller, input
   let exhausted = false
   for (let round = 0; round < MAX_ROUNDS && items.length <= input.limit && !exhausted; round++) {
     const rows = yield* db.use((d) =>
-      summarySelect(d, me, key).where(and(...conditions, keyset(cursor))).orderBy(order[0](key), order[1](f.id)).limit(SCAN_BATCH),
+      summarySelect(d, me, scope.now, key).where(and(...conditions, keyset(cursor))).orderBy(order[0](key), order[1](f.id)).limit(SCAN_BATCH),
     )
     if (rows.length < SCAN_BATCH) exhausted = true
     const grants = yield* fileGrantsOf(input.workspaceId, me, rows.map((r) => r.id))
@@ -137,9 +137,9 @@ export const listFiles = Effect.fn('listFiles')(function* (caller: Caller, input
   return { items: page.map((i) => i.view), nextCursor } satisfies FilePage
 })
 
-const summaryOf = Effect.fnUntraced(function* (me: string, fileId: string) {
+const summaryOf = Effect.fnUntraced(function* (me: string, fileId: string, now: number) {
   const db = yield* Db
-  const rows = yield* db.use((d) => summarySelect(d, me).where(eq(schema.files.id, fileId)).limit(1))
+  const rows = yield* db.use((d) => summarySelect(d, me, now).where(eq(schema.files.id, fileId)).limit(1))
   const row: SummaryRow | undefined = rows[0]
   if (row === undefined) return yield* new ResourceUnavailable()
   return row
@@ -149,7 +149,7 @@ const summaryOf = Effect.fnUntraced(function* (me: string, fileId: string) {
 export const getFile = Effect.fn('getFile')(function* (caller: Caller, input: { readonly workspaceId: string; readonly fileId: string }) {
   const { base, file, role, workspace } = yield* openFile(caller, input.workspaceId, input.fileId)
   yield* authorize({ ...base, action: { kind: 'view' } })
-  const row = yield* summaryOf(caller.userId, file.id)
+  const row = yield* summaryOf(caller.userId, file.id, base.now)
   if (role !== 'guest') return internalView(row, base)
   const db = yield* Db
   const names = yield* db.use((d) =>

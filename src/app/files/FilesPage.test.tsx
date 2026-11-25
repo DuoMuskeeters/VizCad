@@ -68,14 +68,13 @@ describe('row menu follows the permissions', () => {
     expect(screen.getByRole('menuitem', { name: /Download/ })).not.toHaveAttribute('aria-disabled')
   })
 
-  it('a member can use every action; a file without a project cannot be moved yet', async () => {
+  it('a member can use every action, moving a file without a project included', async () => {
     const { user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'admin')
     const row = await rowOf('Konveyör_şase.iges')
     await user.click(within(row).getByRole('button', { name: 'Konveyör_şase.iges: more actions' }))
     expect(await screen.findByRole('menuitem', { name: /Rename/ })).not.toHaveAttribute('aria-disabled')
     const move = screen.getAllByRole('menuitem').find((item) => item.textContent?.startsWith('Move') && !item.textContent.startsWith('Move to trash'))
-    expect(move).toHaveAttribute('aria-disabled', 'true')
-    expect(move).toHaveTextContent('This file has no project')
+    expect(move).not.toHaveAttribute('aria-disabled')
   })
 })
 

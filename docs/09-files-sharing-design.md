@@ -529,3 +529,12 @@ Tüm dosyalar (`/app`), yükleme, dosya sayfası (`/app/files/$id`) ve paylaşı
 - **Yükleme:** `upload.ts` (istek → XHR PUT, imzalı başlıklar, ilerleme → tamamla; iptal `cancelUpload`; 412 çakışma). İstemci erken reddi uzantı + imza (`fileTypes.ts`). Kuyuk `UploadProvider` (AppLayout'ta; sayfa değişse de sürer, tüm pencere sürükle-bırak, `beforeunload` uyarısı).
 - **Eksikler (sunucu ucu yok):** (1) dosyada kimlerin erişimi olduğunu listeleyen uç yok; paylaşım penceresi yalnız o pencerede eklenenleri gösterir ve geri alabilir (`listFileAccess` sonraki iş). (2) `listProjects` yok; "Taşı" yalnız projeden çıkarma yapar, projesiz dosyada devre dışı + neden (4e-2 Projeler ile gelir). (3) Liste öğesinde erişim özeti olmadığından "Erişim" sütunu yerine "Proje" var.
 - **Önizleme:** Faz 5'e kadar küçük resim ya da dosya kartı + "İndir" (D18/D21).
+
+## Uygulama notları · Faz 4e-2
+
+Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, Ayarlar ve `/s/$token` son haline getirildi; ekran görüntüleri `design/ui-shots/app/` (betik `scripts/shoot-app.cjs`, fikstürler `?fixture=admin|commenter|files-empty|files-error|files-slow`, paylaşılan sayfa için `?fixture=share-download|share-view|share-password|share-expired|share-invalid|share-long`).
+
+- **Yeni uçlar:** `listProjects` (görünürlük `decidePermission(view)` ile; kısıtlı proje yalnız erişimi olana; dosya sayısı, mod, oluşturan, `can.*`), `listFileAccess` ve `listProjectAccess` (proje erişim sekmesi için eklendi; istenen iki uca ek). Kişi listesi `shareFile` / `manageProjectAccess` yetkisi olana; diğerlerine ve misafire yalnız kendi satırı (D20). Süresi dolmuş grant bayrakla listelenir; bekleyen misafir davetleri döner.
+- **Erişim özeti:** `FileView.access = { people, link }`, liste sorgusuna iki skaler alt sorgu (ek sorgu yok).
+- **Taşı penceresi:** `listProjects` hedefleri, `previewMoveFile` → etki varsa ikinci onay → `moveFile` (`expected`). Paylaşım penceresi ortak `AccessPanel` ile sunucudaki kişileri listeler, düzey değiştirir, kaldırır.
+- **Sınırlar:** workspace adı değiştirme ucu yok, Ayarlar'da yalnız görüntüleme (plan/fatura yalnız bilgi metni). Aktivite satırlarında dosya/proje adı yok (log yalnız kimlik tutar); filtreler yüklenen kayıtlar üzerinde (tür, kişi), proje süzgeci ve CSV yok. Proje aktivite sekmesi çalışma alanı kaydından proje olaylarını süzer. `/s/$token`'da 3B model yok (D18/D21): küçük resim ya da dosya kartı.

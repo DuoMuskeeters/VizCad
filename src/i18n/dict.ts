@@ -1,6 +1,7 @@
 import type { Locale } from './locales'
 import { appEn, appTr } from './app'
 import { filesEn, filesTr } from './files'
+import { screensEn, screensTr } from './screens'
 
 export const en = {
   'auth.signIn.title': 'Sign in',
@@ -111,6 +112,7 @@ export const en = {
   'common.passwordTooLong': 'Password must be at most 128 characters.',
   ...appEn,
   ...filesEn,
+  ...screensEn,
 } as const
 
 export type I18nKey = keyof typeof en
@@ -224,6 +226,7 @@ export const tr: Record<I18nKey, string> = {
   'common.passwordTooLong': 'Şifre en fazla 128 karakter olabilir.',
   ...appTr,
   ...filesTr,
+  ...screensTr,
 }
 
 export const translations: Record<Locale, Record<I18nKey, string>> = {

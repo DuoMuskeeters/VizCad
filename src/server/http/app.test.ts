@@ -280,12 +280,39 @@ describe('POST /api/app/<operation>', () => {
       assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'again' }, bob))).status, 429)
     })))
 
+  it.effect('listProjects and listFileAccess: validated body, session, no-store, allow-listed rows', () =>
+    run(Effect.gen(function* () {
+      yield* seedFile('f1', 'bob', 'acme')
+      yield* seedUploaderGrant('f1', 'bob', 'acme')
+      const made = yield* call(post('createProject', { workspaceId: 'acme', name: 'Rev B' }, { cookie: 'session=tok-bob' }))
+      assert.strictEqual(made.status, 200)
+      const projects = yield* call(post('listProjects', { workspaceId: 'acme' }))
+      assert.strictEqual(projects.status, 200)
+      assert.strictEqual(projects.headers.get('cache-control'), 'private, no-store')
+      const items = (projects.body.data as { items: Array<Record<string, unknown>> }).items
+      assert.deepStrictEqual(items.map((p) => [p['name'], p['fileCount'], p['accessMode']]), [['Rev B', 0, 'team']])
+      assert.deepStrictEqual(Object.keys(items[0] ?? {}).sort(), ['accessMode', 'can', 'createdAt', 'createdBy', 'description', 'fileCount', 'id', 'name', 'updatedAt'])
+      assert.strictEqual((yield* call(post('listProjects', { workspaceId: 'acme', extra: 1 }))).status, 400)
+      assert.strictEqual((yield* call(post('listProjects', { workspaceId: 'nope' }))).status, 404)
+      assert.strictEqual((yield* call(post('listProjects', { workspaceId: 'acme' }, { cookie: 'session=none' }))).status, 401)
+
+      const access = yield* call(post('listFileAccess', { workspaceId: 'acme', fileId: 'f1' }, { cookie: 'session=tok-bob' }))
+      assert.strictEqual(access.status, 200)
+      const list = access.body.data as { canManage: boolean; people: Array<{ userId: string; source: string }> }
+      assert.deepStrictEqual([list.canManage, list.people.map((p) => [p.userId, p.source])], [true, [['bob', 'uploader']]])
+      // A member without a grant on someone else's file sees no other person.
+      const own = yield* call(post('listFileAccess', { workspaceId: 'acme', fileId: 'f1' }))
+      assert.strictEqual(own.status, 200)
+      assert.deepStrictEqual((own.body.data as { canManage: boolean; people: unknown[] }).people, [])
+      assert.strictEqual((yield* call(post('listFileAccess', { workspaceId: 'acme', fileId: 'zzz' }))).status, 404)
+    })))
+
   it('exposes the planned operations', () => {
     assert.deepStrictEqual([...operationNames].sort(), [
       'acceptGuestInvitation', 'acceptInvitation', 'addComment', 'archiveProject', 'cancelUpload', 'changeRole', 'completeOnboarding', 'completeUpload',
       'copyShareLink', 'createProject', 'createShareLink', 'createWorkspace', 'currentWorkspace', 'deleteComment', 'emptyTrash', 'getFile',
       'getInvitation', 'getShareSettings', 'grantFileAccess', 'grantProjectAccess', 'inviteGuest', 'inviteMember', 'listActivity', 'listComments',
-      'listFileActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listSharedByMe', 'listSharedWithMe', 'listTrash', 'listVersions',
+      'listFileAccess', 'listFileActivity', 'listFiles', 'listMembers', 'listMyWorkspaces', 'listProjectAccess', 'listProjects', 'listSharedByMe', 'listSharedWithMe', 'listTrash', 'listVersions',
       'moveFile', 'previewMemberRemoval', 'previewMoveFile', 'purgeFile', 'removeMember', 'renameFile', 'requestUpload', 'restoreFile', 'restoreVersion', 'revokeFileAccess', 'revokeGuestInvitation', 'revokeInvitation',
       'revokeProjectAccess', 'revokeShareLink', 'setProjectAccessMode', 'starFile', 'switchWorkspace', 'transferOwnership', 'trashFile', 'unstarFile', 'updateProject', 'updateShareLink',
     ])

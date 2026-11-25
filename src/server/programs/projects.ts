@@ -2,8 +2,11 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import { PermissionDenied, ProjectLimitReached } from '../errors'
+import { decidePermission } from '../permissions'
+import type { ProjectList } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { Entitlements } from '../services/Entitlements'
+import { loadScope } from './fileContext'
 import {
   activity,
   authorize,
@@ -12,12 +15,14 @@ import {
   loadProject,
   newId,
   nowSeconds,
+  opt,
   permissionActor,
   projectForPermission,
   requireMembership,
   runBatch,
   stillRole,
   toDate,
+  toSeconds,
 } from './shared'
 
 export type AccessMode = 'team' | 'restricted'
@@ -137,4 +142,43 @@ export const setProjectAccessMode = Effect.fn('setProjectAccessMode')(function* 
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'project', targetId: project.id, action: `project.access_mode_${input.accessMode}`, at: now }, activityId),
   ])
   return { id: project.id, accessMode: input.accessMode }
+})
+
+/**
+ * The workspace's live projects the caller can open (docs/08 §4): each one goes through permissions.ts `view`, so a
+ * restricted project shows only to people with a grant (or an owner/admin) and a guest only gets the projects they hold a
+ * grant on. A file grant alone never lists its project. Name order; file counts come from one grouped query. `can` carries
+ * the answers the screen needs for "disabled + why".
+ */
+export const listProjects = Effect.fn('listProjects')(function* (caller: Caller, input: { readonly workspaceId: string }) {
+  const scope = yield* loadScope(caller, input.workspaceId)
+  const db = yield* Db
+  const [rows, counts] = yield* db.use((d) =>
+    Promise.all([
+      d.select({ project: schema.projects, creator: schema.user.name }).from(schema.projects)
+        .leftJoin(schema.user, eq(schema.user.id, schema.projects.createdByUserId))
+        .where(and(eq(schema.projects.workspaceId, input.workspaceId), isNull(schema.projects.archivedAt)))
+        .orderBy(sql`lower(${schema.projects.name})`, schema.projects.id),
+      d.select({ projectId: schema.files.projectId, n: sql<number>`count(*)` }).from(schema.files)
+        .where(and(eq(schema.files.workspaceId, input.workspaceId), eq(schema.files.isDeleted, false), eq(schema.files.status, 'uploaded'), sql`${schema.files.projectId} IS NOT NULL`))
+        .groupBy(schema.files.projectId),
+    ]),
+  )
+  const countOf = new Map(counts.map((c) => [c.projectId, c.n]))
+  const items: ProjectList['items'][number][] = []
+  for (const { project, creator } of rows) {
+    const base = {
+      actor: scope.actor, workspace: scope.workspace, project: projectForPermission(project), now: scope.now,
+      ...opt('projectGrant', scope.projectGrants.get(project.id)?.grant),
+    }
+    const allowed = (kind: 'view' | 'updateProject' | 'manageProjectAccess' | 'uploadProjectFile') => decidePermission({ ...base, action: { kind } }).allowed
+    if (!allowed('view')) continue
+    items.push({
+      id: project.id, name: project.name, description: project.description, accessMode: project.accessMode,
+      fileCount: countOf.get(project.id) ?? 0, createdBy: creator === null ? null : { displayName: creator },
+      createdAt: toSeconds(project.createdAt), updatedAt: toSeconds(project.updatedAt),
+      can: { update: allowed('updateProject'), manageAccess: allowed('manageProjectAccess'), upload: allowed('uploadProjectFile') },
+    })
+  }
+  return { items } satisfies ProjectList
 })

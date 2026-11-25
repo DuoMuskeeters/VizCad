@@ -41,16 +41,34 @@ describe('SharePage', () => {
     const calls = answer({ status: 200, body: { ok: true, data: { kind: 'file', file } } })
     mount()
     expect(await screen.findByRole('heading', { name: 'Bracket.step' })).toBeInTheDocument()
-    expect(screen.getByText('Shared by Ada · Acme')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute('href', `/s/${TOKEN}/content`)
+    expect(screen.getByText('Ada shared a file with you')).toBeInTheDocument()
+    expect(screen.getByText('Acme')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Download · 1.5 KB' })).toHaveAttribute('href', `/s/${TOKEN}/content`)
+    expect(screen.getByText('There is no preview image for this file.')).toBeInTheDocument()
+    expect(screen.getByText(/recorded for Acme as “via link”/)).toBeInTheDocument()
     expect(calls).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
   })
 
   it('a view-only link has no download button', async () => {
     answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false } } } } })
     mount()
-    expect(await screen.findByText('This file can be viewed but not downloaded.')).toBeInTheDocument()
+    expect(await screen.findByText('This file can only be viewed.')).toBeInTheDocument()
+    expect(screen.getByText(/ask Ada for download access/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /download/i })).toBeNull()
+  })
+
+  it('the password can be shown and hidden, and the gate says whom to ask', async () => {
+    answer({ status: 200, body: { ok: true, data: { kind: 'password' } } })
+    mount()
+    const input = await screen.findByLabelText('Password')
+    const user = userEvent.setup()
+    await user.type(input, 'secret-one-1')
+    expect(input).toHaveAttribute('type', 'password')
+    await user.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text')
+    await user.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    expect(screen.getByText('If you do not know the password, ask the person who sent you the link.')).toBeInTheDocument()
   })
 
   it('a password link shows only the gate; a wrong password says so, the right one opens the card (password in the body only)', async () => {
