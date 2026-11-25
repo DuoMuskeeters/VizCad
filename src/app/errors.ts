@@ -33,6 +33,16 @@ const TAGS: Readonly<Record<string, I18nKey>> = {
   CaptchaFailed: 'app.error.generic',
   CsrfRejected: 'app.error.generic',
   PermissionDenied: 'app.error.roleLimit',
+  AccessExpiryInvalid: 'app.error.accessExpiry',
+  AlreadyHasAccess: 'app.error.alreadyHasAccess',
+  ShareLinkLimitReached: 'app.error.linkLimit',
+  LinkConflict: 'app.error.linkConflict',
+  LinkExpired: 'app.error.linkExpired',
+  CommentUnavailable: 'app.error.commentUnavailable',
+  VersionUnavailable: 'app.error.versionUnavailable',
+  UnsupportedFileType: 'app.error.unsupportedType',
+  FileTooLarge: 'app.error.fileTooLarge',
+  StorageQuotaExceeded: 'app.error.storageQuota',
 }
 
 /** The sentence a failed operation shows. Unknown tags and 5xx fall back to a generic, retryable message. */

@@ -521,3 +521,11 @@ Yorumlar, dosya aktivitesi, paylaşım listeleri, `recent` süzgeci ve `access_l
 ### Staging kabul sonucu · Faz 4d (25 Kasım 2026)
 
 `scripts/staging-verify-comments.sh` staging'de (test kullanıcısının firma workspace'i) **32/32** geçti: yorum ekleme/listeleme/silme, dosya aktivitesi, paylaşılan listeler ve `recent` süzgeci. Misafir görünürlük matrisi program testlerinde (`comments.test.ts`, `viewComment` eşdeğerliği).
+
+## Uygulama notları · Faz 4e-1
+
+Tüm dosyalar (`/app`), yükleme, dosya sayfası (`/app/files/$id`) ve paylaşım penceresi uygulandı (`src/app/files/`). Ekran görüntüleri `design/ui-shots/files/` (betik `scripts/shoot-files.cjs`, dev fikstürü `?fixture=admin|files-empty|files-error|files-slow|files-commenter|files-one-version`).
+
+- **Yükleme:** `upload.ts` (istek → XHR PUT, imzalı başlıklar, ilerleme → tamamla; iptal `cancelUpload`; 412 çakışma). İstemci erken reddi uzantı + imza (`fileTypes.ts`). Kuyuk `UploadProvider` (AppLayout'ta; sayfa değişse de sürer, tüm pencere sürükle-bırak, `beforeunload` uyarısı).
+- **Eksikler (sunucu ucu yok):** (1) dosyada kimlerin erişimi olduğunu listeleyen uç yok; paylaşım penceresi yalnız o pencerede eklenenleri gösterir ve geri alabilir (`listFileAccess` sonraki iş). (2) `listProjects` yok; "Taşı" yalnız projeden çıkarma yapar, projesiz dosyada devre dışı + neden (4e-2 Projeler ile gelir). (3) Liste öğesinde erişim özeti olmadığından "Erişim" sütunu yerine "Proje" var.
+- **Önizleme:** Faz 5'e kadar küçük resim ya da dosya kartı + "İndir" (D18/D21).

@@ -15,6 +15,7 @@ import { postAuth } from '#/auth/api'
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
 import { failureKey } from './errors'
 import { roleKey } from './roles'
+import { UploadProvider } from './files/UploadProvider'
 import { RequireSession, SessionProvider, useUser } from './session'
 import { useWorkspace, useWorkspaceState, WorkspaceProvider } from './workspace'
 
@@ -129,7 +130,9 @@ const ReadyFrame = ({
       />
       <SidebarNav aria-label={t('app.nav.label')} className="mt-2">
         <PendingNavItem icon={<FolderKanban />} label={t('app.nav.projects')} reason={reason} later={later} />
-        <PendingNavItem icon={<Files />} label={t('app.nav.files')} reason={reason} later={later} />
+        <SidebarNavItem asChild icon={<Files />} current={pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/files')}>
+          <Link to="/app">{t('app.nav.files')}</Link>
+        </SidebarNavItem>
         <PendingNavItem icon={<Share2 />} label={t('app.nav.shared')} reason={reason} later={later} />
         <SidebarNavItem asChild icon={<Users />} current={pathname.startsWith('/app/team')}>
           <Link to="/app/team">{t('app.nav.team')}</Link>
@@ -150,7 +153,7 @@ const ReadyFrame = ({
     </>
   )
   return (
-    <>
+    <UploadProvider>
       <AppShell
         menuLabel={t('app.nav.menu')}
         skipLabel={t('app.nav.skip')}
@@ -178,7 +181,7 @@ const ReadyFrame = ({
         <Outlet />
       </AppShell>
       <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} onCreated={onCreated} />
-    </>
+    </UploadProvider>
   )
 }
 

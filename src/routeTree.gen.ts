@@ -27,6 +27,7 @@ import { Route as SharedTokenRouteImport } from './routes/shared/$token'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiSSplatRouteImport } from './routes/api/s/$'
+import { Route as AppFilesIdRouteImport } from './routes/app.files.$id'
 import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
 import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
 import { Route as STokenIndexRouteImport } from './routes/s/$token/index'
@@ -125,6 +126,11 @@ const ApiSSplatRoute = ApiSSplatRouteImport.update({
   path: '/api/s/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppFilesIdRoute = AppFilesIdRouteImport.update({
+  id: '/files/$id',
+  path: '/files/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const DevUiIndexRoute = DevUiIndexRouteImport.update({
   id: '/dev/ui/',
   path: '/dev/ui/',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
+  '/app/files/$id': typeof AppFilesIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
+  '/app/files/$id': typeof AppFilesIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
+  '/app/files/$id': typeof AppFilesIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/s/$'
+    | '/app/files/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/s/$'
+    | '/app/files/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/s/$'
+    | '/app/files/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/thumbnail'
@@ -479,6 +491,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/files/$id': {
+      id: '/app/files/$id'
+      path: '/files/$id'
+      fullPath: '/app/files/$id'
+      preLoaderRoute: typeof AppFilesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/dev/ui/': {
       id: '/dev/ui/'
       path: '/dev/ui'
@@ -534,11 +553,13 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppFilesIdRoute: typeof AppFilesIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppFilesIdRoute: AppFilesIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -3,6 +3,7 @@
  * by `?fixture=<scenario>` on /app, /onboarding and /invite/* (session.tsx). Never imported in production builds.
  */
 import type { InvitationView, MemberView, Role, WorkspaceSummary } from './api'
+import { createFilesFixture, type FilesScenario } from './files/fixtureFiles'
 
 export type Scenario =
   | 'owner'
@@ -20,6 +21,11 @@ export type Scenario =
   | 'invite-full'
   | 'invite-canceled'
   | 'invite-guest-other'
+  | 'files-empty'
+  | 'files-error'
+  | 'files-slow'
+  | 'files-one-version'
+  | 'files-commenter'
 
 const day = 86_400
 const now = () => Math.floor(Date.now() / 1000)
@@ -40,7 +46,8 @@ const fail = (status: number, error: string, reason?: string) => json(status, { 
 export const fixtureFetch = (scenario: string): typeof fetch => {
   const name = scenario as Scenario
   const inviteScenario = name.startsWith('invite-')
-  const myRole: Role = name === 'owner' || name === 'seats-full' ? 'owner' : name === 'commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
+  const myRole: Role = name === 'owner' || name === 'seats-full' ? 'owner' : name === 'commenter' || name === 'files-commenter' ? 'commenter' : name === 'guest' ? 'guest' : 'admin'
+  const filesScenario: FilesScenario = name === 'files-empty' ? 'empty' : name === 'files-error' ? 'error' : name === 'files-slow' ? 'slow' : name === 'files-one-version' ? 'one-version' : 'normal'
   const user = { id: 'u-me', name: 'Ayşe Yılmaz', email: 'ayse@demirmakina.com' }
   const personal: WorkspaceSummary = { id: 'ws-personal', name: 'Personal', kind: 'personal', role: 'owner' }
   const company: WorkspaceSummary = { id: 'ws-dm', name: 'Demir Makina', kind: 'company', role: myRole }
@@ -58,8 +65,9 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
   ]
   let n = 0
   let needsOnboarding = name === 'newuser'
+  const filesApi = createFilesFixture(myRole, filesScenario)
 
-  const app = (operation: string, body: Record<string, unknown>): Response => {
+  const app = async (operation: string, body: Record<string, unknown>): Promise<Response> => {
     switch (operation) {
       case 'listMyWorkspaces':
         return json(200, { ok: true, data: workspaces })
@@ -136,7 +144,7 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
         workspaces = [...workspaces, company]
         return json(200, { ok: true, data: { workspaceId: company.id, role: 'member' } })
       default:
-        return fail(404, 'ResourceUnavailable')
+        return (await filesApi.handle(operation, body)) ?? fail(404, 'ResourceUnavailable')
     }
   }
 
@@ -152,7 +160,7 @@ export const fixtureFetch = (scenario: string): typeof fetch => {
         body = {}
       }
       await Promise.resolve()
-      return app(url.pathname.slice('/api/app/'.length), body)
+      return await app(url.pathname.slice('/api/app/'.length), body)
     }
     return json(404, { ok: false, error: 'ResourceUnavailable' })
   }) as typeof fetch
