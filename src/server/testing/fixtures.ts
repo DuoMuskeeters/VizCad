@@ -119,6 +119,7 @@ const tables = {
   files: schema.files,
   fileVersions: schema.fileVersions,
   fileStars: schema.fileStars,
+  fileComments: schema.fileComments,
   uploadSessions: schema.uploadSessions,
   storageDeletions: schema.storageDeletions,
   securityLog: schema.securityLog,
