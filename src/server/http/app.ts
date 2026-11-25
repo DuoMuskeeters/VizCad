@@ -1,12 +1,13 @@
-import { Effect, type Layer, Option, Schema } from 'effect'
+import { Effect, type Layer, Schema } from 'effect'
 import { type Locale, localeFromHeader, locales } from '../emails/auth'
-import { type AppError, ResourceUnavailable, Unauthenticated, ValidationError } from '../errors'
+import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
 import { grantFileAccess, grantProjectAccess, revokeFileAccess, revokeProjectAccess } from '../programs/access'
 import { listActivity } from '../programs/activity'
 import { getFile, listFiles, renameFile, starFile, unstarFile } from '../programs/files'
 import { moveFile, previewMoveFile } from '../programs/move'
 import { emptyTrash, listTrash, purgeFile, restoreFile, trashFile } from '../programs/trash'
 import { cancelUpload, completeUpload, requestUpload } from '../programs/uploads'
+import { copyShareLink, createShareLink, getShareSettings, revokeShareLink, updateShareLink } from '../programs/links'
 import { listVersions, restoreVersion } from '../programs/versions'
 import { getInvitation } from '../programs/invitations'
 import { acceptGuestInvitation, inviteGuest, revokeGuestInvitation } from '../programs/guests'
@@ -15,7 +16,7 @@ import { archiveProject, createProject, setProjectAccessMode, updateProject } fr
 import { type Caller, maxUnixSeconds } from '../programs/shared'
 import { completeOnboarding, createWorkspace, listMyWorkspaces, needsOnboarding, selectWorkspace, switchWorkspace } from '../programs/workspaces'
 import { AppConfig, type RateLimitAction } from '../services/AppConfig'
-import { Auth } from '../services/Auth'
+import type { Auth } from '../services/Auth'
 import type { Background } from '../services/Background'
 import type { Db } from '../services/Db'
 import type { Email } from '../services/Email'
@@ -25,6 +26,7 @@ import { RateLimit } from '../services/RateLimit'
 import { readBody } from './body'
 import { checkMutationRequest } from './csrf'
 import { handle, type RequestMeta } from './respond'
+import { readCaller } from './session'
 
 export type AppServices = Db | Auth | Email | RateLimit | AppConfig | Entitlements | Background | Storage
 
@@ -37,6 +39,8 @@ const EmailAddress = Schema.String.check(Schema.isMaxLength(254), Schema.isPatte
 const InternalRole = Schema.Literals(['admin', 'member', 'commenter'])
 const Level = Schema.Literals(['view', 'comment', 'download', 'edit'])
 const GuestLevel = Schema.Literals(['view', 'comment', 'download'])
+const LinkLevel = Schema.Literals(['view', 'download'])
+const LinkPassword = Schema.String.check(Schema.isMinLength(8), Schema.isMaxLength(128))
 const AccessMode = Schema.Literals(['team', 'restricted'])
 const Seconds = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: maxUnixSeconds }))
 const LocaleField = Schema.optional(Schema.Literals(locales))
@@ -202,6 +206,29 @@ const operations: Readonly<Record<string, Operation>> = {
       ...(input.expected === undefined ? {} : { expected: input.expected }),
     }),
   ),
+  // Link sharing (docs/09 §4). Passwords travel only in these POST bodies.
+  getShareSettings: op({ ...Workspace, fileId: Id }, (input, { caller }) => getShareSettings(caller, input)),
+  createShareLink: op(
+    { ...Workspace, fileId: Id, level: LinkLevel, expiresAt: Schema.optional(Schema.NullOr(Seconds)), password: Schema.optional(LinkPassword) },
+    (input, { caller }) => createShareLink(caller, {
+      workspaceId: input.workspaceId, fileId: input.fileId, level: input.level,
+      ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }),
+      ...(input.password === undefined ? {} : { password: input.password }),
+    }),
+  ),
+  updateShareLink: op(
+    { ...Workspace, fileId: Id, level: Schema.optional(LinkLevel), expiresAt: Schema.optional(Schema.NullOr(Seconds)), password: Schema.optional(Schema.NullOr(LinkPassword)) },
+    (input, { caller }) => updateShareLink(caller, {
+      workspaceId: input.workspaceId, fileId: input.fileId,
+      ...(input.level === undefined ? {} : { level: input.level }),
+      ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }),
+      ...(input.password === undefined ? {} : { password: input.password }),
+    }),
+  ),
+  revokeShareLink: op({ ...Workspace, fileId: Id, linkId: Schema.optional(Id) }, (input, { caller }) =>
+    revokeShareLink(caller, { workspaceId: input.workspaceId, fileId: input.fileId, ...(input.linkId === undefined ? {} : { linkId: input.linkId }) })),
+  copyShareLink: op({ ...Workspace, fileId: Id, linkId: Schema.optional(Id) }, (input, { caller }) =>
+    copyShareLink(caller, { workspaceId: input.workspaceId, fileId: input.fileId, ...(input.linkId === undefined ? {} : { linkId: input.linkId }) })),
   listActivity: op({ ...Workspace, limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))), cursor: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(200)))) }, (input, { caller }) =>
     listActivity(caller, { workspaceId: input.workspaceId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
 }
@@ -231,26 +258,17 @@ export const appProgram = (request: Request) =>
     if (operation === undefined) return yield* new ResourceUnavailable()
     const { trustedOrigins } = yield* AppConfig
     yield* checkMutationRequest(request, trustedOrigins)
-    const session = yield* Auth.use((auth) => auth.readSession(request.headers))
-    if (Option.isNone(session) || session.value.accountStatus !== 'active') return yield* new Unauthenticated()
-    const ip = request.headers.get('cf-connecting-ip')
-    const caller: Caller = {
-      userId: session.value.userId,
-      email: session.value.email,
-      emailVerified: session.value.emailVerified,
-      requestId: request.headers.get('cf-ray') ?? 'none',
-      ip,
-    }
+    const { caller, session } = yield* readCaller(request)
     if (operation.limit !== undefined) {
       const limiter = yield* RateLimit
-      yield* limiter.hit({ action: operation.limit, ip })
+      yield* limiter.hit({ action: operation.limit, ip: caller.ip })
       yield* limiter.hit({ action: operation.limit, target: caller.userId })
     }
     const body = yield* readBody(request)
     const result = yield* operation.run(body, {
       caller,
       request,
-      activeWorkspaceId: session.value.activeWorkspaceId,
+      activeWorkspaceId: session.activeWorkspaceId,
       locale: localeFromHeader(request.headers.get('accept-language')),
     })
     return sealed(result.data, result.headers)
