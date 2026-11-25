@@ -288,6 +288,23 @@ describe('password gate and proof cookie', () => {
     })),
   )
 
+  it.effect('a per-link counter bounds guesses from many addresses, before any hashing', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const { token } = yield* share({ password: 'correct horse' })
+      for (let i = 0; i < 30; i++) {
+        const error = yield* verifyLinkPassword(visitor(null, `192.0.2.${i + 1}`), { token, password: 'guess guess guess', turnstileToken: 'ok' }).pipe(Effect.flip)
+        assert.strictEqual(error._tag, 'LinkPasswordInvalid', `try ${i + 1}`)
+      }
+      const denied = (yield* accessRows).length
+      const over = yield* verifyLinkPassword(visitor(null, '203.0.113.200'), { token, password: 'correct horse', turnstileToken: 'ok' }).pipe(Effect.flip)
+      assert.strictEqual(over._tag, 'RateLimitExceeded')
+      assert.strictEqual((yield* accessRows).length, denied, 'nothing was hashed or audited')
+      yield* TestClock.adjust('16 minutes')
+      assert.isNotNull((yield* verifyLinkPassword(visitor(null, '203.0.113.200'), { token, password: 'correct horse', turnstileToken: 'ok' })).setCookie)
+    })),
+  )
+
   it.effect('refuses malformed input before any lookup', () =>
     run(Effect.gen(function* () {
       yield* world

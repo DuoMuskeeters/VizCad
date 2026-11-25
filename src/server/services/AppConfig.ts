@@ -16,7 +16,7 @@ export interface CachePurge {
 }
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkPassword', 'thumbnailPut', 'comment'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -60,6 +60,9 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   // Link password tries. The target is `<ip>|<link digest>` (one visitor on one link), so a stranger cannot lock the real
   // recipient out; the IP counter bounds guessing across links. Turnstile joins in after three failures (programs/shareLinks.ts).
   linkPassword: { target: { limit: 10, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
+  // Link password tries across every visitor (target = link digest, no IP), counted before PBKDF2 so parallel requests
+  // cannot slip past the failure-log threshold of Turnstile. Past it the answer is 429 for everyone until the window ends.
+  linkPasswordLink: { target: { limit: 30, windowSeconds: 15 * 60 }, ip: { limit: 30, windowSeconds: 15 * 60 } },
   // Thumbnail uploads (`putThumbnail`): per user.
   thumbnailPut: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
 }

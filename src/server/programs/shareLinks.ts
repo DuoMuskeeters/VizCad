@@ -158,7 +158,7 @@ const recentFailures = Effect.fnUntraced(function* (linkId: string, ip: string |
 })
 
 /**
- * `POST /api/s/password` (docs/09 §4.2). Order: rate limit per visitor and link, the link, Turnstile once this address
+ * `POST /api/s/password` (docs/09 §4.2). Order: rate limits per visitor and link and per link alone (429 before any hashing), the link, Turnstile once this address
  * failed three times (or the link ten times), then PBKDF2 and a constant-time comparison. A wrong password is audited
  * (`link.password_failed`, with the IP in the security log) and answers `LinkPasswordInvalid` (`captchaRequired` tells the
  * page to show the widget). A right one returns the `Set-Cookie` value of the proof (`__Host-`, HMAC over link, revision
@@ -172,6 +172,8 @@ export const verifyLinkPassword = Effect.fn('verifyLinkPassword')(function* (
   if (input.password.length < 1 || input.password.length > 128) return yield* new ValidationError({ message: 'invalid password' })
   const digest = yield* tokenDigest(input.token)
   yield* (yield* RateLimit).hit({ action: 'linkPassword', ip: request.ip, target: `${request.ip ?? 'none'}|${digest}` })
+  // Every visitor together, before any hashing: the failure log below only informs the hint, this counter is the hard bound.
+  yield* (yield* RateLimit).hit({ action: 'linkPasswordLink', target: digest })
   const row = yield* loadByToken(input.token)
   const { now, decision } = yield* decide(request, row, 'view')
   if (!decision.allowed && decision.reason !== 'LINK_PROOF_REQUIRED') return yield* refusal(decision.reason, row)
@@ -179,6 +181,7 @@ export const verifyLinkPassword = Effect.fn('verifyLinkPassword')(function* (
   // A link without a password, or one this visitor already proved: nothing to verify, no cookie needed.
   if (hash === null || decision.allowed) return { setCookie: null, expiresAt: null }
 
+  // `captchaRequired` is only a hint for the page; the server asks for Turnstile whenever the thresholds say so.
   const failures = yield* recentFailures(row.link.id, truncateIp(request.ip), now)
   if (failures.mine >= CAPTCHA_AFTER_IP_FAILURES || failures.total >= CAPTCHA_AFTER_LINK_FAILURES) {
     if (input.turnstileToken === undefined || input.turnstileToken === '') return yield* new CaptchaFailed({ reason: 'required' })
