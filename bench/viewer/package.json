@@ -1,0 +1,24 @@
+{
+	"name": "vizcad-viewer-bench",
+	"private": true,
+	"type": "module",
+	"description": "Throwaway Faz 5 viewer engine benchmark. Not part of the app.",
+	"scripts": {
+		"fetch": "sh fetch-samples.sh",
+		"dev": "vite --port 5199",
+		"build": "vite build",
+		"bench": "node run-bench.mjs"
+	},
+	"dependencies": {
+		"@kitware/vtk.js": "38.1.0",
+		"occt-import-js": "0.0.23",
+		"three": "0.187.0",
+		"three-mesh-bvh": "0.10.0"
+	},
+	"devDependencies": {
+		"@types/three": "0.187.0",
+		"playwright": "1.65.1",
+		"typescript": "6.0.3",
+		"vite": "8.3.8"
+	}
+}
