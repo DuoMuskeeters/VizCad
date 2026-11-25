@@ -22,13 +22,13 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - **Hosting:** `rewrite` branch'i ayrı bir Worker'a (`vizcad-rewrite`, workers.dev adresi) ve **ayrı staging kaynaklarına** (D1 `vizcad-staging`, R2 `vizcad-files-staging`) yayınlanır. Production D1/R2'ye dokunulmaz; staging'de sahte veri.
 - **Kalite kapısı:** her birleştirmeden önce `pnpm check` + `pnpm build` yeşil, yeni her program için test, ekranlarda 390/1280 px ve açık/koyu kontrol.
 
-## Şu an (24 Kasım 2026)
+## Şu an (25 Kasım 2026)
 
 | İz | Durum |
 |---|---|
 | Kararlar | D1–D19 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Sırada: Faz 3 artıkları, sonra Faz 4 (dosyalar ve paylaşım). **Duraklatıldı** (24 Kasım): Claude %78, Codex %49, Antigravity kotası dolu |
+| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Faz 4 (dosyalar ve paylaşım) bitti, staging'de. Sırada: 4e artıkları, sonra Dalga 4 (görüntüleyici motor araştırması). Claude kullanımı `~/.claude/bin/usage-pace.py` ile ölçülüp hıza göre çalışılıyor (25 Kasım) |
 | Hosting | Staging yayında. Kullanıcı staging'de kayıt, doğrulama e-postası ve girişi denedi: çalışıyor (24 Kasım) |
 
 ## Dalgalar
@@ -60,8 +60,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [x] 4c link ve teslim (PR #18; Opus incelemesi, 8 bulgu düzeltildi; staging 66/67, kalan 1 betik hatasıydı; link parolası PBKDF2 10 000 tekrar — Free plan CPU)
 - [x] Giriş parolası: yeni hash'ler PBKDF2 `p1$10000`, eski scrypt `PASSWORD_REHASH` açıkken ilk girişte dönüştürülür (Free plan CPU; PR `rewrite-login-hash`, staging CPU ölçümü bekliyor)
 - [x] 4e-1 Tüm dosyalar, yükleme, dosya sayfası, paylaşım penceresi (PR #20; staging'de)
-- [ ] (sürüyor) 4e-2 Projeler, Paylaşılanlar, Çöp, Aktivite, Ayarlar, `/s/$token` son hali + `listProjects`, `listFileAccess`
-- [ ] Sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
+- [x] 4e-2 Projeler, Paylaşılanlar, Çöp, Aktivite, Ayarlar, `/s/$token` + `listProjects`, `listFileAccess`, `listProjectAccess` (PR #21; staging'de, kenar çubuğunda "Sonra" kalmadı). Eksik: workspace adını değiştirme ucu; aktivitede dosya/proje adları ve sunucu tarafı filtre
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
 - [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*
 - [ ] UI: Tüm dosyalar, Projeler, Proje, Paylaşılanlar, Çöp kutusu, Aktivite, paylaşılan sayfa. *Sonnet high*
