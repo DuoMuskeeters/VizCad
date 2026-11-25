@@ -59,7 +59,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 - [x] 4d yorumlar ve aktivite (PR #17; staging 32/32)
 - [x] 4c link ve teslim (PR #18; Opus incelemesi, 8 bulgu düzeltildi; staging 66/67, kalan 1 betik hatasıydı; link parolası PBKDF2 10 000 tekrar — Free plan CPU)
 - [x] Giriş parolası: yeni hash'ler PBKDF2 `p1$10000`, eski scrypt `PASSWORD_REHASH` açıkken ilk girişte dönüştürülür (Free plan CPU; PR `rewrite-login-hash`, staging CPU ölçümü bekliyor)
-- [ ] (sürüyor) 4e-1 Tüm dosyalar, yükleme, ayrıntı paneli, paylaşım penceresi; sonra 4e-2 Projeler, Paylaşılanlar, Çöp, Aktivite, Ayarlar
+- [x] 4e-1 Tüm dosyalar, yükleme, dosya sayfası, paylaşım penceresi (PR #20; staging'de)
+- [ ] (sürüyor) 4e-2 Projeler, Paylaşılanlar, Çöp, Aktivite, Ayarlar, `/s/$token` son hali + `listProjects`, `listFileAccess`
 - [ ] Sonra 4b liste/çöp/sürüm, 4c link ve teslim, 4d yorum ve aktivite, 4e ekranlar
 - [ ] Faz 4 programları: yükleme (presign), liste, ad, yıldız, çöp kutusu, sürümler, projeler, link paylaşımı, misafir, yorumlar, aktivite kaydı; limitler `Entitlements`'tan. *Codex high*
 - [ ] Güvenlik düzeltmeleri: link parolası hash + body, "yalnızca görüntüleme" sunucuda zorunlu, tüm erişimler kayıtlı. *Codex high, Opus xhigh inceleme*
