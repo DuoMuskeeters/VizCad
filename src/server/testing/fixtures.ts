@@ -1,4 +1,5 @@
-import { Layer } from 'effect'
+import { eq } from 'drizzle-orm'
+import { Effect, Layer } from 'effect'
 import * as schema from '../db/schema'
 import type { Caller } from '../programs/shared'
 import * as AppConfig from '../services/AppConfig'
@@ -10,6 +11,7 @@ import * as Email from '../services/Email'
 import * as Entitlements from '../services/Entitlements'
 import * as RateLimit from '../services/RateLimit'
 import * as Storage from '../services/Storage'
+import { Storage as StorageService } from '../services/Storage'
 
 /** Fixed test clock start: 2026-11-24T10:00:00Z. Tests move it with TestClock.adjust. */
 export const T0 = 1795514400
@@ -124,3 +126,37 @@ const tables = {
   securityLog: schema.securityLog,
 } as const
 
+
+/** A file whose bytes really sit in the in-memory bucket: key, size and ETag in D1 match the object (a 0014-style row). */
+export const seedStoredFile = (
+  id: string,
+  ownerId: string,
+  workspaceId: string,
+  bytes: Uint8Array | string,
+  options: { name?: string; projectId?: string | null; legacy?: boolean } = {},
+) =>
+  Effect.gen(function* () {
+    const key = options.legacy ? `${ownerId}/${id}/${options.name ?? `${id}.step`}` : `w/${workspaceId}/f/${id}/obj-${id}`
+    const stored = yield* StorageService.use((storage) => storage.put(key, bytes))
+    yield* seedFile(id, ownerId, workspaceId, options.projectId ?? null)
+    yield* Db.use((db) =>
+      db.use((d) =>
+        d.update(schema.files).set({
+          r2Key: key, size: stored.size, contentEtag: options.legacy ? null : stored.etag, name: options.name ?? `${id}.step`,
+          ...(options.legacy ? {} : { currentVersionNumber: 1 }),
+        }).where(eq(schema.files.id, id)),
+      ),
+    )
+    return { key, size: stored.size, etag: stored.etag }
+  })
+
+/** A guest's grant on a file (guests always get a finite expiry). */
+export const seedFileGrant = (fileId: string, userId: string, workspaceId: string, level: 'view' | 'comment' | 'download', expiresAt: number | null = T0 + 86400) =>
+  Db.use((db) =>
+    db.use((d) =>
+      d.insert(schema.fileAccess).values({
+        workspaceId, fileId, userId, level, expiresAt: expiresAt === null ? null : at(expiresAt), grantedByUserId: null, source: 'grant',
+        createdAt: at(T0 - 3600), updatedAt: at(T0 - 3600),
+      }),
+    ),
+  )
