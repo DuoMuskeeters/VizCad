@@ -11,6 +11,7 @@ import * as Email from '../services/Email'
 import * as Entitlements from '../services/Entitlements'
 import * as RateLimit from '../services/RateLimit'
 import * as Storage from '../services/Storage'
+import * as Turnstile from '../services/Turnstile'
 import { Storage as StorageService } from '../services/Storage'
 import { encryptToken, hashPassword, tokenDigest, tokenKeyOf } from '../shareCrypto'
 
@@ -27,6 +28,7 @@ export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements
     Entitlements.fixed(limits),
     Background.inline,
     Storage.memory,
+    Turnstile.test,
   ).pipe(Layer.provideMerge(AppConfig.test(config)))
 
 const at = (seconds: number) => new Date(seconds * 1000)

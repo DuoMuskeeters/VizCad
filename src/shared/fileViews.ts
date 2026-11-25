@@ -76,3 +76,26 @@ export interface VersionEntry {
   readonly createdAt: number
   readonly thumbnailAvailable: boolean
 }
+
+/**
+ * What a share link's page shows (docs/09 §3.5). Built field by field from an allow-list: no file id, project, version
+ * list, activity, key or user id. `sharer` is who shared it (D18: the sharing company on top).
+ */
+export interface LinkFileView {
+  readonly name: string
+  readonly extension: string
+  readonly size: number
+  readonly updatedAt: number
+  readonly currentVersion: { readonly number: number }
+  readonly thumbnailAvailable: boolean
+  /** `download` follows the link's level; a link never comments. */
+  readonly can: { readonly download: boolean; readonly comment: false }
+  readonly sharer: { readonly displayName: string; readonly workspaceLabel: string | null }
+  /** Unix seconds, or null when the link does not expire. */
+  readonly expiresAt: number | null
+}
+
+/** The answer of `resolveShareLink`: the file card, or the password gate (no name, no size, nothing about the file). */
+export type ResolvedLink =
+  | { readonly kind: 'file'; readonly file: LinkFileView }
+  | { readonly kind: 'password' }
