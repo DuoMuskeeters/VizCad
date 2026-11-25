@@ -121,7 +121,7 @@ export const scopedInput = (
 }
 
 /** The columns of a file's summary: no key, no user id. `me` is the caller (for the star). */
-export const summarySelect = (d: Database, me: string, sortKey: SQL = sql`0`) => {
+export const summarySelect = (d: Database, me: string, now: number, sortKey: SQL = sql`0`) => {
   const f = schema.files
   return d.select({
     id: f.id,
@@ -137,6 +137,10 @@ export const summarySelect = (d: Database, me: string, sortKey: SQL = sql`0`) =>
     uploaderName: schema.user.name,
     starred: sql<number>`EXISTS (SELECT 1 FROM file_stars s WHERE s.fileId = ${f.id} AND s.userId = ${me})`,
     hasThumbnail: sql<number>`${f.thumbnailR2Key} IS NOT NULL`,
+    // The access summary of the list column: live grants (not the uploader row) and the link's state (0 none, 1 active, 2 only expired).
+    accessPeople: sql<number>`(SELECT count(*) FROM file_access g WHERE g.fileId = ${f.id} AND g.source = 'grant' AND (g.expiresAt IS NULL OR g.expiresAt > ${now}))`,
+    accessLink: sql<number>`COALESCE((SELECT max(CASE WHEN l.expiresAt IS NOT NULL AND l.expiresAt <= ${now} THEN 2
+      WHEN l.legacyMaxExpiresAt IS NOT NULL AND l.legacyMaxExpiresAt <= ${now} THEN 2 ELSE 1 END) FROM share_links l WHERE l.fileId = ${f.id} AND l.revokedAt IS NULL), 0)`,
     // NULL currentVersionNumber is a legacy row: COUNT(file_versions) + 1 (docs/09 §1.4).
     versionNumber: sql<number>`COALESCE(${f.currentVersionNumber}, (SELECT count(*) FROM file_versions v WHERE v.fileId = ${f.id}) + 1)`,
   }).from(f)
@@ -161,6 +165,7 @@ export const internalView = (row: SummaryRow, base: Omit<PermissionInput, 'actio
   starred: row.starred === 1,
   thumbnailAvailable: row.hasThumbnail === 1,
   currentVersion: { number: row.versionNumber, uploadedBy: person(row.uploaderName) },
+  access: { people: row.accessPeople, link: row.accessLink === 1 ? 'active' : row.accessLink === 2 ? 'expired' : 'none' },
   can: {
     edit: can(base, { kind: 'edit' }),
     comment: can(base, { kind: 'comment' }),

@@ -14,7 +14,7 @@ export const listVersions = Effect.fn('listVersions')(function* (caller: Caller,
   const db = yield* Db
   const [summary, snapshots] = yield* db.use((d) =>
     Promise.all([
-      summarySelect(d, caller.userId).where(eq(schema.files.id, file.id)).limit(1),
+      summarySelect(d, caller.userId, base.now).where(eq(schema.files.id, file.id)).limit(1),
       d.select({
         id: schema.fileVersions.id, number: schema.fileVersions.versionNumber, size: schema.fileVersions.size,
         createdAt: schema.fileVersions.createdAt, thumb: schema.fileVersions.thumbnailR2Key, uploader: schema.user.name,

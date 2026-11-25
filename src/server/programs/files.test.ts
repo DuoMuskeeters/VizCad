@@ -171,7 +171,7 @@ describe('getFile projections', () => {
       yield* seedProject('p1', 'acme', 'bob')
       yield* seedFile('f1', 'bob', 'acme', 'p1')
       const view = yield* getFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })
-      assert.deepStrictEqual(Object.keys(view).sort(), ['can', 'createdAt', 'currentVersion', 'extension', 'id', 'name', 'projectId', 'projectName', 'size', 'starred', 'thumbnailAvailable', 'updatedAt'])
+      assert.deepStrictEqual(Object.keys(view).sort(), ['access', 'can', 'createdAt', 'currentVersion', 'extension', 'id', 'name', 'projectId', 'projectName', 'size', 'starred', 'thumbnailAvailable', 'updatedAt'])
       assert.deepStrictEqual((view as FileView).can, { edit: true, comment: true, download: true, viewHistory: true, trash: true, share: true })
       const member = yield* getFile(caller('max'), { workspaceId: 'acme', fileId: 'f1' })
       assert.deepStrictEqual((member as FileView).can, { edit: false, comment: true, download: true, viewHistory: true, trash: false, share: false })

@@ -1,13 +1,14 @@
 import { assert, describe, it } from '@effect/vitest'
+import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { TestClock } from 'effect/testing'
 import * as schema from '../db/schema'
 import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
-import { caller, programLayer, rows, seedFile, seedMember, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { caller, programLayer, rows, seedFile, seedFileGrant, seedMember, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { grantFileAccess, grantProjectAccess } from './access'
 import { listActivity } from './activity'
-import { archiveProject, createProject, setProjectAccessMode, updateProject } from './projects'
+import { archiveProject, createProject, listProjects, setProjectAccessMode, updateProject } from './projects'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>, limits = defaultPlan) =>
   TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(limits)))
@@ -144,5 +145,57 @@ describe('listActivity', () => {
       const page = yield* listActivity(caller('bob'), { workspaceId: 'acme', limit: 10, cursor: null })
       assert.strictEqual(page.items.length, 0)
       assert.strictEqual((yield* Effect.flip(listActivity(caller('bob'), { workspaceId: 'beta', limit: 10, cursor: null })))._tag, 'WorkspaceUnavailable')
+    })))
+})
+
+describe('listProjects', () => {
+  it.effect('shows team projects to everyone, restricted ones only to people with access; guests need a project grant', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedUser('zoe')
+      const open = yield* create('ada', 'team', 'Open')
+      const secret = yield* create('ada', 'restricted', 'Secret')
+      const names = (userId: string) => listProjects(caller(userId), { workspaceId: 'acme' }).pipe(Effect.map((r) => r.items.map((p) => p.name)))
+      assert.deepStrictEqual(yield* names('bob'), ['Open', 'Secret'])
+      assert.deepStrictEqual(yield* names('ada'), ['Open', 'Secret'])
+      assert.deepStrictEqual(yield* names('max'), ['Open'])
+      assert.deepStrictEqual(yield* names('cat'), ['Open'])
+      assert.deepStrictEqual(yield* names('eve'), [])
+      yield* grantProjectAccess(caller('ada'), { workspaceId: 'acme', projectId: secret.id, userId: 'max', level: 'edit', expiresAt: null })
+      yield* grantProjectAccess(caller('ada'), { workspaceId: 'acme', projectId: open.id, userId: 'eve', level: 'comment', expiresAt: T0 + 3600 })
+      assert.deepStrictEqual(yield* names('max'), ['Open', 'Secret'])
+      assert.deepStrictEqual(yield* names('eve'), ['Open'])
+    })))
+
+  it.effect('a file grant alone does not list its project; archived projects, other workspaces and trashed files stay out of the counts', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      yield* seedWorkspace('beta', 'zed')
+      const p = yield* create('ada', 'restricted', 'Secret')
+      yield* seedFile('f1', 'ada', 'acme', p.id)
+      yield* seedFile('f2', 'ada', 'acme', p.id)
+      yield* seedFile('f3', 'ada', 'acme', p.id)
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({ isDeleted: true }).where(eq(schema.files.id, 'f3'))))
+      yield* seedFileGrant('f1', 'eve', 'acme', 'view')
+      assert.deepStrictEqual((yield* listProjects(caller('eve'), { workspaceId: 'acme' })).items, [])
+      const bob = (yield* listProjects(caller('bob'), { workspaceId: 'acme' })).items
+      assert.deepStrictEqual(bob.map((x) => [x.name, x.fileCount, x.createdBy?.displayName, x.can]), [['Secret', 2, 'ADA', { update: true, manageAccess: true, upload: true }]])
+      yield* archiveProject(caller('ada'), { workspaceId: 'acme', projectId: p.id })
+      assert.deepStrictEqual((yield* listProjects(caller('bob'), { workspaceId: 'acme' })).items, [])
+      assert.strictEqual((yield* Effect.flip(listProjects(caller('bob'), { workspaceId: 'beta' })))._tag, 'WorkspaceUnavailable')
+    })))
+
+  it.effect('can.* follows decidePermission: a plain member updates nothing and cannot upload into a restricted project without edit', () =>
+    run(Effect.gen(function* () {
+      yield* acme
+      const team = yield* create('ada', 'team', 'Team')
+      const restricted = yield* create('ada', 'restricted', 'Closed')
+      yield* grantProjectAccess(caller('ada'), { workspaceId: 'acme', projectId: restricted.id, userId: 'max', level: 'download', expiresAt: null })
+      const items = (yield* listProjects(caller('max'), { workspaceId: 'acme' })).items
+      assert.deepStrictEqual(items.map((x) => [x.name, x.can]), [
+        ['Closed', { update: false, manageAccess: false, upload: false }],
+        ['Team', { update: false, manageAccess: false, upload: true }],
+      ])
+      void team
     })))
 })

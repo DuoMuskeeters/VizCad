@@ -22,6 +22,8 @@ export interface FileView {
   readonly starred: boolean
   readonly thumbnailAvailable: boolean
   readonly currentVersion: { readonly number: number; readonly uploadedBy: PersonName | null }
+  /** Light access summary for the list's "Erişim" column: people holding a live grant (not the uploader) and the link's state. */
+  readonly access: { readonly people: number; readonly link: 'none' | 'active' | 'expired' }
   /** Per-action answers from permissions.ts, for "disabled + why" in the UI. */
   readonly can: {
     readonly edit: boolean
@@ -173,4 +175,57 @@ export interface SharedByMeItem {
 export interface SharedPage<T> {
   readonly items: ReadonlyArray<T>
   readonly nextCursor: string | null
+}
+
+/** One project of the list (docs/09 §5.1, docs/08 §4). Only projects the caller can open are listed. */
+export interface ProjectView {
+  readonly id: string
+  readonly name: string
+  readonly description: string | null
+  readonly accessMode: 'team' | 'restricted'
+  readonly fileCount: number
+  readonly createdBy: PersonName | null
+  /** Unix seconds. */
+  readonly createdAt: number
+  readonly updatedAt: number
+  readonly can: { readonly update: boolean; readonly manageAccess: boolean; readonly upload: boolean }
+}
+
+export interface ProjectList {
+  readonly items: ReadonlyArray<ProjectView>
+}
+
+/** A person holding access to a file (docs/09 §5.1, D20). */
+export interface FileAccessEntry {
+  readonly userId: string
+  readonly name: string
+  readonly email: string
+  readonly role: 'owner' | 'admin' | 'member' | 'commenter' | 'guest'
+  readonly level: 'view' | 'comment' | 'download' | 'edit'
+  /** `uploader` is ownership of the file, not a grant: it cannot be removed here. */
+  readonly source: 'grant' | 'uploader'
+  /** Unix seconds; null when the access does not end. */
+  readonly expiresAt: number | null
+  readonly expired: boolean
+  readonly grantedBy: PersonName | null
+  readonly self: boolean
+  readonly canRevoke: boolean
+}
+
+/** A guest invitation that has not been accepted yet. */
+export interface FileAccessInvitation {
+  readonly id: string
+  readonly email: string
+  readonly level: 'view' | 'comment' | 'download'
+  readonly accessExpiresAt: number
+}
+
+/**
+ * Who can open a file. `canManage` is the answer of `shareFile`: without it the caller sees only their own row (a guest
+ * only themself, D20), never the other people or invitations.
+ */
+export interface FileAccessList {
+  readonly canManage: boolean
+  readonly people: ReadonlyArray<FileAccessEntry>
+  readonly invitations: ReadonlyArray<FileAccessInvitation>
 }

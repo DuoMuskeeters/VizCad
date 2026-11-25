@@ -58,7 +58,7 @@ const viewOf = (file: Stored, role: Role): AnyFileView => {
   const view: FileView = {
     id: file.id, name: file.name, extension: file.extension, size: file.size, projectId: file.project === null ? null : `p-${file.project}`, projectName: file.project,
     createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false,
-    currentVersion: { number: file.version, uploadedBy: { displayName: file.uploader } },
+    currentVersion: { number: file.version, uploadedBy: { displayName: file.uploader } }, access: { people: 0, link: 'none' },
     can: { edit: edits, comment: true, download: true, viewHistory: true, trash: edits, share: edits },
   }
   return view
