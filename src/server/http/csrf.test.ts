@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { checkMutationRequest } from './csrf'
+import { checkMutationRequest, checkReadRequest } from './csrf'
 
 const trusted = new Set(['https://vizcad.test', 'http://localhost:3000'])
 const request = (headers: Record<string, string>, method = 'POST') =>
@@ -51,6 +51,30 @@ describe('checkMutationRequest', () => {
         assert.strictEqual(yield* reason(request({ ...json, 'content-type': type })), 'content-type', type)
       }
       assert.strictEqual(yield* reason(new Request('https://vizcad.test/x', { method: 'POST', headers: { origin: 'https://vizcad.test' }, body: '{}' })), 'content-type')
+    }),
+  )
+})
+
+describe('checkReadRequest', () => {
+  const read = (headers: Record<string, string>) =>
+    checkReadRequest(new Request('https://vizcad.test/s/t/content', { headers }), trusted).pipe(Effect.as('ok'), Effect.catch((e) => Effect.succeed(e.reason)))
+
+  it.effect('same-origin passes; none only as a user-started navigation', () =>
+    Effect.gen(function* () {
+      assert.strictEqual(yield* read({ 'sec-fetch-site': 'same-origin' }), 'ok')
+      assert.strictEqual(yield* read({ 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?1' }), 'ok')
+      for (const extra of [{}, { 'sec-fetch-mode': 'navigate' }, { 'sec-fetch-user': '?1' }, { 'sec-fetch-mode': 'cors', 'sec-fetch-user': '?1' }, { 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?0' }]) {
+        assert.strictEqual(yield* read({ 'sec-fetch-site': 'none', ...extra }), 'fetch-site', JSON.stringify(extra))
+      }
+      for (const site of ['cross-site', 'same-site']) assert.strictEqual(yield* read({ 'sec-fetch-site': site, 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?1' }), 'fetch-site')
+    }),
+  )
+
+  it.effect('without Sec-Fetch-Site only a trusted Origin passes', () =>
+    Effect.gen(function* () {
+      assert.strictEqual(yield* read({ origin: 'https://vizcad.test' }), 'ok')
+      assert.strictEqual(yield* read({}), 'origin')
+      assert.strictEqual(yield* read({ origin: 'https://evil.test' }), 'origin')
     }),
   )
 })

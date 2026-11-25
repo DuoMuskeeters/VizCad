@@ -21,7 +21,8 @@ export const checkMutationRequest = (request: Request, trustedOrigins: ReadonlyS
 /**
  * Boundary of the GET endpoints that audit on the caller's behalf (file content and thumbnails, docs/09 §3.1): a request
  * another site could trigger must not write an audit row for the user. The browser's `Sec-Fetch-Site` must be
- * `same-origin` (a page of ours) or `none` (the user typed or opened the URL themself; a web page cannot cause that).
+ * `same-origin` (a page of ours) or `none` together with `Sec-Fetch-Mode: navigate` and `Sec-Fetch-User: ?1` (the user typed or opened
+ * the URL themself; a web page cannot cause that).
  * Without the header (not a browser) a trusted `Origin` is required instead.
  */
 export const checkReadRequest = (request: Request, trustedOrigins: ReadonlySet<string>) =>
@@ -29,7 +30,10 @@ export const checkReadRequest = (request: Request, trustedOrigins: ReadonlySet<s
     if (request.method !== 'GET') return yield* new CsrfRejected({ reason: 'method' })
     const site = request.headers.get('sec-fetch-site')
     if (site !== null) {
-      if (site !== 'same-origin' && site !== 'none') return yield* new CsrfRejected({ reason: 'fetch-site' })
+      if (site === 'same-origin') return
+      // `none` is a navigation the user started (address bar, bookmark, opened link), never a script's fetch or an embed.
+      const navigation = request.headers.get('sec-fetch-mode') === 'navigate' && request.headers.get('sec-fetch-user') === '?1'
+      if (site !== 'none' || !navigation) return yield* new CsrfRejected({ reason: 'fetch-site' })
       return
     }
     const origin = request.headers.get('origin')

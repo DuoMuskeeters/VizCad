@@ -94,7 +94,12 @@ describe('GET /api/files/{id}/content', () => {
 
   it.effect('accepts a user-typed URL (none) and, without the header, only a trusted Origin', () =>
     run(Effect.gen(function* () {
-      assert.strictEqual((yield* call(get('/api/files/f1/content', { 'sec-fetch-site': 'none' }))).status, 200)
+      const typed = { 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?1' }
+      assert.strictEqual((yield* call(get('/api/files/f1/content', typed))).status, 200)
+      // `none` without a user-started navigation (a script, an embed, a prefetch) is refused.
+      assert.strictEqual((yield* call(get('/api/files/f1/content', { 'sec-fetch-site': 'none' }))).status, 403)
+      assert.strictEqual((yield* call(get('/api/files/f1/content', { ...typed, 'sec-fetch-mode': 'no-cors' }))).status, 403)
+      assert.strictEqual((yield* call(get('/api/files/f1/content', { ...typed, 'sec-fetch-user': '?0' }))).status, 403)
       const headers = { cookie: 'session=tok-max', 'cf-ray': 'ray-1' }
       assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/content`, { headers: { ...headers, origin: ORIGIN } }))).status, 200)
       assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/content`, { headers: { ...headers, origin: 'https://evil.test' } }))).status, 403)
