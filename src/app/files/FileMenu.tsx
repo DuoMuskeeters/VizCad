@@ -21,7 +21,7 @@ export const FileMenu = ({ file, handlers, triggerClassName }: { file: AnyFileVi
   const can = abilitiesOf(file)
   const full = isFullView(file)
   const reasonProp = (allowed: boolean, key: Parameters<typeof t>[0]) => (allowed ? {} : { disabledReason: t(key) })
-  const moveReason = !can.edit ? t('files.reason.edit') : full && file.projectId === null ? t('files.reason.moveNoProject') : !full ? t('files.reason.edit') : undefined
+  const moveReason = !can.edit || !full ? t('files.reason.moveNoProject') : undefined
   return (
     <Menu>
       <MenuTrigger asChild>

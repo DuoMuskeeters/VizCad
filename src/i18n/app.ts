@@ -18,8 +18,6 @@ export const appEn = {
   'app.nav.activity': 'Activity',
   'app.nav.settings': 'Settings',
   'app.nav.trash': 'Trash',
-  'app.nav.later': 'Later',
-  'app.nav.laterReason': 'Not available yet. Files and projects open in a later release.',
 
   'app.workspace.yours': 'Your workspaces',
   'app.workspace.guestOf': 'You are a guest in',
@@ -263,8 +261,6 @@ export const appTr: Record<keyof typeof appEn, string> = {
   'app.nav.activity': 'Aktivite',
   'app.nav.settings': 'Ayarlar',
   'app.nav.trash': 'Çöp kutusu',
-  'app.nav.later': 'Sonra',
-  'app.nav.laterReason': 'Henüz kullanılamıyor. Dosyalar ve projeler sonraki sürümde açılıyor.',
 
   'app.workspace.yours': 'Workspace’lerin',
   'app.workspace.guestOf': 'Misafir olduğun',

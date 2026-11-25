@@ -16,7 +16,7 @@ import { useI18n } from '#/i18n'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
-import { RenameDialog } from './FileDialogs'
+import { MoveDialog, RenameDialog } from './FileDialogs'
 import { FileMenu } from './FileMenu'
 import { ActivityTab, CommentsTab, VersionsTab } from './FileTabs'
 import { startDownload } from './download'
@@ -83,6 +83,7 @@ export const FileDetailPage = () => {
   const search = useSearch({ strict: false }) as { share?: boolean }
   const [state, setState] = useState<State>({ status: 'loading' })
   const [renaming, setRenaming] = useState(false)
+  const [moving, setMoving] = useState(false)
   const [sharing, setSharing] = useState(search.share === true)
   const [tab, setTab] = useState('details')
   const [versionKey, setVersionKey] = useState(0)
@@ -177,7 +178,7 @@ export const FileDetailPage = () => {
                     }
                   })
                 },
-                onMove: () => toast({ title: t('files.reason.moveNoProject') }),
+                onMove: () => setMoving(true),
                 onShare: () => setSharing(true),
                 onDownload: () => startDownload(file.id),
                 onTrash: () => {
@@ -251,6 +252,18 @@ export const FileDetailPage = () => {
             setState({ status: 'ready', file: { ...file, name } })
             toast({ title: t('files.rename.done', { name }), tone: 'success' })
             setRenaming(false)
+          }}
+        />
+      ) : null}
+      {moving ? (
+        <MoveDialog
+          files={[file]}
+          workspaceId={active.id}
+          onClose={() => setMoving(false)}
+          onMoved={() => {
+            toast({ title: t('files.move.done', { name: file.name }), tone: 'success' })
+            setMoving(false)
+            void load()
           }}
         />
       ) : null}

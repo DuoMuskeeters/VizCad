@@ -8,9 +8,18 @@ import { FileMenu, type FileMenuHandlers } from './FileMenu'
 import { formatBytes, formatWhen, tileText } from './format'
 import { isFullView, type AnyFileView } from './types'
 
-const columns = 'app:grid-cols-[28px_minmax(0,1fr)_150px_150px_110px_76px_36px]'
+const columns = 'app:grid-cols-[28px_minmax(0,1fr)_130px_130px_140px_88px_76px_36px]'
 
 export const ownerOf = (file: AnyFileView): string | null => (isFullView(file) ? (file.currentVersion.uploadedBy?.displayName ?? null) : file.sharedBy.displayName)
+
+/** The "Erişim" column in plain words (docs/03 §4): "Team only", "2 people", "Link · expired". Guests get no summary. */
+export const accessText = (file: AnyFileView, t: ReturnType<typeof useI18n>['t']): string | null => {
+  if (!isFullView(file)) return null
+  const { people, link } = file.access
+  const who = people === 1 ? t('files.access.person') : t('files.access.people', { count: people })
+  if (people === 0) return link === 'none' ? t('files.access.team') : link === 'expired' ? t('files.access.linkExpired') : t('files.access.link')
+  return link === 'none' ? who : link === 'expired' ? t('files.access.peopleLinkExpired', { people: who }) : t('files.access.peopleLink', { people: who })
+}
 
 export type FilesTableProps = {
   readonly files: readonly AnyFileView[]
@@ -33,6 +42,7 @@ export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, han
         </DataListHead>
         <DataListHead>{t('files.col.name')}</DataListHead>
         <DataListHead>{t('files.col.project')}</DataListHead>
+        <DataListHead>{t('files.col.access')}</DataListHead>
         <DataListHead>{t('files.col.owner')}</DataListHead>
         <DataListHead>{t('files.col.modified')}</DataListHead>
         <DataListHead align="end">{t('files.col.size')}</DataListHead>
@@ -59,6 +69,9 @@ export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, han
               </DataListPrimary>
               <DataListCell desktopOnly className="truncate">
                 {project ?? <span className="text-text-3">{t('files.noProject')}</span>}
+              </DataListCell>
+              <DataListCell desktopOnly className="truncate">
+                {accessText(file, t) ?? <span className="text-text-3">–</span>}
               </DataListCell>
               <DataListCell desktopOnly>
                 {owner ? (
