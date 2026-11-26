@@ -5,7 +5,7 @@ import { VersionUnavailable } from '../errors'
 import type { VersionEntry } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { openFile, personOf, summarySelect } from './fileContext'
-import { activity, authorize, type Caller, guard, newUlid, runBatch, stillRole, toDate, toSeconds } from './shared'
+import { activity, authorize, type Caller, guard, newUlid, runBatch, snapshotCurrentVersion, stillRole, toDate, toSeconds } from './shared'
 
 /** The version history, newest first: the current version as `current`, then the snapshots (docs/09 §5.2). Internal roles only. */
 export const listVersions = Effect.fn('listVersions')(function* (caller: Caller, input: { readonly workspaceId: string; readonly fileId: string }) {
@@ -71,12 +71,7 @@ export const restoreVersion = Effect.fn('restoreVersion')(function* (
       sql`(SELECT count(*) FROM file_versions WHERE fileId = ${file.id}) = ${versions}`,
       sql`EXISTS (SELECT 1 FROM file_versions WHERE id = ${version.id} AND fileId = ${file.id} AND r2Key = ${version.r2Key})`,
     ], sql` AND `)),
-    d.insert(schema.fileVersions).values({
-      id: snapshotId, fileId: file.id, versionNumber: currentNumber, r2Key: file.r2Key, size: file.size,
-      uploadedByUserId: file.currentUploadedByUserId ?? file.userId, createdAt: at,
-      contentEtag: file.contentEtag, thumbnailR2Key: file.thumbnailR2Key,
-      derivativeR2Key: file.derivativeR2Key, derivativeState: file.derivativeState, derivativeMeta: file.derivativeMeta,
-    }),
+    snapshotCurrentVersion(d, { snapshotId, fileId: file.id, r2Key: file.r2Key, versionNumber: currentNumber, at: base.now }),
     // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows).
     d.update(schema.files).set({
       r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag, thumbnailR2Key: version.thumbnailR2Key,

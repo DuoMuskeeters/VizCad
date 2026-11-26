@@ -14,7 +14,7 @@ import {
 import { drainStorageDeletions, enqueueDeletion } from './storageCleanup'
 import {
   activity, authorize, type Caller, fileForPermission, fileGrantOf, guard, loadProject, newUlid, nowSeconds, permissionActor,
-  projectForPermission, projectGrantOf, projectStill, requireMembership, runBatch, stillRole, toDate, toSeconds,
+  projectForPermission, projectGrantOf, projectStill, requireMembership, runBatch, snapshotCurrentVersion, stillRole, toDate, toSeconds,
 } from './shared'
 
 /** The one content type of every presigned upload; the file's real type comes from its extension and bytes. */
@@ -321,12 +321,7 @@ export const completeUpload = Effect.fn('completeUpload')(function* (caller: Cal
             AND r2Key = ${current.r2Key} AND currentVersionNumber IS ${current.currentVersionNumber})`,
           sql`(SELECT count(*) FROM file_versions WHERE fileId = ${current.id}) = ${versions}`,
         ])),
-        d.insert(schema.fileVersions).values({
-          id: snapshotId, fileId: current.id, versionNumber: currentNumber, r2Key: current.r2Key, size: current.size,
-          uploadedByUserId: current.currentUploadedByUserId ?? current.userId, createdAt: at,
-          contentEtag: current.contentEtag, thumbnailR2Key: current.thumbnailR2Key,
-          derivativeR2Key: current.derivativeR2Key, derivativeState: current.derivativeState, derivativeMeta: current.derivativeMeta,
-        }),
+        snapshotCurrentVersion(d, { snapshotId, fileId: current.id, r2Key: current.r2Key, versionNumber: currentNumber, at: now }),
         // The new bytes have no thumbnail and no derivative yet: both move to the snapshot (docs/11 §2.2).
         d.update(schema.files).set({
           r2Key: session.r2Key, size: session.declaredSize, contentEtag: etag, currentVersionNumber: currentNumber + 1,

@@ -150,6 +150,39 @@ export const runBatch = <E = never>(statements: Statements, onConstraint: Readon
 export const guard = (d: Database, condition: SQL) =>
   d.insert(schema.batchGuard).values({ ok: sql`CASE WHEN ${condition} THEN 1 ELSE 0 END` })
 
+/**
+ * A batch statement that saves the file's current state as version `versionNumber` (a `file_versions` row). Every
+ * column is read from `files` when the statement runs, not from a row read before the call's R2 checks: a thumbnail or
+ * a GLB derivative that lands in between moves into the snapshot instead of being lost (docs/11 Faz 5b note). Matches
+ * only while the file is still on `r2Key`; the caller's guard makes a mismatch abort the batch.
+ */
+export const snapshotCurrentVersion = (d: Database, input: {
+  readonly snapshotId: string
+  readonly fileId: string
+  readonly r2Key: string
+  readonly versionNumber: number
+  readonly at: number
+}) => {
+  const f = schema.files
+  return d.insert(schema.fileVersions).select(
+    d.select({
+      id: sql<string>`${input.snapshotId}`.as('id'),
+      fileId: f.id,
+      versionNumber: sql<number>`${input.versionNumber}`.as('versionNumber'),
+      r2Key: f.r2Key,
+      size: f.size,
+      changeNote: sql<string | null>`NULL`.as('changeNote'),
+      uploadedByUserId: sql<string>`COALESCE(${f.currentUploadedByUserId}, ${f.userId})`.as('uploadedByUserId'),
+      createdAt: sql<number>`${input.at}`.as('createdAt'),
+      contentEtag: f.contentEtag,
+      thumbnailR2Key: f.thumbnailR2Key,
+      derivativeR2Key: f.derivativeR2Key,
+      derivativeState: f.derivativeState,
+      derivativeMeta: f.derivativeMeta,
+    }).from(f).where(and(eq(f.id, input.fileId), eq(f.r2Key, input.r2Key))),
+  )
+}
+
 const list = (values: ReadonlyArray<string>) => sql.join(values.map((v) => sql`${v}`), sql`, `)
 
 /** Write-time recheck: the user still has one of `roles` in a live (unarchived) workspace. */

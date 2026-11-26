@@ -12,7 +12,7 @@ import { readBytes, Storage } from '../services/Storage'
 import { objectKey } from './uploads'
 import { recordDenied, recordDelivery } from './audit'
 import { can, currentVersionOf, openFile } from './fileContext'
-import { enqueueDeletion } from './storageCleanup'
+import { drainStorageDeletions, enqueueDeletion } from './storageCleanup'
 import { authorize, type Caller, guard, newUlid, opt, runBatch, stillRole, toDate, traceOf, type Trace } from './shared'
 
 /** What the HTTP layer sends: a status, headers, and the bytes (a stream for content, bytes for a thumbnail). */
@@ -268,11 +268,18 @@ export const putThumbnail = Effect.fn('putThumbnail')(function* (
   yield* runBatch((d) => [
     guard(d, sql`${stillRole(workspaceId, caller.userId, [role])} AND ${still(false)} AND EXISTS (
       SELECT 1 FROM files WHERE id = ${file.id} AND r2Key = ${file.r2Key})`),
+    // The thumbnail the file holds when this runs (another tab may have replaced the one read above).
+    d.insert(schema.storageDeletions).select(sql`SELECT thumbnailR2Key, 'purged', ${base.now}, 0, NULL, ${base.now} FROM files
+      WHERE id = ${file.id} AND r2Key = ${file.r2Key} AND thumbnailR2Key IS NOT NULL`).onConflictDoNothing(),
     d.update(schema.files).set({ thumbnailR2Key: key, updatedAt: at }).where(and(eq(schema.files.id, file.id), eq(schema.files.r2Key, file.r2Key))),
-    ...(file.thumbnailR2Key === null ? [] : [enqueueDeletion(d, file.thumbnailR2Key, 'purged', base.now)]),
   ]).pipe(
-    // The new object is unreferenced if the batch did not run; remove it (best effort, the queue is not involved).
-    Effect.tapError(() => storage.delete([key]).pipe(Effect.ignore)),
+    // The new object is unreferenced if the batch did not run: queue it (D1 first), then try the deletion now.
+    Effect.tapError(() =>
+      runBatch((d) => [enqueueDeletion(d, key, 'purged', base.now)]).pipe(
+        Effect.andThen(drainStorageDeletions({ keys: [key] })),
+        Effect.catch(() => storage.delete([key])),
+        Effect.ignore,
+      )),
   )
   return { thumbnailAvailable: true }
 })
