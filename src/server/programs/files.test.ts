@@ -125,7 +125,7 @@ describe('listFiles', () => {
       assert.deepStrictEqual(names(yield* list('max')), ['f-open.step', 'f-root.step', 'f-shared.step'])
       const guest = yield* list('eve')
       assert.deepStrictEqual(names(guest), ['f-shared.step'])
-      assert.deepStrictEqual(Object.keys(guest.items[0] ?? {}).sort(), ['can', 'currentVersion', 'extension', 'id', 'name', 'sharedBy', 'size', 'thumbnailAvailable', 'updatedAt'])
+      assert.deepStrictEqual(Object.keys(guest.items[0] ?? {}).sort(), ['can', 'currentVersion', 'extension', 'id', 'model', 'name', 'sharedBy', 'size', 'thumbnailAvailable', 'updatedAt'])
       // A project grant opens that project to the guest; a file grant does not open the project list.
       assert.strictEqual((yield* Effect.flip(list('eve', { projectId: 'open' })))._tag, 'PermissionDenied')
       assert.strictEqual((yield* Effect.flip(list('max', { projectId: 'closed' })))._tag, 'PermissionDenied')
@@ -171,7 +171,7 @@ describe('getFile projections', () => {
       yield* seedProject('p1', 'acme', 'bob')
       yield* seedFile('f1', 'bob', 'acme', 'p1')
       const view = yield* getFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })
-      assert.deepStrictEqual(Object.keys(view).sort(), ['access', 'can', 'createdAt', 'currentVersion', 'extension', 'id', 'name', 'projectId', 'projectName', 'size', 'starred', 'thumbnailAvailable', 'updatedAt'])
+      assert.deepStrictEqual(Object.keys(view).sort(), ['access', 'can', 'createdAt', 'currentVersion', 'extension', 'id', 'model', 'name', 'projectId', 'projectName', 'size', 'starred', 'thumbnailAvailable', 'updatedAt'])
       assert.deepStrictEqual((view as FileView).can, { edit: true, comment: true, download: true, viewHistory: true, trash: true, share: true })
       const member = yield* getFile(caller('max'), { workspaceId: 'acme', fileId: 'f1' })
       assert.deepStrictEqual((member as FileView).can, { edit: false, comment: true, download: true, viewHistory: true, trash: false, share: false })
@@ -194,6 +194,8 @@ describe('getFile projections', () => {
       const view = yield* getFile(caller('eve'), { workspaceId: 'acme', fileId: 'f1' })
       assert.deepStrictEqual(view, {
         id: 'f1', name: 'f1.step', extension: 'step', size: 100, updatedAt: T0 - 3600, currentVersion: { number: 1 }, thumbnailAvailable: true,
+        // A commenter guest: no derivative yet and no download, so the viewer has nothing to read (D23).
+        model: { kind: 'none', bytes: null, derivative: null, maxConvertBytes: 50 * 1024 * 1024 },
         can: { download: false, comment: true }, sharedBy: { displayName: 'ADA' },
       })
       const text = JSON.stringify(view)

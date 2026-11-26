@@ -186,6 +186,15 @@ export class LinkPasswordInvalid extends Data.TaggedError('LinkPasswordInvalid')
 /** The comment does not exist on this file, is deleted, or is not visible to the caller (one answer for all). */
 export class CommentUnavailable extends Data.TaggedError('CommentUnavailable')<{}> {}
 
+/**
+ * The file's current version is no longer the one the request was made for (a new version or a restore landed in
+ * between): a derivative or thumbnail of the old bytes must not be stored on the new one (docs/11 §2.3).
+ */
+export class VersionChanged extends Data.TaggedError('VersionChanged')<{}> {}
+
+/** The uploaded GLB failed the header check (magic, version 2, length, first chunk JSON), docs/11 §2.3. */
+export class InvalidDerivative extends Data.TaggedError('InvalidDerivative')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -239,3 +248,5 @@ export type AppError =
   | LinkPasswordRequired
   | LinkPasswordInvalid
   | CommentUnavailable
+  | VersionChanged
+  | InvalidDerivative

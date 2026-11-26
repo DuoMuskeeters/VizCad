@@ -2,16 +2,18 @@ import { and, eq, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
 import { CaptchaFailed, LinkExpired, LinkPasswordInvalid, LinkPasswordRequired, LinkUnavailable, PermissionDenied, PreviewUnavailable, ValidationError } from '../errors'
+import { modelPreview } from '../derivative'
 import { decidePermission, type DenialReason, type PermissionInput } from '../permissions'
 import type { LinkFileView, ResolvedLink } from '../../shared/fileViews'
 import { Db } from '../services/Db'
+import { Entitlements } from '../services/Entitlements'
 import { RateLimit } from '../services/RateLimit'
 import { Turnstile } from '../services/Turnstile'
 import {
   isTokenFormat, PROOF_MAX_SECONDS, type PasswordProof, proofKey, proofSetCookie, readProof, signProof, tokenDigest, verifyPassword,
 } from '../shareCrypto'
 import { recordDenied, recordDelivery } from './audit'
-import { streamContent, streamThumbnail } from './delivery'
+import { modelTarget, streamContent, streamModel, streamThumbnail } from './delivery'
 import { fileForPermission, nowSeconds, toSeconds, truncateIp, truncateUserAgent, type Trace } from './shared'
 
 /** What the link endpoints know about a request: no session, only the visitor's address, agent and cookies. */
@@ -44,6 +46,7 @@ const loadByToken = Effect.fnUntraced(function* (token: string) {
       file: {
         id: f.id, name: f.name, extension: f.extension, size: f.size, workspaceId: f.workspaceId, projectId: f.projectId, isDeleted: f.isDeleted,
         status: f.status, updatedAt: f.updatedAt, r2Key: f.r2Key, thumbnailR2Key: f.thumbnailR2Key, contentEtag: f.contentEtag,
+        derivativeR2Key: f.derivativeR2Key, derivativeState: f.derivativeState, derivativeMeta: f.derivativeMeta,
         // NULL currentVersionNumber is a legacy row: COUNT(file_versions) + 1 (docs/09 §1.4).
         versionNumber: sql<number>`COALESCE(${f.currentVersionNumber}, (SELECT count(*) FROM file_versions v WHERE v.fileId = ${f.id}) + 1)`,
       },
@@ -114,17 +117,21 @@ const decide = Effect.fnUntraced(function* (request: LinkRequest, row: Loaded, a
   return { now, decision, input }
 })
 
-const fileView = (row: Loaded, input: Omit<PermissionInput, 'action'>): LinkFileView => ({
+const fileView = (row: Loaded, input: Omit<PermissionInput, 'action'>, maxConvertBytes: number): LinkFileView => {
+  const download = decidePermission({ ...input, action: { kind: 'download' } }).allowed
+  return {
   name: row.file.name,
   extension: row.file.extension,
   size: row.file.size,
   updatedAt: toSeconds(row.file.updatedAt),
   currentVersion: { number: row.file.versionNumber },
   thumbnailAvailable: row.file.thumbnailR2Key !== null,
-  can: { download: decidePermission({ ...input, action: { kind: 'download' } }).allowed, comment: false },
+  model: modelPreview(row.file, download, maxConvertBytes),
+  can: { download, comment: false },
   sharer: { displayName: sharerOf(row), workspaceLabel: row.link.publicSharerLabel },
   expiresAt: seconds(row.link.expiresAt),
-})
+  }
+}
 
 /**
  * `/s/{token}` (docs/09 §4.3): token format, then the per-IP rate limit, then one lookup by digest. Unknown, revoked,
@@ -145,7 +152,8 @@ export const resolveShareLink = Effect.fn('resolveShareLink')(function* (request
     workspaceId: row.workspaceId, actor: { kind: 'link', linkId: row.link.id }, fileId: row.file.id, objectKey: row.file.r2Key, purpose: 'open',
     trace: traceOf(request), now,
   })
-  return { kind: 'file', file: fileView(row, input) } satisfies ResolvedLink
+  const { maxConvertBytes } = yield* (yield* Entitlements).limits(row.workspaceId)
+  return { kind: 'file', file: fileView(row, input, maxConvertBytes) } satisfies ResolvedLink
 })
 
 const recentFailures = Effect.fnUntraced(function* (linkId: string, ip: string | null, now: number) {
@@ -234,12 +242,28 @@ export const deliverLinkContent = Effect.fn('deliverLinkContent')(function* (req
 })
 
 /**
- * `GET /s/{token}/model`: what the shared page's 3D viewer reads (docs/11 §2.4); same bytes and headers as `content`,
- * audited as `file.previewed` (no security-log download event). Faz 5a: still a `download` link and the source object;
- * 5b (D23) moves it to `preview` (every live link) and the GLB derivative.
+ * `GET /s/{token}/model`: what the shared page's 3D viewer reads (docs/11 §2.4, D23). Every live link may preview: a
+ * `view` link gets the GLB derivative of a STEP/IGES/3MF (never its source) and the source of an STL/OBJ/PLY; a
+ * `download` link also gets a STEP's source when no derivative exists. Same headers as `content`, audited as
+ * `file.previewed` (no security-log download event).
  */
 export const deliverLinkModel = Effect.fn('deliverLinkModel')(function* (request: LinkRequest, token: string, range: string | null) {
-  return yield* deliverLinkSource(request, token, range, 'preview')
+  const row = yield* loadByToken(token)
+  const { now, decision, input } = yield* decide(request, row, 'preview')
+  if (!decision.allowed) return yield* refusal(decision.reason, row)
+  const target = modelTarget(row.file, decidePermission({ ...input, action: { kind: 'download' } }).allowed)
+  if (target === undefined) return yield* new PreviewUnavailable()
+  const trace = traceOf(request)
+  const actor = { kind: 'link', linkId: row.link.id } as const
+  yield* recordDelivery({ workspaceId: row.workspaceId, actor, fileId: row.file.id, objectKey: target.object.key, purpose: 'preview', trace, now })
+  return yield* streamModel(target, range, LINK_HEADERS).pipe(
+    Effect.tapError((error) =>
+      error._tag !== 'ContentIntegrity' ? Effect.void : Effect.logWarning('delivery integrity check failed').pipe(
+        Effect.annotateLogs({ requestId: request.requestId }),
+        Effect.andThen(recordDenied({ workspaceId: row.workspaceId, actor, fileId: row.file.id, action: 'file.previewed', reason: 'integrity', security: false, trace, now })),
+        Effect.ignore,
+      )),
+  )
 })
 
 /** `GET /s/{token}/thumbnail`: the current thumbnail for any live link (`view` suffices); audited as `file.previewed`. */

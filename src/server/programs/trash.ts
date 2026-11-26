@@ -75,16 +75,16 @@ export const restoreFile = Effect.fn('restoreFile')(function* (caller: Caller, i
   return { fileId: file.id, name }
 })
 
-/** The R2 keys a file holds: the current object, its thumbnail, every version and their thumbnails (deduplicated). */
+/** The R2 keys a file holds: the current object, its thumbnail and derivative, every version and theirs (deduplicated). */
 const keysOf = Effect.fnUntraced(function* (fileId: string) {
   const db = yield* Db
   const [files, versions] = yield* db.use((d) =>
     Promise.all([
-      d.select({ r2Key: schema.files.r2Key, thumb: schema.files.thumbnailR2Key }).from(schema.files).where(eq(schema.files.id, fileId)),
-      d.select({ r2Key: schema.fileVersions.r2Key, thumb: schema.fileVersions.thumbnailR2Key }).from(schema.fileVersions).where(eq(schema.fileVersions.fileId, fileId)),
+      d.select({ r2Key: schema.files.r2Key, thumb: schema.files.thumbnailR2Key, glb: schema.files.derivativeR2Key }).from(schema.files).where(eq(schema.files.id, fileId)),
+      d.select({ r2Key: schema.fileVersions.r2Key, thumb: schema.fileVersions.thumbnailR2Key, glb: schema.fileVersions.derivativeR2Key }).from(schema.fileVersions).where(eq(schema.fileVersions.fileId, fileId)),
     ]),
   )
-  return [...new Set([...files, ...versions].flatMap((r) => r.thumb === null ? [r.r2Key] : [r.r2Key, r.thumb]))]
+  return [...new Set([...files, ...versions].flatMap((r) => [r.r2Key, r.thumb, r.glb].filter((k): k is string => k !== null)))]
 })
 
 const DRAIN_CHUNK = 40
@@ -112,11 +112,13 @@ export const purgeOne = (
       d.insert(schema.storageDeletions).select(sql`SELECT k, ${caller === null ? 'trash_retention' : 'purged'}, ${now}, 0, NULL, ${now} FROM (
           SELECT r2Key AS k FROM files WHERE id = ${fileId}
           UNION SELECT thumbnailR2Key FROM files WHERE id = ${fileId}
+          UNION SELECT derivativeR2Key FROM files WHERE id = ${fileId}
           UNION SELECT r2Key FROM file_versions WHERE fileId = ${fileId}
-          UNION SELECT thumbnailR2Key FROM file_versions WHERE fileId = ${fileId})
+          UNION SELECT thumbnailR2Key FROM file_versions WHERE fileId = ${fileId}
+          UNION SELECT derivativeR2Key FROM file_versions WHERE fileId = ${fileId})
         WHERE k IS NOT NULL AND substr(k, 1, 5) <> 'blog/'
-          AND NOT EXISTS (SELECT 1 FROM files o WHERE o.id <> ${fileId} AND (o.r2Key = k OR o.thumbnailR2Key = k))
-          AND NOT EXISTS (SELECT 1 FROM file_versions ov WHERE ov.fileId <> ${fileId} AND (ov.r2Key = k OR ov.thumbnailR2Key = k))`).onConflictDoNothing(),
+          AND NOT EXISTS (SELECT 1 FROM files o WHERE o.id <> ${fileId} AND (o.r2Key = k OR o.thumbnailR2Key = k OR o.derivativeR2Key = k))
+          AND NOT EXISTS (SELECT 1 FROM file_versions ov WHERE ov.fileId <> ${fileId} AND (ov.r2Key = k OR ov.thumbnailR2Key = k OR ov.derivativeR2Key = k))`).onConflictDoNothing(),
       d.delete(schema.fileAccess).where(eq(schema.fileAccess.fileId, fileId)),
       d.delete(schema.shareLinks).where(eq(schema.shareLinks.fileId, fileId)),
       d.delete(schema.resourceInvitations).where(eq(schema.resourceInvitations.fileId, fileId)),

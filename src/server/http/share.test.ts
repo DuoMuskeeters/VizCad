@@ -3,7 +3,8 @@ import { Effect, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { defaultPlan } from '../services/Entitlements'
 import { createShareLink, revokeShareLink, updateShareLink } from '../programs/links'
-import { caller, programLayer, rows, seedLink, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { glb } from '../testing/glb'
+import { caller, programLayer, rows, seedDerivative, seedLink, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { shareResponse, type ShareServices } from './share'
 
 const ORIGIN = 'https://vizcad.test'
@@ -145,7 +146,7 @@ describe('GET /s/{token}/content', () => {
 })
 
 describe('GET /s/{token}/model', () => {
-  it.effect('a download link: the bytes with the link headers, audited as a preview; a view link 403', () =>
+  it.effect('a download link: the bytes with the link headers, audited as a preview; a view link only the GLB', () =>
     run(Effect.gen(function* () {
       const token = yield* share()
       const res = yield* call(getContent(token, {}, 'model'))
@@ -160,7 +161,12 @@ describe('GET /s/{token}/model', () => {
       assert.strictEqual((yield* call(new Request(`${ORIGIN}/s/${token}/model?v=1`, { headers: { 'sec-fetch-site': 'same-origin' } }))).status, 400)
       yield* revokeShareLink(caller('bob'), ids)
       const view = yield* share({ level: 'view' })
-      assert.strictEqual((yield* call(getContent(view, {}, 'model'))).status, 403)
+      // D23: a view link previews, but a STEP without a derivative has nothing to show it; its source stays closed.
+      assert.strictEqual((yield* call(getContent(view, {}, 'model'))).status, 404)
+      yield* seedDerivative('f1', 'acme', glb())
+      const glbRes = yield* call(getContent(view, {}, 'model'))
+      assert.deepStrictEqual([glbRes.status, glbRes.headers.get('content-type'), glbRes.headers.get('referrer-policy')], [200, 'model/gltf-binary', 'no-referrer'])
+      assert.strictEqual((yield* call(getContent(view, {}, 'content'))).status, 403)
     })),
   )
 })
@@ -177,6 +183,7 @@ describe('POST /api/s/resolve and /api/s/password', () => {
         kind: 'file',
         file: {
           name: 'Bracket.step', extension: 'step', size: CONTENT.length, updatedAt: T0 - 3600, currentVersion: { number: 1 }, thumbnailAvailable: false,
+          model: { kind: 'source', bytes: CONTENT.length, derivative: null, maxConvertBytes: 50 * 1024 * 1024 },
           can: { download: true, comment: false }, sharer: { displayName: 'BOB', workspaceLabel: 'Workspace acme' }, expiresAt: null,
         },
       })

@@ -6,6 +6,7 @@ import { decidePermission } from '../permissions'
 import type { AnyFileView, FilePage } from '../../shared/fileViews'
 import { isValidFileName } from '../../shared/fileTypes'
 import { Db } from '../services/Db'
+import { Entitlements } from '../services/Entitlements'
 import {
   fileGrantsOf, guestView, internalView, loadScope, openFile, scopedInput, summarySelect, type SummaryRow,
 } from './fileContext'
@@ -107,6 +108,7 @@ export const listFiles = Effect.fn('listFiles')(function* (caller: Caller, input
     : direction === 'asc' ? sql`(${key} > ${cursor.value} OR (${key} = ${cursor.value} AND ${f.id} > ${cursor.id}))`
     : sql`(${key} < ${cursor.value} OR (${key} = ${cursor.value} AND ${f.id} < ${cursor.id}))`
 
+  const { maxConvertBytes } = yield* (yield* Entitlements).limits(input.workspaceId)
   const items: Array<{ readonly view: AnyFileView; readonly cursor: string }> = []
   let cursor = after
   let exhausted = false
@@ -124,8 +126,8 @@ export const listFiles = Effect.fn('listFiles')(function* (caller: Caller, input
       if (base === undefined || !decidePermission({ ...base, action: { kind: 'view' } }).allowed) continue
       items.push({
         view: scope.role === 'guest'
-          ? guestView(row, base, grant?.grantorName ?? (row.projectId === null ? undefined : scope.projectGrants.get(row.projectId)?.grantorName) ?? scope.workspace.name)
-          : internalView(row, base),
+          ? guestView(row, base, grant?.grantorName ?? (row.projectId === null ? undefined : scope.projectGrants.get(row.projectId)?.grantorName) ?? scope.workspace.name, maxConvertBytes)
+          : internalView(row, base, maxConvertBytes),
         cursor: encodeCursor(row.id, value),
       })
     }
@@ -150,7 +152,8 @@ export const getFile = Effect.fn('getFile')(function* (caller: Caller, input: { 
   const { base, file, role, workspace } = yield* openFile(caller, input.workspaceId, input.fileId)
   yield* authorize({ ...base, action: { kind: 'view' } })
   const row = yield* summaryOf(caller.userId, file.id, base.now)
-  if (role !== 'guest') return internalView(row, base)
+  const { maxConvertBytes } = yield* (yield* Entitlements).limits(input.workspaceId)
+  if (role !== 'guest') return internalView(row, base, maxConvertBytes)
   const db = yield* Db
   const names = yield* db.use((d) =>
     Promise.all([
@@ -160,7 +163,7 @@ export const getFile = Effect.fn('getFile')(function* (caller: Caller, input: { 
         .where(and(eq(schema.projectAccess.projectId, file.projectId), eq(schema.projectAccess.userId, caller.userId))).limit(1),
     ]),
   )
-  return guestView(row, base, names[0][0]?.name ?? names[1][0]?.name ?? workspace.name)
+  return guestView(row, base, names[0][0]?.name ?? names[1][0]?.name ?? workspace.name, maxConvertBytes)
 })
 
 /**

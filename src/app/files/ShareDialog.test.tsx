@@ -9,7 +9,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).rou
 
 const file: FileView = {
   id: 'f1', name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, projectId: null, projectName: null, createdAt: 1, updatedAt: 2, starred: false,
-  thumbnailAvailable: false, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } }, access: { people: 0, link: 'none' },
+  thumbnailAvailable: false, model: { kind: 'source', bytes: 12_400_000, derivative: null, maxConvertBytes: 52_428_800 }, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } }, access: { people: 0, link: 'none' },
   can: { edit: true, comment: true, download: true, viewHistory: true, trash: true, share: true },
 }
 

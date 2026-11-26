@@ -8,6 +8,30 @@ export interface PersonName {
   readonly displayName: string
 }
 
+/** A STEP/IGES/3MF file's GLB derivative (docs/11 §2.2): stored, failed (an edit user may retry), or never tried because too large. */
+export type DerivativeState = 'ready' | 'failed' | 'too_large'
+
+/**
+ * What the 3D viewer may read for the current version (docs/11 §2.4, D23), for this caller. `kind` is what
+ * `GET …/model` answers: the GLB derivative, the source object (STL/OBJ/PLY at every level; STEP/IGES/3MF without a
+ * derivative only for callers who may download, so the viewer converts in place), or nothing (404).
+ */
+export interface ModelPreview {
+  readonly kind: 'derivative' | 'source' | 'none'
+  /** Bytes `model` sends ("3B'yi aç · 6 MB"); null when `kind` is none. */
+  readonly bytes: number | null
+  /** STEP/IGES/3MF only: null for other formats and for a file nobody converted yet. */
+  readonly derivative: {
+    readonly state: DerivativeState
+    /** The Worker's code of a failed conversion (`corrupt`, `timeout`, …). */
+    readonly code: string | null
+    /** Parts of a ready derivative (5c: "Montaj · N parça"). */
+    readonly parts: number | null
+  } | null
+  /** `Entitlements.maxConvertBytes`: the largest STEP/IGES/3MF the browser converts. */
+  readonly maxConvertBytes: number
+}
+
 /** What an internal member (owner, admin, member, commenter) sees about a file. */
 export interface FileView {
   readonly id: string
@@ -21,6 +45,7 @@ export interface FileView {
   readonly updatedAt: number
   readonly starred: boolean
   readonly thumbnailAvailable: boolean
+  readonly model: ModelPreview
   readonly currentVersion: { readonly number: number; readonly uploadedBy: PersonName | null }
   /** Light access summary for the list's "Erişim" column: people holding a live grant (not the uploader) and the link's state. */
   readonly access: { readonly people: number; readonly link: 'none' | 'active' | 'expired' }
@@ -44,6 +69,7 @@ export interface GuestFileView {
   readonly updatedAt: number
   readonly currentVersion: { readonly number: number }
   readonly thumbnailAvailable: boolean
+  readonly model: ModelPreview
   readonly can: { readonly download: boolean; readonly comment: boolean }
   readonly sharedBy: PersonName
 }
@@ -90,6 +116,7 @@ export interface LinkFileView {
   readonly updatedAt: number
   readonly currentVersion: { readonly number: number }
   readonly thumbnailAvailable: boolean
+  readonly model: ModelPreview
   /** `download` follows the link's level; a link never comments. */
   readonly can: { readonly download: boolean; readonly comment: false }
   readonly sharer: { readonly displayName: string; readonly workspaceLabel: string | null }

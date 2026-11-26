@@ -7,8 +7,9 @@ import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
 import { cookieValue } from '../shareCrypto'
+import { glb } from '../testing/glb'
 import { png } from '../testing/images'
-import { caller, programLayer, rows, seedLink, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { caller, programLayer, rows, seedDerivative, seedLink, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { createShareLink, revokeShareLink, updateShareLink } from './links'
 import {
   deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword,
@@ -56,6 +57,7 @@ describe('resolveShareLink', () => {
         kind: 'file',
         file: {
           name: 'Bracket.step', extension: 'step', size: CONTENT.length, updatedAt: T0 - 3600, currentVersion: { number: 1 }, thumbnailAvailable: false,
+          model: { kind: 'source', bytes: CONTENT.length, derivative: null, maxConvertBytes: 50 * 1024 * 1024 },
           can: { download: true, comment: false }, sharer: { displayName: 'BOB', workspaceLabel: 'Workspace acme' }, expiresAt: T0 + 86400,
         },
       })
@@ -332,16 +334,46 @@ describe('deliverLinkModel', () => {
     })),
   )
 
-  it.effect('5a: a view link gets no model (403) and a password link needs its proof (401)', () =>
+  it.effect('D23: a view link previews the GLB of a STEP (never its source) and an STL itself; a password link needs its proof', () =>
     run(Effect.gen(function* () {
       yield* world
       const view = yield* share({ level: 'view' })
-      const denied = yield* failure(deliverLinkModel(visitor(), view.token, null))
-      assert.deepStrictEqual([denied._tag, 'reason' in denied ? denied.reason : ''], ['PermissionDenied', 'INSUFFICIENT_LEVEL'])
+      assert.strictEqual((yield* failure(deliverLinkModel(visitor(), view.token, null)))._tag, 'PreviewUnavailable', 'no derivative: nothing for a view link')
+      const card = yield* resolveShareLink(visitor(), view.token)
+      assert.deepStrictEqual(card.kind === 'file' ? card.file.model : null, { kind: 'none', bytes: null, derivative: null, maxConvertBytes: 50 * 1024 * 1024 })
+
+      const bytes = glb()
+      const key = yield* seedDerivative('f1', 'acme', bytes)
+      const delivery = yield* deliverLinkModel(visitor(), view.token, null)
+      assert.strictEqual(delivery.status, 200)
+      assert.strictEqual(delivery.headers['content-type'], 'model/gltf-binary')
+      assert.strictEqual(delivery.headers['referrer-policy'], 'no-referrer')
+      assert.deepStrictEqual(new Uint8Array(yield* Effect.promise(() => new Response(delivery.body as BodyInit).arrayBuffer())), bytes)
+      const opened = yield* resolveShareLink(visitor(), view.token)
+      assert.deepStrictEqual(opened.kind === 'file' ? opened.file.model : null, { kind: 'derivative', bytes: bytes.byteLength, derivative: { state: 'ready', code: null, parts: 1 }, maxConvertBytes: 50 * 1024 * 1024 })
+      assert.notInclude(JSON.stringify(opened), key)
+      assert.strictEqual((yield* failure(deliverLinkContent(visitor(), view.token, null)))._tag, 'PermissionDenied', 'content still needs download')
+      const previews = (yield* accessRows).filter((r) => r.action === 'file.previewed')
+      assert.deepStrictEqual(previews.map((r) => [r.actorKind, r.outcome]), [['link', 'allowed']])
+      assert.strictEqual((yield* linkRows('securityLog')).filter((r) => r.event === 'file_downloaded').length, 0)
+
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({ extension: 'stl', name: 'Bracket.stl' }).where(eq(schema.files.id, 'f1'))))
+      const mesh = yield* deliverLinkModel(visitor(), view.token, null)
+      assert.deepStrictEqual([mesh.status, mesh.headers['content-type']], [200, 'application/octet-stream'])
+
       yield* revokeShareLink(caller('bob'), ids)
       const secret = yield* share({ password: 'correct horse' })
       assert.strictEqual((yield* failure(deliverLinkModel(visitor(), secret.token, null)))._tag, 'LinkPasswordRequired')
-      assert.strictEqual((yield* accessRows).length, 0)
+    })),
+  )
+
+  it.effect('a download link without a derivative gets the STEP source (the page converts in place)', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const { token } = yield* share({ level: 'download' })
+      const delivery = yield* deliverLinkModel(visitor(), token, null)
+      assert.deepStrictEqual([delivery.status, delivery.headers['content-type']], [200, 'application/octet-stream'])
+      assert.strictEqual(yield* bodyText(delivery), CONTENT)
     })),
   )
 })

@@ -43,6 +43,11 @@ export interface WorkspaceLimits {
   readonly auditRetentionDays: number
   /** Open (pending) upload sessions one user may hold at once. */
   readonly uploadSessionsPerUser: number
+  /**
+   * Largest STEP/IGES/3MF source the browser converts to a GLB derivative (D22 decision 4, docs/11 §2.6). Larger files
+   * are never tried (`derivativeState = 'too_large'`). Separate from `maxFileBytes`, the upload limit.
+   */
+  readonly maxConvertBytes: number
 }
 
 /**
@@ -83,6 +88,7 @@ export const defaultPlan: WorkspaceLimits = {
   linkMaxLifetimeSeconds: null,
   auditRetentionDays: 365,
   uploadSessionsPerUser: 20,
+  maxConvertBytes: 50 * MB,
 }
 
 /** Every workspace gets `limits`. Tests override single fields with `fixed({ ...defaultPlan, seats: 2 })`. */

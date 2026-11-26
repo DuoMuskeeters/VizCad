@@ -45,6 +45,8 @@ export interface UploadedFile {
   readonly size: number
   readonly versionNumber: number
   readonly isNewVersion: boolean
+  /** `Entitlements.maxConvertBytes`: the browser converts a STEP/IGES/3MF to a GLB right after the upload only up to this. */
+  readonly maxConvertBytes: number
 }
 
 type SessionRow = typeof schema.uploadSessions.$inferSelect
@@ -206,9 +208,10 @@ const uploadedFile = Effect.fnUntraced(function* (session: SessionRow) {
   )
   const file = rows[0]
   if (file === undefined) return yield* new UploadUnavailable()
+  const { maxConvertBytes } = yield* (yield* Entitlements).limits(session.workspaceId)
   return {
     fileId: session.fileId, name: file.name, extension: file.extension, size: file.size,
-    versionNumber: file.current ?? 1, isNewVersion: session.targetFileId !== null,
+    versionNumber: file.current ?? 1, isNewVersion: session.targetFileId !== null, maxConvertBytes,
   } satisfies UploadedFile
 })
 
@@ -322,10 +325,12 @@ export const completeUpload = Effect.fn('completeUpload')(function* (caller: Cal
           id: snapshotId, fileId: current.id, versionNumber: currentNumber, r2Key: current.r2Key, size: current.size,
           uploadedByUserId: current.currentUploadedByUserId ?? current.userId, createdAt: at,
           contentEtag: current.contentEtag, thumbnailR2Key: current.thumbnailR2Key,
+          derivativeR2Key: current.derivativeR2Key, derivativeState: current.derivativeState, derivativeMeta: current.derivativeMeta,
         }),
+        // The new bytes have no thumbnail and no derivative yet: both move to the snapshot (docs/11 §2.2).
         d.update(schema.files).set({
           r2Key: session.r2Key, size: session.declaredSize, contentEtag: etag, currentVersionNumber: currentNumber + 1,
-          currentUploadedByUserId: caller.userId, thumbnailR2Key: null, updatedAt: at,
+          currentUploadedByUserId: caller.userId, thumbnailR2Key: null, derivativeR2Key: null, derivativeState: null, derivativeMeta: null, updatedAt: at,
         }).where(and(eq(schema.files.id, current.id), eq(schema.files.workspaceId, session.workspaceId))),
         d.update(schema.uploadSessions).set(done).where(eq(schema.uploadSessions.id, session.id)),
         activity(d, { workspaceId: session.workspaceId, caller, targetKind: 'file', targetId: current.id, action: 'file.version_uploaded', at: now }, activityId),

@@ -198,7 +198,7 @@ describe('completeUpload: new file', () => {
       const [row] = yield* rows('files')
       const [session] = yield* rows('uploadSessions')
       const head = Option.getOrThrow(yield* (yield* Storage).head(session?.r2Key ?? ''))
-      assert.deepStrictEqual(file, { fileId: row?.id, name: 'Bracket v2.STEP', extension: 'step', size: 5 * MB, versionNumber: 1, isNewVersion: false })
+      assert.deepStrictEqual(file, { fileId: row?.id, name: 'Bracket v2.STEP', extension: 'step', size: 5 * MB, versionNumber: 1, isNewVersion: false, maxConvertBytes: defaultPlan.maxConvertBytes })
       assert.deepStrictEqual(
         [row?.r2Key, row?.workspaceId, row?.projectId, row?.status, row?.userId, row?.mimeType, row?.contentEtag, row?.currentVersionNumber, row?.currentUploadedByUserId, row?.isDeleted],
         [session?.r2Key, 'acme', 'open', 'uploaded', 'max', 'model/step', head.etag, 1, 'max', false],
@@ -397,10 +397,17 @@ describe('completeUpload: new version', () => {
       const v1Key = v1Row?.r2Key
       yield* TestClock.adjust('1 minute')
       const second = yield* finish('ada', yield* upload('ada', 'ignored name.step', stepBytes(400), { targetFileId: first.fileId }))
-      assert.deepStrictEqual(second, { fileId: first.fileId, name: 'Part.step', extension: 'step', size: 400, versionNumber: 2, isNewVersion: true })
+      assert.deepStrictEqual(second, { fileId: first.fileId, name: 'Part.step', extension: 'step', size: 400, versionNumber: 2, isNewVersion: true, maxConvertBytes: defaultPlan.maxConvertBytes })
+      // A derivative and thumbnail of version 2 move to its snapshot with it; version 3 starts without either (docs/11 §2.2).
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({
+        thumbnailR2Key: 'w/acme/f/x/v2.thumb', derivativeR2Key: 'w/acme/f/x/v2.glb', derivativeState: 'ready', derivativeMeta: '{"v":1}',
+      }).where(eq(schema.files.id, first.fileId))))
       yield* finish('max', yield* upload('max', 'again.STEP', stepBytes(500), { targetFileId: first.fileId }))
 
       const [file] = yield* rows('files')
+      assert.deepStrictEqual([file?.derivativeR2Key, file?.derivativeState, file?.derivativeMeta], [null, null, null])
+      const v2 = (yield* rows('fileVersions')).find((v) => v.versionNumber === 2)
+      assert.deepStrictEqual([v2?.thumbnailR2Key, v2?.derivativeR2Key, v2?.derivativeState, v2?.derivativeMeta], ['w/acme/f/x/v2.thumb', 'w/acme/f/x/v2.glb', 'ready', '{"v":1}'])
       const versions = (yield* rows('fileVersions')).sort((a, b) => a.versionNumber - b.versionNumber)
       assert.deepStrictEqual([file?.currentVersionNumber, file?.size, file?.name, file?.currentUploadedByUserId, file?.thumbnailR2Key], [3, 500, 'Part.step', 'max', null])
       assert.deepStrictEqual(versions.map((v) => [v.versionNumber, v.size, v.uploadedByUserId]), [[1, 300, 'max'], [2, 400, 'ada']])

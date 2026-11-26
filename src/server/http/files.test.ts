@@ -6,9 +6,10 @@ import * as schema from '../db/schema'
 import { MemoryAuth, type SessionSummary } from '../services/Auth'
 import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
-import { Storage } from '../services/Storage'
+import { MemoryStorageControl, Storage } from '../services/Storage'
+import { glb, glbWith } from '../testing/glb'
 import { png } from '../testing/images'
-import { programLayer, rows, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { programLayer, rows, seedDerivative, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { type FilesServices, filesResponse } from './files'
 
 const ORIGIN = 'https://vizcad.test'
@@ -168,18 +169,30 @@ describe('GET /api/files/{id}/model', () => {
     })),
   )
 
-  it.effect('a guest: no grant 404, view and comment 403, download 200; cross-site 403; only the current version', () =>
+  it.effect('D23: every level previews; a STEP without derivative only for download; cross-site 403; only the current version', () =>
     run(Effect.gen(function* () {
       const guest = { cookie: 'session=tok-eve' }
-      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 404)
+      const status = (path: string, headers = guest) => call(get(path, headers)).pipe(Effect.map((r) => [r.status, r.status === 200 ? r.headers.get('content-type') : errorOf(r.text).error]))
+      assert.deepStrictEqual(yield* status('/api/files/f1/model'), [404, 'ResourceUnavailable'], 'no grant: nothing about the file')
       yield* seedFileGrant('f1', 'eve', 'acme', 'view')
-      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 403)
-      const setLevel = (level: 'comment' | 'download') =>
+      assert.deepStrictEqual(yield* status('/api/files/f1/model'), [404, 'PreviewUnavailable'], 'view, no derivative yet')
+      const setLevel = (level: 'view' | 'comment' | 'download') =>
         Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level }).where(eq(schema.fileAccess.userId, 'eve'))))
       yield* setLevel('comment')
-      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 403)
+      assert.deepStrictEqual(yield* status('/api/files/f1/model'), [404, 'PreviewUnavailable'])
       yield* setLevel('download')
-      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 200)
+      assert.deepStrictEqual(yield* status('/api/files/f1/model'), [200, 'application/octet-stream'], 'download: the source, converted in place')
+
+      yield* seedDerivative('f1', 'acme', glb())
+      for (const level of ['view', 'comment', 'download'] as const) {
+        yield* setLevel(level)
+        assert.deepStrictEqual(yield* status('/api/files/f1/model'), [200, 'model/gltf-binary'], level)
+        assert.strictEqual((yield* call(get('/api/files/f1/content', guest))).status, level === 'download' ? 200 : 403, `content at ${level}`)
+      }
+      yield* setLevel('view')
+      yield* Db.use((db) => db.use((d) => d.update(schema.files).set({ extension: 'stl', name: 'Bracket.stl' }).where(eq(schema.files.id, 'f1'))))
+      assert.deepStrictEqual(yield* status('/api/files/f1/model'), [200, 'application/octet-stream'], 'STL: the preview is the source (D23)')
+
       assert.strictEqual((yield* call(get('/api/files/f1/model', { 'sec-fetch-site': 'cross-site' }))).status, 403)
       assert.strictEqual((yield* call(get('/api/files/f1/model', { cookie: '' }))).status, 401)
       assert.strictEqual((yield* call(get('/api/files/f1/model?v=v1'))).status, 404)
@@ -192,7 +205,7 @@ describe('GET /api/files/{id}/model', () => {
 
 describe('/api/files/{id}/thumbnail', () => {
   const putRequest = (body: BodyInit, headers: Record<string, string> = {}) =>
-    new Request(`${ORIGIN}/api/files/f1/thumbnail`, {
+    new Request(`${ORIGIN}/api/files/f1/thumbnail?expect=${headers['x-expect'] ?? '1'}`, {
       method: 'POST', body,
       headers: { cookie: 'session=tok-bob', origin: ORIGIN, 'sec-fetch-site': 'same-origin', 'content-type': 'image/png', ...headers },
     })
@@ -224,6 +237,11 @@ describe('/api/files/{id}/thumbnail', () => {
       assert.deepStrictEqual([broken.status, errorOf(broken.text).error], [422, 'InvalidThumbnail'])
       assert.strictEqual((yield* call(putRequest(png(), { cookie: 'session=tok-max' }))).status, 403, 'a member who is not the uploader')
       assert.strictEqual((yield* call(putRequest(png(), { cookie: 'session=tok-zed' }))).status, 404)
+      // The version the image was rendered from (docs/11 5a note): missing or malformed is 400, an older one 409.
+      assert.strictEqual((yield* call(putRequest(png(), { 'x-expect': '' }))).status, 400)
+      assert.strictEqual((yield* call(putRequest(png(), { 'x-expect': 'one' }))).status, 400)
+      const stale = yield* call(putRequest(png(), { 'x-expect': '2' }))
+      assert.deepStrictEqual([stale.status, errorOf(stale.text).error], [409, 'VersionChanged'])
       const [file] = yield* rows('files')
       assert.isNull(file?.thumbnailR2Key)
     })),
@@ -233,6 +251,57 @@ describe('/api/files/{id}/thumbnail', () => {
     run(Effect.gen(function* () {
       const res = yield* call(get('/api/files/f1/thumbnail'))
       assert.deepStrictEqual([res.status, errorOf(res.text).error], [404, 'PreviewUnavailable'])
+    })),
+  )
+})
+
+describe('POST /api/files/{id}/derivative/*', () => {
+  const post = (step: string, body: unknown, headers: Record<string, string> = {}) =>
+    new Request(`${ORIGIN}/api/files/f1/derivative/${step}`, {
+      method: 'POST', body: JSON.stringify(body),
+      headers: { cookie: 'session=tok-bob', origin: ORIGIN, 'sec-fetch-site': 'same-origin', 'content-type': 'application/json', ...headers },
+    })
+  const stats = { converter: 'occt-import-js 0.0.23', triangles: 10, nodes: 2, parts: 1, bbox: { min: [0, 0, 0], max: [1, 2, 3] } }
+
+  it.effect('start, browser PUT, complete: the GLB becomes the model; failed records the code', () =>
+    run(Effect.gen(function* () {
+      const bytes = glb()
+      const started = yield* call(post('start', { version: 1, size: bytes.byteLength }))
+      assert.strictEqual(started.status, 200)
+      assert.strictEqual(started.headers.get('cache-control'), 'private, no-store')
+      const ticket = JSON.parse(started.text).data as { sessionId: string; url: string; headers: Record<string, string> }
+      const put = yield* (yield* MemoryStorageControl).simulateBrowserPut(new URL(ticket.url), bytes, ticket.headers)
+      const done = yield* call(post('complete', { sessionId: ticket.sessionId, etag: put.etag, stats }))
+      assert.deepStrictEqual([done.status, JSON.parse(done.text)], [200, { ok: true, data: { state: 'ready' } }])
+      const model = yield* call(get('/api/files/f1/model'))
+      assert.deepStrictEqual([model.status, model.headers.get('content-type'), [...model.bytes]], [200, 'model/gltf-binary', [...bytes]])
+      const failed = yield* call(post('failed', { version: 1, code: 'corrupt' }))
+      assert.deepStrictEqual([failed.status, JSON.parse(failed.text).data], [200, { state: 'ready' }], 'a stored derivative is kept')
+    })),
+  )
+
+  it.effect('CSRF, session and body schema; GLB problems map to their statuses', () =>
+    run(Effect.gen(function* () {
+      assert.strictEqual((yield* call(post('start', { version: 1, size: 64 }, { origin: 'https://evil.test' }))).status, 403)
+      assert.strictEqual((yield* call(post('start', { version: 1, size: 64 }, { 'content-type': 'text/plain' }))).status, 403)
+      assert.strictEqual((yield* call(post('start', { version: 1, size: 64 }, { cookie: '' }))).status, 401)
+      assert.strictEqual((yield* call(get('/api/files/f1/derivative/start', { cookie: 'session=tok-bob' }))).status, 403)
+      assert.strictEqual((yield* call(post('other', {}))).status, 404)
+      for (const body of [{ version: 1 }, { version: 0, size: 64 }, { version: 1, size: 64, key: 'w/acme/f/f1/mine.glb' }, { version: 1.5, size: 64 }]) {
+        assert.strictEqual((yield* call(post('start', body))).status, 400, JSON.stringify(body))
+      }
+      for (const bad of [{ ...stats, converter: '' }, { ...stats, triangles: -1 }, { ...stats, nodes: 20_001 }, { ...stats, bbox: { min: [0, 0], max: [1, 1, 1] } }, { ...stats, extra: 1 }]) {
+        assert.strictEqual((yield* call(post('complete', { sessionId: 's1', etag: 'e', stats: bad }))).status, 400, JSON.stringify(bad))
+      }
+      assert.strictEqual((yield* call(post('failed', { version: 1, code: 'network' }))).status, 400, 'network says nothing about the file')
+      assert.strictEqual((yield* call(post('start', { version: 2, size: 64 }))).status, 409, 'VersionChanged')
+      assert.strictEqual((yield* call(post('start', { version: 1, size: 64 }, { cookie: 'session=tok-max' }))).status, 403)
+
+      const corrupt = glbWith(4, 1)
+      const ticket = JSON.parse((yield* call(post('start', { version: 1, size: corrupt.byteLength }))).text).data as { sessionId: string; url: string; headers: Record<string, string> }
+      const put = yield* (yield* MemoryStorageControl).simulateBrowserPut(new URL(ticket.url), corrupt, ticket.headers)
+      const refused = yield* call(post('complete', { sessionId: ticket.sessionId, etag: put.etag, stats }))
+      assert.deepStrictEqual([refused.status, errorOf(refused.text).error], [422, 'InvalidDerivative'])
     })),
   )
 })

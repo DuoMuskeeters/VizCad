@@ -2,7 +2,8 @@
  * In-memory stand-in for the file operations of `/api/app/*`, used by tests and (dev only) by `?fixture=<scenario>`.
  * Mirrors the shapes of src/shared/fileViews.ts and the programs' answers; never imported by production code paths.
  */
-import type { CommentView, FileAccessEntry, FileAccessInvitation, FileActivityItem, ProjectView, SharedByMeItem, SharedWithMeItem, TrashItem, VersionEntry } from '#/shared/fileViews'
+import { fileTypeOfExtension, hasDerivative } from '#/shared/fileTypes'
+import type { CommentView, FileAccessEntry, FileAccessInvitation, FileActivityItem, ModelPreview, ProjectView, SharedByMeItem, SharedWithMeItem, TrashItem, VersionEntry } from '#/shared/fileViews'
 import type { AnyFileView, FileView, ShareLinkSummary } from './types'
 
 export type FilesScenario = 'normal' | 'empty' | 'error' | 'slow' | 'one-version'
@@ -72,16 +73,23 @@ const seed = (): Stored[] => {
   ]
 }
 
+/** What `model` would answer in the fixture: no derivative exists, so STEP/IGES/3MF fall back to the source for downloaders. */
+const fixtureModel = (file: Stored, canDownload: boolean): ModelPreview => {
+  const type = fileTypeOfExtension(file.extension)
+  const kind = type === undefined ? 'none' : !hasDerivative(type.id) || canDownload ? 'source' : 'none'
+  return { kind, bytes: kind === 'none' ? null : file.size, derivative: null, maxConvertBytes: 50 * 1024 * 1024 }
+}
+
 const viewOf = (file: Stored, role: Role, projectName: (id: string | null) => string | null, people: number): AnyFileView => {
   if (role === 'guest')
     return {
       id: file.id, name: file.name, extension: file.extension, size: file.size, updatedAt: file.updatedAt, currentVersion: { number: file.version },
-      thumbnailAvailable: false, can: { download: true, comment: true }, sharedBy: { displayName: 'Hakan Demir' },
+      thumbnailAvailable: false, model: fixtureModel(file, true), can: { download: true, comment: true }, sharedBy: { displayName: 'Hakan Demir' },
     }
   const edits = role === 'owner' || role === 'admin' || role === 'member'
   const view: FileView = {
     id: file.id, name: file.name, extension: file.extension, size: file.size, projectId: file.project, projectName: projectName(file.project),
-    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false,
+    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false, model: fixtureModel(file, true),
     currentVersion: { number: file.version, uploadedBy: { displayName: file.uploader } }, access: { people, link: file.link },
     can: { edit: edits, comment: true, download: true, viewHistory: true, trash: edits, share: edits },
   }
@@ -281,12 +289,12 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
           target.version += 1
           target.size = session.size
           target.updatedAt = now()
-          return ok({ fileId: target.id, name: target.name, extension: target.extension, size: target.size, versionNumber: target.version, isNewVersion: true })
+          return ok({ fileId: target.id, name: target.name, extension: target.extension, size: target.size, versionNumber: target.version, isNewVersion: true, maxConvertBytes: 50 * 1024 * 1024 })
         }
         const extension = session.name.split('.').pop() ?? ''
         const created: Stored = { id: `f-new-${++counter}`, name: session.name, extension, size: session.size, project: session.project, link: 'none', createdAt: now(), updatedAt: now(), starred: false, uploader: me, version: 1, trashed: false, mine: true, recent: true }
         files = [created, ...files]
-        return ok({ fileId: created.id, name: created.name, extension, size: created.size, versionNumber: 1, isNewVersion: false })
+        return ok({ fileId: created.id, name: created.name, extension, size: created.size, versionNumber: 1, isNewVersion: false, maxConvertBytes: 50 * 1024 * 1024 })
       }
       case 'cancelUpload':
         uploads.delete(String(body['uploadId']))

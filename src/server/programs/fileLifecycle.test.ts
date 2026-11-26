@@ -373,6 +373,64 @@ describe('versions', () => {
     })))
 })
 
+describe('derivative lifecycle (docs/11 §2.2)', () => {
+  const glbKey = (id: string, name: string) => `w/acme/f/${id}/${name}.glb`
+  const ready = (key: string) => ({ derivativeR2Key: key, derivativeState: 'ready' as const, derivativeMeta: '{"v":1}' })
+
+  it.effect('restoreVersion moves the current derivative to the snapshot and brings the old version’s back; nothing is queued', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* upload('f1', 'max')
+      yield* Db.use((x) => x.use((d) => d.update(schema.files).set({ currentVersionNumber: 2, ...ready(glbKey('f1', 'cur')) }).where(eq(schema.files.id, 'f1'))))
+      yield* addVersion('v1', 'f1', 1, 'w/acme/f/f1/v1', 40, ready(glbKey('f1', 'v1')))
+      assert.strictEqual(yield* tag(restoreVersion(caller('max'), { ...ref, fileId: 'f1', versionId: 'v1' })), 'ok')
+      const now = yield* file('f1')
+      assert.deepStrictEqual([now?.derivativeR2Key, now?.derivativeState], [glbKey('f1', 'v1'), 'ready'])
+      const snapshot = (yield* rows('fileVersions')).find((v) => v.versionNumber === 2)
+      assert.deepStrictEqual([snapshot?.derivativeR2Key, snapshot?.derivativeState, snapshot?.derivativeMeta], [glbKey('f1', 'cur'), 'ready', '{"v":1}'])
+      assert.strictEqual((yield* rows('storageDeletions')).length, 0)
+      // A version without a derivative restores as "not tried": the viewer converts it again.
+      yield* addVersion('v0', 'f1', 0, 'w/acme/f/f1/v0', 10)
+      yield* restoreVersion(caller('max'), { ...ref, fileId: 'f1', versionId: 'v0' })
+      assert.deepStrictEqual([(yield* file('f1'))?.derivativeR2Key, (yield* file('f1'))?.derivativeState], [null, null])
+    })))
+
+  it.effect('purge queues and deletes every derivative the file and its versions hold, once, and keeps one another file uses', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* upload('f1', 'max')
+      yield* upload('keep', 'bob')
+      const shared = glbKey('f1', 'shared')
+      yield* Db.use((x) => x.use((d) => d.update(schema.files).set(ready(glbKey('f1', 'cur'))).where(eq(schema.files.id, 'f1'))))
+      yield* addVersion('v1', 'f1', 1, 'w/acme/f/f1/v1', 40, ready(glbKey('f1', 'v1')))
+      yield* addVersion('v2', 'f1', 2, 'w/acme/f/f1/v2', 40, ready(glbKey('f1', 'v1'))) // the same key twice (restore history)
+      yield* addVersion('vk', 'keep', 1, 'w/acme/f/keep/v1', 40, ready(shared))
+      yield* addVersion('v3', 'f1', 3, 'w/acme/f/f1/v3', 40, ready(shared))
+      for (const key of ['w/acme/f/f1/v1', 'w/acme/f/f1/v2', 'w/acme/f/f1/v3', 'w/acme/f/keep/v1', glbKey('f1', 'cur'), glbKey('f1', 'v1'), shared]) yield* putObject(key)
+      yield* trashFile(caller('max'), { ...ref, fileId: 'f1' })
+      assert.strictEqual(yield* tag(purgeFile(caller('bob'), { ...ref, fileId: 'f1' })), 'ok')
+      assert.deepStrictEqual((yield* bucket).slice().sort(), [shared, 'w/acme/f/keep/cur', 'w/acme/f/keep/v1'])
+      assert.strictEqual((yield* rows('storageDeletions')).length, 0)
+    })))
+
+  it.effect('the hourly job expires an abandoned derivative upload and deletes its object', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* upload('f1', 'max')
+      yield* putObject(glbKey('f1', 'abandoned'))
+      yield* Db.use((x) => x.use((d) => d.insert(schema.derivativeSessions).values({
+        id: 'd1', workspaceId: 'acme', fileId: 'f1', sourceR2Key: 'w/acme/f/f1/cur', userId: 'max', r2Key: glbKey('f1', 'abandoned'), declaredSize: 4,
+        status: 'pending', expiresAt: at(T0 + 600), createdAt: at(T0), completedAt: null,
+      })))
+      yield* runCron(HOURLY)
+      assert.include(yield* bucket, glbKey('f1', 'abandoned'), 'still within its URL lifetime')
+      yield* TestClock.adjust('3 hours')
+      yield* runCron(HOURLY)
+      assert.notInclude(yield* bucket, glbKey('f1', 'abandoned'))
+      assert.strictEqual((yield* rows('derivativeSessions'))[0]?.status, 'expired')
+    })))
+})
+
 describe('moveFile', () => {
   const world2 = Effect.gen(function* () {
     yield* world

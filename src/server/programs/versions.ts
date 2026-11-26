@@ -75,9 +75,12 @@ export const restoreVersion = Effect.fn('restoreVersion')(function* (
       id: snapshotId, fileId: file.id, versionNumber: currentNumber, r2Key: file.r2Key, size: file.size,
       uploadedByUserId: file.currentUploadedByUserId ?? file.userId, createdAt: at,
       contentEtag: file.contentEtag, thumbnailR2Key: file.thumbnailR2Key,
+      derivativeR2Key: file.derivativeR2Key, derivativeState: file.derivativeState, derivativeMeta: file.derivativeMeta,
     }),
+    // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows).
     d.update(schema.files).set({
       r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag, thumbnailR2Key: version.thumbnailR2Key,
+      derivativeR2Key: version.derivativeR2Key, derivativeState: version.derivativeState, derivativeMeta: version.derivativeMeta,
       currentVersionNumber: currentNumber + 1, currentUploadedByUserId: version.uploadedByUserId, updatedAt: at,
     }).where(and(eq(schema.files.id, file.id), eq(schema.files.workspaceId, input.workspaceId))),
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'file', targetId: file.id, action: 'file.version_restored', at: base.now }, activityId),
