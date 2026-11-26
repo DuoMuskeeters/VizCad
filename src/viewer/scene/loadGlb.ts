@@ -39,7 +39,7 @@ export const statsOfObject = (root: Object3D, ms: number): Stats => {
 const embedded = (uri: unknown) => typeof uri !== 'string' || /^(data|blob):/i.test(uri)
 
 /**
- * Every `uri` of the GLB's buffers and images is embedded (`data:`), read from the JSON chunk before GLTFLoader sees
+ * Every `uri` of the GLB's buffers and images is embedded (`data:` or `blob:`), read from the JSON chunk before GLTFLoader sees
  * it. False also for bytes whose JSON chunk cannot be read (GLTFLoader would refuse them anyway).
  */
 export const onlyEmbeddedUris = (bytes: ArrayBuffer): boolean => {
