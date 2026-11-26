@@ -8,7 +8,7 @@ import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
 import { png, webpX } from '../testing/images'
 import { caller, programLayer, rows, seedFile, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
-import { deliverContent, deliverThumbnail, type Delivery, putThumbnail } from './delivery'
+import { deliverContent, deliverModel, deliverThumbnail, type Delivery, putThumbnail } from './delivery'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>) => TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(defaultPlan)))
 
@@ -211,6 +211,74 @@ describe('deliverContent', () => {
 })
 
 const rowsOf = (list: ReadonlyArray<unknown>) => list.length
+
+const model = (as: string, fileId: string, range: string | null = null, overrides = {}) => deliverModel(caller(as, overrides), { fileId, range })
+
+describe('deliverModel', () => {
+  it.effect('streams the current object with the content headers, audited as a preview: no download, no security event', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedStoredFile('f1', 'bob', 'acme', CONTENT, { name: 'Bracket.step' })
+      const delivery = yield* model('max', 'f1', null, { ip: '203.0.113.9' })
+      const download = yield* content('ada', 'f1')
+      assert.strictEqual(delivery.status, 200)
+      assert.deepStrictEqual(delivery.headers, download.headers, 'same headers as content')
+      assert.strictEqual(yield* text(delivery), CONTENT)
+      const access = (yield* rows('accessLog')).filter((r) => r.actorUserId === 'max')
+      assert.deepStrictEqual(access.map((r) => [r.action, r.outcome, r.targetId]), [['file.previewed', 'allowed', 'f1']])
+      const security = yield* rows('securityLog')
+      assert.deepStrictEqual(security.map((r) => [r.event, r.userId]), [['file_downloaded', 'ada']], 'only the real download is a security event')
+      yield* model('max', 'f1', 'bytes=0-9')
+      assert.strictEqual(rowsOf((yield* rows('accessLog')).filter((r) => r.actorUserId === 'max')), 1, 'one preview row per window')
+    })),
+  )
+
+  it.effect('Range answers 206 like content', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
+      const part = yield* model('max', 'f1', 'bytes=4-9')
+      assert.strictEqual(part.status, 206)
+      assert.strictEqual(part.headers['content-range'], `bytes 4-9/${CONTENT.length}`)
+      assert.strictEqual(yield* text(part), CONTENT.slice(4, 10))
+    })),
+  )
+
+  it.effect('5a still needs download: commenters and view guests are refused, a guest without a grant sees nothing', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedUser('out')
+      yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
+      for (const who of ['bob', 'ada', 'max']) assert.strictEqual((yield* model(who, 'f1')).status, 200, who)
+      const commenter = yield* failure(model('cat', 'f1'))
+      assert.deepStrictEqual([commenter._tag, 'reason' in commenter ? commenter.reason : ''], ['PermissionDenied', 'ROLE_LIMIT'])
+      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'ResourceUnavailable')
+      yield* seedFileGrant('f1', 'eve', 'acme', 'comment')
+      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'PermissionDenied')
+      yield* Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level: 'view' }).where(eq(schema.fileAccess.userId, 'eve'))))
+      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'PermissionDenied')
+      yield* Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level: 'download' }).where(eq(schema.fileAccess.userId, 'eve'))))
+      assert.strictEqual((yield* model('eve', 'f1')).status, 200)
+      assert.strictEqual((yield* failure(model('out', 'f1')))._tag, 'WorkspaceUnavailable')
+      yield* updateFile('f1', { isDeleted: true })
+      assert.strictEqual((yield* failure(model('bob', 'f1')))._tag, 'ResourceUnavailable')
+      const allowed = (yield* rows('accessLog')).filter((r) => r.outcome === 'allowed')
+      assert.deepStrictEqual([...new Set(allowed.map((r) => r.action))], ['file.previewed'])
+      assert.strictEqual(rowsOf(yield* rows('securityLog')), 0)
+    })),
+  )
+
+  it.effect('a changed object is refused and audited as a failed preview', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const stored = yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
+      yield* (yield* Storage).put(stored.key, 'tampered bytes of another length')
+      assert.strictEqual((yield* failure(model('max', 'f1')))._tag, 'ContentIntegrity')
+      const denied = (yield* rows('accessLog')).filter((r) => r.outcome === 'denied')
+      assert.deepStrictEqual(denied.map((r) => `${r.action}:${r.reason}`), ['file.previewed:integrity'])
+    })),
+  )
+})
 
 const thumbnailFor = (fileId: string, bytes: Uint8Array | string, key = `w/acme/f/${fileId}/thumb-${fileId}.thumb`) =>
   Effect.gen(function* () {

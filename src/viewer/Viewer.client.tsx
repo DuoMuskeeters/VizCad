@@ -21,7 +21,7 @@ export type ViewerProps = {
   /** File name: canvas label and screenshot name. */
   readonly name: string
   readonly extension: string
-  /** Where the model bytes come from (`/api/files/{id}/content?v=current` in 5a). */
+  /** Where the model bytes come from: `/api/files/{id}/model` (audited as a preview, docs/11 §2.4). */
   readonly url: string
   /** Shown in place of the canvas until the model is drawn, and behind error texts. */
   readonly thumbnailUrl: string | null

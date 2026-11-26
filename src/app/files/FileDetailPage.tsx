@@ -26,7 +26,7 @@ import { startDownload } from './download'
 import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
 import { uploadThumbnail } from './thumbnail'
-import { abilitiesOf, contentUrl, isFullView, thumbnailUrl, type AnyFileView } from './types'
+import { abilitiesOf, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
 import { useUploads } from './UploadProvider'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
@@ -90,8 +90,8 @@ const Details = ({ file }: { file: AnyFileView }) => {
 }
 
 /**
- * The file page (docs/03 §2.5, D18): the 3D viewer for callers who may download (Faz 5a reads the `content` endpoint;
- * view/comment levels get 3D with the `model` endpoint in 5b, D23), otherwise the thumbnail or file card; and the tabbed panel.
+ * The file page (docs/03 §2.5, D18): the 3D viewer for callers who may download (Faz 5a: the `model` endpoint still needs
+ * `download`; view/comment levels get 3D when it moves to `preview` in 5b, D23), otherwise the thumbnail or file card; and the tabbed panel.
  */
 export const FileDetailPage = () => {
   const { t, locale } = useI18n()
@@ -232,7 +232,7 @@ export const FileDetailPage = () => {
               key={`${file.id}:${file.currentVersion.number}`}
               name={file.name}
               extension={file.extension}
-              url={contentUrl(file.id, 'current')}
+              url={modelUrl(file.id)}
               thumbnailUrl={thumbnail}
               deferred={deferOpen(format, phone)}
               onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone) ? (blob) => saveThumbnail(file.id, blob) : undefined}

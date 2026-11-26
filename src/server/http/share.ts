@@ -1,6 +1,6 @@
 import { Effect, type Layer, Schema } from 'effect'
 import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
-import { deliverLinkContent, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword } from '../programs/shareLinks'
+import { deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword } from '../programs/shareLinks'
 import { AppConfig } from '../services/AppConfig'
 import type { Db } from '../services/Db'
 import type { RateLimit } from '../services/RateLimit'
@@ -13,8 +13,8 @@ import { handle, type RequestMeta } from './respond'
 
 export type ShareServices = Db | AppConfig | Storage | RateLimit | Turnstile
 
-/** `/s/{token}/content`, `/s/{token}/thumbnail`, `POST /api/s/resolve`, `POST /api/s/password`. */
-const DELIVERY_PATH = /^\/s\/([^/]+)\/(content|thumbnail)$/
+/** `/s/{token}/content`, `/s/{token}/model`, `/s/{token}/thumbnail`, `POST /api/s/resolve`, `POST /api/s/password`. */
+const DELIVERY_PATH = /^\/s\/([^/]+)\/(content|model|thumbnail)$/
 const API_PREFIX = '/api/s/'
 
 const Token = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(64))
@@ -58,10 +58,13 @@ export const shareProgram = (request: Request) =>
     if (delivery !== null) {
       yield* checkReadRequest(request, trustedOrigins)
       const token = delivery[1] ?? ''
+      const range = request.headers.get('range')
       return deliveryResponse(
         delivery[2] === 'content'
-          ? yield* deliverLinkContent(visitor, token, request.headers.get('range'))
-          : yield* deliverLinkThumbnail(visitor, token),
+          ? yield* deliverLinkContent(visitor, token, range)
+          : delivery[2] === 'model'
+            ? yield* deliverLinkModel(visitor, token, range)
+            : yield* deliverLinkThumbnail(visitor, token),
       )
     }
 

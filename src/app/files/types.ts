@@ -56,4 +56,7 @@ export const abilitiesOf = (file: AnyFileView): FileAbilities =>
 export const contentUrl = (fileId: string, version?: string) =>
   `/api/files/${encodeURIComponent(fileId)}/content${version === undefined ? '' : `?v=${encodeURIComponent(version)}`}`
 
+/** What the 3D viewer reads (docs/11 §2.4): the current version, audited as a preview, not a download. */
+export const modelUrl = (fileId: string) => `/api/files/${encodeURIComponent(fileId)}/model`
+
 export const thumbnailUrl = (fileId: string, version: number) => `/api/files/${encodeURIComponent(fileId)}/thumbnail?v=${version}`

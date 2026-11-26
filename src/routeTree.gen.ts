@@ -38,8 +38,10 @@ import { Route as DevUiIndexRouteImport } from './routes/dev/ui/index'
 import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
 import { Route as STokenIndexRouteImport } from './routes/s/$token/index'
 import { Route as STokenContentRouteImport } from './routes/s/$token/content'
+import { Route as STokenModelRouteImport } from './routes/s/$token/model'
 import { Route as STokenThumbnailRouteImport } from './routes/s/$token/thumbnail'
 import { Route as ApiFilesFileIdContentRouteImport } from './routes/api/files/$fileId/content'
+import { Route as ApiFilesFileIdModelRouteImport } from './routes/api/files/$fileId/model'
 import { Route as ApiFilesFileIdThumbnailRouteImport } from './routes/api/files/$fileId/thumbnail'
 
 const IndexRoute = IndexRouteImport.update({
@@ -187,6 +189,11 @@ const STokenContentRoute = STokenContentRouteImport.update({
   path: '/s/$token/content',
   getParentRoute: () => rootRouteImport,
 } as any)
+const STokenModelRoute = STokenModelRouteImport.update({
+  id: '/s/$token/model',
+  path: '/s/$token/model',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const STokenThumbnailRoute = STokenThumbnailRouteImport.update({
   id: '/s/$token/thumbnail',
   path: '/s/$token/thumbnail',
@@ -195,6 +202,11 @@ const STokenThumbnailRoute = STokenThumbnailRouteImport.update({
 const ApiFilesFileIdContentRoute = ApiFilesFileIdContentRouteImport.update({
   id: '/api/files/$fileId/content',
   path: '/api/files/$fileId/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesFileIdModelRoute = ApiFilesFileIdModelRouteImport.update({
+  id: '/api/files/$fileId/model',
+  path: '/api/files/$fileId/model',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFilesFileIdThumbnailRoute = ApiFilesFileIdThumbnailRouteImport.update({
@@ -230,11 +242,13 @@ export interface FileRoutesByFullPath {
   '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
+  '/s/$token/model': typeof STokenModelRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
+  '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
 }
 export interface FileRoutesByTo {
@@ -263,11 +277,13 @@ export interface FileRoutesByTo {
   '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
+  '/s/$token/model': typeof STokenModelRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects': typeof AppProjectsIndexRoute
   '/dev/ui': typeof DevUiIndexRoute
   '/s/$token': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
+  '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
 }
 export interface FileRoutesById {
@@ -298,11 +314,13 @@ export interface FileRoutesById {
   '/app/projects/$id': typeof AppProjectsIdRoute
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
+  '/s/$token/model': typeof STokenModelRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
+  '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
 }
 export interface FileRouteTypes {
@@ -334,11 +352,13 @@ export interface FileRouteTypes {
     | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
+    | '/s/$token/model'
     | '/s/$token/thumbnail'
     | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
     | '/api/files/$fileId/content'
+    | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -367,11 +387,13 @@ export interface FileRouteTypes {
     | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
+    | '/s/$token/model'
     | '/s/$token/thumbnail'
     | '/app/projects'
     | '/dev/ui'
     | '/s/$token'
     | '/api/files/$fileId/content'
+    | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
   id:
     | '__root__'
@@ -401,11 +423,13 @@ export interface FileRouteTypes {
     | '/app/projects/$id'
     | '/dev/ui/shell'
     | '/s/$token/content'
+    | '/s/$token/model'
     | '/s/$token/thumbnail'
     | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
     | '/api/files/$fileId/content'
+    | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
   fileRoutesById: FileRoutesById
 }
@@ -428,10 +452,12 @@ export interface RootRouteChildren {
   ApiSSplatRoute: typeof ApiSSplatRoute
   DevUiShellRoute: typeof DevUiShellRoute
   STokenContentRoute: typeof STokenContentRoute
+  STokenModelRoute: typeof STokenModelRoute
   STokenThumbnailRoute: typeof STokenThumbnailRoute
   DevUiIndexRoute: typeof DevUiIndexRoute
   STokenIndexRoute: typeof STokenIndexRoute
   ApiFilesFileIdContentRoute: typeof ApiFilesFileIdContentRoute
+  ApiFilesFileIdModelRoute: typeof ApiFilesFileIdModelRoute
   ApiFilesFileIdThumbnailRoute: typeof ApiFilesFileIdThumbnailRoute
 }
 
@@ -640,6 +666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenContentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$token/model': {
+      id: '/s/$token/model'
+      path: '/s/$token/model'
+      fullPath: '/s/$token/model'
+      preLoaderRoute: typeof STokenModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$token/thumbnail': {
       id: '/s/$token/thumbnail'
       path: '/s/$token/thumbnail'
@@ -652,6 +685,13 @@ declare module '@tanstack/react-router' {
       path: '/api/files/$fileId/content'
       fullPath: '/api/files/$fileId/content'
       preLoaderRoute: typeof ApiFilesFileIdContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$fileId/model': {
+      id: '/api/files/$fileId/model'
+      path: '/api/files/$fileId/model'
+      fullPath: '/api/files/$fileId/model'
+      preLoaderRoute: typeof ApiFilesFileIdModelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/files/$fileId/thumbnail': {
@@ -709,10 +749,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSSplatRoute: ApiSSplatRoute,
   DevUiShellRoute: DevUiShellRoute,
   STokenContentRoute: STokenContentRoute,
+  STokenModelRoute: STokenModelRoute,
   STokenThumbnailRoute: STokenThumbnailRoute,
   DevUiIndexRoute: DevUiIndexRoute,
   STokenIndexRoute: STokenIndexRoute,
   ApiFilesFileIdContentRoute: ApiFilesFileIdContentRoute,
+  ApiFilesFileIdModelRoute: ApiFilesFileIdModelRoute,
   ApiFilesFileIdThumbnailRoute: ApiFilesFileIdThumbnailRoute,
 }
 export const routeTree = rootRouteImport
