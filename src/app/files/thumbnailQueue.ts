@@ -4,14 +4,17 @@
  * after a newer version exists: a new job for the file, or `supersede` (a new version upload starting), drops every
  * older job for it, before it renders and again before it posts. No `effect`, no three.js.
  */
-export type ThumbnailQueue = {
-  /** Renders (`render`, null = nothing to store) and stores a thumbnail for `fileId` after the jobs before it. */
-  readonly enqueue: (fileId: string, render: () => Promise<Blob | null>) => Promise<void>
+export type ThumbnailQueue<T = Blob> = {
+  /**
+   * Renders (`render`, null = nothing to store) and stores a result for `fileId` after the jobs before it. 5b: the
+   * result of a STEP/IGES/3MF job is its GLB derivative together with the thumbnail of the same scene.
+   */
+  readonly enqueue: (fileId: string, render: () => Promise<T | null>) => Promise<void>
   /** Drops queued and running jobs for `fileId` (their result is not posted). */
   readonly supersede: (fileId: string) => void
 }
 
-export const createThumbnailQueue = (store: (fileId: string, blob: Blob) => Promise<boolean>, onStored: () => void): ThumbnailQueue => {
+export const createThumbnailQueue = <T = Blob>(store: (fileId: string, value: T) => Promise<boolean>, onStored: () => void): ThumbnailQueue<T> => {
   const latest = new Map<string, number>()
   let ticket = 0
   let chain: Promise<void> = Promise.resolve()

@@ -18,6 +18,7 @@ const harness = (overrides: Partial<HandleDeps> = {}) => {
     post: (message, transfer = []) => sent.push({ message, transfer }),
     loadOcct: () => Promise.reject(new Error('not in this test')),
     renderThumbnail: vi.fn(async () => new Blob(['img'], { type: 'image/webp' })),
+    exportGlb: vi.fn(async () => new Uint8Array([0x67, 0x6c, 0x54, 0x46]).buffer),
     ...overrides,
   }
   return { sent, deps, kinds: () => sent.map((s) => s.message.kind) }

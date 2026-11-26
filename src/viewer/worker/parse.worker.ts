@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 /**
- * The single parse Worker (docs/11 §1.2): one job per request, handled by `handle.ts`. The occt-import-js glue and its
+ * The single parse Worker (docs/11 §1.2): one job per request (parse, thumbnail, derive), handled by `handle.ts`. The occt-import-js glue and its
  * WASM load only for STEP/IGES, inside this Worker.
  */
+import { exportGlb } from '../scene/glb'
 import { renderThumbnail } from '../scene/thumbnail'
 import type { Occt } from './formats/step'
 import { handleMessage, occtLoader } from './handle'
@@ -20,5 +21,5 @@ const loadOcct = occtLoader(() =>
 const post = (message: WorkerResponse, transfer: Transferable[] = []) => self.postMessage(message, transfer)
 
 self.onmessage = (event: MessageEvent<unknown>) => {
-  void handleMessage(event.data, { post, loadOcct, renderThumbnail })
+  void handleMessage(event.data, { post, loadOcct, renderThumbnail, exportGlb })
 }

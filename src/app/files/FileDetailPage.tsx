@@ -15,7 +15,9 @@ import { useToast } from '#/components/ui/Toast'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
-import { formatOfExtension } from '#/viewer/worker/protocol'
+import type { ViewerStart } from '#/viewer/state'
+import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
+import { reportDerivativeFailure, uploadDerivative } from './derivative'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
@@ -42,6 +44,24 @@ const ViewerFallback = ({ src }: { src: string | null }) => (
     <div className="h-11 app:h-9.5" />
   </div>
 )
+
+/** The code a failed derivative stored; an unknown one reads as "could not be read". */
+const storedCode = (code: string | null): ErrorCode => ERROR_CODES.find((known) => known === code) ?? 'corrupt'
+
+/**
+ * Why there is no 3D for this caller (docs/11 §8): no derivative yet (only an edit user's desktop open makes one), too
+ * large, a failed conversion, or (only download is missing) the old "view only" note.
+ */
+const noModelText = (t: ReturnType<typeof useI18n>['t'], file: AnyFileView) => {
+  const derivative = file.model.derivative
+  if (fileTypeOfExtension(file.extension) === undefined) return t('file.preview.note')
+  if (derivative?.state === 'too_large') return t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
+  if (derivative?.state === 'failed') {
+    const code = storedCode(derivative.code)
+    return t(code === 'empty' ? 'viewer.error.empty' : code === 'timeout' || code === 'out_of_memory' ? 'viewer.error.device' : code === 'too_complex' ? 'viewer.error.tooComplex' : 'viewer.error.corrupt')
+  }
+  return t('viewer.notPrepared')
+}
 
 type State = { readonly status: 'loading' } | { readonly status: 'missing' } | { readonly status: 'error' } | { readonly status: 'ready'; readonly file: AnyFileView }
 
@@ -90,8 +110,9 @@ const Details = ({ file }: { file: AnyFileView }) => {
 }
 
 /**
- * The file page (docs/03 §2.5, D18): the 3D viewer for callers who may download (Faz 5a: the `model` endpoint still needs
- * `download`; view/comment levels get 3D when it moves to `preview` in 5b, D23), otherwise the thumbnail or file card; and the tabbed panel.
+ * The file page (docs/03 §2.5, D18, D23): the 3D viewer whenever `model` has something for this caller (every level for
+ * a GLB derivative or an STL/OBJ/PLY; a STEP/IGES/3MF source only with download, converted in place and, for an edit
+ * user on a desktop, stored as the derivative); otherwise the thumbnail or file card with the reason; and the tabbed panel.
  */
 export const FileDetailPage = () => {
   const { t, locale } = useI18n()
@@ -131,9 +152,22 @@ export const FileDetailPage = () => {
     const still = (file: AnyFileView | null) => file !== null && file.id === fileId && file.currentVersion.number === version
     const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
     if (!still(shown.current.file) || pending) return
-    void uploadThumbnail(fileId, blob).then((stored) => {
+    void uploadThumbnail(fileId, version, blob).then((stored) => {
       if (stored) setState((current) => (current.status === 'ready' && still(current.file) ? { status: 'ready', file: { ...current.file, thumbnailAvailable: true } } : current))
     })
+  }, [])
+
+  // The viewer converted the source and wrote its GLB (docs/11 §2.5 lazy path): store it in the background, unless the
+  // version moved on meanwhile (the server refuses that too). The page keeps showing the model it has; the next open
+  // reads the GLB.
+  const saveDerivative = useCallback((fileId: string, version: number, extension: string, glb: ArrayBuffer, stats: Stats) => {
+    const format = formatOfExtension(extension)
+    const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
+    if (format === null || pending || shown.current.file?.id !== fileId || shown.current.file.currentVersion.number !== version) return
+    void uploadDerivative({ fileId, version, glb, stats, converter: converterOf(format) })
+  }, [])
+  const recordFailure = useCallback((fileId: string, version: number, code: ErrorCode) => {
+    void reportDerivativeFailure({ fileId, version, code })
   }, [])
 
   // A new version finished uploading: the file card and the version list change.
@@ -180,6 +214,16 @@ export const FileDetailPage = () => {
   const typeLabel = fileTypeOfExtension(file.extension)?.label ?? file.extension.toUpperCase()
   const format = formatOfExtension(file.extension)
   const thumbnail = file.thumbnailAvailable ? thumbnailUrl(file.id, file.currentVersion.number) : null
+  const model = file.model
+  const derivative = model.derivative
+  const converts = format !== null && isConvertFormat(format)
+  // Edit + download on a desktop, reading the source: the viewer converts it and the GLB is stored (lazy path, §2.5).
+  const storesDerivative = converts && model.kind === 'source' && can.edit && can.download && !phone
+  const start: ViewerStart = !converts || model.kind !== 'source' ? 'auto'
+    : derivative?.state === 'too_large' ? { failed: 'too_large' }
+    : derivative?.state === 'failed' ? { failed: storedCode(derivative.code) }
+    : format !== null && deferOpen(format, phone) ? 'phone'
+    : 'auto'
   return (
     <>
       <PageHeader
@@ -233,7 +277,7 @@ export const FileDetailPage = () => {
       />
 
       <div className="grid items-start gap-6 app:grid-cols-[minmax(0,1fr)_380px]">
-        {can.download && format !== null ? (
+        {model.kind !== 'none' && format !== null ? (
           <Suspense fallback={<ViewerFallback src={thumbnail} />}>
             <Viewer
               key={`${file.id}:${file.currentVersion.number}`}
@@ -242,8 +286,14 @@ export const FileDetailPage = () => {
               size={file.size}
               url={modelUrl(file.id)}
               thumbnailUrl={thumbnail}
-              deferred={deferOpen(format, phone)}
-              onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone) ? (blob) => saveThumbnail(file.id, file.currentVersion.number, blob) : undefined}
+              start={start}
+              source={model.kind}
+              modelBytes={model.bytes}
+              maxConvertBytes={model.maxConvertBytes}
+              retryAlways={storesDerivative && derivative?.state === 'failed'}
+              onDerivative={storesDerivative ? (glb, stats) => saveDerivative(file.id, file.currentVersion.number, file.extension, glb, stats) : undefined}
+              onConvertFailed={storesDerivative ? (code) => recordFailure(file.id, file.currentVersion.number, code) : undefined}
+              onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone, model.maxConvertBytes) ? (blob) => saveThumbnail(file.id, file.currentVersion.number, blob) : undefined}
               onUploadVersion={can.edit && uploads.allowed ? () => uploads.pick(file.id) : undefined}
               downloadAction={
                 <Button onClick={() => startDownload(file.id)}>
@@ -263,7 +313,7 @@ export const FileDetailPage = () => {
                 <p className="text-md text-text-2">{t('file.preview.none')}</p>
               </div>
             )}
-            <p className="max-w-md text-center text-sm text-text-3">{t('file.preview.note')}</p>
+            <p className="max-w-md text-center text-sm text-text-3">{noModelText(t, file)}</p>
           </section>
         )}
 

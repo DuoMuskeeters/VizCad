@@ -66,16 +66,32 @@ export type ParsedModel = {
   readonly up: UpAxis
 }
 
-export type Stage = 'parse' | 'convert' | 'thumbnail'
+export type Stage = 'parse' | 'convert' | 'thumbnail' | 'derive'
 
+type Source = {
+  readonly id: number
+  readonly format: SourceFormat
+  readonly name: string
+  readonly bytes: ArrayBuffer
+  /** `Entitlements.maxConvertBytes` of the file's workspace; a larger STEP/IGES/3MF is `too_large` without being read. */
+  readonly maxConvertBytes?: number
+}
+
+/**
+ * `parse` draws the model (5a) and, with `derive`, also writes its GLB derivative before the geometry moves to the
+ * main thread (the lazy path of docs/11 §2.5: show the model now, upload the GLB in the background). `derive` alone
+ * (the upload path) never transfers geometry: GLB, thumbnail, tree and stats only.
+ */
 export type WorkerRequest =
-  | { readonly kind: 'parse'; readonly id: number; readonly format: SourceFormat; readonly name: string; readonly bytes: ArrayBuffer; readonly thumbnail: boolean }
-  | { readonly kind: 'thumbnail'; readonly id: number; readonly format: SourceFormat; readonly name: string; readonly bytes: ArrayBuffer }
+  | ({ readonly kind: 'parse'; readonly thumbnail: boolean; readonly derive?: boolean } & Source)
+  | ({ readonly kind: 'thumbnail' } & Source)
+  | ({ readonly kind: 'derive' } & Source)
 
 export type WorkerResponse =
   | { readonly kind: 'progress'; readonly id: number; readonly stage: Stage; readonly ratio: number | null }
-  | { readonly kind: 'parsed'; readonly id: number; readonly model: ParsedModel; readonly stats: Stats; readonly thumbnail: Blob | null }
+  | { readonly kind: 'parsed'; readonly id: number; readonly model: ParsedModel; readonly stats: Stats; readonly thumbnail: Blob | null; readonly glb: ArrayBuffer | null }
   | { readonly kind: 'thumbnail'; readonly id: number; readonly blob: Blob }
+  | { readonly kind: 'derived'; readonly id: number; readonly glb: ArrayBuffer; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
   | { readonly kind: 'failed'; readonly id: number; readonly code: ErrorCode }
 
 /** Limits the viewer enforces on any model it builds (docs/11 §2.3 "Güven"). */
@@ -83,10 +99,14 @@ export const MAX_TRIANGLES = 20_000_000
 export const MAX_NODES = 20_000
 
 /**
- * Largest STEP/IGES/3MF the browser converts (D22: about 50 MB; the 2 GB WASM heap is the real ceiling). 5b moves this
- * value into `Entitlements.maxConvertBytes`; until then it is a device-capability guard of the viewer, not a plan limit.
+ * Default of the largest STEP/IGES/3MF the browser converts (D22: about 50 MB). The real value is the workspace's
+ * `Entitlements.maxConvertBytes`, which reaches the client in every file view (`model.maxConvertBytes`) and the
+ * upload answer; this constant is only the fallback when a caller has none (tests, the Worker's own guard).
  */
 export const MAX_CONVERT_BYTES = 50 * 1024 * 1024
+
+/** The `converter` the derivative's meta records (docs/11 §2.2): which reader produced the triangles. */
+export const converterOf = (format: SourceFormat) => (format === '3mf' ? 'vizcad-3mf 1' : 'occt-import-js 0.0.23')
 
 /** STEP/IGES conversion gives up after five minutes (docs/11 §1.2; a 179 MB file returned empty after 11.7 min). */
 export const PARSE_TIMEOUT_MS = 5 * 60 * 1000
@@ -145,11 +165,11 @@ const isObject = (value: unknown): value is Record<string, unknown> => typeof va
 
 /** Narrow check of an incoming message on either side; a malformed message is dropped. */
 export const isWorkerResponse = (value: unknown): value is WorkerResponse =>
-  isObject(value) && typeof value['id'] === 'number' && ['progress', 'parsed', 'thumbnail', 'failed'].includes(String(value['kind']))
+  isObject(value) && typeof value['id'] === 'number' && ['progress', 'parsed', 'thumbnail', 'derived', 'failed'].includes(String(value['kind']))
 
 export const isWorkerRequest = (value: unknown): value is WorkerRequest =>
   isObject(value)
   && typeof value['id'] === 'number'
-  && (value['kind'] === 'parse' || value['kind'] === 'thumbnail')
+  && (value['kind'] === 'parse' || value['kind'] === 'thumbnail' || value['kind'] === 'derive')
   && typeof value['format'] === 'string'
   && value['bytes'] instanceof ArrayBuffer

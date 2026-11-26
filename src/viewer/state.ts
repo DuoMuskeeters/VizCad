@@ -13,8 +13,14 @@ export type ViewerError = ErrorCode | 'webgl'
 
 export type LoadStage = 'download' | Stage | 'build'
 
+/**
+ * Why the viewer waits for a tap: `phone` a STEP/IGES source on a phone (5a, conversion is heavy); `tap` the mobile shared
+ * page, which never opens 3D by itself (docs/11 §6: data and battery); `canceled` the person stopped it.
+ */
+export type IdleReason = 'phone' | 'tap' | 'canceled'
+
 export type Phase =
-  | { readonly status: 'idle'; readonly reason: 'phone' | 'canceled' }
+  | { readonly status: 'idle'; readonly reason: IdleReason }
   | { readonly status: 'loading'; readonly stage: LoadStage; readonly ratio: number | null }
   | { readonly status: 'ready'; readonly stats: Stats }
   | { readonly status: 'error'; readonly code: ViewerError }
@@ -41,13 +47,20 @@ export type ViewerAction =
   | { readonly type: 'toggleWireframe' }
   | { readonly type: 'toggleEdges' }
 
-export const initialViewerState = (deferred: boolean): ViewerState => ({
-  phase: deferred ? { status: 'idle', reason: 'phone' } : { status: 'loading', stage: 'download', ratio: null },
-  tool: 'orbit',
-  wireframe: false,
-  edges: false,
-  attempt: deferred ? 0 : 1,
-})
+/**
+ * How a viewer starts: open at once, wait for a tap (`phone`, `tap`), or show a stored failure (a derivative that
+ * failed before is not converted again on every open, docs/11 §2.2; an edit user may retry). `true`/`false` are the 5a
+ * shorthand for `phone`/`auto`.
+ */
+export type ViewerStart = 'auto' | 'phone' | 'tap' | { readonly failed: ViewerError } | boolean
+
+export const initialViewerState = (start: ViewerStart): ViewerState => {
+  const mode = start === true ? 'phone' : start === false ? 'auto' : start
+  const phase: Phase = mode === 'auto' ? { status: 'loading', stage: 'download', ratio: null }
+    : mode === 'phone' || mode === 'tap' ? { status: 'idle', reason: mode }
+    : { status: 'error', code: mode.failed }
+  return { phase, tool: 'orbit', wireframe: false, edges: false, attempt: mode === 'auto' ? 1 : 0 }
+}
 
 export const edgesAvailable = (state: ViewerState) => state.phase.status === 'ready' && state.phase.stats.triangles <= EDGES_TRIANGLE_LIMIT
 
