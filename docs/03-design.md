@@ -248,6 +248,33 @@ Gri tel kafes yerleşimi tartışmak için fazla soyut bulundu ("modern, sade" b
 - Organizasyon ekranları (D17 modeline göre): `04-projeler.html` (liste, workspace menüsü, yeni proje, boş), `05-proje.html` (dosyalar, erişim + düzey menüsü, kişi ekle, aktivite, misafirin gördüğü), `06-ekip.html` (üyeler, misafirler, bekleyen davetler, üye davet + koltuk uyarısı, kişisel workspace). Kenar menü `_shell.js`'ten ortak; `01-dosyalar.html` "Tüm dosyalar" oldu.
 - Bu ekranlarda verilen ve onay bekleyen kararlar: kişisel workspace'e üye eklenmez (ekip için firma workspace'i açılır, dosyalar taşınabilir; misafir ve link kişiselde de var) · koltuk yetmezse davet gönderilemez, yorumcu önerilir · misafirde "Düzenleyebilir" devre dışı ve nedeni yazılı · aktivite kaydı CSV olarak indirilebilir.
 
+### 4.2 Faz 5c/5d tel kafesleri (onay bekliyor)
+
+`design/mockups/v2/12-stüdyo.html` (5d: kesit, ölçü, ekran görüntüsü, yorum pini, mobil alt sayfa, dokunma) ve `13-montaj.html` (5c: Parçalar klasör görünümü, `?node=`, yol çubuğu, ağaç, seçim, izole, sahne hazırlama, sahne çakışması, yeni sürüm eşleme, STL parça indirme, salt okunur). Parametresiz açılınca pano: her durum 1280 ve 390, açık ve koyu yan yana. Tek durum `?durum=<ad>&tema=acik|koyu`. Model `_model.js` ile çizilir (seçim, izole, kesit ve parça küçük resimleri aynı montajdan). Görüntüler `docs/img/faz5-tel-kafes/` (`node design/mockups/v2/_shoot2.cjs <sayfa> <klasör>`; 320 px'te yatay taşma ve 44 px altı dokunma hedefi denetimi).
+
+Tel kafeslerde verilen kararlar:
+- Stüdyo, 02'deki gibi tam genişlik çalışır (geri bağlantısı + dosya adı üst çubukta). Masaüstünde ağaç 288 px + tuval + panel 360 px. Montajda üst çubukta "3B / Parçalar" seçici; varsayılan 3B (D22).
+- Tuvalin üstünde yüzen her şey masaüstünde koyu tuval ailesinden; mobilde alt sayfalar ve alt araç çubuğu uygulamanın temasında.
+- Araç kartı (kesit, ölçü) masaüstünde tuvalin sol üstünde, mobilde araç çubuğunun üstünde alt sayfa. Ekran görüntüsü kartı düğmesinin üstünde; mobilde "Paylaş ya da kaydet" (paylaşım sayfası).
+- Mobilde dokunmatik ölçüde parmak noktayı kapattığı için büyüteç noktanın üstünde açılır; ilk açılışta hareket ipuçları bir kez gösterilir.
+- Kesit yüzü çizgili (tarama) gösterilir, düzlem tuvalde tutamakla da sürüklenir; kesit kayıtlı görünüme girer.
+- Pin, yorumu bir düğüm yoluna bağlar; düğüm gizliyse pin soluk ve listede "gizli · Göster" yazar.
+- Sahne hazırlama modunda sağ panel sekmeler yerine tek "Görünümü düzenle" paneli olur (ad, 12 renk + kod, yüzey Mat/Saten/Metal, görünür, kayıtlı görünümler); üstte mod bandı ve "Kaydedildi" göstergesi.
+- Yetkisiz eylem gizlenmez: STL ve "Görünümü düzenle" devre dışı + neden.
+
+Açık sorular (kullanıcı kararı):
+
+| # | Soru | Öneri |
+|---|---|---|
+| B1 | Stüdyo uygulama kabuğunun (sol menü) dışında tam genişlik mi açılsın? 5a dosya sayfası şu an kabuk içinde. | **Evet, tam genişlik.** Ağaç + tuval + panel kabukla 1280'de tuvale 380 px bırakıyor. |
+| B2 | Düzenleme modu dışında ağaçtaki göz düğmesi ve izole herkes için mi kaydedilsin, yalnız benim ekranımda mı kalsın? | **Yalnız benim ekranım.** Kalıcı gizleme düzenleme modunda yapılır, sahne kaydına yazılır. |
+| B3 | Eski sürümde bırakılan pinler yeni sürümde ne olsun? | **Listede kalır, tuvalde gösterilmez** ("Pin Sürüm 3'te bırakıldı"). Ad-yolu eşlemesiyle taşımak sonraki adım. |
+| B4 | Ölçüler kaydedilsin mi? | **Hayır** (sayfa kapanınca silinir); ekran görüntüsüne eklenebilir. Gerekirse kayıtlı görünüme sonra eklenir. |
+| B5 | Mobil alt araç çubuğu: Parçalar · Kesit · Ölçü · Yorum · Görüntü · Daha (Sığdır, Görünümler, Tel kafes "Daha"da; çift dokunma sığdırır). | **Onayla.** |
+| B6 | Parça menüsünde "Bu parçanın linkini kopyala" (`?node=`) olsun mu? Link yalnız dosyaya erişimi olana çalışır; paylaşım yine dosyanın tamamı. | **Evet.** |
+| B7 | STL indirmede varsayılan konum: montajdaki yerinde mi, kendi merkezinde mi? | **Montajdaki yerinde.** |
+| B8 | Ekran görüntüsü varsayılanı: 2 kat, tuval arka planı, pinler ve ölçüler dahil. | **Onayla.** |
+
 ## 5. Token'lar
 
 Kaynak dosya: `design/tokens.css` (taslak 1). Uygulamada Tailwind v4 `@theme`'e taşınır; bileşenler ham hex kullanmaz.

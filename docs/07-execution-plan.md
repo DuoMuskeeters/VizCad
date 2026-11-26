@@ -73,7 +73,8 @@ Sağlayıcılar (26 Kasım kararı): **Codex artık kullanılmıyor.** İşler C
 - [x] **Kullanıcı kararı:** motor three.js, orijinal STEP indirilebilir, kopya yoksa küçük resim + İndir, eski dosyalar ilk açılışta (D22)
 
 ### Dalga 5: içerik, admin, ödeme
-- [ ] Faz 6: CMS (yazılar, yazarlar, site metinleri, SEO), blog, pazarlama sayfaları SSR + edge cache. *Codex + Sonnet*
+- [x] Faz 6 teknik tasarımı `docs/12-cms-seo-design.md`: şema `0016_cms`, legacy yazıların `en` çevirisine geçişi, SSR + edge cache + temizleme kuyruğu, SEO listesi, yasal sayfalar, alt fazlar 6a–6f; açık sorular K1–K13 kullanıcıda
+- [ ] Faz 6: CMS (yazılar, yazarlar, site metinleri, SEO), blog, pazarlama sayfaları SSR + edge cache. *Opus yazar, Sonnet inceler*
 - [ ] Faz 7: platform admin. *Sonnet*
 - [ ] Landing tasarımı ve yapımı (gerçek ekranlarla). *Opus high*
 - [ ] Faz 8: `Billing` + gerçek planlar. **Kullanıcı: Q9 ödeme sağlayıcısı ve şirket, Q10 fiyatlandırma**
