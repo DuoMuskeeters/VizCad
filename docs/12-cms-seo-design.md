@@ -102,7 +102,7 @@ Migration `0016_cms` (5b `0015_viewer`'ı alıyor; numara birleştirme sırasın
 
 **`legal_acceptances`**: `userId` → `user.id` CASCADE, `kind`, `version`, `locale`, `acceptedAt`. PK (`userId`, `kind`, `version`). Kayıtta `terms` ve `privacy` için yazılır (§8.3).
 
-**`cache_purges`** (temizleme kuyruğu, `storage_deletions` kalıbı): `url` PK, `reason`, `createdAt`, `attempts`, `lastError?`, `notBefore`.
+**`cache_purges`** (temizleme kuyruğu, `storage_deletions` kalıbı): `id` PK, `kind` (`url` \| `host`), `target` (URL ya da hostname), `reason`, `createdAt`, `notBefore`, `attempts`, `lastError?`. `UNIQUE (kind, target, notBefore)`, ekleme `ON CONFLICT DO NOTHING`. İndeks `(notBefore)`. Aynı hedef hem hemen hem 60 s sonra temizlensin diye iki satır taşıyabilir (§7.4).
 
 **`contact_messages`**: `id`, `name` (≤ 80), `email`, `company?` (≤ 120), `message` (≤ 4000), `locale`, `createdAt`, `emailedAt?`. IP ve tarayıcı bilgisi yok (hız sınırı DO'da tutulur). 365 günde silinir (cron).
 
@@ -210,7 +210,7 @@ Migration `0016_cms` (5b `0015_viewer`'ı alıyor; numara birleştirme sırasın
 |---|---|---|
 | `Db` | tüm tablolar | yok. `Db.memory` 0016 dahil tüm migration'larla |
 | `Storage` | `blog/` görselleri: `put`, `get`, `head` | yok |
-| `Cache` | yayında temizleme (`purge`) | yapılandırma yoksa `CacheError` (kural 2). `purge` URL listesini yalnız `siteUrl` hostuyla kabul eder |
+| `Cache` | yayında temizleme (`purge`, yeni `purgeHost`) | yapılandırma yoksa `CacheError` (kural 2). `purge` URL listesini, `purgeHost` hostname'i yalnız `siteUrl` hostuyla kabul eder. Yerel `cache.delete` kalkar, çağrı başına 100 URL (§7.4) |
 | `EdgeCache` (yeni, **Effect'siz**) | isabet yolu: `match`, `put`, anahtar (`BUILD_ID` ekiyle), `sanitizeForSsr` | `services/EdgeCache.ts`. `D1Health` gibi bilinçli istisna (CLAUDE.md'ye eklenir): isabette Effect, Drizzle ve router yüklenmez |
 | `AppConfig` | `siteUrl`, `appEnv`, `cachePurge`, `turnstile` | ek: `contactRecipient` (yoksa iletişim formu `ConfigError` ile kapalı) |
 | `Auth` | oturum özeti | `SessionSummary.platformRole` (`'admin' \| 'user'`), aynı sorgudan |
@@ -391,18 +391,28 @@ Editörde dosya seçilir ya da yapıştırılır → istemci `createImageBitmap`
 
 | Değişiklik | Temizlenen URL'ler |
 |---|---|
-| Yazı çevirisi yayın/kaldırma (`L`) | Yazının **tüm** dillerdeki URL'leri (hreflang listeleri değişir) + eski slug; `L` blog listesinin tüm sayfaları; `L` RSS; yazarın tüm dillerdeki sayfası; `L` sitemap'i ve dizin; `L = en` ise `/llms.txt`; landing "son yazılar" gösteriyorsa `L` landing'i |
-| Arşiv/geri alma, yazı alanları (kapak, yazar, kategori) | yukarıdakinin tüm diller için birleşimi |
+| Yazı çevirisi yayın/kaldırma (`L`) | Yazının **tüm** dillerdeki URL'leri (hreflang listeleri değişir) + eski slug; `L` dilinde kategori ya da etiket paylaşan yayındaki yazılar (ilgili yazılar listeleri bu yazıyı gösterebilir, başlığı ya da kapağı değişmiş olabilir); `L` blog listesinin tüm sayfaları; `L` RSS; yazarın tüm dillerdeki sayfası; yazının yayında olduğu **tüm** dillerin sitemap'i ve dizin (her dil sitemap'i yazının hreflang alternatiflerini listeler); `L = en` ise `/llms.txt`; landing "son yazılar" gösteriyorsa `L` landing'i |
+| Arşiv/geri alma, yazı alanları (kapak, yazar, kategori, etiketler) | yukarıdakinin tüm diller için birleşimi; kategori ya da etiket değiştiyse hem eski hem yeni kategori/etiketi paylaşan yazılar |
 | Sayfa metinleri/SEO (`pageKey`, `L`) | o sayfanın `L` URL'si; sayfa `live` değiştiyse o sayfanın tüm dilleri (hreflang) + `L` sitemap'i |
-| `shared` metinler (üst çubuk, alt bilgi) | `L` dilindeki tüm pazarlama URL'leri (yazılar dahil) |
+| `shared` metinler (üst çubuk, alt bilgi) | hostname temizliği (tek API çağrısı; URL listesi değil) |
 | Yazar | yazar sayfası (tüm diller) + yazarın yazıları (tüm diller) |
 | Yasal sürüm | o belgenin URL'si + `L` sitemap'i |
-| Ayarlar (`organization.*`, `defaultOg`) | tüm pazarlama URL'leri |
+| Ayarlar (`organization.*`, `defaultOg`) | hostname temizliği |
 
-**Akış.** Yayın batch'i URL'leri `cache_purges`'e yazar. Aynı istek en çok 10 API çağrısı (30'ar URL, 300 URL) dener: Free planda istek başına 50 alt istek sınırı var. Başarılı URL'ler kuyruktan silinir. Kalan varsa yanıt `{ purge: { done, queued } }` döner ve admin ekranı `drainPurges`'ı kuyruk boşalana kadar tekrar çağırır ("Önbellek temizleniyor · 120/340"). Saatlik cron (`drainCachePurges`, mevcut `0 * * * *`) yarım kalanı tamamlar; deneme sayısı 10'u geçen URL ekranda "başarısız" olarak kalır ve elle yeniden denenir. Yayın bildirimi: "Yayınlandı · önbellek temizlendi: 12 URL" ya da "Yayınlandı · 3 URL temizlenemedi, yeniden denenecek" (03 §2.15).
+**Bütçe (Free plan).** Çağrı başına 50 alt istek ve 10 ms CPU. Cache API çağrıları (`match`, `put`, `delete`) da alt istek sayılır. URL temizliği API çağrısı başına en çok 100 URL alır. Hostname temizliği Free planda da var: dakikada 5 istek, 25'lik kova. Bu değerler 6a'da API yanıtlarıyla doğrulanır ve sonuç bu dokümana not edilir.
 
-- Büyük temizlemeler (`shared` metin, ayarlar) için hostname ile temizleme Free planda varsa (`hosts: ["viz-cad.com"]`) kullanılır. 6a'da API ile doğrulanır; yoksa URL listesi ve kuyruk yeterlidir (site küçük: tahmini 5 dil × 40 URL).
-- `purge` yalnız `siteUrl` hostundaki URL'leri kabul eder; staging kodu production URL'si temizleyemez.
+**Akış.**
+
+1. Yayın batch'i hedefleri `cache_purges`'e yazar: URL başına bir `url` satırı, `shared` metin ve ayarlarda tek bir `host` satırı (`siteUrl` hostu). Aynı batch her hedef için gecikmeli ikinci bir satır da yazar (`notBefore = şimdi + 60 s`, aşağıda "Geç put").
+2. Aynı istek vadesi gelmiş satırları hemen dener: en çok 2 API çağrısı (URL çağrısı başına 100 URL) ya da tek hostname çağrısı. Yerel `cache.delete` yok: zone temizliği yerel veri merkezi dahil hepsini kapsar, yerel silme ise URL başına bir alt istek harcar. 6a'da `Cache.live.ts`'teki yerel silme döngüsü kalkar ve `PURGE_BATCH` 30'dan 100'e çıkar.
+3. Başarılı satırlar silinir. Kalan ya da vadesi gelmemiş satır varsa yanıt `{ purge: { done, queued } }` döner. Admin ekranı `drainPurges`'ı kuyruk (gecikmeli satırlar dahil) boşalana kadar çağırır ("Önbellek temizleniyor · 120/340"). Her `drainPurges` çağrısı en çok 3 API çağrısı yapar.
+4. Ayrı cron (`*/10 * * * *`, `drainCachePurges`) yarım kalanı tamamlar. Bu çağrıda başka iş koşmaz: saatlik işlerle (`expireUploadSessions`, `drainStorageDeletions`) aynı çağrıyı paylaşsa CPU ve alt istek bütçesi ortak olurdu. Çalışma başına en çok 3 API çağrısı ve 300 URL. `wrangler.jsonc` `triggers`, `cron.ts` sabitleri ve `wranglerCrons.test.ts` birlikte güncellenir; production cron'ları cutover'da gelir (bugünkü kural).
+5. Hostname çağrısı 429 alırsa satır kalır ve `notBefore` 60 s ileri alınır. Deneme sayısı 10'u geçen satır ekranda "başarısız" kalır ve elle yeniden denenir. Yayın bildirimi: "Yayınlandı · önbellek temizlendi: 12 URL" ya da "Yayınlandı · 3 URL temizlenemedi, yeniden denenecek" (03 §2.15).
+
+**Geç put (yarış).** Yayından hemen önce başlamış bir ıska D1'den eski veriyi okumuş olabilir ve `put`'unu temizlemeden sonra yapar. O kayıt `s-maxage` (bir gün) boyunca eski kalırdı. Bu yüzden her hedef 60 s sonra ikinci kez temizlenir (adım 1). Iska çizimi bir saniyenin altında biter; 60 s yeterli pay bırakır. Admin sekmeyi kapatırsa ikinci temizliği cron yapar; eski içerik penceresi en kötü durumda yaklaşık 11 dakikadır. `s-maxage` kısaltılmaz, çünkü her veri merkezinde daha sık SSR Free CPU bütçesine ters düşer.
+
+- Hostname temizliği yalnız `shared` metin ve ayarlarda kullanılır. `purge_everything` hiç kullanılmaz. Cutover'dan önce production hostu legacy siteyle ortaktır ama o dönemde production'da CMS yayını yoktur; staging yalnız kendi hostunu temizler.
+- `purge` ve hostname temizliği yalnız `siteUrl` hostunu kabul eder; staging kodu production URL'si temizleyemez. Token bunu sağlamaz (§10.1), tek koruma bu denetimdir ve tam test edilir.
 - **Gerekçe.** D4 kararı URL bazlı temizlemedir ve `Cache` servisi bunun için yazıldı. Kuyruk, D1 yazısı ile temizleme arasındaki tutarsızlığı görünür ve onarılabilir kılar.
 - **Alternatif.** Önbellek anahtarına bir "içerik nesli" sayısı eklemek (yayında nesil artar, temizleme API'si gerekmez). Doğruluğu kolay ama her isabette nesli okumak gerekir ve tek bir değişiklik o dilin bütün önbelleğini soğutur: Free planda her veri merkezinde bir SSR dalgası. 6a ölçümünde URL temizleme güvenilmez çıkarsa yedek plan olarak kalır.
 
@@ -474,6 +484,7 @@ Ayarlar (`/admin/cms/settings`): kuruluş adı, sosyal profiller, logo, varsayı
 
 1. **Staging için özel alan adı (K5).** Cache API workers.dev'de çalışmadığı için önbellek ve temizleme yalnız özel alan adında denenebilir. Öneri: `staging.viz-cad.com` → `vizcad-rewrite` Worker (`routes: [{ pattern: "staging.viz-cad.com", custom_domain: true }]`). Bu, production zone'una bir DNS kaydı ekler; onay gerekir. Staging her yanıtta `noindex` ve `Disallow: /` gönderir.
 2. **Önbellek temizleme token'ı.** Cloudflare panosu → My Profile → API Tokens → Create Token → Custom: izin **Zone · Cache Purge · Purge**, kaynak **yalnız viz-cad.com zone'u**. Değer orkestratörün açacağı gizli giriş kartına yapıştırılır. `CF_ZONE_ID` (salt okunur bilgi) ve `CF_PURGE_TOKEN` yalnız staging'e yazılır. Production'a cutover'da, onayla.
+   **Dikkat:** Cloudflare bu izni hostname ile sınırlamıyor. Staging'e verilen token bütün zone'u temizleyebilir: production URL'leri, `viz-cad.com` hostname'i, hatta `purge_everything`. Yanlış kullanımı yalnız koddaki host denetimi (§7.4) engeller. Token yalnız staging Worker'ının gizli değerinde durur, başka hiçbir yere yazılmaz; sızarsa en kötü sonuç canlı sitenin önbelleğinin boşalmasıdır (veri kaybı yok, yalnız SSR yükü).
 
 ### 10.2 Orkestratörün kendi yapacakları
 
@@ -519,7 +530,7 @@ Her birinde önerilen varsayılan var. Cevap gelmezse varsayılanla ilerlenir; K
 | K2 | Ziyaretçiyi tarayıcı diline göre otomatik yönlendirelim mi? | **Hayır.** Yalnız dil seçici. Yönlendirme önbelleği böler ve tarayıcıları yanıltır. |
 | K3 | Bir yazının başka bir dilde yayını için önce İngilizcesi yayında olsun mu? | **Evet.** Yedek dil hep var olur, eski Worker'a geri dönüş bozulmaz. |
 | K4 | Adminden değiştirilebilen metinler yalnız genel sayfalarınki mi (landing, fiyat, SSS, iletişim, blog arayüzü, üst çubuk/alt bilgi)? | **Evet.** Uygulama içi metinler kodda kalır. Yoksa her uygulama açılışında metin indirmek gerekir. |
-| K5 | Önbelleği staging'de denemek için `staging.viz-cad.com` alan adı ve yalnız viz-cad.com'da önbellek temizleyebilen bir token. | **Evet** (§10.1). İkisi de senin onayın ya da işlemin. Olmazsa önbellek ilk kez production'da denenir. |
+| K5 | Önbelleği staging'de denemek için `staging.viz-cad.com` alan adı ve viz-cad.com zone'unda önbellek temizleyebilen bir token. Token'ı Cloudflare host ile sınırlamıyor: staging'deki token canlı sitenin önbelleğini de (tamamını) temizleyebilir; bunu yalnız koddaki host denetimi engeller. | **Evet** (§10.1). İkisi de senin onayın ya da işlemin. |
 | K6 | Önbellekte olmayan sayfanın çizimi Free plandaki 10 ms CPU sınırını aşarsa? | **Önce sadeleştirme** (§7.5). Ölçüm yine aşarsa Workers Paid (aylık 5 $) sana ayrıca sorulur. |
 | K7 | Yazı görüntülenme sayacı. | **Cloudflare Web Analytics** (çerezsiz, çerez bandı gerekmez). Eski sayaç dondurulur, adminde görünür. |
 | K8 | Blogdaki bülten kutusu (EmailJS ile e-posta topluyordu). | **Kaldır.** Gönderim altyapısı ve çift onay yok. Gerekirse sonra iletişim kalıbıyla. |
