@@ -12,14 +12,15 @@ const samples = process.env.SAMPLES_DIR || '/tmp/viewer-samples';
 
 // Fixture files: f1 Flanş_DN100_rev3.step, f4 Rulman_yuvası_6205.stl, f6 Kapak_plakası_t5.obj, f7 Braket_sol_v2.3mf.
 const content = { f1: 'as1-oc-214.stp', f4: 'dragon.stl', f6: 'as1.obj', f7: 'as1.3mf' };
-const ready = (page) => page.waitForFunction(() => { const c = document.querySelector('canvas[role=img]'); return c && !c.classList.contains('invisible'); }, null, { timeout: 60000 }).then(() => page.waitForTimeout(700));
-const openOnPhone = async (page) => { const b = page.getByRole('button', { name: 'Bu cihazda aç' }); if (await b.count()) await b.click(); };
+const ready = (page) => page.waitForFunction(() => { const c = document.querySelector('canvas[role=img]'); return c && !c.parentElement.classList.contains('invisible'); }, null, { timeout: 60000 }).then(() => page.waitForTimeout(700));
+// On the phone viewport STEP waits for the person (phone rule); on desktop it opens by itself.
+const openOnPhone = async (page) => { if (page.viewportSize().width < 900) await page.getByRole('button', { name: 'Bu cihazda aç' }).click({ timeout: 20000 }); };
 
 const screens = [
   { name: 'step', file: 'f1', setup: async (page) => { await openOnPhone(page); await ready(page); } },
   { name: 'step-edges', file: 'f1', setup: async (page) => { await openOnPhone(page); await ready(page); await page.getByRole('button', { name: 'Kenarlar' }).click(); await page.waitForTimeout(500); } },
   { name: 'step-views', file: 'f1', modal: true, setup: async (page) => { await openOnPhone(page); await ready(page); await page.getByRole('button', { name: 'Standart görünümler' }).click(); await page.waitForTimeout(400); } },
-  { name: 'step-phone', file: 'f1', only: '390' },
+  { name: 'step-phone', file: 'f1', only: '390', setup: (page) => page.getByRole('button', { name: 'Bu cihazda aç' }).waitFor({ timeout: 20000 }) },
   { name: 'stl', file: 'f4', setup: ready },
   { name: '3mf', file: 'f7', setup: ready },
   { name: 'loading', file: 'f4', slow: true, setup: (page) => page.waitForTimeout(900) },
