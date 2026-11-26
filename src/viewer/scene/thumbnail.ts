@@ -28,7 +28,13 @@ export const renderThumbnail = async (root: Object3D): Promise<Blob | null> => {
   scene.add(camera)
   addLights(scene, camera)
   scene.add(root)
-  fitCamera(camera, worldBox(root), viewDirection('iso'), 1.04)
+  const box = worldBox(root)
+  // Nothing to frame is nothing to store: never a blank image (modelStats refuses such models before this point).
+  if (box.isEmpty() || ![box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z].every(Number.isFinite)) {
+    disposeObject(root)
+    return null
+  }
+  fitCamera(camera, box, viewDirection('iso'), 1.04)
 
   let renderer: WebGLRenderer | null = null
   try {

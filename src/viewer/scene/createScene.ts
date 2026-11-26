@@ -22,7 +22,7 @@ import { ViewHelper } from 'three/examples/jsm/helpers/ViewHelper.js'
 import { EDGES_TRIANGLE_LIMIT } from '../state'
 import type { Stats } from '../worker/protocol'
 import { disposeObject } from './dispose'
-import { fitCamera, worldBox, viewDirection, type ViewName } from './fit'
+import { fitCamera, MAX_ZOOM_OUT, worldBox, viewDirection, type ViewName } from './fit'
 import { addLights, CANVAS_COLOR } from './lights'
 
 /** The axes gizmo is 128 px; on a narrow canvas it would cover the model. */
@@ -103,8 +103,22 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
   let dirty = true
   let frame = 0
   let disposed = false
+  // A lost context (GPU reset, driver update, too many contexts) draws nothing; three restores its own state when the
+  // browser gives the context back, and the next frame redraws everything from the geometry still held here.
+  let lost = false
+  const onLost = (event: Event) => {
+    event.preventDefault()
+    lost = true
+  }
+  const onRestored = () => {
+    lost = false
+    dirty = true
+  }
+  canvas.addEventListener('webglcontextlost', onLost)
+  canvas.addEventListener('webglcontextrestored', onRestored)
 
   const render = (withGizmo = true) => {
+    if (lost) return
     renderer.clear()
     renderer.render(scene, camera)
     if (withGizmo && canvas.clientWidth >= GIZMO_MIN_WIDTH) gizmo.render(renderer)
@@ -114,7 +128,7 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
     frame = requestAnimationFrame(loop)
     // update() reports camera movement, including the damping tail after the pointer is released.
     const moved = controls.update()
-    if (moved || dirty) {
+    if ((moved || dirty) && !lost) {
       dirty = false
       render()
     }
@@ -138,7 +152,7 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
     const box = worldBox(model)
     const distance = fitCamera(camera, box, direction)
     controls.target.copy(box.getCenter(new Vector3()))
-    controls.maxDistance = distance * 20
+    controls.maxDistance = distance * MAX_ZOOM_OUT
     controls.update()
     dirty = true
   }
@@ -225,6 +239,8 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
       if (disposed) return
       disposed = true
       cancelAnimationFrame(frame)
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       observer.disconnect()
       controls.dispose()
       gizmo.dispose()

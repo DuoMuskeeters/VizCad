@@ -1,6 +1,6 @@
-import { Box3, PerspectiveCamera, Vector3 } from 'three'
+import { Box3, PerspectiveCamera, Sphere, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
-import { fitCamera, VIEW_NAMES, viewDirection } from './fit'
+import { fitCamera, MAX_ZOOM_OUT, VIEW_NAMES, viewDirection } from './fit'
 
 const inView = (camera: PerspectiveCamera, box: Box3) => {
   camera.updateMatrixWorld(true)
@@ -21,6 +21,21 @@ describe('fitCamera', () => {
         fitCamera(camera, box, viewDirection(view))
         expect([view, aspect, inView(camera, box)]).toEqual([view, aspect, true])
       }
+  })
+
+  it('the far plane still holds the whole model zoomed out to the limit', () => {
+    for (const box of [new Box3(new Vector3(-50, -5, 0), new Vector3(150, 5, 20)), new Box3(new Vector3(0, 0, 0), new Vector3(1, 1, 1000))]) {
+      const camera = new PerspectiveCamera(35, 1.4, 0.1, 1e6)
+      camera.up.set(0, 0, 1)
+      const distance = fitCamera(camera, box, viewDirection('iso'))
+      const radius = box.getBoundingSphere(new Sphere()).radius
+      expect(camera.far).toBeGreaterThan(distance * MAX_ZOOM_OUT + radius)
+      // And at that distance every corner projects inside the depth range.
+      const center = box.getCenter(new Vector3())
+      camera.position.copy(center).addScaledVector(viewDirection('iso'), distance * MAX_ZOOM_OUT)
+      camera.lookAt(center)
+      expect(inView(camera, box)).toBe(true)
+    }
   })
 
   it('is tighter than the bounding sphere for a long thin part', () => {
