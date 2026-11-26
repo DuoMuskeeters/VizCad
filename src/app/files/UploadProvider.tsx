@@ -9,6 +9,9 @@ import { useI18n, type I18nKey } from '#/i18n'
 import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
 import { formatBytes, tileText } from './format'
+import { canMakeThumbnail, isPhone, readDeviceHints } from '#/viewer/device'
+import { formatOfExtension } from '#/viewer/worker/protocol'
+import { uploadThumbnail } from './thumbnail'
 import { runUpload, xhrPut, type Put, type UploadFailureReason } from './upload'
 
 export type UploadItem = {
@@ -31,7 +34,7 @@ type Uploads = {
   readonly start: (files: readonly File[], targetFileId?: string) => void
   /** Where new files (not new versions) go: a project page sets its project while it is open. */
   readonly setProject: (projectId: string | undefined) => void
-  /** Counts finished uploads: pages reload their lists when it changes. */
+  /** Counts finished uploads and thumbnails stored after them: pages reload their lists when it changes. */
   readonly finished: number
 }
 
@@ -184,6 +187,21 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
   const allowed = active.role === 'owner' || active.role === 'admin' || active.role === 'member'
   const workspaceId = active.id
 
+  // Thumbnails of finished uploads (docs/11 §9 5a), one at a time in the parse Worker, from the bytes already in hand.
+  // The Worker code loads only now; a failure leaves the file-type card in place.
+  const thumbnails = useRef<Promise<void>>(Promise.resolve())
+  const queueThumbnail = useCallback((fileId: string, file: File) => {
+    const format = formatOfExtension(extensionOf(file.name))
+    if (format === null || !canMakeThumbnail(format, file.size, isPhone(readDeviceHints()))) return
+    thumbnails.current = thumbnails.current
+      .then(async () => {
+        const [{ thumbnailInWorker }, bytes] = await Promise.all([import('#/viewer/pipeline'), file.arrayBuffer()])
+        const outcome = await thumbnailInWorker({ format, name: file.name, bytes }).result
+        if (outcome.ok && (await uploadThumbnail(fileId, outcome.blob))) setFinished((count) => count + 1)
+      })
+      .catch(() => undefined)
+  }, [])
+
   const update = useCallback((id: number, change: Partial<UploadItem>) => setItems((current) => current.map((item) => (item.id === id ? { ...item, ...change } : item))), [])
 
   const run = useCallback(
@@ -205,10 +223,11 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       if (outcome.ok) {
         update(item.id, { status: 'done', progress: 1, fileId: outcome.file.fileId })
         setFinished((count) => count + 1)
+        queueThumbnail(outcome.file.fileId, item.file)
       } else if (outcome.canceled) setItems((current) => current.filter((entry) => entry.id !== item.id))
       else update(item.id, { status: 'error', reason: outcome.reason })
     },
-    [call, put, workspaceId, update],
+    [call, put, workspaceId, update, queueThumbnail],
   )
 
   // Starts queued items while fewer than CONCURRENCY run.

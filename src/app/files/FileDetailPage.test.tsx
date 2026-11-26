@@ -6,6 +6,8 @@ import { failure, renderApp } from './testApp'
 import { UploadProvider } from './UploadProvider'
 
 vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).routerMock)
+// jsdom has no WebGL: answer like a browser without it (quietly, instead of jsdom's "not implemented" log).
+HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement['getContext']
 
 const page = () => (
   <UploadProvider>
@@ -20,7 +22,26 @@ describe('file page', () => {
     expect(screen.getByRole('button', { name: 'Download' })).not.toHaveAttribute('aria-disabled')
     expect(screen.getByText('STEP · 12.4 MB')).toBeInTheDocument()
     expect(screen.getByText('Pompa revizyonu')).toBeInTheDocument()
-    expect(screen.getByText('No thumbnail yet.')).toBeInTheDocument()
+    // The viewer chunk loads lazily; jsdom has no WebGL, so it lands on that state with the download next to it.
+    const viewer = await screen.findByRole('region', { name: '3D view' })
+    expect(await within(viewer).findByText('Your browser does not support 3D viewing.')).toBeInTheDocument()
+    expect(within(viewer).getByRole('button', { name: 'Download' })).toBeInTheDocument()
+    expect(within(viewer).getByRole('toolbar', { name: 'Viewer tools' })).toBeInTheDocument()
+    expect(screen.queryByText('No thumbnail yet.')).not.toBeInTheDocument()
+  })
+
+  it('keeps the thumbnail card for callers without download permission (3D for view levels comes with 5b)', async () => {
+    renderApp(page(), 'admin', (operation) => {
+      if (operation !== 'getFile') return undefined
+      const file = {
+        id: 'f1', name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, projectId: null, projectName: null, createdAt: 1, updatedAt: 1,
+        starred: false, thumbnailAvailable: false, currentVersion: { number: 1, uploadedBy: null }, access: { people: 0, link: 'none' },
+        can: { edit: false, comment: true, download: false, viewHistory: false, trash: false, share: false },
+      }
+      return new Response(JSON.stringify({ ok: true, data: file }), { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+    expect(await screen.findByText('No thumbnail yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '3D view' })).not.toBeInTheDocument()
   })
 
   it('says so when the file does not exist for this person', async () => {

@@ -186,3 +186,18 @@
   meter[data-ui='meter']::-webkit-meter-even-less-good-value { background: var(--meter-fill); border-radius: 2px; }
   meter[data-ui='meter']::-moz-meter-bar { background: var(--meter-fill); border-radius: 2px; }
 }
+
+/* Native <progress> of the viewer's loading panel (no inline width). Shown only with a value; without one a spinner. */
+@layer components {
+  progress[data-ui='progress'] {
+    appearance: none;
+    border: 0;
+    border-radius: 2px;
+    height: 4px;
+    background: var(--color-canvas-grid);
+    overflow: hidden;
+  }
+  progress[data-ui='progress']::-webkit-progress-bar { background: var(--color-canvas-grid); border-radius: 2px; }
+  progress[data-ui='progress']::-webkit-progress-value { background: var(--color-brand); border-radius: 2px; }
+  progress[data-ui='progress']::-moz-progress-bar { background: var(--color-brand); border-radius: 2px; }
+}

@@ -8,7 +8,7 @@ export type DeviceHints = { readonly deviceMemory?: number | undefined; readonly
 
 export const readDeviceHints = (): DeviceHints => ({
   deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
-  coarsePointer: window.matchMedia('(pointer: coarse)').matches,
+  coarsePointer: typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches,
   shortSide: Math.min(window.screen.width, window.screen.height),
 })
 
