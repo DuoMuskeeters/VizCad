@@ -64,6 +64,27 @@ describe('STL', () => {
     expect(await failure(parseSource('stl', new ArrayBuffer(0), 'zero.stl', deps))).toBe('empty')
   })
 
+  it('drops triangles with a non-finite corner; none left is empty, never a blank model', async () => {
+    const stl = binaryStl(3)
+    const view = new DataView(stl)
+    view.setFloat32(84 + 50 + 12, Number.NaN, true)
+    view.setFloat32(84 + 100 + 12 + 4, Number.POSITIVE_INFINITY, true)
+    const { stats } = await parseSource('stl', stl, 'nan.stl', deps)
+    expect(stats.triangles).toBe(1)
+    expect(stats.bbox).toEqual({ min: [0, 0, 0], max: [10, 10, 0] })
+    const all = binaryStl(1)
+    new DataView(all).setFloat32(84 + 12, Number.NaN, true)
+    expect(await failure(parseSource('stl', all, 'all-nan.stl', deps))).toBe('empty')
+    const ascii = 'solid t\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1e 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid t\n'
+    expect(await failure(parseSource('stl', text(ascii), 'garbled.stl', deps))).toBe('empty')
+  })
+
+  it('a model in one point draws nothing: empty', async () => {
+    const point = bufferOf(new Uint8Array(84 + 50))
+    new DataView(point).setUint32(80, 1, true)
+    expect(await failure(parseSource('stl', point, 'point.stl', deps))).toBe('empty')
+  })
+
   it('rejects a truncated binary STL', async () => {
     const cut = binaryStl(3).slice(0, 84 + 60)
     // The header announces 3 triangles but only one fits: not "binary" by size, NUL bytes keep it from the ASCII path.
@@ -80,6 +101,12 @@ describe('OBJ', () => {
     expect(stats.triangles).toBe(3)
     expect(stats.parts).toBe(2)
     expect(model.tree.children.map((n) => [n.path, n.name])).toEqual([['0.0', 'Base'], ['0.1', 'Pin']])
+  })
+
+  it('drops faces that point past the vertices', async () => {
+    const { stats } = await parseSource('obj', text('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\nf 1 2 9\n'), 'bad.obj', deps)
+    expect(stats.triangles).toBe(1)
+    expect(stats.bbox).toEqual({ min: [0, 0, 0], max: [1, 1, 0] })
   })
 
   it('an OBJ with only points is empty', async () => {
@@ -109,6 +136,30 @@ describe('PLY', () => {
     bytes.set(new Uint8Array(body.buffer), header.length)
     const { stats } = await parseSource('ply', bufferOf(bytes), 'tri.ply', deps)
     expect(stats.triangles).toBe(1)
+  })
+
+  it('reads faces with their own colours (PLYLoader answers with unindexed geometry)', async () => {
+    const faceColors = ['ply', 'format ascii 1.0', 'element vertex 4', 'property float x', 'property float y', 'property float z', 'element face 2', 'property list uchar int vertex_indices', 'property uchar red', 'property uchar green', 'property uchar blue', 'end_header', '0 0 0', '2 0 0', '2 2 0', '0 2 0', '3 0 1 2 255 0 0', '3 0 2 3 0 0 255', ''].join('\n')
+    const { model, stats } = await parseSource('ply', text(faceColors), 'faces.ply', deps)
+    expect(stats.triangles).toBe(2)
+    const mesh = model.meshes[0]!
+    expect(mesh.index).toBeNull()
+    expect(mesh.position.length).toBe(18)
+    expect(mesh.vertexColor?.length).toBe(18)
+    expect(mesh.normal?.length).toBe(18)
+  })
+
+  it('drops faces with indices past the vertices; normals stay finite', async () => {
+    const bad = ['ply', 'format ascii 1.0', 'element vertex 3', 'property float x', 'property float y', 'property float z', 'element face 2', 'property list uchar int vertex_indices', 'end_header', '0 0 0', '1 0 0', '0 1 0', '3 0 1 2', '3 0 1 7', ''].join('\n')
+    const { model, stats } = await parseSource('ply', text(bad), 'bad.ply', deps)
+    expect(stats.triangles).toBe(1)
+    expect(Array.from(model.meshes[0]!.normal!).every(Number.isFinite)).toBe(true)
+  })
+
+  it('reads the face count from the header: none or zero is empty', async () => {
+    const zero = ['ply', 'format ascii 1.0', 'element vertex 3', 'property float x', 'property float y', 'property float z', 'element face 0', 'property list uchar int vertex_indices', 'end_header', '0 0 0', '1 0 0', '0 1 0', ''].join('\n')
+    expect(await failure(parseSource('ply', text(zero), 'zero.ply', deps))).toBe('empty')
+    expect(await failure(parseSource('ply', text('ply\nformat ascii 1.0\nelement vertex 1\n'), 'cut.ply', deps))).toBe('corrupt')
   })
 
   it('a point cloud is empty', async () => {
@@ -172,6 +223,17 @@ describe('3MF', () => {
       <triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3" pid="1" p1="1"/><triangle v1="1" v2="2" v3="3"/><triangle v1="0" v2="3" v3="2" pid="1" p1="1"/>
     </triangles></mesh></object>`
   const archive = (files: Record<string, string>) => bufferOf(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))
+  /** Rewrites the uncompressed size the central directory declares for `name` (what a ZIP bomb lies about). */
+  const declare = (zip: ArrayBuffer, name: string, size: number) => {
+    const bytes = new Uint8Array(zip.slice(0))
+    const view = new DataView(bytes.buffer)
+    for (let at = 0; at + 46 < bytes.length; at++) {
+      if (view.getUint32(at, true) !== 0x02014b50) continue
+      const length = view.getUint16(at + 28, true)
+      if (new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + length)) === name) view.setUint32(at + 24, size, true)
+    }
+    return bufferOf(bytes)
+  }
 
   it('reads objects, components, build transforms, materials and units', async () => {
     const model = `<?xml version="1.0" encoding="UTF-8"?>
@@ -234,5 +296,56 @@ describe('3MF', () => {
     expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': missing }), 'm.3mf', deps))).toBe('corrupt')
     const cycle = `<model><resources><object id="1"><components><component objectid="1"/></components></object></resources><build><item objectid="1"/></build></model>`
     expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': cycle }), 'loop.3mf', deps))).toBe('corrupt')
+  })
+
+  it('stops a self-doubling component chain at the node limit, before expanding it', async () => {
+    const levels = 30
+    const chain = Array.from({ length: levels }, (_, i) => `<object id="${i + 2}"><components><component objectid="${i + 1}"/><component objectid="${i + 1}"/></components></object>`).join('')
+    const model = `<model><resources>${tetra(1, 'Leaf')}${chain}</resources><build><item objectid="${levels + 1}"/></build></model>`
+    const started = performance.now()
+    expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': model }), 'bomb.3mf', deps))).toBe('too_complex')
+    // 2^30 nodes if expanded first; the count stops it after MAX_NODES.
+    expect(performance.now() - started).toBeLessThan(2000)
+  })
+
+  it('refuses an archive whose declared sizes pass the budget before inflating, and ignores entries nobody references', async () => {
+    const model = `<model><resources>${tetra(1, 'A')}</resources><build><item objectid="1"/></build></model>`
+    const files = { '3D/3dmodel.model': model, '3D/unused.model': model, 'Metadata/thumbnail.png': 'png' }
+    // A lying central directory: 600 MB for the root model would be allocated up front.
+    expect(await failure(parseSource('3mf', declare(archive(files), '3D/3dmodel.model', 600 * 1024 * 1024), 'bomb.3mf', deps))).toBe('too_large')
+    // The same lie on parts the build never reads costs nothing.
+    let quiet = declare(archive(files), '3D/unused.model', 0xffff_fff0)
+    quiet = declare(quiet, 'Metadata/thumbnail.png', 0xffff_fff0)
+    expect((await parseSource('3mf', quiet, 'ok.3mf', deps)).stats.triangles).toBe(4)
+  })
+
+  it('caps colours: many distinct triangle colours fall back to the object colour', async () => {
+    const count = 300
+    const colors = Array.from({ length: count }, (_, i) => `<color color="#${i.toString(16).padStart(6, '0')}"/>`).join('')
+    const vertices = Array.from({ length: count * 3 }, (_, i) => `<vertex x="${i}" y="${i % 3}" z="${i % 5}"/>`).join('')
+    const triangles = Array.from({ length: count }, (_, i) => `<triangle v1="${i * 3}" v2="${i * 3 + 1}" v3="${i * 3 + 2}" pid="9" p1="${i}"/>`).join('')
+    const model = `<model><resources><colorgroup id="9">${colors}</colorgroup><object id="1"><mesh><vertices>${vertices}</vertices><triangles>${triangles}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`
+    const { model: parsed, stats } = await parseSource('3mf', archive({ '3D/3dmodel.model': model }), 'many.3mf', deps)
+    expect(stats.triangles).toBe(count)
+    expect(parsed.meshes[0]!.groups).toEqual([])
+    // Equal values from different entries share a group (interned per part).
+    const twin = `<model><resources><colorgroup id="9"><color color="#FF0000"/><color color="#ff0000"/></colorgroup>${tetra(1, 'T', ' pid="9" pindex="0"').replace('pid="1" p1="1"', 'pid="9" p1="1"').replace('pid="1" p1="1"', 'pid="9" p1="1"')}</resources><build><item objectid="1"/></build></model>`
+    const same = await parseSource('3mf', archive({ '3D/3dmodel.model': twin }), 'twin.3mf', deps)
+    expect(same.model.meshes[0]!.groups).toEqual([])
+    expect(same.model.meshes[0]!.color).toEqual([1, 0, 0])
+  })
+
+  it('refuses over-long tags and attribute names, and stays linear on attribute-less runs', async () => {
+    const long = `<model><resources><object id="1" name="${'x'.repeat(70_000)}"/></resources><build/></model>`
+    expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': long }), 'long.3mf', deps))).toBe('corrupt')
+    const started = performance.now()
+    const run = `<model><resources><object ${'a'.repeat(60_000)}/></resources><build/></model>`
+    expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': run }), 'run.3mf', deps))).toBe('corrupt')
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+
+  it('a transform that overflows the bounds is corrupt, not a blank model', async () => {
+    const model = `<model><resources>${tetra(1, 'A')}</resources><build><item objectid="1" transform="1e308 0 0 0 1 0 0 0 1 0 0 0"/></build></model>`
+    expect(await failure(parseSource('3mf', archive({ '3D/3dmodel.model': model }), 'inf.3mf', deps))).toBe('corrupt')
   })
 })

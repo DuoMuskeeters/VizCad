@@ -3,15 +3,27 @@
  * Supported: core `object`/`mesh`/`vertices`/`triangles`/`components`/`build` with transforms, `basematerials` and the
  * materials extension's `colorgroup` (per-object and per-triangle colours), and the production extension's `path`
  * (objects in other model parts, as Bambu Studio and PrusaSlicer write them). Units are converted to millimetres.
+ *
+ * Hostile archives: only `_rels/.rels` and the model parts the build actually references are inflated, and the sizes
+ * the ZIP declares for them are summed against `MAX_INFLATED_BYTES` before each one is inflated (fflate inflates into a
+ * buffer of the declared size, so a lying header cannot grow past it). Component expansion counts nodes as it goes and
+ * stops at `MAX_NODES`; colours are interned and capped.
  */
-import { unzipSync } from 'fflate'
-import { ParseFailure, type FaceGroup, type MeshData, type ParsedModel, type Rgb } from '../protocol'
+import { unzipSync, type UnzipFileInfo } from 'fflate'
+import { MAX_NODES, ParseFailure, type FaceGroup, type MeshData, type ParsedModel, type Rgb } from '../protocol'
 import { normaliseTree, type RawNode } from '../../tree/tree'
 import { readXml, XmlError, type XmlAttributes } from './xml'
 
 const ROOT_MODEL = '3D/3dmodel.model'
+const RELS = '_rels/.rels'
 const MODEL_RELATIONSHIP = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel'
 const MAX_DEPTH = 32
+/** Sum of the declared uncompressed sizes of everything inflated from one archive. */
+export const MAX_INFLATED_BYTES = 512 * 1024 * 1024
+/** Palette entries (`base`, `color`) per model part; later ones read as "no colour". */
+export const MAX_PALETTE_ENTRIES = 65_536
+/** Distinct colours in one mesh; past it the mesh is drawn in its object colour (each colour is a draw call). */
+export const MAX_MESH_COLORS = 256
 
 const UNIT_MM: Record<string, number> = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 }
 
@@ -56,6 +68,23 @@ const number = (attributes: XmlAttributes, name: string) => {
 
 const readPart = (xml: string): Part => {
   const objects = new Map<string, Object3mf>()
+  // One Rgb object per distinct value, so meshes can group triangles by reference.
+  const interned = new Map<string, Rgb | null>()
+  const intern = (value: string | undefined): Rgb | null => {
+    const key = value?.trim().toLowerCase() ?? ''
+    let color = interned.get(key)
+    if (color === undefined && !interned.has(key)) {
+      color = parseColor(key)
+      interned.set(key, color)
+    }
+    return color ?? null
+  }
+  let paletteEntries = 0
+  const pushColor = (value: string | undefined) => {
+    if (palette === null) return
+    paletteEntries++
+    palette.push(paletteEntries > MAX_PALETTE_ENTRIES ? null : intern(value))
+  }
   const build: Component[] = []
   const palettes = new Map<string, Array<Rgb | null>>()
   let unit = 1
@@ -86,10 +115,10 @@ const readPart = (xml: string): Part => {
             if (a['id'] !== undefined) palettes.set(a['id'], palette)
             break
           case 'base':
-            palette?.push(parseColor(a['displaycolor']))
+            pushColor(a['displaycolor'])
             break
           case 'color':
-            palette?.push(parseColor(a['color']))
+            pushColor(a['color'])
             break
           case 'object':
             current = { id: a['id'] ?? '', name: a['name'] ?? '', pid: a['pid'], pindex: a['pindex'], components: [] }
@@ -142,22 +171,29 @@ const readPart = (xml: string): Part => {
   return { unit, objects, build }
 }
 
-const sameColor = (a: Rgb | null, b: Rgb | null) => a === b || (a !== null && b !== null && a[0] === b[0] && a[1] === b[1] && a[2] === b[2])
-
-/** Triangles reordered so equal colours are contiguous, one group per colour (none when the mesh has one colour). */
+/**
+ * Triangles reordered so equal colours are contiguous, one group per colour (none when the mesh has one colour). Colours
+ * are interned per part, so a Map by reference groups equal values. Past `MAX_MESH_COLORS` the mesh takes its object colour.
+ */
 const meshData = (object: Object3mf, mesh: Mesh3mf): MeshData => {
   const count = mesh.triangles.length / 3
+  const slot = new Map<Rgb | null, number>()
   const keys: Array<Rgb | null> = []
   const byKey: number[][] = []
-  for (let t = 0; t < count; t++) {
+  for (let t = 0; t < count && keys.length <= MAX_MESH_COLORS; t++) {
     const color = mesh.colors[t] ?? null
-    let k = keys.findIndex((key) => sameColor(key, color))
-    if (k < 0) {
+    let k = slot.get(color)
+    if (k === undefined) {
       k = keys.length
+      slot.set(color, k)
       keys.push(color)
       byKey.push([])
     }
     byKey[k]!.push(t)
+  }
+  if (keys.length > MAX_MESH_COLORS) {
+    keys.length = 0
+    byKey.length = 0
   }
   const uniform = keys.length <= 1
   const index = uniform ? mesh.triangles : new Uint32Array(mesh.triangles.length)
@@ -185,8 +221,7 @@ const meshData = (object: Object3mf, mesh: Mesh3mf): MeshData => {
   }
 }
 
-const rootModelPath = (files: Record<string, Uint8Array>) => {
-  const rels = files['_rels/.rels']
+const relationshipTarget = (rels: Uint8Array | undefined) => {
   if (rels === undefined) return ROOT_MODEL
   let target: string | null = null
   readXml(new TextDecoder().decode(rels), {
@@ -197,32 +232,75 @@ const rootModelPath = (files: Record<string, Uint8Array>) => {
   return target ?? ROOT_MODEL
 }
 
-export const parse3mf = (buffer: ArrayBuffer, name: string): ParsedModel => {
-  let files: Record<string, Uint8Array>
-  try {
-    files = unzipSync(new Uint8Array(buffer), { filter: (file) => file.name.endsWith('.model') || file.name === '_rels/.rels' })
-  } catch {
-    throw new ParseFailure('corrupt', 'not a ZIP archive')
+/** Inflates named entries only, refusing (`too_large`) once the declared sizes of what was inflated pass the budget. */
+const zipReader = (bytes: Uint8Array) => {
+  let inflated = 0
+  return (names: ReadonlySet<string>): Record<string, Uint8Array> => {
+    const take = (file: UnzipFileInfo) => {
+      if (!names.has(file.name)) return false
+      inflated += file.originalSize
+      if (inflated > MAX_INFLATED_BYTES) throw new ParseFailure('too_large', '3MF expands past the budget')
+      return true
+    }
+    try {
+      return unzipSync(bytes, { filter: take })
+    } catch (error) {
+      if (error instanceof ParseFailure) throw error
+      throw new ParseFailure('corrupt', 'not a ZIP archive')
+    }
   }
+}
+
+/** Model parts a part points into (production extension `p:path`), besides itself. */
+const referencedParts = (part: Part, self: string) => {
+  const out = new Set<string>()
+  const add = (ref: Component) => {
+    if (ref.path !== null) out.add(normalisePath(ref.path))
+  }
+  part.build.forEach(add)
+  for (const object of part.objects.values()) object.components.forEach(add)
+  out.delete(self)
+  return out
+}
+
+export const parse3mf = (buffer: ArrayBuffer, name: string): ParsedModel => {
+  const read = zipReader(new Uint8Array(buffer))
   const decoder = new TextDecoder()
+  const rootPath = relationshipTarget(read(new Set([RELS]))[RELS])
+
+  // Breadth first from the root: each round inflates the parts the previous round referenced, in one pass over the ZIP.
+  // A part is never tried twice; one that is missing fails only if the tree reaches it (`nodeOf`). No round past MAX_DEPTH.
   const parts = new Map<string, Part>()
+  const tried = new Set<string>()
+  let wanted = new Set([rootPath])
+  for (let round = 0; wanted.size > 0 && round <= MAX_DEPTH; round++) {
+    wanted.forEach((path) => tried.add(path))
+    const files = read(wanted)
+    const next = new Set<string>()
+    for (const path of wanted) {
+      const bytes = files[path]
+      if (bytes === undefined) continue
+      const part = readPart(decoder.decode(bytes))
+      parts.set(path, part)
+      for (const ref of referencedParts(part, path)) if (!tried.has(ref)) next.add(ref)
+    }
+    wanted = next
+  }
   const partAt = (path: string): Part => {
-    const key = normalisePath(path)
-    const cached = parts.get(key)
-    if (cached) return cached
-    const bytes = files[key]
-    if (bytes === undefined) throw new ParseFailure('corrupt', `missing 3MF part ${key}`)
-    const part = readPart(decoder.decode(bytes))
-    parts.set(key, part)
+    const part = parts.get(path)
+    if (part === undefined) throw new ParseFailure('corrupt', `missing 3MF part ${path}`)
     return part
   }
-  const rootPath = rootModelPath(files)
   const root = partAt(rootPath)
 
   const meshes: MeshData[] = []
   const meshIndex = new Map<string, number>()
+  // Counted while expanding: a component chain that doubles at every level would otherwise build 2^depth nodes first.
+  let nodes = 0
   const nodeOf = (ref: Component, partPath: string, depth: number): RawNode => {
     if (depth > MAX_DEPTH) throw new ParseFailure('corrupt', '3MF components nest too deep')
+    nodes++
+    if (nodes > MAX_NODES) throw new ParseFailure('too_complex', '3MF expands to too many nodes')
     const path = ref.path === null ? partPath : normalisePath(ref.path)
     const part = partAt(path)
     const object = part.objects.get(ref.objectId)

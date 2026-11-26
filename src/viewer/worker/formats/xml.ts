@@ -2,7 +2,14 @@
  * A small streaming XML reader for 3MF model parts (docs/11 §1.2): Workers have no DOMParser. It reports start and end
  * tags with their attributes and skips the prolog, comments, CDATA, processing instructions and text. Names are reported
  * without their namespace prefix; that is enough for the 3MF core, materials and production elements we read.
+ * Hostile input: every scan is linear (no backtracking pattern), a tag is at most `MAX_TAG_LENGTH` characters and an
+ * attribute name at most `MAX_NAME_LENGTH`, with at most `MAX_ATTRIBUTES` attributes per tag.
  */
+
+/** Longest tag, `<` to `>`. 3MF tags are a few hundred characters; names and transforms included. */
+export const MAX_TAG_LENGTH = 64 * 1024
+export const MAX_NAME_LENGTH = 256
+export const MAX_ATTRIBUTES = 64
 
 export type XmlAttributes = Readonly<Record<string, string>>
 
@@ -47,16 +54,36 @@ export const decodeEntities = (value: string) =>
         }
       })
 
-const attributePattern = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
+const isSpace = (c: string | undefined) => c === ' ' || c === '\n' || c === '\r' || c === '\t'
 
-/** Attributes by local name; `xmlns` declarations are dropped. */
+/** Attributes by local name; `xmlns` declarations are dropped. A token without `="…"` is skipped. One pass, no regex. */
 export const parseAttributes = (text: string): XmlAttributes => {
   const out: Record<string, string> = {}
-  attributePattern.lastIndex = 0
-  for (let match = attributePattern.exec(text); match !== null; match = attributePattern.exec(text)) {
-    const name = match[1] ?? ''
-    if (name === 'xmlns' || name.startsWith('xmlns:')) continue
-    out[localName(name)] = decodeEntities(match[2] ?? match[3] ?? '')
+  let count = 0
+  let i = 0
+  while (i < text.length) {
+    while (isSpace(text[i])) i++
+    const start = i
+    while (i < text.length && !isSpace(text[i]) && text[i] !== '=' && text[i] !== '/' && text[i] !== '>') i++
+    const name = text.slice(start, i)
+    if (name.length > MAX_NAME_LENGTH) throw new XmlError('attribute name too long')
+    while (isSpace(text[i])) i++
+    if (text[i] !== '=') {
+      // Not an attribute (a stray word or `/`): skip one character so the scan always advances.
+      if (name === '') i++
+      continue
+    }
+    i++
+    while (isSpace(text[i])) i++
+    const quote = text[i]
+    if (quote !== '"' && quote !== "'") continue
+    const end = text.indexOf(quote, i + 1)
+    if (end < 0) throw new XmlError('unterminated attribute value')
+    const value = text.slice(i + 1, end)
+    i = end + 1
+    if (name === '' || name === 'xmlns' || name.startsWith('xmlns:')) continue
+    if (++count > MAX_ATTRIBUTES) throw new XmlError('too many attributes')
+    out[localName(name)] = decodeEntities(value)
   }
   return out
 }
@@ -64,13 +91,15 @@ export const parseAttributes = (text: string): XmlAttributes => {
 /** End of a tag that starts at `from` (the `<`), honouring quoted attribute values that may contain `>`. */
 const tagEnd = (xml: string, from: number) => {
   let quote = ''
-  for (let i = from + 1; i < xml.length; i++) {
+  const last = Math.min(xml.length, from + MAX_TAG_LENGTH)
+  for (let i = from + 1; i < last; i++) {
     const c = xml[i]
     if (quote !== '') {
       if (c === quote) quote = ''
     } else if (c === '"' || c === "'") quote = c
     else if (c === '>') return i
   }
+  if (last < xml.length) throw new XmlError('tag too long')
   return -1
 }
 

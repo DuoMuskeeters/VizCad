@@ -69,21 +69,31 @@ export const multiply = (a: ReadonlyArray<number>, b: ReadonlyArray<number>): nu
   return out
 }
 
-const meshBounds = (mesh: MeshData): Bounds | null => {
+/** Bounds of the vertices the triangles use (an unused vertex may be anything); `finite` false when a used one is not. */
+const meshBounds = (mesh: MeshData): (Bounds & { readonly finite: boolean }) | null => {
   const p = mesh.position
-  if (p.length < 3) return null
   const min: [number, number, number] = [Infinity, Infinity, Infinity]
   const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
-  for (let i = 0; i + 2 < p.length; i += 3)
+  let finite = true
+  const add = (v: number) => {
     for (let k = 0; k < 3; k++) {
-      const v = p[i + k] ?? 0
-      if (v < min[k]!) min[k] = v
-      if (v > max[k]!) max[k] = v
+      const c = p[v * 3 + k] ?? Number.NaN
+      if (!Number.isFinite(c)) finite = false
+      else {
+        if (c < min[k]!) min[k] = c
+        if (c > max[k]!) max[k] = c
+      }
     }
-  return { min, max }
+  }
+  if (mesh.index === null) for (let v = 0; v < Math.floor(p.length / 9) * 3; v++) add(v)
+  else for (const v of mesh.index) add(v)
+  return min[0] === Infinity && finite ? null : { min, max, finite }
 }
 
-/** Triangles, nodes, parts and the world bounding box (transforms applied). Throws `empty` / `too_large` per D22. */
+/**
+ * Triangles, nodes, parts and the world bounding box (transforms applied). Throws per D22: no triangle (or only a point)
+ * is `empty`, past the node or triangle limit `too_complex`, a box that is not finite `corrupt`.
+ */
 export const modelStats = (model: Pick<ParsedModel, 'meshes' | 'tree'>, ms: number): Stats => {
   const boxes = model.meshes.map(meshBounds)
   const min: [number, number, number] = [Infinity, Infinity, Infinity]
@@ -91,9 +101,10 @@ export const modelStats = (model: Pick<ParsedModel, 'meshes' | 'tree'>, ms: numb
   let triangles = 0
   let nodes = 0
   let parts = 0
+  let finite = true
   const walk = (node: TreeNode, parent: ReadonlyArray<number>) => {
     nodes++
-    if (nodes > MAX_NODES) throw new ParseFailure('too_large', 'too many nodes')
+    if (nodes > MAX_NODES) throw new ParseFailure('too_complex', 'too many nodes')
     const world = node.matrix === null ? parent : multiply(parent, node.matrix)
     if (node.mesh !== null) {
       const mesh = model.meshes[node.mesh]
@@ -104,13 +115,15 @@ export const modelStats = (model: Pick<ParsedModel, 'meshes' | 'tree'>, ms: numb
         if (count > 0) parts++
       }
       if (box) {
+        if (!box.finite) finite = false
         for (let corner = 0; corner < 8; corner++) {
           const x = corner & 1 ? box.max[0] : box.min[0]
           const y = corner & 2 ? box.max[1] : box.min[1]
           const z = corner & 4 ? box.max[2] : box.min[2]
           const point = [0, 1, 2].map((r) => (world[r] ?? 0) * x + (world[4 + r] ?? 0) * y + (world[8 + r] ?? 0) * z + (world[12 + r] ?? 0))
           for (let k = 0; k < 3; k++) {
-            const v = point[k] ?? 0
+            const v = point[k] ?? Number.NaN
+            if (!Number.isFinite(v)) finite = false
             if (v < min[k]!) min[k] = v
             if (v > max[k]!) max[k] = v
           }
@@ -120,9 +133,12 @@ export const modelStats = (model: Pick<ParsedModel, 'meshes' | 'tree'>, ms: numb
     for (const child of node.children) walk(child, world)
   }
   walk(model.tree, identity)
-  if (triangles > MAX_TRIANGLES) throw new ParseFailure('too_large', 'too many triangles')
+  if (triangles > MAX_TRIANGLES) throw new ParseFailure('too_complex', 'too many triangles')
   // D22: a conversion that yields no triangle is a failure (the 179 MB STEP returned success with zero triangles).
-  if (triangles === 0 || !Number.isFinite(min[0])) throw new ParseFailure('empty')
+  if (triangles === 0) throw new ParseFailure('empty')
+  if (!finite || ![...min, ...max].every(Number.isFinite)) throw new ParseFailure('corrupt', 'bounds are not finite')
+  // Everything in one point draws nothing: a blank canvas, and a blank thumbnail, never a model.
+  if (min.every((v, k) => v === max[k])) throw new ParseFailure('empty', 'all vertices in one point')
   return { triangles, nodes, parts, bbox: { min, max }, ms: Math.round(ms) }
 }
 
