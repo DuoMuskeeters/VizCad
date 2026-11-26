@@ -46,7 +46,6 @@ export const viewerEn = {
   'viewer.preparing': 'Preparing',
   'viewer.preparingLabel': 'Preparing the 3D preview of {name}',
   'viewer.preparedOnDesktop': 'Prepared when opened on a computer',
-  'viewer.leaveWarning': 'A 3D preview is still being prepared. Leaving now stops it; it is finished the next time the file is opened on a computer.',
 } as const
 
 export const viewerTr: Record<keyof typeof viewerEn, string> = {
@@ -96,5 +95,4 @@ export const viewerTr: Record<keyof typeof viewerEn, string> = {
   'viewer.preparing': 'Hazırlanıyor',
   'viewer.preparingLabel': '{name} için 3B önizleme hazırlanıyor',
   'viewer.preparedOnDesktop': 'Masaüstünde açılınca hazırlanır',
-  'viewer.leaveWarning': '3B önizleme hâlâ hazırlanıyor. Şimdi çıkarsan durur; dosya bilgisayarda bir sonraki açılışında tamamlanır.',
 }

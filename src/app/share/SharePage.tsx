@@ -15,7 +15,7 @@ import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { type I18nKey, useI18n } from '#/i18n'
 import { deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { ViewerStart } from '#/viewer/state'
-import { formatOfExtension, isConvertFormat } from '#/viewer/worker/protocol'
+import { ERROR_CODES, formatOfExtension, isConvertFormat } from '#/viewer/worker/protocol'
 import { tileText } from '../files/format'
 
 /** The viewer chunk (three.js) loads only on the client, only when the link has something to show in 3D. */
@@ -169,7 +169,8 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   const thumbnail = file.thumbnailAvailable ? `/s/${encodeURIComponent(token)}/thumbnail` : null
   const phone = useMemo(() => isPhone(readDeviceHints()), [])
   // Mobile first (D14): on a phone 3D never opens by itself (docs/11 §6); a STEP/IGES source keeps the 5a phone rule.
-  const start: ViewerStart = file.model.derivative?.state === 'failed' && file.model.kind === 'source' ? { failed: 'corrupt' }
+  const failedCode = ERROR_CODES.find((code) => code === file.model.derivative?.code) ?? 'corrupt'
+  const start: ViewerStart = file.model.derivative?.state === 'failed' && file.model.kind === 'source' ? { failed: failedCode }
     : !phone ? 'auto'
     : file.model.kind === 'source' && format !== null && deferOpen(format, phone) ? 'phone'
     : 'tap'
