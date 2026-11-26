@@ -50,12 +50,13 @@ describe('parse pipeline', () => {
     expect(await job.result).toEqual({ ok: false, code: 'empty' })
   })
 
-  it('a dying Worker is out_of_memory when it says so, corrupt otherwise', async () => {
-    for (const [message, code] of [['Out of memory', 'out_of_memory'], ['boom', 'corrupt']] as const) {
+  it('a dying Worker is out_of_memory when it says so, corrupt otherwise; one that never loaded is network', async () => {
+    for (const [message, spoke, code] of [['Out of memory', true, 'out_of_memory'], ['boom', true, 'corrupt'], ['', false, 'network'], ['Out of memory', false, 'out_of_memory']] as const) {
       const worker = new FakeWorker()
       const job = parseInWorker({ format: 'step', name: 'a.stp', bytes: new ArrayBuffer(1), thumbnail: false, spawn: () => worker })
+      if (spoke) worker.reply({ kind: 'progress', stage: 'convert', ratio: null })
       worker.onerror?.({ message, preventDefault: () => {} } as ErrorEvent)
-      expect(await job.result).toEqual({ ok: false, code })
+      expect(await job.result, `${message}/${spoke}`).toEqual({ ok: false, code })
       expect(worker.terminated).toBe(1)
     }
   })

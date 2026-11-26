@@ -65,7 +65,10 @@ const run = <T>(input: JobInput, request: (id: number) => WorkerRequest, settle:
     }
   })
   const timer = setTimeout(() => finish(failed('timeout')), input.timeoutMs ?? PARSE_TIMEOUT_MS)
+  // The Worker answers every job with a progress message first; an error before that is its script not loading.
+  let heard = false
   worker.onmessage = (event) => {
+    heard = true
     const message = narrow(event.data, id)
     if (message === null) return
     if (message.kind === 'progress') return input.onProgress?.(message.stage, message.ratio)
@@ -73,10 +76,12 @@ const run = <T>(input: JobInput, request: (id: number) => WorkerRequest, settle:
     const value = settle(message)
     if (value !== null) finish(value)
   }
-  // A Worker that dies (most often the tab's memory limit) reports an ErrorEvent without a useful code.
+  // A Worker that dies (most often the tab's memory limit) reports an ErrorEvent without a useful code. One that never
+  // spoke did not load (its chunk failed to download): `network`, so the person can retry.
   worker.onerror = (event) => {
     event.preventDefault?.()
-    finish(failed(/memory/i.test(event.message ?? '') ? 'out_of_memory' : 'corrupt'))
+    if (/memory/i.test(event.message ?? '')) return finish(failed('out_of_memory'))
+    finish(failed(heard ? 'corrupt' : 'network'))
   }
   worker.onmessageerror = () => finish(failed('corrupt'))
   worker.postMessage(request(id), [input.bytes])
