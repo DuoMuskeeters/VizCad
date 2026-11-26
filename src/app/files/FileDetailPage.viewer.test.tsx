@@ -128,9 +128,38 @@ describe('file page viewer', () => {
     expect(last().onDerivative).toBeTypeOf('function')
     cleanup()
     seen.props = []
-    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: false, download: true }, { model: { ...failed, derivative: { state: 'too_large', code: 'too_large', parts: null } } })) : undefined))
+    const tooLarge = { ...failed, derivative: { state: 'too_large', code: 'too_large', parts: null } }
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer(fileWith({ edit: false, download: true }, { size: 60_000_000, model: { ...tooLarge, bytes: 60_000_000 } })) : undefined)
     await screen.findByRole('region', { name: '3D view' })
     expect(last()).toMatchObject({ start: { failed: 'too_large' }, retryAlways: false })
+    expect(last().onDerivative).toBeUndefined()
+  })
+
+  it('a stored too_large is ignored while the source is within maxConvertBytes (a lower limit then, or a GLB over the cap)', async () => {
+    const tooLarge = { kind: 'source', bytes: 12_400_000, derivative: { state: 'too_large', code: 'too_large', parts: null }, maxConvertBytes: 52_428_800 }
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: true, download: true }, { model: tooLarge })) : undefined))
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last()).toMatchObject({ start: 'auto' })
+    expect(last().onDerivative).toBeTypeOf('function')
+    cleanup()
+    // Without download there is nothing to convert: the reason is the GLB cap, not the 50 MB text.
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer(fileWith({ edit: false, download: false }, { model: { ...tooLarge, kind: 'none', bytes: null } })) : undefined)
+    expect(await screen.findByText(/The 3D copy of this file is too large to keep/)).toBeInTheDocument()
+  })
+
+  it('an editor with download on a GLB derivative can rebuild it from the source; a viewer cannot', async () => {
+    const glb = { kind: 'derivative', bytes: 6_200_000, derivative: { state: 'ready', code: null, parts: 18 }, maxConvertBytes: 52_428_800 }
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: true, download: true }, { model: glb })) : undefined))
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last()).toMatchObject({ source: 'derivative', rebuildUrl: '/api/files/f1/content' })
+    expect(last().onDerivative).toBeTypeOf('function')
+    cleanup()
+    seen.props = []
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: false, download: true }, { model: glb })) : undefined))
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last().rebuildUrl).toBeUndefined()
     expect(last().onDerivative).toBeUndefined()
   })
 })

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
-import { Download, FileQuestion, Share2 } from 'lucide-react'
+import { Download, FileQuestion, Loader2, Share2 } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
 import { Button } from '#/components/ui/Button'
@@ -28,7 +28,7 @@ import { startDownload } from './download'
 import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
 import { uploadThumbnail } from './thumbnail'
-import { abilitiesOf, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
+import { abilitiesOf, contentUrl, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
 import { type UploadItem, useUploads } from './UploadProvider'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
@@ -55,7 +55,12 @@ const storedCode = (code: string | null): ErrorCode => ERROR_CODES.find((known) 
 const noModelText = (t: ReturnType<typeof useI18n>['t'], file: AnyFileView) => {
   const derivative = file.model.derivative
   if (fileTypeOfExtension(file.extension) === undefined) return t('file.preview.note')
-  if (derivative?.state === 'too_large') return t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
+  if (derivative?.state === 'too_large') {
+    // A source within the limit was too_large for its GLB (over the plan's cap, docs/11 §2.6), or under a lower limit.
+    return file.size > file.model.maxConvertBytes
+      ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
+      : t('viewer.derivativeTooLarge')
+  }
   if (derivative?.state === 'failed') {
     const code = storedCode(derivative.code)
     return t(code === 'empty' ? 'viewer.error.empty' : code === 'timeout' || code === 'out_of_memory' ? 'viewer.error.device' : code === 'too_complex' ? 'viewer.error.tooComplex' : 'viewer.error.corrupt')
@@ -170,6 +175,15 @@ export const FileDetailPage = () => {
     void reportDerivativeFailure({ fileId, version, code })
   }, [])
 
+  // This tab's upload queue is converting the file (docs/11 §2.5): the page shows Preparing and starts no second
+  // conversion; when the job ends (stored, failed or dropped) the file is read again.
+  const preparingHere = state.status === 'ready' && uploads.preparing.has(state.file.id)
+  const wasPreparing = useRef(false)
+  useEffect(() => {
+    if (wasPreparing.current && !preparingHere) void load()
+    wasPreparing.current = preparingHere
+  }, [preparingHere, load])
+
   // A new version finished uploading: the file card and the version list change.
   useEffect(() => {
     if (uploads.finished > 0) {
@@ -219,8 +233,12 @@ export const FileDetailPage = () => {
   const converts = format !== null && isConvertFormat(format)
   // Edit + download on a desktop, reading the source: the viewer converts it and the GLB is stored (lazy path, §2.5).
   const storesDerivative = converts && model.kind === 'source' && can.edit && can.download && !phone
+  // The same person with a stored GLB that does not load may rebuild it from the source.
+  const rebuilds = converts && model.kind === 'derivative' && can.edit && can.download && !phone
+  // A stored too_large counts only while the source is over the limit: one recorded under a lower limit, or for a GLB
+  // over the plan's cap, is converted in place again.
   const start: ViewerStart = !converts || model.kind !== 'source' ? 'auto'
-    : derivative?.state === 'too_large' ? { failed: 'too_large' }
+    : derivative?.state === 'too_large' && file.size > model.maxConvertBytes ? { failed: 'too_large' }
     : derivative?.state === 'failed' ? { failed: storedCode(derivative.code) }
     : format !== null && deferOpen(format, phone) ? 'phone'
     : 'auto'
@@ -277,7 +295,16 @@ export const FileDetailPage = () => {
       />
 
       <div className="grid items-start gap-6 app:grid-cols-[minmax(0,1fr)_380px]">
-        {model.kind !== 'none' && format !== null ? (
+        {converts && model.kind !== 'derivative' && preparingHere ? (
+          <section aria-label={file.name} className="relative grid h-[min(62dvh,600px)] min-h-72 place-items-center overflow-hidden rounded-lg bg-canvas">
+            {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-0 size-full object-contain opacity-50" /> : null}
+            <p role="status" className="relative flex items-center gap-3 rounded-lg bg-canvas/92 px-4 py-3 text-md text-canvas-text">
+              <Loader2 aria-hidden className="size-4.5 shrink-0 text-brand motion-safe:animate-spin" />
+              <span>{t('viewer.preparing')}</span>
+              <span className="sr-only">{t('viewer.preparingLabel', { name: file.name })}</span>
+            </p>
+          </section>
+        ) : model.kind !== 'none' && format !== null ? (
           <Suspense fallback={<ViewerFallback src={thumbnail} />}>
             <Viewer
               key={`${file.id}:${file.currentVersion.number}`}
@@ -291,8 +318,9 @@ export const FileDetailPage = () => {
               modelBytes={model.bytes}
               maxConvertBytes={model.maxConvertBytes}
               retryAlways={storesDerivative && derivative?.state === 'failed'}
-              onDerivative={storesDerivative ? (glb, stats) => saveDerivative(file.id, file.currentVersion.number, file.extension, glb, stats) : undefined}
-              onConvertFailed={storesDerivative ? (code) => recordFailure(file.id, file.currentVersion.number, code) : undefined}
+              onDerivative={storesDerivative || rebuilds ? (glb, stats) => saveDerivative(file.id, file.currentVersion.number, file.extension, glb, stats) : undefined}
+              onConvertFailed={storesDerivative || rebuilds ? (code) => recordFailure(file.id, file.currentVersion.number, code) : undefined}
+              rebuildUrl={rebuilds ? contentUrl(file.id) : undefined}
               onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone, model.maxConvertBytes) ? (blob) => saveThumbnail(file.id, file.currentVersion.number, blob) : undefined}
               onUploadVersion={can.edit && uploads.allowed ? () => uploads.pick(file.id) : undefined}
               downloadAction={
