@@ -3,7 +3,7 @@
  * the lazy viewer chunk: three.js is loaded only through this file, never during SSR. The scene lives in a ref; React
  * state is the pure `viewerReducer`.
  */
-import { useEffect, useReducer, useRef, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Axis3d, Camera, Cuboid, Focus, Grid3x3, Loader2 } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
 import { cx } from '#/components/ui/cx'
@@ -41,7 +41,10 @@ export type ViewerProps = {
    * page ("Open 3D · N MB"); `{ failed }` for a derivative that failed before.
    */
   readonly start: ViewerStart
-  /** What `model` answers (the file view's `model.kind`): a GLB derivative needs no Worker; a source is parsed in it. */
+  /**
+   * What `model` answers (the file view's `model.kind`): a GLB derivative needs no Worker; a source is parsed in it.
+   * Read once per mount: a page reload that finds the GLB stored meanwhile must not restart the open model.
+   */
   readonly source: 'derivative' | 'source'
   /** Bytes `model` sends, for the `tap` button. */
   readonly modelBytes?: number | null | undefined
@@ -58,6 +61,11 @@ export type ViewerProps = {
   readonly onConvertFailed?: ((code: ErrorCode) => void) | undefined
   /** Offer "Try again" on every error (an edit user's retry of a failed derivative). */
   readonly retryAlways?: boolean | undefined
+  /**
+   * Edit + download on a desktop, with `onDerivative`: a GLB derivative that does not load can be rebuilt from the
+   * source at this URL (`content`), converted again and stored again.
+   */
+  readonly rebuildUrl?: string | undefined
   /** `edit` permission: a broken file offers "Upload new version". */
   readonly onUploadVersion?: (() => void) | undefined
   /** The page's download button, repeated next to error texts when the caller may download. */
@@ -134,11 +142,13 @@ const announcement = (state: ViewerState, format: string, t: ReturnType<typeof u
 }
 
 /** The panel over the thumbnail while the canvas is not ready. Texts sit on the canvas colour (13.5:1, docs/03 §5). */
-const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downloadAction, errorText, retryAlways, tapLabel }: {
+const StatusPanel = ({ state, format, onCancel, onStart, onRebuild, onUploadVersion, downloadAction, errorText, retryAlways, tapLabel }: {
   state: ViewerState
   format: string
   onCancel: () => void
   onStart: () => void
+  /** The stored GLB did not load and the caller may convert the source again. */
+  onRebuild?: (() => void) | undefined
   onUploadVersion?: (() => void) | undefined
   downloadAction?: ReactNode
   errorText: (code: ViewerError) => string
@@ -211,6 +221,11 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
                 {t('viewer.retry')}
               </Button>
             ) : null}
+            {onRebuild ? (
+              <Button variant="secondary" onClick={onRebuild}>
+                {t('viewer.rebuild')}
+              </Button>
+            ) : null}
             {can.newVersion && onUploadVersion ? (
               <Button variant="secondary" onClick={onUploadVersion}>
                 {t('viewer.uploadVersion')}
@@ -230,11 +245,16 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
 }
 
 const Viewer = ({
-  name, extension, size, url, thumbnailUrl, start, source, modelBytes, maxConvertBytes, onThumbnail, onDerivative, onConvertFailed, retryAlways,
-  onUploadVersion, downloadAction,
+  name, extension, size, url, thumbnailUrl, start, source: sourceProp, modelBytes, maxConvertBytes, onThumbnail, onDerivative, onConvertFailed, retryAlways,
+  rebuildUrl, onUploadVersion, downloadAction,
 }: ViewerProps) => {
   const { t, locale } = useI18n()
   const [state, dispatch] = useReducer(viewerReducer, start, initialViewerState)
+  // Frozen per mount (see `source`): the camera, wireframe and edges of the open model stay as they are.
+  const [source] = useState(sourceProp)
+  // The stored GLB failed to load (not the network): an editor may convert the source again (`rebuildUrl`).
+  const [glbBroken, setGlbBroken] = useState(false)
+  const fromSource = useRef(false)
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<SceneHandle | null>(null)
   const cancelJob = useRef<(() => void) | null>(null)
@@ -274,8 +294,10 @@ const Viewer = ({
   useEffect(() => {
     if (state.attempt === 0 || scene.current === null) return
     if (format === null) return dispatch({ type: 'fail', code: 'unsupported' })
-    // The source of a STEP/IGES/3MF: the Worker converts it, and writes the GLB when the page can store it.
-    const converting = source === 'source' && isConvertFormat(format)
+    // The source of a STEP/IGES/3MF: the Worker converts it, and writes the GLB when the page can store it. A rebuild
+    // reads the source from `rebuildUrl` even though `model` would answer with the (broken) GLB.
+    const rebuilding = fromSource.current && rebuildUrl !== undefined
+    const converting = (source === 'source' || rebuilding) && isConvertFormat(format)
     const deriving = converting && derivativeSink.current !== undefined
     const failed = (code: ErrorCode) => {
       dispatch({ type: 'fail', code })
@@ -289,7 +311,7 @@ const Viewer = ({
     void (async () => {
       // One render per whole percent, not per network chunk.
       let shown = -2
-      const fetched = await download(url, controller.signal, (ratio) => {
+      const fetched = await download(rebuilding ? rebuildUrl : url, controller.signal, (ratio) => {
         const step = ratio === null ? -1 : Math.floor(ratio * 100)
         if (step === shown) return
         shown = step
@@ -297,17 +319,22 @@ const Viewer = ({
       })
       if (controller.signal.aborted) return
       if (!fetched.ok) return dispatch({ type: 'fail', code: 'network' })
-      if (fetched.contentType === GLB_CONTENT_TYPE) {
+      if (fetched.contentType === GLB_CONTENT_TYPE && !rebuilding) {
         // The derivative: already triangles, read on this thread by a lazily loaded GLTFLoader (no Worker, no WASM).
         dispatch({ type: 'progress', stage: 'parse', ratio: null })
+        // A chunk that did not arrive is the network (Retry), not the file.
+        const module = await loadGlbModule().catch(() => null)
+        if (controller.signal.aborted) return
+        if (module === null) return dispatch({ type: 'fail', code: 'network' })
         try {
-          const { loadGlb } = await loadGlbModule()
-          const loaded = await loadGlb(fetched.bytes)
+          const loaded = await module.loadGlb(fetched.bytes)
           if (controller.signal.aborted || scene.current === null) return
           scene.current.setModel(loaded.root, loaded.stats)
           dispatch({ type: 'ready', stats: loaded.stats })
         } catch (error) {
-          if (!controller.signal.aborted) dispatch({ type: 'fail', code: error instanceof ParseFailure ? error.code : classifyError(error) })
+          if (controller.signal.aborted) return
+          dispatch({ type: 'fail', code: error instanceof ParseFailure ? error.code : classifyError(error) })
+          setGlbBroken(true)
         }
         return
       }
@@ -344,7 +371,7 @@ const Viewer = ({
       stop = null
       cancelJob.current = null
     }
-  }, [state.attempt, url, format, size, source, maxConvertBytes])
+  }, [state.attempt, url, format, size, source, maxConvertBytes, rebuildUrl])
 
   useEffect(() => {
     if (ready) scene.current?.setWireframe(state.wireframe)
@@ -376,6 +403,11 @@ const Viewer = ({
                 dispatch({ type: 'cancel' })
               }}
               onStart={() => dispatch({ type: 'start' })}
+              onRebuild={glbBroken && rebuildUrl !== undefined && state.phase.status === 'error' ? () => {
+                fromSource.current = true
+                setGlbBroken(false)
+                dispatch({ type: 'start' })
+              } : undefined}
               onUploadVersion={onUploadVersion}
               downloadAction={downloadAction}
               errorText={errorText}

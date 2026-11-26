@@ -46,6 +46,8 @@ export const viewerEn = {
   'viewer.preparing': 'Preparing',
   'viewer.preparingLabel': 'Preparing the 3D preview of {name}',
   'viewer.preparedOnDesktop': 'Prepared when opened on a computer',
+  'viewer.rebuild': 'Rebuild 3D copy',
+  'viewer.derivativeTooLarge': 'The 3D copy of this file is too large to keep; it opens only for people who can download the file.',
 } as const
 
 export const viewerTr: Record<keyof typeof viewerEn, string> = {
@@ -95,4 +97,6 @@ export const viewerTr: Record<keyof typeof viewerEn, string> = {
   'viewer.preparing': 'Hazırlanıyor',
   'viewer.preparingLabel': '{name} için 3B önizleme hazırlanıyor',
   'viewer.preparedOnDesktop': 'Masaüstünde açılınca hazırlanır',
+  'viewer.rebuild': '3B kopyayı yeniden oluştur',
+  'viewer.derivativeTooLarge': 'Bu dosyanın 3B kopyası saklanamayacak kadar büyük; yalnız dosyayı indirebilenlerde açılır.',
 }

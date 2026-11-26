@@ -175,6 +175,45 @@ describe('Viewer', () => {
     await waitFor(() => expect(mocks.parseInWorker).toHaveBeenCalledWith(expect.objectContaining({ derive: true })))
   })
 
+  it('a reload that finds the GLB stored (source → derivative) does not restart the open model', async () => {
+    const view = render(wrap(<Viewer {...props} name="Pump.step" extension="step" onDerivative={vi.fn()} />))
+    await waitFor(() => expect(mocks.setModel).toHaveBeenCalledTimes(1))
+    view.rerender(wrap(<Viewer {...props} name="Pump.step" extension="step" source="derivative" modelBytes={6_200_000} />))
+    await act(async () => {})
+    expect(mocks.download).toHaveBeenCalledTimes(1)
+    expect(mocks.setModel).toHaveBeenCalledTimes(1)
+    expect(mocks.dispose).not.toHaveBeenCalled()
+  })
+
+  it('an editor can rebuild a GLB that does not load: the source is read from rebuildUrl, converted and stored again', async () => {
+    mocks.download.mockResolvedValueOnce({ ok: true, bytes: new ArrayBuffer(16), contentType: 'model/gltf-binary' })
+    const { ParseFailure } = await import('./worker/protocol')
+    mocks.loadGlb.mockRejectedValueOnce(new ParseFailure('corrupt'))
+    const glb = new ArrayBuffer(4)
+    mocks.parseInWorker.mockImplementation(() => ({ result: Promise.resolve({ ok: true, model, stats, thumbnail: null, glb }), cancel: vi.fn() }))
+    const onDerivative = vi.fn()
+    render(wrap(<Viewer {...props} name="Pump.step" extension="step" source="derivative" rebuildUrl="/api/files/f1/content" onDerivative={onDerivative} />))
+    const rebuild = await screen.findByRole('button', { name: 'Rebuild 3D copy' })
+    await act(async () => rebuild.click())
+    await waitFor(() => expect(onDerivative).toHaveBeenCalledWith(glb, stats))
+    expect(mocks.download).toHaveBeenLastCalledWith('/api/files/f1/content', expect.anything(), expect.any(Function))
+    expect(mocks.parseInWorker).toHaveBeenCalledWith(expect.objectContaining({ derive: true }))
+  })
+
+  it('no rebuild without rebuildUrl, and none for a GLB that only failed to download', async () => {
+    mocks.download.mockResolvedValueOnce({ ok: true, bytes: new ArrayBuffer(16), contentType: 'model/gltf-binary' })
+    const { ParseFailure } = await import('./worker/protocol')
+    mocks.loadGlb.mockRejectedValueOnce(new ParseFailure('corrupt'))
+    const first = render(wrap(<Viewer {...props} extension="step" source="derivative" />))
+    await screen.findByText('The file could not be read. It may be damaged.', { selector: 'p:not([role=status])' })
+    expect(screen.queryByRole('button', { name: 'Rebuild 3D copy' })).not.toBeInTheDocument()
+    first.unmount()
+    mocks.download.mockResolvedValueOnce({ ok: false })
+    render(wrap(<Viewer {...props} extension="step" source="derivative" rebuildUrl="/api/files/f1/content" onDerivative={vi.fn()} />))
+    await screen.findByRole('button', { name: 'Try again' })
+    expect(screen.queryByRole('button', { name: 'Rebuild 3D copy' })).not.toBeInTheDocument()
+  })
+
   it('mobile shared page: nothing downloads until “Open 3D · size” is pressed', async () => {
     render(wrap(<Viewer {...props} start="tap" source="derivative" modelBytes={6_200_000} />))
     const open = screen.getByRole('button', { name: 'Open 3D · 6.2 MB' })
