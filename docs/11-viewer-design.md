@@ -290,3 +290,39 @@ A1: tüm formatlarda evet (öneriden farklı: kullanıcı STL/OBJ/PLY'de de aç�
 | A2 | Yeni sürümde önceki sahnenin renkleri otomatik mi uygulansın, onayla mı? | **Onayla** (bant + tek düğme). Otomatik, yanlış eşlemeyi sessizce yayar. |
 | A3 | Klasör görünümünde parça küçük resimleri: istemcide anlık mı (ilk sürüm), türevle birlikte üretilen tek atlas mı? | İlk sürümde **anlık**; 455 parçada yavaş kalırsa atlas (5c'de ölçülür). |
 | A4 | Montaj olmayan tek parçalı STEP de "Parçalar" görünümü göstersin mi? | **Hayır**: `parts ≤ 1` ise doğrudan görüntüleyici. |
+
+## Uygulama notları · Faz 5a
+
+Branch `rewrite-faz5a` (26 Kasım 2026). Yapılanlar ve spesifikasyondan sapmalar.
+
+### Yapılanlar
+
+- `src/viewer/`: `Viewer.client.tsx` (lazy chunk girişi), `scene/` (`createScene`, `build`, `fit`, `lights`, `thumbnail`, `dispose`), `worker/parse.worker.ts` + `protocol.ts`, `worker/formats/` (STEP/IGES `occt-import-js`, STL, OBJ, PLY, 3MF + `xml.ts`), `tree/tree.ts` (düğüm yolu, normalleştirme, istatistik), `pipeline.ts` (indirme, Worker, zaman aşımı, iptal), `state.ts` (`viewerReducer`), `device.ts` (telefon kuralı).
+- Dosya sayfası (`/app/files/$id`): indirme yetkisi olan kişide görüntüleyici, `content?v=current` ucundan okur. Görüntüleme/yorum düzeyi değişmedi (küçük resim kartı; 3B `model` ucuyla 5b'de, D23).
+- Küçük resim: yüklemeden sonra (`UploadProvider`, eldeki baytlardan, sırayla) ve açılışta tembel (küçük resim yoksa ve kişi `edit` yetkiliyse, aynı ayrıştırmada Worker çizer). Mevcut `POST /api/files/{id}/thumbnail` ucuna WebP (Safari'de PNG), 512 px; 1 MiB'ı aşarsa 384 ve 256 px denenir.
+- Metinler `src/i18n/viewer.ts` (`viewer.*`, İngilizce + Türkçe). Araç çubuğu: sığdır, standart görünümler (menü), tel kafes, kenarlar, ekran görüntüsü; masaüstünde üçgen/parça sayısı.
+- LGPL metni `/licenses/occt-import-js.txt` (paketteki dosyanın kopyası). WASM değiştirilmeden ayrı dosya olarak yüklenir.
+- Ölçüm (`pnpm build && pnpm size:viewer`, gzip -9, KB = 1000 bayt): görüntüleyici chunk'ı **146 KB** (bütçe 160). Worker 147 KB, `pipeline` 1 KB, occt yapıştırıcısı 20 KB ve WASM 3.111 KB yalnız STEP/IGES açılınca Worker'da yüklenir. Sunucu derlemesinde three.js ve Worker yok.
+- Doğrulama: Vitest (reducer, cihaz kuralı, pipeline sahte Worker ile, `buildModel`/`vizcadPath`, `fit`, format okuyucuları: occt Node'da CAx-IF AS1 montajı ve IGES küpü, ağaç yolları, 0 üçgen → `empty`, 3MF okuyucu). Gerçek Chromium'da (GPU ile) altı format Worker'da açıldı ve küçük resimleri sunucunun `validateThumbnail` denetiminden geçti. 11 aç/kapa döngüsünden sonra tek tuval kaldı, WebGL bağlam uyarısı yok. Ekran görüntüleri: `design/ui-shots/viewer/` (`scripts/shoot-viewer.cjs`).
+
+### Sapmalar ve gerekçeleri
+
+1. **Worker sözleşmesi.** `thumbnail` isteği 5a'da kaynak baytlarla gelir (`{ kind: 'thumbnail', format, bytes }`); GLB'li biçim 5b'de eklenir. `parse` isteğinde `thumbnail: boolean` var: küçük resmi olmayan dosyada model ve küçük resim tek ayrıştırmada çıkar, geometri ana iş parçacığına sonra aktarılır. `cancel` bir mesaj değil: `pipeline.ts` Worker'ı `terminate` eder; her iş kendi Worker'ını açar (§1.2'deki "iptal = sonlandır" ile aynı sonuç, daha az durum).
+2. **Zaman aşımı** yalnız STEP'e değil, tüm biçimlere 5 dakika uygulanır. Diğer biçimler bu süreye hiç yaklaşmaz; tek kural daha basit.
+3. **50 MB dönüşüm sınırı** 5a'da `protocol.ts`'te sabit (`MAX_CONVERT_BYTES`). 5b `Entitlements.maxConvertBytes`'ı istemciye açınca oradan okunur. Plan sınırı değil, cihaz koruması olarak duruyor.
+4. **Telefon kuralı.** Telefonda STEP/IGES kendiliğinden açılmaz: §8'deki "3B önizleme masaüstünde hazırlanır" metni, altında "Bu cihazda aç" düğmesi ve İndir. 5a'da GLB türevi henüz yok, bu yüzden düğme olmadan telefondaki kişi küçük bir STEP'i bile göremezdi. 3MF telefonda açılır: kendi okuyucumuz WASM kullanmıyor ve hafif. Küçük resim kuralı görevdeki gibi: telefonda STEP/IGES/3MF küçük resmi üretilmez.
+5. **Eksen.** Görüntüleyicinin dünyası Z-yukarı (CAD alışkanlığı; STEP, IGES, STL, PLY, 3MF). OBJ genelde Y-yukarı olduğu için kökte 90° döndürülür. `ViewHelper` yalnız gösterge: tıklama animasyonu Y-yukarı varsayıyor, standart görünümler araç çubuğundaki menüden. 128 px'lik gösterge 480 px'ten dar tuvalde çizilmez. 5b notu: GLB yazılırken bu dönüşüm kökte açıkça yazılmalı (glTF Y-yukarı).
+6. **Renk.** STEP/IGES'te saf siyah "renk yok" sayılır: IGES dışa aktarımları (ve bazı STEP'ler) varsayılan olarak siyah yazıyor ve siyah parça koyu tuvalde kayboluyor. Gerçekten siyah olan parça nötr parça renginde görünür.
+7. **Kenarlar** (`EdgesGeometry`, 30°) 1,5 milyon üçgenin üstünde kapalı ve nedeni yazılı; 5a'da seçim olmadığı için "yalnız seçilene" yolu 5c'ye kaldı.
+8. **Sığdırma** sınır küresi yerine kutunun sekiz köşesiyle yapılır; uzun ince parçalar ekranı daha iyi doldurur.
+9. **3MF okuyucu** spesifikasyondan biraz geniş: `basematerials`'a ek olarak materials uzantısının `colorgroup`'u ve production uzantısının `p:path`'i (Bambu Studio ve PrusaSlicer dosyaları başka model parçalarına bağlanıyor) okunur. Birimler milimetreye çevrilir. Ana iş parçacığına geri dönüş (`3MFLoader`) gerekmedi.
+10. **Düğüm yolu kuralı.** Kök `0`. Bir düğüm en çok bir mesh taşır: tek mesh'li ve çocuksuz düğüm mesh'i kendisi taşır; aksi halde önce çocuk düğümler, sonra her mesh ayrı yaprak olarak sıralanır. Aynı girdi aynı yolları verir (testte iki dönüşüm karşılaştırılıyor). Yol `userData.vizcadPath`'e yazılır; `GLTFExporter` bunu `extras.vizcadPath` olarak yazar.
+11. **Tuval.** Sahne kendi `<canvas>`'ını oluşturur ve kapanışta kaldırır. React'in geliştirmedeki çift bağlamasında `forceContextLoss` edilmiş tuval yeniden kullanılınca WebGL açılmıyordu; yeni tuval bunu önlüyor ve kapanışta GPU belleği hemen bırakılıyor.
+12. **Derleme.** TanStack Start `.client` dosyalarını sunucu tarafında yasaklıyor: görüntüleyici ve `pipeline` `createClientOnlyFn` ile yüklenir. `vite.config.ts`'e `worker.format: 'es'` eklendi; böylece occt yapıştırıcısı Worker içinde ayrı chunk olur.
+13. **Yükleme sonrası küçük resim** saklanınca `UploadProvider.finished` bir kez daha artar; listeler küçük resmi bu yenilemede gösterir. Ayrı sayaç açmak yerine mevcut yenileme yolu kullanıldı.
+
+### Açık kalanlar
+
+- Kabul ölçütündeki "staging'de altı format" adımı yapılmadı (bu iş staging'e dağıtım içermiyordu); aynı kontrol yerelde gerçek Chromium ve GPU ile yapıldı. Staging'e dağıtımdan sonra `scripts/shoot-viewer.cjs` örnekleriyle tekrarlanmalı.
+- §6'daki `renderer.info.memory` sıfırlanma testi otomatik değil; elle 11 döngü denendi. Playwright testi 5d'deki telefon ölçümüyle birlikte yazılabilir.
+- Eski sürümlerin küçük resmi üretilmez (yalnız güncel sürüm; uç da yalnız `current` kabul ediyor).
