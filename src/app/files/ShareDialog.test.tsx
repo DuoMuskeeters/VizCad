@@ -157,3 +157,20 @@ describe('link', () => {
     expect(d.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument()
   })
 })
+
+describe('what the view level opens (D23)', () => {
+  const openWith = (name: string, extension: string) =>
+    renderApp(<ShareDialog file={{ ...file, name, extension }} workspaceId="ws-dm" onClose={() => undefined} />, 'admin')
+
+  it('STEP: the derivative text', async () => {
+    openWith('Part.step', 'step')
+    expect(await (await dialog()).findByText(/the source file \(STEP\) cannot be downloaded/)).toBeInTheDocument()
+  })
+
+  it('an unknown or legacy type says no 3D preview opens, not the mesh text', async () => {
+    openWith('Drawing.dwg', 'dwg')
+    const d = await dialog()
+    expect(await d.findByText(/No 3D preview opens for this file type/)).toBeInTheDocument()
+    expect(d.queryByText(/the preview is the file itself/)).not.toBeInTheDocument()
+  })
+})

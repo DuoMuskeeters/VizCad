@@ -230,11 +230,14 @@ const LinkSection = ({ file, workspaceId }: { file: ShareTarget; workspaceId: st
 
 /**
  * What the view level opens (D23, docs/11 §5), said honestly: STEP/IGES/3MF show their GLB derivative and keep the
- * source closed, but the shape on screen can be copied; for STL/OBJ/PLY the preview is the file itself.
+ * source closed, but the shape on screen can be copied; for STL/OBJ/PLY the preview is the file itself; any other
+ * (legacy) type opens no 3D at all.
  */
 const viewLevelText = (t: ReturnType<typeof useI18n>['t'], extension: string) => {
   const type = fileTypeOfExtension(extension)
-  return type !== undefined && hasDerivative(type.id) ? t('share.view3d.derivative', { format: type.label }) : t('share.view3d.mesh')
+  // An unknown or legacy type has no viewer at all: say so, rather than the STL/OBJ/PLY text.
+  if (type === undefined) return t('share.view3d.none')
+  return hasDerivative(type.id) ? t('share.view3d.derivative', { format: type.label }) : t('share.view3d.mesh')
 }
 
 /** The share window (docs/03 §2.3): people (members or e-mailed guests, with an end date for guests) and the file's one link. */
