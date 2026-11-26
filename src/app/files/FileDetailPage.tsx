@@ -176,13 +176,16 @@ export const FileDetailPage = () => {
   }, [])
 
   // This tab's upload queue is converting the file (docs/11 §2.5): the page shows Preparing and starts no second
-  // conversion; when the job ends (stored, failed or dropped) the file is read again.
+  // conversion; when the job ends (stored, failed or dropped) the file is read again, and Preparing stays until that
+  // read has answered, so the viewer never mounts with the old model (it would convert again, even after a recorded
+  // failure). `held` is set during render, so no commit sees the job ended and the hold not yet on.
   const preparingHere = state.status === 'ready' && uploads.preparing.has(state.file.id)
-  const wasPreparing = useRef(false)
+  const [held, setHeld] = useState<string | null>(null)
+  if (preparingHere && held !== state.file.id) setHeld(state.file.id)
   useEffect(() => {
-    if (wasPreparing.current && !preparingHere) void load()
-    wasPreparing.current = preparingHere
-  }, [preparingHere, load])
+    if (held === null || preparingHere) return
+    void load().finally(() => setHeld((current) => (current === held ? null : current)))
+  }, [held, preparingHere, load])
 
   // A new version finished uploading: the file card and the version list change.
   useEffect(() => {
@@ -295,7 +298,7 @@ export const FileDetailPage = () => {
       />
 
       <div className="grid items-start gap-6 app:grid-cols-[minmax(0,1fr)_380px]">
-        {converts && model.kind !== 'derivative' && preparingHere ? (
+        {converts && model.kind !== 'derivative' && (preparingHere || held === file.id) ? (
           <section aria-label={file.name} className="relative grid h-[min(62dvh,600px)] min-h-72 place-items-center overflow-hidden rounded-lg bg-canvas">
             {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-0 size-full object-contain opacity-50" /> : null}
             <p role="status" className="relative flex items-center gap-3 rounded-lg bg-canvas/92 px-4 py-3 text-md text-canvas-text">

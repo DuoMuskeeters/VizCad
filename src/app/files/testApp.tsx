@@ -21,7 +21,7 @@ export const failure = (status: number, error: string, reason?: string) =>
   new Response(JSON.stringify({ ok: false, error, ...(reason ? { reason } : {}) }), { status, headers: { 'content-type': 'application/json' } })
 
 /** Renders `ui` with session + workspace loaded from the in-memory fixture; every product call is recorded. `override` may answer an operation itself. */
-export const renderApp = (ui: ReactNode, scenario: string, override?: (operation: string, body: Record<string, unknown>) => Response | undefined) => {
+export const renderApp = (ui: ReactNode, scenario: string, override?: (operation: string, body: Record<string, unknown>) => Response | Promise<Response> | undefined) => {
   const calls: Call[] = []
   const inner = fixtureFetch(scenario)
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -30,7 +30,7 @@ export const renderApp = (ui: ReactNode, scenario: string, override?: (operation
       const operation = url.slice('/api/app/'.length)
       const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       calls.push({ operation, body })
-      const answer = override?.(operation, body)
+      const answer = await override?.(operation, body)
       if (answer) return answer
     }
     return inner(input, init)

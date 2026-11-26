@@ -66,6 +66,28 @@ describe('file page while the upload queue prepares the file', () => {
     expect(seen.props.every((p) => p.source === 'derivative')).toBe(true)
   })
 
+  it('a recorded failure: Preparing stays until the reload answers, and the viewer opens on the failure without converting', async () => {
+    let model: Record<string, unknown> = source
+    let release: (() => void) | null = null
+    renderApp(<FileDetailPage />, 'admin', (op) => {
+      if (op !== 'getFile') return undefined
+      const data = file(model)
+      return model === source ? answer(data) : new Promise<Response>((resolve) => (release = () => resolve(answer(data))))
+    })
+    expect(await screen.findByText('Preparing')).toBeInTheDocument()
+    // The job timed out and recorded it; the read that follows has not answered yet.
+    model = { ...source, derivative: { state: 'failed', code: 'timeout', parts: null } }
+    uploads.preparing = new Set()
+    await act(async () => uploads.rerender())
+    await waitFor(() => expect(release).not.toBeNull())
+    expect(screen.getByText('Preparing')).toBeInTheDocument()
+    expect(seen.props).toEqual([])
+    await act(async () => release?.())
+    await screen.findByRole('region', { name: '3D view' })
+    expect(seen.props.length).toBeGreaterThan(0)
+    expect(seen.props.every((p) => typeof p.start === 'object' && p.start.failed === 'timeout')).toBe(true)
+  })
+
   it('another file being prepared does not hold this one', async () => {
     uploads.preparing = new Set(['f2'])
     renderApp(<FileDetailPage />, 'admin', (op) => (op === 'getFile' ? answer(file(source)) : undefined))
