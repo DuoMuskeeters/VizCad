@@ -15,12 +15,14 @@ import { buildModel } from './scene/build'
 import { createScene, WebGlUnavailable, type SceneHandle } from './scene/createScene'
 import { VIEW_NAMES, type ViewName } from './scene/fit'
 import { edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type LoadStage, type ViewerState } from './state'
-import { formatOfExtension } from './worker/protocol'
+import { classifyError, formatOfExtension, isConvertFormat, MAX_CONVERT_BYTES } from './worker/protocol'
 
 export type ViewerProps = {
   /** File name: canvas label and screenshot name. */
   readonly name: string
   readonly extension: string
+  /** Bytes of the source: STEP/IGES/3MF over the conversion limit are refused before anything is downloaded (§2.5). */
+  readonly size: number
   /** Where the model bytes come from: `/api/files/{id}/model` (audited as a preview, docs/11 §2.4). */
   readonly url: string
   /** Shown in place of the canvas until the model is drawn, and behind error texts. */
@@ -58,6 +60,7 @@ const StageText = ({ stage, ratio, format }: { stage: LoadStage; ratio: number |
   const { t } = useI18n()
   switch (stage) {
     case 'download':
+      // The percent is for the eye; the live region says only "Downloading" (no announcement per percent).
       return <>{ratio === null ? t('viewer.stage.downloadUnknown') : t('viewer.stage.download', { percent: Math.round(ratio * 100) })}</>
     case 'convert':
       return <>{t('viewer.stage.convert', { format })}</>
@@ -67,6 +70,35 @@ const StageText = ({ stage, ratio, format }: { stage: LoadStage; ratio: number |
       return <>{t('viewer.stage.thumbnail')}</>
     case 'build':
       return <>{t('viewer.stage.build')}</>
+  }
+}
+
+/**
+ * What screen readers hear: the stage, the idle reason or the error, never the percent. Kept mounted so a change is
+ * announced; the visible panel is not a live region.
+ */
+const announcement = (state: ViewerState, format: string, t: ReturnType<typeof useI18n>['t']): string => {
+  const phase = state.phase
+  switch (phase.status) {
+    case 'ready':
+      return ''
+    case 'idle':
+      return phase.reason === 'phone' ? t('viewer.phone') : t('viewer.canceled')
+    case 'error':
+      return t(errorTextKey(phase.code))
+    case 'loading':
+      switch (phase.stage) {
+        case 'download':
+          return t('viewer.stage.downloadUnknown')
+        case 'convert':
+          return t('viewer.stage.convert', { format })
+        case 'parse':
+          return t('viewer.stage.parse')
+        case 'thumbnail':
+          return t('viewer.stage.thumbnail')
+        case 'build':
+          return t('viewer.stage.build')
+      }
   }
 }
 
@@ -148,13 +180,13 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
     )
   }
   return (
-    <div className="absolute inset-x-3 bottom-3 mx-auto grid max-w-120 gap-2 rounded-lg bg-canvas/92 p-3 text-canvas-text app:bottom-5 app:p-4" role="status" aria-live="polite">
+    <div className="absolute inset-x-3 bottom-3 mx-auto grid max-w-120 gap-2 rounded-lg bg-canvas/92 p-3 text-canvas-text app:bottom-5 app:p-4">
       {body}
     </div>
   )
 }
 
-const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onUploadVersion, downloadAction }: ViewerProps) => {
+const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnail, onUploadVersion, downloadAction }: ViewerProps) => {
   const { t, locale } = useI18n()
   const [state, dispatch] = useReducer(viewerReducer, deferred, initialViewerState)
   const host = useRef<HTMLDivElement>(null)
@@ -162,6 +194,9 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
   const cancelJob = useRef<(() => void) | null>(null)
   const thumbnailSink = useRef(onThumbnail)
   thumbnailSink.current = onThumbnail
+  // A rename changes the name, not the model: the load reads it from a ref and does not restart.
+  const nameRef = useRef(name)
+  nameRef.current = name
   const format = formatOfExtension(extension)
   const label = fileTypeOfExtension(extension)?.label ?? extension.toUpperCase()
   const ready = state.phase.status === 'ready'
@@ -188,6 +223,7 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
   useEffect(() => {
     if (state.attempt === 0 || scene.current === null) return
     if (format === null) return dispatch({ type: 'fail', code: 'unsupported' })
+    if (isConvertFormat(format) && size > MAX_CONVERT_BYTES) return dispatch({ type: 'fail', code: 'too_large' })
     const controller = new AbortController()
     let stop: (() => void) | null = () => controller.abort()
     cancelJob.current = () => stop?.()
@@ -204,7 +240,7 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
       if (!fetched.ok) return dispatch({ type: 'fail', code: 'network' })
       const job = parseInWorker({
         format,
-        name,
+        name: nameRef.current,
         bytes: fetched.bytes,
         thumbnail: thumbnailSink.current !== undefined,
         onProgress: (stage, ratio) => dispatch({ type: 'progress', stage, ratio }),
@@ -218,7 +254,12 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
       dispatch({ type: 'progress', stage: 'build', ratio: null })
       const handle = scene.current
       if (handle === null) return
-      handle.setModel(buildModel(outcome.model), outcome.stats)
+      try {
+        handle.setModel(buildModel(outcome.model), outcome.stats)
+      } catch (error) {
+        // three.js on the main thread (geometry upload, a GPU allocation) can still fail after a good parse.
+        return dispatch({ type: 'fail', code: classifyError(error) })
+      }
       dispatch({ type: 'ready', stats: outcome.stats })
       if (outcome.thumbnail !== null) thumbnailSink.current?.(outcome.thumbnail)
     })()
@@ -227,7 +268,7 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
       stop = null
       cancelJob.current = null
     }
-  }, [state.attempt, url, format, name])
+  }, [state.attempt, url, format, size])
 
   useEffect(() => {
     if (ready) scene.current?.setWireframe(state.wireframe)
@@ -243,6 +284,9 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
 
   return (
     <section aria-label={t('viewer.region')} className="grid min-w-0 gap-2">
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement(state, label, t)}
+      </p>
       <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
         <div ref={host} className={cx('size-full', !ready && 'invisible')} />
         {ready ? null : (

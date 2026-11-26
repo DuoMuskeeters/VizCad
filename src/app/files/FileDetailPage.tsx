@@ -232,6 +232,7 @@ export const FileDetailPage = () => {
               key={`${file.id}:${file.currentVersion.number}`}
               name={file.name}
               extension={file.extension}
+              size={file.size}
               url={modelUrl(file.id)}
               thumbnailUrl={thumbnail}
               deferred={deferOpen(format, phone)}

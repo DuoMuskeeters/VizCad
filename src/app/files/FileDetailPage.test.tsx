@@ -24,7 +24,8 @@ describe('file page', () => {
     expect(screen.getByText('Pompa revizyonu')).toBeInTheDocument()
     // The viewer chunk loads lazily; jsdom has no WebGL, so it lands on that state with the download next to it.
     const viewer = await screen.findByRole('region', { name: '3D view' })
-    expect(await within(viewer).findByText('Your browser does not support 3D viewing.')).toBeInTheDocument()
+    expect(await within(viewer).findByText('Your browser does not support 3D viewing.', { selector: 'p:not([role=status])' })).toBeInTheDocument()
+    expect(within(viewer).getByRole('status')).toHaveTextContent('Your browser does not support 3D viewing.')
     expect(within(viewer).getByRole('button', { name: 'Download' })).toBeInTheDocument()
     expect(within(viewer).getByRole('toolbar', { name: 'Viewer tools' })).toBeInTheDocument()
     expect(screen.queryByText('No thumbnail yet.')).not.toBeInTheDocument()
