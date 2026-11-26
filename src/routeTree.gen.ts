@@ -43,6 +43,7 @@ import { Route as STokenThumbnailRouteImport } from './routes/s/$token/thumbnail
 import { Route as ApiFilesFileIdContentRouteImport } from './routes/api/files/$fileId/content'
 import { Route as ApiFilesFileIdModelRouteImport } from './routes/api/files/$fileId/model'
 import { Route as ApiFilesFileIdThumbnailRouteImport } from './routes/api/files/$fileId/thumbnail'
+import { Route as ApiFilesFileIdDerivativeStepRouteImport } from './routes/api/files/$fileId/derivative/$step'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -214,6 +215,12 @@ const ApiFilesFileIdThumbnailRoute = ApiFilesFileIdThumbnailRouteImport.update({
   path: '/api/files/$fileId/thumbnail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesFileIdDerivativeStepRoute =
+  ApiFilesFileIdDerivativeStepRouteImport.update({
+    id: '/api/files/$fileId/derivative/$step',
+    path: '/api/files/$fileId/derivative/$step',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -285,6 +293,7 @@ export interface FileRoutesByTo {
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
+    | '/api/files/$fileId/derivative/$step'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
+    | '/api/files/$fileId/derivative/$step'
   id:
     | '__root__'
     | '/'
@@ -431,6 +443,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/thumbnail'
+    | '/api/files/$fileId/derivative/$step'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -459,6 +472,7 @@ export interface RootRouteChildren {
   ApiFilesFileIdContentRoute: typeof ApiFilesFileIdContentRoute
   ApiFilesFileIdModelRoute: typeof ApiFilesFileIdModelRoute
   ApiFilesFileIdThumbnailRoute: typeof ApiFilesFileIdThumbnailRoute
+  ApiFilesFileIdDerivativeStepRoute: typeof ApiFilesFileIdDerivativeStepRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -701,6 +715,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesFileIdThumbnailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/$fileId/derivative/$step': {
+      id: '/api/files/$fileId/derivative/$step'
+      path: '/api/files/$fileId/derivative/$step'
+      fullPath: '/api/files/$fileId/derivative/$step'
+      preLoaderRoute: typeof ApiFilesFileIdDerivativeStepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -756,6 +777,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesFileIdContentRoute: ApiFilesFileIdContentRoute,
   ApiFilesFileIdModelRoute: ApiFilesFileIdModelRoute,
   ApiFilesFileIdThumbnailRoute: ApiFilesFileIdThumbnailRoute,
+  ApiFilesFileIdDerivativeStepRoute: ApiFilesFileIdDerivativeStepRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

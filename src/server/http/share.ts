@@ -3,6 +3,7 @@ import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
 import { deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword } from '../programs/shareLinks'
 import { AppConfig } from '../services/AppConfig'
 import type { Db } from '../services/Db'
+import type { Entitlements } from '../services/Entitlements'
 import type { RateLimit } from '../services/RateLimit'
 import type { Storage } from '../services/Storage'
 import type { Turnstile } from '../services/Turnstile'
@@ -11,7 +12,7 @@ import { checkMutationRequest, checkReadRequest } from './csrf'
 import { deliveryResponse } from './files'
 import { handle, type RequestMeta } from './respond'
 
-export type ShareServices = Db | AppConfig | Storage | RateLimit | Turnstile
+export type ShareServices = Db | AppConfig | Storage | RateLimit | Turnstile | Entitlements
 
 /** `/s/{token}/content`, `/s/{token}/model`, `/s/{token}/thumbnail`, `POST /api/s/resolve`, `POST /api/s/password`. */
 const DELIVERY_PATH = /^\/s\/([^/]+)\/(content|model|thumbnail)$/

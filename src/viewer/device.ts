@@ -17,8 +17,11 @@ export const isPhone = (hints: DeviceHints) => (hints.deviceMemory !== undefined
 /** Opening STEP/IGES runs the 7 MB OCCT WASM and can need gigabytes: on a phone the person starts it. */
 export const deferOpen = (format: SourceFormat, phone: boolean) => phone && (format === 'step' || format === 'iges')
 
-/** Whether this device should render a thumbnail for the file (upload and lazy-on-open paths). */
-export const canMakeThumbnail = (format: SourceFormat, size: number, phone: boolean) => {
-  if (isConvertFormat(format)) return !phone && size <= MAX_CONVERT_BYTES
-  return size <= 2 * MAX_CONVERT_BYTES
+/**
+ * Whether this device should render a thumbnail for the file (upload and lazy-on-open paths). `maxConvertBytes` is the
+ * workspace's conversion limit (file view or upload answer); STL/OBJ/PLY may be twice as large (no WASM heap involved).
+ */
+export const canMakeThumbnail = (format: SourceFormat, size: number, phone: boolean, maxConvertBytes: number = MAX_CONVERT_BYTES) => {
+  if (isConvertFormat(format)) return !phone && size <= maxConvertBytes
+  return size <= 2 * maxConvertBytes
 }

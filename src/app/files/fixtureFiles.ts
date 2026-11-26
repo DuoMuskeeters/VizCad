@@ -2,7 +2,8 @@
  * In-memory stand-in for the file operations of `/api/app/*`, used by tests and (dev only) by `?fixture=<scenario>`.
  * Mirrors the shapes of src/shared/fileViews.ts and the programs' answers; never imported by production code paths.
  */
-import type { CommentView, FileAccessEntry, FileAccessInvitation, FileActivityItem, ProjectView, SharedByMeItem, SharedWithMeItem, TrashItem, VersionEntry } from '#/shared/fileViews'
+import { fileTypeOfExtension, hasDerivative } from '#/shared/fileTypes'
+import type { CommentView, FileAccessEntry, FileAccessInvitation, FileActivityItem, ModelPreview, ProjectView, SharedByMeItem, SharedWithMeItem, TrashItem, VersionEntry } from '#/shared/fileViews'
 import type { AnyFileView, FileView, ShareLinkSummary } from './types'
 
 export type FilesScenario = 'normal' | 'empty' | 'error' | 'slow' | 'one-version'
@@ -33,6 +34,8 @@ type Stored = {
   recent: boolean
   /** A link on the file: none, live, or expired. */
   link: 'none' | 'active' | 'expired'
+  /** Bytes of a stored GLB derivative (STEP/IGES/3MF), or absent. */
+  glb?: number
 }
 
 type Person = { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role }
@@ -57,7 +60,7 @@ const seed = (): Stored[] => {
   })
   return [
     row('f1', 'Flanş_DN100_rev3.step', 12_400_000, 'Ayşe Yılmaz', 3_600, { starred: true, project: 'p-pompa', version: 3, recent: true }),
-    row('f2', 'Pompa_gövdesi_montaj.step', 86_200_000, 'Mehmet Kaya', 9 * 3_600, { project: 'p-pompa', recent: true }),
+    row('f2', 'Pompa_gövdesi_montaj.step', 86_200_000, 'Mehmet Kaya', 9 * 3_600, { project: 'p-pompa', recent: true, glb: 14_900_000 }),
     row('f3', 'Konveyör_şase.iges', 41_000_000, 'Ayşe Yılmaz', day + 3_600, { recent: true }),
     row('f4', 'Rulman_yuvası_6205.stl', 3_800_000, 'Zeynep Arslan', 6 * day),
     row('f5', 'Mil_Ø25x300.step', 1_200_000, 'Mehmet Kaya', 7 * day, { starred: true }),
@@ -72,18 +75,31 @@ const seed = (): Stored[] => {
   ]
 }
 
+/** What `model` would answer in the fixture (D23): a stored GLB for everyone, else STEP/IGES/3MF only for downloaders. */
+const fixtureModel = (file: Stored, canDownload: boolean): ModelPreview => {
+  const type = fileTypeOfExtension(file.extension)
+  const derives = type !== undefined && hasDerivative(type.id)
+  const kind = type === undefined ? 'none' : derives && file.glb !== undefined ? 'derivative' : !derives || canDownload ? 'source' : 'none'
+  return {
+    kind,
+    bytes: kind === 'derivative' ? (file.glb ?? null) : kind === 'source' ? file.size : null,
+    derivative: derives && file.glb !== undefined ? { state: 'ready', code: null, parts: 455 } : null,
+    maxConvertBytes: 50 * 1024 * 1024,
+  }
+}
+
 const viewOf = (file: Stored, role: Role, projectName: (id: string | null) => string | null, people: number): AnyFileView => {
   if (role === 'guest')
     return {
       id: file.id, name: file.name, extension: file.extension, size: file.size, updatedAt: file.updatedAt, currentVersion: { number: file.version },
-      thumbnailAvailable: false, can: { download: true, comment: true }, sharedBy: { displayName: 'Hakan Demir' },
+      thumbnailAvailable: false, model: fixtureModel(file, true), can: { download: true, comment: true }, sharedBy: { displayName: 'Hakan Demir' },
     }
   const edits = role === 'owner' || role === 'admin' || role === 'member'
   const view: FileView = {
     id: file.id, name: file.name, extension: file.extension, size: file.size, projectId: file.project, projectName: projectName(file.project),
-    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false,
+    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false, model: fixtureModel(file, role !== 'commenter'),
     currentVersion: { number: file.version, uploadedBy: { displayName: file.uploader } }, access: { people, link: file.link },
-    can: { edit: edits, comment: true, download: true, viewHistory: true, trash: edits, share: edits },
+    can: { edit: edits, comment: true, download: role !== 'commenter', viewHistory: true, trash: edits, share: edits },
   }
   return view
 }
@@ -281,12 +297,12 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
           target.version += 1
           target.size = session.size
           target.updatedAt = now()
-          return ok({ fileId: target.id, name: target.name, extension: target.extension, size: target.size, versionNumber: target.version, isNewVersion: true })
+          return ok({ fileId: target.id, name: target.name, extension: target.extension, size: target.size, versionNumber: target.version, isNewVersion: true, maxConvertBytes: 50 * 1024 * 1024 })
         }
         const extension = session.name.split('.').pop() ?? ''
         const created: Stored = { id: `f-new-${++counter}`, name: session.name, extension, size: session.size, project: session.project, link: 'none', createdAt: now(), updatedAt: now(), starred: false, uploader: me, version: 1, trashed: false, mine: true, recent: true }
         files = [created, ...files]
-        return ok({ fileId: created.id, name: created.name, extension, size: created.size, versionNumber: 1, isNewVersion: false })
+        return ok({ fileId: created.id, name: created.name, extension, size: created.size, versionNumber: 1, isNewVersion: false, maxConvertBytes: 50 * 1024 * 1024 })
       }
       case 'cancelUpload':
         uploads.delete(String(body['uploadId']))

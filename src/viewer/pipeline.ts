@@ -11,6 +11,7 @@ import {
   type SourceFormat,
   type Stage,
   type Stats,
+  type TreeNode,
   type WorkerRequest,
   type WorkerResponse,
 } from './worker/protocol'
@@ -27,7 +28,11 @@ export type WorkerLike = {
 export const spawnParseWorker = (): WorkerLike => new Worker(new URL('./worker/parse.worker.ts', import.meta.url), { type: 'module', name: 'vizcad-parse' })
 
 export type ParseOutcome =
-  | { readonly ok: true; readonly model: ParsedModel; readonly stats: Stats; readonly thumbnail: Blob | null }
+  | { readonly ok: true; readonly model: ParsedModel; readonly stats: Stats; readonly thumbnail: Blob | null; readonly glb: ArrayBuffer | null }
+  | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
+
+export type DeriveOutcome =
+  | { readonly ok: true; readonly glb: ArrayBuffer | null; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
   | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
 
 export type ThumbnailOutcome = { readonly ok: true; readonly blob: Blob } | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
@@ -42,11 +47,13 @@ type JobInput = {
   readonly onProgress?: (stage: Stage, ratio: number | null) => void
   readonly spawn?: () => WorkerLike
   readonly timeoutMs?: number
+  /** The workspace's `maxConvertBytes` (file view, upload answer); the Worker's default otherwise. */
+  readonly maxConvertBytes?: number | undefined
 }
 
 let nextId = 1
 
-type Answer = Extract<WorkerResponse, { kind: 'parsed' | 'thumbnail' }>
+type Answer = Extract<WorkerResponse, { kind: 'parsed' | 'thumbnail' | 'derived' }>
 
 const narrow = (data: unknown, id: number) => (isWorkerResponse(data) && data.id === id ? data : null)
 
@@ -88,25 +95,42 @@ const run = <T>(input: JobInput, request: (id: number) => WorkerRequest, settle:
   return { result, cancel: () => finish(failed('canceled')) }
 }
 
-/** Parses a source file; with `thumbnail`, the Worker also renders one before handing the geometry over. */
-export const parseInWorker = (input: JobInput & { readonly thumbnail: boolean }): Job<ParseOutcome> =>
+const source = (id: number, input: JobInput) => ({
+  id, format: input.format, name: input.name, bytes: input.bytes,
+  ...(input.maxConvertBytes === undefined ? {} : { maxConvertBytes: input.maxConvertBytes }),
+})
+
+/**
+ * Parses a source file; with `thumbnail`, the Worker also renders one before handing the geometry over; with `derive`,
+ * it also writes the GLB derivative (the lazy path: the model shows now, the GLB uploads in the background).
+ */
+export const parseInWorker = (input: JobInput & { readonly thumbnail: boolean; readonly derive?: boolean }): Job<ParseOutcome> =>
   run<ParseOutcome>(
     input,
-    (id) => ({ kind: 'parse', id, format: input.format, name: input.name, bytes: input.bytes, thumbnail: input.thumbnail }),
-    (message) => (message.kind === 'parsed' ? { ok: true, model: message.model, stats: message.stats, thumbnail: message.thumbnail } : null),
+    (id) => ({ kind: 'parse', ...source(id, input), thumbnail: input.thumbnail, ...(input.derive === true ? { derive: true } : {}) }),
+    (message) => (message.kind === 'parsed' ? { ok: true, model: message.model, stats: message.stats, thumbnail: message.thumbnail, glb: message.glb } : null),
     (code) => ({ ok: false, code }),
   )
 
-/** Renders only a thumbnail (upload flow). */
+/** Renders only a thumbnail (upload flow of STL/OBJ/PLY). */
 export const thumbnailInWorker = (input: JobInput): Job<ThumbnailOutcome> =>
   run<ThumbnailOutcome>(
     input,
-    (id) => ({ kind: 'thumbnail', id, format: input.format, name: input.name, bytes: input.bytes }),
+    (id) => ({ kind: 'thumbnail', ...source(id, input) }),
     (message) => (message.kind === 'thumbnail' ? { ok: true, blob: message.blob } : null),
     (code) => ({ ok: false, code }),
   )
 
-export type DownloadOutcome = { readonly ok: true; readonly bytes: ArrayBuffer } | { readonly ok: false; readonly canceled: boolean }
+/** GLB derivative and thumbnail of a STEP/IGES/3MF from one parse, no geometry to the main thread (upload flow, docs/11 §2.5). */
+export const deriveInWorker = (input: JobInput): Job<DeriveOutcome> =>
+  run<DeriveOutcome>(
+    input,
+    (id) => ({ kind: 'derive', ...source(id, input) }),
+    (message) => (message.kind === 'derived' ? { ok: true, glb: message.glb, thumbnail: message.thumbnail, tree: message.tree, stats: message.stats } : null),
+    (code) => ({ ok: false, code }),
+  )
+
+export type DownloadOutcome = { readonly ok: true; readonly bytes: ArrayBuffer; readonly contentType: string } | { readonly ok: false; readonly canceled: boolean }
 
 /** GET with progress (Content-Length when the server sends one). Same-origin cookies; the endpoint decides permission. */
 export const download = async (url: string, signal: AbortSignal, onProgress: (ratio: number | null) => void, fetcher: typeof fetch = (...args) => fetch(...args)): Promise<DownloadOutcome> => {
@@ -132,8 +156,11 @@ export const download = async (url: string, signal: AbortSignal, onProgress: (ra
       bytes.set(chunk, at)
       at += chunk.byteLength
     }
-    return { ok: true, bytes: bytes.buffer }
+    return { ok: true, bytes: bytes.buffer, contentType: (response.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '' }
   } catch {
     return { ok: false, canceled: signal.aborted }
   }
 }
+
+/** What `model` sends for a ready derivative (docs/11 §2.4); anything else is the source file. */
+export const GLB_CONTENT_TYPE = 'model/gltf-binary'

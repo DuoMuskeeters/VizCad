@@ -5,7 +5,7 @@ import { VersionUnavailable } from '../errors'
 import type { VersionEntry } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { openFile, personOf, summarySelect } from './fileContext'
-import { activity, authorize, type Caller, guard, newUlid, runBatch, stillRole, toDate, toSeconds } from './shared'
+import { activity, authorize, type Caller, guard, newUlid, runBatch, snapshotCurrentVersion, stillRole, toDate, toSeconds } from './shared'
 
 /** The version history, newest first: the current version as `current`, then the snapshots (docs/09 §5.2). Internal roles only. */
 export const listVersions = Effect.fn('listVersions')(function* (caller: Caller, input: { readonly workspaceId: string; readonly fileId: string }) {
@@ -71,13 +71,17 @@ export const restoreVersion = Effect.fn('restoreVersion')(function* (
       sql`(SELECT count(*) FROM file_versions WHERE fileId = ${file.id}) = ${versions}`,
       sql`EXISTS (SELECT 1 FROM file_versions WHERE id = ${version.id} AND fileId = ${file.id} AND r2Key = ${version.r2Key})`,
     ], sql` AND `)),
-    d.insert(schema.fileVersions).values({
-      id: snapshotId, fileId: file.id, versionNumber: currentNumber, r2Key: file.r2Key, size: file.size,
-      uploadedByUserId: file.currentUploadedByUserId ?? file.userId, createdAt: at,
-      contentEtag: file.contentEtag, thumbnailR2Key: file.thumbnailR2Key,
-    }),
+    snapshotCurrentVersion(d, { snapshotId, fileId: file.id, r2Key: file.r2Key, versionNumber: currentNumber, at: base.now }),
+    // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows). A GLB
+    // completed later for this source repoints every row of it (`completeDerivative`), so GLBs do not pile up per restore.
     d.update(schema.files).set({
-      r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag, thumbnailR2Key: version.thumbnailR2Key,
+      // Thumbnail and derivative columns are read at write time: `completeDerivative` may repoint this row (and queue
+      // its old GLB) between the read above and this batch.
+      r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag,
+      thumbnailR2Key: sql`(SELECT thumbnailR2Key FROM file_versions WHERE id = ${version.id})`,
+      derivativeR2Key: sql`(SELECT derivativeR2Key FROM file_versions WHERE id = ${version.id})`,
+      derivativeState: sql`(SELECT derivativeState FROM file_versions WHERE id = ${version.id})`,
+      derivativeMeta: sql`(SELECT derivativeMeta FROM file_versions WHERE id = ${version.id})`,
       currentVersionNumber: currentNumber + 1, currentUploadedByUserId: version.uploadedByUserId, updatedAt: at,
     }).where(and(eq(schema.files.id, file.id), eq(schema.files.workspaceId, input.workspaceId))),
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'file', targetId: file.id, action: 'file.version_restored', at: base.now }, activityId),

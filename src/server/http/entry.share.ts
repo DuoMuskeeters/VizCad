@@ -9,6 +9,6 @@ export const handleShare = (request: Request, env: Cloudflare.Env, waitUntil: (p
   // The same layer set as /api/app (memoized per env and defer), so config and bindings are built once per isolate.
   const live = liveLayers(env, deferOf(waitUntil))
   return Effect.runPromise(
-    shareResponse(request, Layer.mergeAll(live.db, live.config, live.storage, live.rateLimit, live.turnstile), requestMeta(request)),
+    shareResponse(request, Layer.mergeAll(live.db, live.config, live.storage, live.rateLimit, live.turnstile, live.entitlements), requestMeta(request)),
   )
 }

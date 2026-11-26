@@ -12,7 +12,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).rou
 const step = (name = 'rotor.step') => new File(['ISO-10303-21;\nHEADER;\nENDSEC;\n'], name, { type: 'application/octet-stream' })
 
 const ticket = { uploadId: 'up-1', url: 'https://r2.example/put', headers: { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' }, expiresAt: 9_999_999_999 }
-const done = { fileId: 'f9', name: 'rotor.step', extension: 'step', size: 30, versionNumber: 1, isNewVersion: false }
+const done = { fileId: 'f9', name: 'rotor.step', extension: 'step', size: 30, versionNumber: 1, isNewVersion: false, maxConvertBytes: 52_428_800 }
 
 const fakeCall = (answers: Record<string, unknown>) => {
   const log: { operation: string; body: Record<string, unknown> }[] = []

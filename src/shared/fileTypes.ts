@@ -33,6 +33,12 @@ export const extensionOf = (name: string) => {
 export const fileTypeOfExtension = (extension: string): FileType | undefined =>
   fileTypes.find((type) => type.extensions.includes(extension.toLowerCase()))
 
+/**
+ * STEP, IGES and 3MF get a GLB derivative (docs/11 §2.1): converting them is expensive, the result keeps the tree and
+ * colours. STL, OBJ and PLY are triangle meshes already; the viewer reads the source itself.
+ */
+export const hasDerivative = (type: FileTypeId) => type === 'step' || type === 'iges' || type === '3mf'
+
 /** Every accepted extension with its dot, for the `accept` attribute of a file input. */
 export const acceptedExtensions = fileTypes.flatMap((type) => type.extensions.map((extension) => `.${extension}`))
 

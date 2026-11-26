@@ -13,6 +13,7 @@ import * as RateLimit from '../services/RateLimit'
 import * as Storage from '../services/Storage'
 import * as Turnstile from '../services/Turnstile'
 import { Storage as StorageService } from '../services/Storage'
+import { readyMetaText } from '../derivative'
 import { encryptToken, hashPassword, tokenDigest, tokenKeyOf } from '../shareCrypto'
 
 /** Fixed test clock start: 2026-11-24T10:00:00Z. Tests move it with TestClock.adjust. */
@@ -126,6 +127,7 @@ const tables = {
   fileStars: schema.fileStars,
   fileComments: schema.fileComments,
   uploadSessions: schema.uploadSessions,
+  derivativeSessions: schema.derivativeSessions,
   storageDeletions: schema.storageDeletions,
   securityLog: schema.securityLog,
 } as const
@@ -152,6 +154,20 @@ export const seedStoredFile = (
       ),
     )
     return { key, size: stored.size, etag: stored.etag }
+  })
+
+/**
+ * A ready GLB derivative for a file (as `completeDerivative` leaves it): the object in the bucket, the key, state and meta
+ * on the row. Returns the key.
+ */
+export const seedDerivative = (fileId: string, workspaceId: string, bytes: Uint8Array, key = `w/${workspaceId}/f/${fileId}/glb-${fileId}.glb`) =>
+  Effect.gen(function* () {
+    const stored = yield* StorageService.use((storage) => storage.put(key, bytes))
+    const stats = { converter: 'test', triangles: 12, nodes: 2, parts: 1, bbox: { min: [0, 0, 0] as const, max: [1, 1, 1] as const } }
+    yield* Db.use((db) => db.use((d) =>
+      d.update(schema.files).set({ derivativeR2Key: key, derivativeState: 'ready', derivativeMeta: readyMetaText(stats, stored.size, stored.etag) }).where(eq(schema.files.id, fileId)),
+    ))
+    return key
   })
 
 /** A guest's grant on a file (guests always get a finite expiry). */

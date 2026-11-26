@@ -7,13 +7,13 @@ import { parsePly } from './ply'
 import { parseCad, type Occt } from './step'
 import { parseStl } from './stl'
 
-export type ParseDeps = { readonly loadOcct: () => Promise<Occt>; readonly now?: () => number }
+export type ParseDeps = { readonly loadOcct: () => Promise<Occt>; readonly now?: () => number; readonly maxConvertBytes?: number | undefined }
 
 export const parseSource = async (format: SourceFormat, buffer: ArrayBuffer, name: string, deps: ParseDeps): Promise<{ model: ParsedModel; stats: Stats }> => {
   const now = deps.now ?? (() => performance.now())
   const started = now()
   if (buffer.byteLength === 0) throw new ParseFailure('empty')
-  if (isConvertFormat(format) && buffer.byteLength > MAX_CONVERT_BYTES) throw new ParseFailure('too_large')
+  if (isConvertFormat(format) && buffer.byteLength > (deps.maxConvertBytes ?? MAX_CONVERT_BYTES)) throw new ParseFailure('too_large')
   let model: ParsedModel
   switch (format) {
     case 'step':

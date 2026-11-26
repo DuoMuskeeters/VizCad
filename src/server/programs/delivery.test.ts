@@ -6,8 +6,9 @@ import * as schema from '../db/schema'
 import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
+import { glb } from '../testing/glb'
 import { png, webpX } from '../testing/images'
-import { caller, programLayer, rows, seedFile, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { caller, programLayer, rows, seedDerivative, seedFile, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { deliverContent, deliverModel, deliverThumbnail, type Delivery, putThumbnail } from './delivery'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>) => TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(defaultPlan)))
@@ -244,27 +245,56 @@ describe('deliverModel', () => {
     })),
   )
 
-  it.effect('5a still needs download: commenters and view guests are refused, a guest without a grant sees nothing', () =>
+  it.effect('D23 matrix: every level previews; STEP without derivative only with download; with one the GLB for all; STL the source for all', () =>
     run(Effect.gen(function* () {
       yield* world
       yield* seedUser('out')
       yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
-      for (const who of ['bob', 'ada', 'max']) assert.strictEqual((yield* model(who, 'f1')).status, 200, who)
-      const commenter = yield* failure(model('cat', 'f1'))
-      assert.deepStrictEqual([commenter._tag, 'reason' in commenter ? commenter.reason : ''], ['PermissionDenied', 'ROLE_LIMIT'])
-      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'ResourceUnavailable')
-      yield* seedFileGrant('f1', 'eve', 'acme', 'comment')
-      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'PermissionDenied')
-      yield* Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level: 'view' }).where(eq(schema.fileAccess.userId, 'eve'))))
-      assert.strictEqual((yield* failure(model('eve', 'f1')))._tag, 'PermissionDenied')
+      const outcome = (who: string) => model(who, 'f1').pipe(
+        Effect.map((d) => d.headers['content-type'] === 'model/gltf-binary' ? 'glb' : 'source'),
+        Effect.catch((e) => Effect.succeed(e._tag)),
+      )
+      // No derivative: the source only for downloaders (the viewer converts it), PreviewUnavailable for view/comment.
+      for (const who of ['bob', 'ada', 'max']) assert.strictEqual(yield* outcome(who), 'source', who)
+      assert.strictEqual(yield* outcome('cat'), 'PreviewUnavailable', 'commenter')
+      assert.strictEqual(yield* outcome('eve'), 'ResourceUnavailable', 'a guest without a grant sees nothing')
+      yield* seedFileGrant('f1', 'eve', 'acme', 'view')
+      assert.strictEqual(yield* outcome('eve'), 'PreviewUnavailable')
       yield* Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level: 'download' }).where(eq(schema.fileAccess.userId, 'eve'))))
-      assert.strictEqual((yield* model('eve', 'f1')).status, 200)
-      assert.strictEqual((yield* failure(model('out', 'f1')))._tag, 'WorkspaceUnavailable')
+      assert.strictEqual(yield* outcome('eve'), 'source')
+      yield* Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level: 'comment' }).where(eq(schema.fileAccess.userId, 'eve'))))
+
+      // Failed and too_large derivatives change nothing for the viewer.
+      yield* updateFile('f1', { derivativeState: 'failed', derivativeMeta: '{"v":1,"code":"corrupt"}' })
+      assert.strictEqual(yield* outcome('cat'), 'PreviewUnavailable')
+
+      const key = yield* seedDerivative('f1', 'acme', glb())
+      for (const who of ['bob', 'ada', 'max', 'cat', 'eve']) assert.strictEqual(yield* outcome(who), 'glb', who)
+      const previewed = (yield* rows('accessLog')).filter((r) => r.outcome === 'allowed')
+      assert.deepStrictEqual([...new Set(previewed.map((r) => r.action))], ['file.previewed'])
+      assert.strictEqual(rowsOf(yield* rows('securityLog')), 0, 'previews are never download events')
+      assert.strictEqual((yield* failure(content('cat', 'f1')))._tag, 'PermissionDenied', 'content still needs download')
+
+      // A ready state whose meta is unreadable is not served (and the object is not guessed at).
+      yield* updateFile('f1', { derivativeMeta: 'not json' })
+      assert.strictEqual(yield* outcome('cat'), 'PreviewUnavailable')
+      yield* updateFile('f1', { derivativeMeta: null, derivativeR2Key: key })
+
+      yield* updateFile('f1', { extension: 'stl', name: 'part.stl' })
+      for (const who of ['max', 'cat', 'eve']) assert.strictEqual(yield* outcome(who), 'source', `STL ${who}`)
+      assert.strictEqual(yield* outcome('out'), 'WorkspaceUnavailable')
       yield* updateFile('f1', { isDeleted: true })
-      assert.strictEqual((yield* failure(model('bob', 'f1')))._tag, 'ResourceUnavailable')
-      const allowed = (yield* rows('accessLog')).filter((r) => r.outcome === 'allowed')
-      assert.deepStrictEqual([...new Set(allowed.map((r) => r.action))], ['file.previewed'])
-      assert.strictEqual(rowsOf(yield* rows('securityLog')), 0)
+      assert.strictEqual(yield* outcome('bob'), 'ResourceUnavailable')
+    })),
+  )
+
+  it.effect('a GLB that changed in R2 is ContentIntegrity, like the source', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
+      const key = yield* seedDerivative('f1', 'acme', glb())
+      yield* (yield* Storage).put(key, glb({ binBytes: 40 }))
+      assert.strictEqual((yield* failure(model('cat', 'f1')))._tag, 'ContentIntegrity')
     })),
   )
 
@@ -359,8 +389,8 @@ describe('deliverThumbnail', () => {
 })
 
 describe('putThumbnail', () => {
-  const put = (as: string, fileId: string, bytes: Uint8Array, contentType: string | null = 'image/png', version = 'current') =>
-    putThumbnail(caller(as), { fileId, version, contentType, bytes })
+  const put = (as: string, fileId: string, bytes: Uint8Array, contentType: string | null = 'image/png', version = 'current', expectedVersion = 1) =>
+    putThumbnail(caller(as), { fileId, version, expectedVersion, contentType, bytes })
 
   it.effect('stores a valid image under a new server-made key, points the file at it and queues the replaced one', () =>
     run(Effect.gen(function* () {
@@ -397,10 +427,23 @@ describe('putThumbnail', () => {
       assert.strictEqual((yield* failure(put('max', 'f1', png())))._tag, 'PermissionDenied', 'a member who is not the uploader cannot edit')
       assert.strictEqual((yield* failure(put('eve', 'f1', png())))._tag, 'ResourceUnavailable')
       assert.strictEqual((yield* failure(put('ada', 'f1', png(), 'image/png', 'v1')))._tag, 'ValidationError')
+      assert.strictEqual((yield* failure(put('ada', 'f1', png(), 'image/png', 'current', 2)))._tag, 'VersionChanged', 'rendered from another version')
       assert.strictEqual((yield* failure(put('zed', 'f1', png())))._tag, 'WorkspaceUnavailable')
       assert.deepStrictEqual(yield* (yield* MemoryStorageControl).keys, before)
       const [file] = yield* rows('files')
       assert.isNull(file?.thumbnailR2Key)
+    })),
+  )
+
+  it.effect('version race: an image rendered from version 1 after version 2 landed is refused (5a note)', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedStoredFile('f1', 'bob', 'acme', CONTENT)
+      yield* updateFile('f1', { currentVersionNumber: 2, r2Key: 'w/acme/f/f1/v2' })
+      const before = yield* (yield* MemoryStorageControl).keys
+      assert.strictEqual((yield* failure(put('bob', 'f1', png(), 'image/png', 'current', 1)))._tag, 'VersionChanged')
+      assert.deepStrictEqual(yield* (yield* MemoryStorageControl).keys, before, 'nothing written')
+      assert.deepStrictEqual(yield* put('bob', 'f1', png(), 'image/png', 'current', 2), { thumbnailAvailable: true })
     })),
   )
 

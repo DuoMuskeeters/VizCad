@@ -23,9 +23,10 @@ const BACKOFF_MAX_SECONDS = 24 * 60 * 60
 
 const referenced = (d: Database, key: string) =>
   d.get<{ referenced: number }>(sql`SELECT (
-    EXISTS (SELECT 1 FROM files WHERE r2Key = ${key} OR thumbnailR2Key = ${key})
-    OR EXISTS (SELECT 1 FROM file_versions WHERE r2Key = ${key} OR thumbnailR2Key = ${key})
+    EXISTS (SELECT 1 FROM files WHERE r2Key = ${key} OR thumbnailR2Key = ${key} OR derivativeR2Key = ${key})
+    OR EXISTS (SELECT 1 FROM file_versions WHERE r2Key = ${key} OR thumbnailR2Key = ${key} OR derivativeR2Key = ${key})
     OR EXISTS (SELECT 1 FROM upload_sessions WHERE r2Key = ${key} AND status = 'pending')
+    OR EXISTS (SELECT 1 FROM derivative_sessions WHERE r2Key = ${key} AND status = 'pending')
   ) AS referenced`)
 
 export interface DrainSummary {

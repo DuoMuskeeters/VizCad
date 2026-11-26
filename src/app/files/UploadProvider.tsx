@@ -11,8 +11,10 @@ import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
 import { formatBytes, tileText } from './format'
 import { canMakeThumbnail, isPhone, readDeviceHints } from '#/viewer/device'
-import { formatOfExtension } from '#/viewer/worker/protocol'
+import { converterOf, formatOfExtension, isConvertFormat, type Stats } from '#/viewer/worker/protocol'
+import { reportDerivativeFailure, uploadDerivative } from './derivative'
 import { uploadThumbnail } from './thumbnail'
+import type { UploadedFile } from './types'
 import { createThumbnailQueue } from './thumbnailQueue'
 import { runUpload, xhrPut, type Put, type UploadFailureReason } from './upload'
 
@@ -36,8 +38,17 @@ type Uploads = {
   readonly start: (files: readonly File[], targetFileId?: string) => void
   /** Where new files (not new versions) go: a project page sets its project while it is open. */
   readonly setProject: (projectId: string | undefined) => void
-  /** Counts finished uploads and thumbnails stored after them: pages reload their lists when it changes. */
+  /** Counts finished uploads and thumbnails or derivatives stored after them: pages reload their lists when it changes. */
   readonly finished: number
+  /** Files whose GLB derivative is being made in this tab right now (the card shows "Preparing"). */
+  readonly preparing: ReadonlySet<string>
+}
+
+/** What a finished upload's Worker job hands to the store step. */
+type AfterUpload = {
+  readonly version: number
+  readonly thumbnail: Blob | null
+  readonly derivative: { readonly glb: ArrayBuffer; readonly stats: Stats; readonly converter: string } | null
 }
 
 const Ctx = createContext<Uploads | null>(null)
@@ -99,7 +110,7 @@ const reasonKey: Record<UploadFailureReason, I18nKey> = {
 
 const retryable = (reason: UploadFailureReason | undefined) => reason === 'network' || reason === 'conflict' || reason === 'failed' || reason === 'rejected'
 
-const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => void; onRetry: () => void }) => {
+const UploadRow = ({ item, preparing, onCancel, onRetry }: { item: UploadItem; preparing: boolean; onCancel: () => void; onRetry: () => void }) => {
   const { t, locale } = useI18n()
   const percent = Math.round(item.progress * 100)
   return (
@@ -109,7 +120,10 @@ const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: ()
         <div className="min-w-0 flex-1">
           <div className="truncate text-md font-medium">{item.name}</div>
           {item.status === 'done' ? (
-            <div className="text-sm text-success">{t('upload.done', { size: formatBytes(item.file.size, locale) })}</div>
+            <div className="text-sm text-success">
+              {t('upload.done', { size: formatBytes(item.file.size, locale) })}
+              {preparing ? <span className="text-text-3"> · {t('viewer.preparing')}</span> : null}
+            </div>
           ) : item.status === 'error' ? (
             <div className="text-sm font-medium text-danger">{t('upload.failed')}</div>
           ) : (
@@ -142,7 +156,7 @@ const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: ()
   )
 }
 
-const UploadCard = ({ items, onCancel, onRetry, onDismiss }: { items: readonly UploadItem[]; onCancel: (id: number) => void; onRetry: (id: number) => void; onDismiss: () => void }) => {
+const UploadCard = ({ items, preparing, onCancel, onRetry, onDismiss }: { items: readonly UploadItem[]; preparing: ReadonlySet<string>; onCancel: (id: number) => void; onRetry: (id: number) => void; onDismiss: () => void }) => {
   const { t } = useI18n()
   const [open, setOpen] = useState(true)
   const done = items.filter((item) => item.status === 'done').length
@@ -166,7 +180,7 @@ const UploadCard = ({ items, onCancel, onRetry, onDismiss }: { items: readonly U
       {open ? (
         <ul className="max-h-[calc(60dvh-48px)] overflow-y-auto border-t border-line">
           {items.map((item) => (
-            <UploadRow key={item.id} item={item} onCancel={() => onCancel(item.id)} onRetry={() => onRetry(item.id)} />
+            <UploadRow key={item.id} item={item} preparing={item.fileId !== undefined && preparing.has(item.fileId)} onCancel={() => onCancel(item.id)} onRetry={() => onRetry(item.id)} />
           ))}
         </ul>
       ) : null}
@@ -192,19 +206,67 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
   const allowed = active.role === 'owner' || active.role === 'admin' || active.role === 'member'
   const workspaceId = active.id
 
-  // Thumbnails of finished uploads (docs/11 §9 5a), one at a time in the parse Worker, from the bytes already in hand.
-  // The Worker code loads only now; a failure leaves the file-type card in place. A newer version of the same file
-  // (started or finished) drops older jobs, so an old version's image never lands on the current one.
-  const [thumbnails] = useState(() => createThumbnailQueue((fileId, blob) => uploadThumbnail(fileId, blob), () => setFinished((count) => count + 1)))
-  const queueThumbnail = useCallback((fileId: string, file: File) => {
+  // After an upload (docs/11 §2.5, desktop), from the bytes already in hand, one job at a time in the parse Worker:
+  // STEP/IGES/3MF are converted once and their GLB derivative and thumbnail (one scene) are stored; STL/OBJ/PLY get
+  // a thumbnail. The Worker code loads only now. A newer version of the same file (started or finished) drops older
+  // jobs, and the server refuses a result for a version that is no longer current, so nothing lands on the wrong one.
+  // Phones convert nothing (memory, battery): the first desktop open does it. A source over `maxConvertBytes` is
+  // recorded as `too_large` without being read.
+  const [jobs] = useState(() =>
+    createThumbnailQueue<AfterUpload>(async (fileId, result) => {
+      const glb = result.derivative === null ? null : await uploadDerivative({ fileId, version: result.version, ...result.derivative })
+      const image = result.thumbnail === null ? false : await uploadThumbnail(fileId, result.version, result.thumbnail)
+      return glb === 'ready' || image
+    }, () => setFinished((count) => count + 1)),
+  )
+  // Jobs per file: a second version of the same file can be converting while the first finishes; the file leaves
+  // `preparing` (and stops holding the leave warning) only when its last job ends.
+  const [preparing, setPreparing] = useState<ReadonlySet<string>>(() => new Set())
+  const jobsPerFile = useRef(new Map<string, number>())
+  const mark = useCallback((fileId: string, on: boolean) => {
+    const counts = jobsPerFile.current
+    const left = (counts.get(fileId) ?? 0) + (on ? 1 : -1)
+    if (left > 0) counts.set(fileId, left)
+    else counts.delete(fileId)
+    const busy = left > 0
+    setPreparing((current) => {
+      if (current.has(fileId) === busy) return current
+      const next = new Set(current)
+      if (busy) next.add(fileId)
+      else next.delete(fileId)
+      return next
+    })
+  }, [])
+  const queueAfterUpload = useCallback((uploaded: UploadedFile, file: File) => {
+    const { fileId, versionNumber: version, maxConvertBytes } = uploaded
     const format = formatOfExtension(extensionOf(file.name))
-    if (format === null || !canMakeThumbnail(format, file.size, isPhone(readDeviceHints()))) return thumbnails.supersede(fileId)
-    void thumbnails.enqueue(fileId, async () => {
+    const phone = isPhone(readDeviceHints())
+    if (format === null) return jobs.supersede(fileId)
+    if (isConvertFormat(format)) {
+      if (phone) return jobs.supersede(fileId)
+      if (file.size > maxConvertBytes) {
+        jobs.supersede(fileId)
+        void reportDerivativeFailure({ fileId, version, code: 'too_large' }).then(() => setFinished((count) => count + 1))
+        return
+      }
+      mark(fileId, true)
+      void jobs.enqueue(fileId, async () => {
+        const [{ deriveInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
+        const outcome = await deriveInWorker({ format, name: file.name, bytes, maxConvertBytes }).result
+        // No GLB (its export failed) is not the file's fault: only the thumbnail is stored, the next desktop open converts again.
+        if (outcome.ok) return { version, thumbnail: outcome.thumbnail, derivative: outcome.glb === null ? null : { glb: outcome.glb, stats: outcome.stats, converter: converterOf(format) } }
+        if (outcome.code !== 'canceled') await reportDerivativeFailure({ fileId, version, code: outcome.code })
+        return null
+      }).finally(() => mark(fileId, false))
+      return
+    }
+    if (!canMakeThumbnail(format, file.size, phone)) return jobs.supersede(fileId)
+    void jobs.enqueue(fileId, async () => {
       const [{ thumbnailInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
       const outcome = await thumbnailInWorker({ format, name: file.name, bytes }).result
-      return outcome.ok ? outcome.blob : null
+      return outcome.ok ? { version, thumbnail: outcome.blob, derivative: null } : null
     })
-  }, [thumbnails])
+  }, [jobs, mark])
 
   const update = useCallback((id: number, change: Partial<UploadItem>) => setItems((current) => current.map((item) => (item.id === id ? { ...item, ...change } : item))), [])
 
@@ -214,7 +276,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       controllers.current.set(item.id, controller)
       update(item.id, { status: 'uploading', progress: 0 })
       // A new version is on its way: a thumbnail still being made from the previous one must not be posted.
-      if (item.targetFileId !== undefined) thumbnails.supersede(item.targetFileId)
+      if (item.targetFileId !== undefined) jobs.supersede(item.targetFileId)
       const outcome = await runUpload({
         call,
         put,
@@ -229,11 +291,11 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       if (outcome.ok) {
         update(item.id, { status: 'done', progress: 1, fileId: outcome.file.fileId })
         setFinished((count) => count + 1)
-        queueThumbnail(outcome.file.fileId, item.file)
+        queueAfterUpload(outcome.file, item.file)
       } else if (outcome.canceled) setItems((current) => current.filter((entry) => entry.id !== item.id))
       else update(item.id, { status: 'error', reason: outcome.reason })
     },
-    [call, put, workspaceId, update, queueThumbnail, thumbnails],
+    [call, put, workspaceId, update, queueAfterUpload, jobs],
   )
 
   // Starts queued items while fewer than CONCURRENCY run.
@@ -314,8 +376,8 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     }
   }, [allowed, start])
 
-  // Leaving the page would stop the uploads that are still running.
-  const busy = items.some((item) => item.status === 'uploading' || item.status === 'queued')
+  // Leaving the page would stop the uploads that are still running, or a conversion (docs/11 §2.5: only while it runs).
+  const busy = items.some((item) => item.status === 'uploading' || item.status === 'queued') || preparing.size > 0
   useEffect(() => {
     if (!busy) return
     const warn = (event: BeforeUnloadEvent) => event.preventDefault()
@@ -323,7 +385,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     return () => window.removeEventListener('beforeunload', warn)
   }, [busy])
 
-  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, setProject, finished }), [items, allowed, pick, start, setProject, finished])
+  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, setProject, finished, preparing }), [items, allowed, pick, start, setProject, finished, preparing])
 
   return (
     <Ctx value={value}>
@@ -342,7 +404,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
           start(files, pickTarget.current)
         }}
       />
-      {items.length > 0 ? <UploadCard items={items} onCancel={cancel} onRetry={retry} onDismiss={() => setItems([])} /> : null}
+      {items.length > 0 ? <UploadCard items={items} preparing={preparing} onCancel={cancel} onRetry={retry} onDismiss={() => setItems([])} /> : null}
       {dragging ? (
         <div aria-hidden className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-scrim p-6">
           <div className="grid justify-items-center gap-2 rounded-xl bg-bg px-8 py-7 text-center shadow-pop">

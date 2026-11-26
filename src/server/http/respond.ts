@@ -54,6 +54,8 @@ export const STATUS: Record<AppError['_tag'], number> = {
   LinkPasswordRequired: 401,
   LinkPasswordInvalid: 401,
   CommentUnavailable: 404,
+  VersionChanged: 409,
+  InvalidDerivative: 422,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */

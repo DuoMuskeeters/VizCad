@@ -14,6 +14,7 @@ import { TabNav, TabNavLink } from '#/components/ui/Tabs'
 import { useToast } from '#/components/ui/Toast'
 import { supportedTypesText } from '#/shared/fileTypes'
 import { useI18n, type I18nKey } from '#/i18n'
+import { isPhone, readDeviceHints } from '#/viewer/device'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
@@ -77,6 +78,7 @@ export const FilesPage = ({ project }: { project?: { readonly id: string } }) =>
   const [sharing, setSharing] = useState<AnyFileView | null>(null)
   const [moving, setMoving] = useState<readonly AnyFileView[]>([])
   const uploads = useUploads()
+  const phone = useMemo(() => isPhone(readDeviceHints()), [])
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(text), 300)
@@ -284,9 +286,9 @@ export const FilesPage = ({ project }: { project?: { readonly id: string } }) =>
       {list.state.status === 'ready' && items.length > 0 ? (
         <>
           {view === 'grid' ? (
-            <FilesGrid files={items} selected={selected} onSelectedChange={toggleSelected} handlersFor={handlersFor} />
+            <FilesGrid files={items} selected={selected} onSelectedChange={toggleSelected} handlersFor={handlersFor} preparing={uploads.preparing} phone={phone} />
           ) : (
-            <FilesTable files={items} selected={selected} onSelectedChange={toggleSelected} onSelectAll={(all) => setSelected(all ? new Set(items.map((item) => item.id)) : new Set())} handlersFor={handlersFor} />
+            <FilesTable files={items} selected={selected} onSelectedChange={toggleSelected} onSelectAll={(all) => setSelected(all ? new Set(items.map((item) => item.id)) : new Set())} handlersFor={handlersFor} preparing={uploads.preparing} />
           )}
           {list.state.nextCursor !== null ? (
             <div className="flex justify-center py-5">

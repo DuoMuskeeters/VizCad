@@ -9,7 +9,7 @@ vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).rou
 
 const file: FileView = {
   id: 'f1', name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, projectId: null, projectName: null, createdAt: 1, updatedAt: 2, starred: false,
-  thumbnailAvailable: false, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } }, access: { people: 0, link: 'none' },
+  thumbnailAvailable: false, model: { kind: 'source', bytes: 12_400_000, derivative: null, maxConvertBytes: 52_428_800 }, currentVersion: { number: 3, uploadedBy: { displayName: 'Ayşe Yılmaz' } }, access: { people: 0, link: 'none' },
   can: { edit: true, comment: true, download: true, viewHistory: true, trash: true, share: true },
 }
 
@@ -155,5 +155,22 @@ describe('link', () => {
     const d = await dialog()
     expect(await d.findByText('The link settings could not be loaded.')).toBeInTheDocument()
     expect(d.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument()
+  })
+})
+
+describe('what the view level opens (D23)', () => {
+  const openWith = (name: string, extension: string) =>
+    renderApp(<ShareDialog file={{ ...file, name, extension }} workspaceId="ws-dm" onClose={() => undefined} />, 'admin')
+
+  it('STEP: the derivative text', async () => {
+    openWith('Part.step', 'step')
+    expect(await (await dialog()).findByText(/the source file \(STEP\) cannot be downloaded/)).toBeInTheDocument()
+  })
+
+  it('an unknown or legacy type says no 3D preview opens, not the mesh text', async () => {
+    openWith('Drawing.dwg', 'dwg')
+    const d = await dialog()
+    expect(await d.findByText(/No 3D preview opens for this file type/)).toBeInTheDocument()
+    expect(d.queryByText(/the preview is the file itself/)).not.toBeInTheDocument()
   })
 })

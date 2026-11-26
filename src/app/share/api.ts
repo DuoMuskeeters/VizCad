@@ -1,4 +1,5 @@
 /** Browser client for the share link endpoints (src/server/http/share.ts). No `effect` here: this code ships to the client. */
+import type { ModelPreview } from '#/shared/fileViews'
 
 export interface LinkFileView {
   readonly name: string
@@ -7,6 +8,8 @@ export interface LinkFileView {
   readonly updatedAt: number
   readonly currentVersion: { readonly number: number }
   readonly thumbnailAvailable: boolean
+  /** What `/s/{token}/model` serves (D23): every live link previews a GLB derivative or an STL/OBJ/PLY. */
+  readonly model: ModelPreview
   readonly can: { readonly download: boolean; readonly comment: false }
   readonly sharer: { readonly displayName: string; readonly workspaceLabel: string | null }
   readonly expiresAt: number | null

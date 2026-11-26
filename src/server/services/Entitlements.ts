@@ -43,7 +43,26 @@ export interface WorkspaceLimits {
   readonly auditRetentionDays: number
   /** Open (pending) upload sessions one user may hold at once. */
   readonly uploadSessionsPerUser: number
+  /**
+   * Largest STEP/IGES/3MF source the browser converts to a GLB derivative (D22 decision 4, docs/11 §2.6). Larger files
+   * are never tried (`derivativeState = 'too_large'`). Separate from `maxFileBytes`, the upload limit.
+   */
+  readonly maxConvertBytes: number
+  /**
+   * The GLB derivative is not counted in `storageBytes`; instead it may be at most this many times its source's size
+   * (`maxDerivativeBytes`), so derivatives can never hold more than a fixed multiple of the counted storage.
+   */
+  readonly derivativeBytesPerSourceByte: number
+  /** A small source's GLB may always be this large (a few-KB STEP of a curved part still tessellates to some triangles). */
+  readonly derivativeMinBytes: number
 }
+
+/**
+ * Largest GLB derivative of a source of `sourceBytes` (docs/11 §2.6): `max(derivativeMinBytes, ratio × source)`, never
+ * above `maxFileBytes`.
+ */
+export const maxDerivativeBytes = (limits: WorkspaceLimits, sourceBytes: number) =>
+  Math.min(limits.maxFileBytes, Math.max(limits.derivativeMinBytes, Math.ceil(sourceBytes * limits.derivativeBytesPerSourceByte)))
 
 /**
  * Plan limits per workspace (seats, guests, projects, invitation quotas; later storage and file size). Billing (Faz 8)
@@ -83,6 +102,10 @@ export const defaultPlan: WorkspaceLimits = {
   linkMaxLifetimeSeconds: null,
   auditRetentionDays: 365,
   uploadSessionsPerUser: 20,
+  maxConvertBytes: 50 * MB,
+  // Measured GLB/source ratios: STEP 0.3–0.5, 3MF up to 2.5 (docs/11 Faz 5b notes); 4 leaves room, 2 MB covers tiny files.
+  derivativeBytesPerSourceByte: 4,
+  derivativeMinBytes: 2 * MB,
 }
 
 /** Every workspace gets `limits`. Tests override single fields with `fixed({ ...defaultPlan, seats: 2 })`. */

@@ -32,6 +32,8 @@ export type UploadedFile = {
   readonly size: number
   readonly versionNumber: number
   readonly isNewVersion: boolean
+  /** The largest STEP/IGES/3MF the browser converts to a GLB (`Entitlements.maxConvertBytes`). */
+  readonly maxConvertBytes: number
 }
 
 export type MoveEffects = { readonly links: number; readonly invitations: number; readonly guestGrants: number; readonly memberGrants: number }

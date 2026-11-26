@@ -1,6 +1,7 @@
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import * as schema from '../db/schema'
+import { modelPreview } from '../derivative'
 import { ResourceUnavailable } from '../errors'
 import { decidePermission, type FileGrant, type PermissionAction, type PermissionInput, type ProjectGrant } from '../permissions'
 import type { FileView, GuestFileView, PersonName } from '../../shared/fileViews'
@@ -137,6 +138,10 @@ export const summarySelect = (d: Database, me: string, now: number, sortKey: SQL
     uploaderName: schema.user.name,
     starred: sql<number>`EXISTS (SELECT 1 FROM file_stars s WHERE s.fileId = ${f.id} AND s.userId = ${me})`,
     hasThumbnail: sql<number>`${f.thumbnailR2Key} IS NOT NULL`,
+    // The derivative columns feed `model` (what the viewer may read); the key itself never leaves the server.
+    derivativeR2Key: f.derivativeR2Key,
+    derivativeState: f.derivativeState,
+    derivativeMeta: f.derivativeMeta,
     // The access summary of the list column: live grants (not the uploader row) and the link's state (0 none, 1 active, 2 only expired).
     accessPeople: sql<number>`(SELECT count(*) FROM file_access g WHERE g.fileId = ${f.id} AND g.source = 'grant' AND (g.expiresAt IS NULL OR g.expiresAt > ${now}))`,
     accessLink: sql<number>`COALESCE((SELECT max(CASE WHEN l.expiresAt IS NOT NULL AND l.expiresAt <= ${now} THEN 2
@@ -153,7 +158,7 @@ export type SummaryRow = Awaited<ReturnType<ReturnType<typeof summarySelect>['li
 const person = (name: string | null): PersonName | null => name === null ? null : { displayName: name }
 
 /** Internal projection (allow-list, field by field). */
-export const internalView = (row: SummaryRow, base: Omit<PermissionInput, 'action'>): FileView => ({
+export const internalView = (row: SummaryRow, base: Omit<PermissionInput, 'action'>, maxConvertBytes: number): FileView => ({
   id: row.id,
   name: row.name,
   extension: row.extension,
@@ -164,6 +169,7 @@ export const internalView = (row: SummaryRow, base: Omit<PermissionInput, 'actio
   updatedAt: toSeconds(row.updatedAt),
   starred: row.starred === 1,
   thumbnailAvailable: row.hasThumbnail === 1,
+  model: modelPreview(row, can(base, { kind: 'download' }), maxConvertBytes),
   currentVersion: { number: row.versionNumber, uploadedBy: person(row.uploaderName) },
   access: { people: row.accessPeople, link: row.accessLink === 1 ? 'active' : row.accessLink === 2 ? 'expired' : 'none' },
   can: {
@@ -177,7 +183,7 @@ export const internalView = (row: SummaryRow, base: Omit<PermissionInput, 'actio
 })
 
 /** Guest projection (allow-list, field by field; docs/09 §3.5). `sharedBy` falls back to the workspace's name. */
-export const guestView = (row: SummaryRow, base: Omit<PermissionInput, 'action'>, sharedBy: string): GuestFileView => ({
+export const guestView = (row: SummaryRow, base: Omit<PermissionInput, 'action'>, sharedBy: string, maxConvertBytes: number): GuestFileView => ({
   id: row.id,
   name: row.name,
   extension: row.extension,
@@ -185,8 +191,17 @@ export const guestView = (row: SummaryRow, base: Omit<PermissionInput, 'action'>
   updatedAt: toSeconds(row.updatedAt),
   currentVersion: { number: row.versionNumber },
   thumbnailAvailable: row.hasThumbnail === 1,
+  model: modelPreview(row, can(base, { kind: 'download' }), maxConvertBytes),
   can: { download: can(base, { kind: 'download' }), comment: can(base, { kind: 'comment' }) },
   sharedBy: { displayName: sharedBy },
 })
 
 export const personOf = person
+
+/** The current version's number; NULL `currentVersionNumber` is a legacy row: COUNT(file_versions) + 1 (docs/09 §1.4). */
+export const currentVersionOf = Effect.fnUntraced(function* (file: Pick<FullFileRow, 'id' | 'currentVersionNumber'>) {
+  if (file.currentVersionNumber !== null) return file.currentVersionNumber
+  const db = yield* Db
+  const counted = yield* db.use((d) => d.get<{ n: number }>(sql`SELECT count(*) AS n FROM file_versions WHERE fileId = ${file.id}`))
+  return (counted?.n ?? 0) + 1
+})

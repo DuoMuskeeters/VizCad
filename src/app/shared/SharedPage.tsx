@@ -175,7 +175,7 @@ const ByMe = ({ workspaceId }: { workspaceId: string }) => {
               </DataListCell>
               <DataListCell desktopOnly>{formatWhen(item.sharedAt, locale)}</DataListCell>
               <DataListCell className="flex justify-end">
-                <Button onClick={() => setManaging({ id: item.id, name: item.name })}>{t('shared.manage')}</Button>
+                <Button onClick={() => setManaging({ id: item.id, name: item.name, extension: item.extension })}>{t('shared.manage')}</Button>
               </DataListCell>
             </DataListRow>
           ))}

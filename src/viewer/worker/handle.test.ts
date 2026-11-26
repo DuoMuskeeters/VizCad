@@ -18,6 +18,7 @@ const harness = (overrides: Partial<HandleDeps> = {}) => {
     post: (message, transfer = []) => sent.push({ message, transfer }),
     loadOcct: () => Promise.reject(new Error('not in this test')),
     renderThumbnail: vi.fn(async () => new Blob(['img'], { type: 'image/webp' })),
+    exportGlb: vi.fn(async () => new Uint8Array([0x67, 0x6c, 0x54, 0x46]).buffer),
     ...overrides,
   }
   return { sent, deps, kinds: () => sent.map((s) => s.message.kind) }
@@ -86,5 +87,62 @@ describe('occtLoader', () => {
     const error = await occt().catch((e: unknown) => e)
     expect(error).toBeInstanceOf(ParseFailure)
     expect((error as ParseFailure).code).toBe('out_of_memory')
+  })
+
+  it('derive: GLB first, then the thumbnail from the same tree; only the GLB is transferred, no geometry', async () => {
+    const order: string[] = []
+    const { sent, deps, kinds } = harness({
+      exportGlb: vi.fn(async () => (order.push('glb'), new ArrayBuffer(20))),
+      renderThumbnail: vi.fn(async () => (order.push('thumbnail'), new Blob(['img'], { type: 'image/webp' }))),
+    })
+    await handleMessage({ kind: 'derive', id: 3, format: 'stl', name: 'a.stl', bytes: stl() }, deps)
+    expect(kinds()).toEqual(['progress', 'progress', 'progress', 'derived'])
+    expect(order).toEqual(['glb', 'thumbnail'])
+    expect(vi.mocked(deps.exportGlb).mock.calls[0]![0]).toBe(vi.mocked(deps.renderThumbnail).mock.calls[0]![0])
+    const derived = sent.at(-1)!
+    if (derived.message.kind !== 'derived') throw new Error('expected derived')
+    expect(derived.message.stats.triangles).toBe(1)
+    expect(derived.message.tree.path).toBe('0')
+    expect(derived.transfer).toEqual([derived.message.glb])
+  })
+
+  it('parse with derive hands over the model and its GLB together', async () => {
+    const { sent, deps } = harness()
+    await handleMessage({ kind: 'parse', id: 4, format: 'stl', name: 'a.stl', bytes: stl(), thumbnail: false, derive: true }, deps)
+    const parsed = sent.at(-1)!
+    if (parsed.message.kind !== 'parsed') throw new Error('expected parsed')
+    expect(parsed.message.glb).toBeInstanceOf(ArrayBuffer)
+    expect(parsed.transfer).toContain(parsed.message.glb)
+    expect(parsed.transfer).toContain(parsed.message.model.meshes[0]!.position.buffer)
+    expect(deps.renderThumbnail).not.toHaveBeenCalled()
+  })
+
+  it('parse with derive: a GLB export that fails still hands over the model, with glb null and no failure', async () => {
+    const { sent, deps, kinds } = harness({ exportGlb: vi.fn(async () => Promise.reject(new Error('GLTFExporter: out of memory'))) })
+    await handleMessage({ kind: 'parse', id: 6, format: 'stl', name: 'a.stl', bytes: stl(), thumbnail: true, derive: true }, deps)
+    expect(kinds()).not.toContain('failed')
+    const parsed = sent.at(-1)!
+    if (parsed.message.kind !== 'parsed') throw new Error('expected parsed')
+    expect(parsed.message.glb).toBeNull()
+    expect(parsed.message.thumbnail).toBeInstanceOf(Blob)
+    expect(parsed.transfer).toContain(parsed.message.model.meshes[0]!.position.buffer)
+  })
+
+  it('derive: a GLB export that fails answers derived with glb null and the thumbnail, not failed', async () => {
+    const { sent, deps, kinds } = harness({ exportGlb: vi.fn(async () => Promise.reject(new Error('export broke'))) })
+    await handleMessage({ kind: 'derive', id: 7, format: 'stl', name: 'a.stl', bytes: stl() }, deps)
+    expect(kinds()).not.toContain('failed')
+    const derived = sent.at(-1)!
+    if (derived.message.kind !== 'derived') throw new Error('expected derived')
+    expect(derived.message.glb).toBeNull()
+    expect(derived.message.thumbnail).toBeInstanceOf(Blob)
+    expect(derived.transfer).toEqual([])
+  })
+
+  it('a source over the workspace limit is too_large before it is read', async () => {
+    const { sent, deps } = harness()
+    await handleMessage({ kind: 'derive', id: 5, format: '3mf', name: 'a.3mf', bytes: new ArrayBuffer(2000), maxConvertBytes: 1000 }, deps)
+    expect(sent.at(-1)!.message).toEqual({ kind: 'failed', id: 5, code: 'too_large' })
+    expect(deps.exportGlb).not.toHaveBeenCalled()
   })
 })

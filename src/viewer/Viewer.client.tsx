@@ -3,34 +3,69 @@
  * the lazy viewer chunk: three.js is loaded only through this file, never during SSR. The scene lives in a ref; React
  * state is the pure `viewerReducer`.
  */
-import { useEffect, useReducer, useRef, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Axis3d, Camera, Cuboid, Focus, Grid3x3, Loader2 } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
 import { cx } from '#/components/ui/cx'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '#/components/ui/Menu'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { useI18n, type I18nKey } from '#/i18n'
-import { download, parseInWorker } from './pipeline'
+import { formatBytes } from '#/app/files/format'
+import { download, GLB_CONTENT_TYPE, parseInWorker } from './pipeline'
 import { buildModel } from './scene/build'
 import { createScene, WebGlUnavailable, type SceneHandle } from './scene/createScene'
 import { VIEW_NAMES, type ViewName } from './scene/fit'
-import { edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type LoadStage, type ViewerState } from './state'
-import { classifyError, formatOfExtension, isConvertFormat, MAX_CONVERT_BYTES } from './worker/protocol'
+import {
+  edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type LoadStage, type ViewerError, type ViewerStart, type ViewerState,
+} from './state'
+import { classifyError, formatOfExtension, isConvertFormat, ParseFailure, type ErrorCode, type Stats } from './worker/protocol'
+
+/** GLTFLoader loads only when `model` answers with a GLB; a source file never pulls it in. */
+const loadGlbModule = () => import('./scene/loadGlb')
+
+/** The conversion limit in whole binary megabytes, as the plan states it ("50 MB"). */
+const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
 
 export type ViewerProps = {
   /** File name: canvas label and screenshot name. */
   readonly name: string
   readonly extension: string
-  /** Bytes of the source: STEP/IGES/3MF over the conversion limit are refused before anything is downloaded (§2.5). */
+  /** Bytes of the source: STEP/IGES/3MF over `maxConvertBytes` are refused before anything is downloaded (§2.5). */
   readonly size: number
-  /** Where the model bytes come from: `/api/files/{id}/model` (audited as a preview, docs/11 §2.4). */
+  /** Where the model bytes come from: `/api/files/{id}/model` or `/s/{token}/model` (audited as a preview, docs/11 §2.4). */
   readonly url: string
   /** Shown in place of the canvas until the model is drawn, and behind error texts. */
   readonly thumbnailUrl: string | null
-  /** Phone rule (docs/11 §2.5): STEP/IGES wait for the person to start them. */
-  readonly deferred: boolean
+  /**
+   * How the viewer starts (`state.ts`): `auto`; `phone` for a STEP/IGES source on a phone; `tap` for the mobile shared
+   * page ("Open 3D · N MB"); `{ failed }` for a derivative that failed before.
+   */
+  readonly start: ViewerStart
+  /**
+   * What `model` answers (the file view's `model.kind`): a GLB derivative needs no Worker; a source is parsed in it.
+   * Read once per mount: a page reload that finds the GLB stored meanwhile must not restart the open model.
+   */
+  readonly source: 'derivative' | 'source'
+  /** Bytes `model` sends, for the `tap` button. */
+  readonly modelBytes?: number | null | undefined
+  /** `Entitlements.maxConvertBytes` of the file's workspace. */
+  readonly maxConvertBytes: number
   /** The caller may store a thumbnail and the file has none: the Worker renders one while parsing. */
   readonly onThumbnail?: ((blob: Blob) => void) | undefined
+  /**
+   * The caller may store the GLB derivative (edit + download, desktop, docs/11 §2.5 lazy path): the Worker writes it
+   * while parsing the source and this receives it once the model is on screen.
+   */
+  readonly onDerivative?: ((glb: ArrayBuffer, stats: Stats) => void) | undefined
+  /** With `onDerivative`: the conversion failed for a reason that is the file's (not the network, not a cancel). */
+  readonly onConvertFailed?: ((code: ErrorCode) => void) | undefined
+  /** Offer "Try again" on every error (an edit user's retry of a failed derivative). */
+  readonly retryAlways?: boolean | undefined
+  /**
+   * Edit + download on a desktop, with `onDerivative`: a GLB derivative that does not load can be rebuilt from the
+   * source at this URL (`content`), converted again and stored again.
+   */
+  readonly rebuildUrl?: string | undefined
   /** `edit` permission: a broken file offers "Upload new version". */
   readonly onUploadVersion?: (() => void) | undefined
   /** The page's download button, repeated next to error texts when the caller may download. */
@@ -68,6 +103,8 @@ const StageText = ({ stage, ratio, format }: { stage: LoadStage; ratio: number |
       return <>{t('viewer.stage.parse')}</>
     case 'thumbnail':
       return <>{t('viewer.stage.thumbnail')}</>
+    case 'derive':
+      return <>{t('viewer.stage.derive')}</>
     case 'build':
       return <>{t('viewer.stage.build')}</>
   }
@@ -77,15 +114,15 @@ const StageText = ({ stage, ratio, format }: { stage: LoadStage; ratio: number |
  * What screen readers hear: the stage, the idle reason or the error, never the percent. Kept mounted so a change is
  * announced; the visible panel is not a live region.
  */
-const announcement = (state: ViewerState, format: string, t: ReturnType<typeof useI18n>['t']): string => {
+const announcement = (state: ViewerState, format: string, t: ReturnType<typeof useI18n>['t'], errorText: (code: ViewerError) => string): string => {
   const phase = state.phase
   switch (phase.status) {
     case 'ready':
       return ''
     case 'idle':
-      return phase.reason === 'phone' ? t('viewer.phone') : t('viewer.canceled')
+      return phase.reason === 'phone' ? t('viewer.phone') : phase.reason === 'tap' ? t('viewer.tapLead') : t('viewer.canceled')
     case 'error':
-      return t(errorTextKey(phase.code))
+      return errorText(phase.code)
     case 'loading':
       switch (phase.stage) {
         case 'download':
@@ -96,6 +133,8 @@ const announcement = (state: ViewerState, format: string, t: ReturnType<typeof u
           return t('viewer.stage.parse')
         case 'thumbnail':
           return t('viewer.stage.thumbnail')
+        case 'derive':
+          return t('viewer.stage.derive')
         case 'build':
           return t('viewer.stage.build')
       }
@@ -103,13 +142,18 @@ const announcement = (state: ViewerState, format: string, t: ReturnType<typeof u
 }
 
 /** The panel over the thumbnail while the canvas is not ready. Texts sit on the canvas colour (13.5:1, docs/03 §5). */
-const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downloadAction }: {
+const StatusPanel = ({ state, format, onCancel, onStart, onRebuild, onUploadVersion, downloadAction, errorText, retryAlways, tapLabel }: {
   state: ViewerState
   format: string
   onCancel: () => void
   onStart: () => void
+  /** The stored GLB did not load and the caller may convert the source again. */
+  onRebuild?: (() => void) | undefined
   onUploadVersion?: (() => void) | undefined
   downloadAction?: ReactNode
+  errorText: (code: ViewerError) => string
+  retryAlways: boolean
+  tapLabel: string
 }) => {
   const { t } = useI18n()
   const phase = state.phase
@@ -133,7 +177,16 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
     )
   else if (phase.status === 'idle')
     body =
-      phase.reason === 'phone' ? (
+      phase.reason === 'tap' ? (
+        <>
+          <p className="text-base opacity-85">{t('viewer.tapLead')}</p>
+          {actions(
+            <Button variant="primary" onClick={onStart}>
+              {tapLabel}
+            </Button>,
+          )}
+        </>
+      ) : phase.reason === 'phone' ? (
         <>
           <p className="text-md font-medium">{t('viewer.phone')}</p>
           <p className="text-base opacity-85">{t('viewer.phoneLead', { format })}</p>
@@ -160,12 +213,17 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
     const can = errorActions(phase.code)
     body = (
       <>
-        <p className="text-md">{t(errorTextKey(phase.code))}</p>
+        <p className="text-md">{errorText(phase.code)}</p>
         {actions(
           <>
-            {can.retry ? (
+            {can.retry || (retryAlways && phase.code !== 'webgl') ? (
               <Button variant="secondary" onClick={onStart}>
                 {t('viewer.retry')}
+              </Button>
+            ) : null}
+            {onRebuild ? (
+              <Button variant="secondary" onClick={onRebuild}>
+                {t('viewer.rebuild')}
               </Button>
             ) : null}
             {can.newVersion && onUploadVersion ? (
@@ -186,14 +244,30 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
   )
 }
 
-const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnail, onUploadVersion, downloadAction }: ViewerProps) => {
+const Viewer = ({
+  name, extension, size, url, thumbnailUrl, start, source: sourceProp, modelBytes, maxConvertBytes, onThumbnail, onDerivative, onConvertFailed, retryAlways,
+  rebuildUrl, onUploadVersion, downloadAction,
+}: ViewerProps) => {
   const { t, locale } = useI18n()
-  const [state, dispatch] = useReducer(viewerReducer, deferred, initialViewerState)
+  const [state, dispatch] = useReducer(viewerReducer, start, initialViewerState)
+  // Frozen per mount (see `source`): the camera, wireframe and edges of the open model stay as they are.
+  const [source] = useState(sourceProp)
+  // The stored GLB failed to load (not the network): an editor may convert the source again (`rebuildUrl`).
+  const [glbBroken, setGlbBroken] = useState(false)
+  const fromSource = useRef(false)
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<SceneHandle | null>(null)
   const cancelJob = useRef<(() => void) | null>(null)
   const thumbnailSink = useRef(onThumbnail)
   thumbnailSink.current = onThumbnail
+  const derivativeSink = useRef(onDerivative)
+  derivativeSink.current = onDerivative
+  const failureSink = useRef(onConvertFailed)
+  failureSink.current = onConvertFailed
+  // A reload that finds the GLB stored turns `rebuildUrl` on (kind 'derivative'): read through a ref, so the open model
+  // does not download again.
+  const rebuildRef = useRef(rebuildUrl)
+  rebuildRef.current = rebuildUrl
   // A rename changes the name, not the model: the load reads it from a ref and does not restart.
   const nameRef = useRef(name)
   nameRef.current = name
@@ -201,6 +275,7 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
   const label = fileTypeOfExtension(extension)?.label ?? extension.toUpperCase()
   const ready = state.phase.status === 'ready'
   const canvasLabel = t('viewer.canvas', { name })
+  const errorText = (code: ViewerError) => (code === 'too_large' ? t('viewer.error.tooLarge', { size: megabytes(maxConvertBytes) }) : t(errorTextKey(code)))
 
   // The scene: one renderer per mounted viewer, disposed on unmount (docs/11 §6).
   useEffect(() => {
@@ -219,18 +294,29 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // One load per attempt: download → Worker → three objects. Leaving the page or Cancel stops both.
+  // One load per attempt: download → (GLB: GLTFLoader | source: Worker) → three objects. Leaving the page or Cancel stops both.
   useEffect(() => {
     if (state.attempt === 0 || scene.current === null) return
     if (format === null) return dispatch({ type: 'fail', code: 'unsupported' })
-    if (isConvertFormat(format) && size > MAX_CONVERT_BYTES) return dispatch({ type: 'fail', code: 'too_large' })
+    // The source of a STEP/IGES/3MF: the Worker converts it, and writes the GLB when the page can store it. A rebuild
+    // reads the source from `rebuildUrl` even though `model` would answer with the (broken) GLB.
+    const rebuildFrom = rebuildRef.current
+    const rebuilding = fromSource.current && rebuildFrom !== undefined
+    const converting = (source === 'source' || rebuilding) && isConvertFormat(format)
+    const deriving = converting && derivativeSink.current !== undefined
+    const failed = (code: ErrorCode) => {
+      dispatch({ type: 'fail', code })
+      // A failure that is the file's (not the network) is recorded once, so the next open does not convert it again.
+      if (deriving && code !== 'network') failureSink.current?.(code)
+    }
+    if (converting && size > maxConvertBytes) return failed('too_large')
     const controller = new AbortController()
     let stop: (() => void) | null = () => controller.abort()
     cancelJob.current = () => stop?.()
     void (async () => {
       // One render per whole percent, not per network chunk.
       let shown = -2
-      const fetched = await download(url, controller.signal, (ratio) => {
+      const fetched = await download(rebuilding ? rebuildFrom : url, controller.signal, (ratio) => {
         const step = ratio === null ? -1 : Math.floor(ratio * 100)
         if (step === shown) return
         shown = step
@@ -238,17 +324,38 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
       })
       if (controller.signal.aborted) return
       if (!fetched.ok) return dispatch({ type: 'fail', code: 'network' })
+      if (fetched.contentType === GLB_CONTENT_TYPE && !rebuilding) {
+        // The derivative: already triangles, read on this thread by a lazily loaded GLTFLoader (no Worker, no WASM).
+        dispatch({ type: 'progress', stage: 'parse', ratio: null })
+        // A chunk that did not arrive is the network (Retry), not the file.
+        const module = await loadGlbModule().catch(() => null)
+        if (controller.signal.aborted) return
+        if (module === null) return dispatch({ type: 'fail', code: 'network' })
+        try {
+          const loaded = await module.loadGlb(fetched.bytes)
+          if (controller.signal.aborted || scene.current === null) return
+          scene.current.setModel(loaded.root, loaded.stats)
+          dispatch({ type: 'ready', stats: loaded.stats })
+        } catch (error) {
+          if (controller.signal.aborted) return
+          dispatch({ type: 'fail', code: error instanceof ParseFailure ? error.code : classifyError(error) })
+          setGlbBroken(true)
+        }
+        return
+      }
       const job = parseInWorker({
         format,
         name: nameRef.current,
         bytes: fetched.bytes,
         thumbnail: thumbnailSink.current !== undefined,
+        derive: deriving,
+        maxConvertBytes,
         onProgress: (stage, ratio) => dispatch({ type: 'progress', stage, ratio }),
       })
       stop = job.cancel
       const outcome = await job.result
       if (!outcome.ok) {
-        if (outcome.code !== 'canceled') dispatch({ type: 'fail', code: outcome.code })
+        if (outcome.code !== 'canceled') failed(outcome.code)
         return
       }
       dispatch({ type: 'progress', stage: 'build', ratio: null })
@@ -262,13 +369,14 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
       }
       dispatch({ type: 'ready', stats: outcome.stats })
       if (outcome.thumbnail !== null) thumbnailSink.current?.(outcome.thumbnail)
+      if (outcome.glb !== null) derivativeSink.current?.(outcome.glb, outcome.stats)
     })()
     return () => {
       stop?.()
       stop = null
       cancelJob.current = null
     }
-  }, [state.attempt, url, format, size])
+  }, [state.attempt, url, format, size, source, maxConvertBytes])
 
   useEffect(() => {
     if (ready) scene.current?.setWireframe(state.wireframe)
@@ -285,7 +393,7 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
   return (
     <section aria-label={t('viewer.region')} className="grid min-w-0 gap-2">
       <p role="status" aria-live="polite" className="sr-only">
-        {announcement(state, label, t)}
+        {announcement(state, label, t, errorText)}
       </p>
       <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
         <div ref={host} className={cx('size-full', !ready && 'invisible')} />
@@ -300,8 +408,16 @@ const Viewer = ({ name, extension, size, url, thumbnailUrl, deferred, onThumbnai
                 dispatch({ type: 'cancel' })
               }}
               onStart={() => dispatch({ type: 'start' })}
+              onRebuild={glbBroken && rebuildUrl !== undefined && state.phase.status === 'error' ? () => {
+                fromSource.current = true
+                setGlbBroken(false)
+                dispatch({ type: 'start' })
+              } : undefined}
               onUploadVersion={onUploadVersion}
               downloadAction={downloadAction}
+              errorText={errorText}
+              retryAlways={retryAlways === true}
+              tapLabel={modelBytes ? t('viewer.tapOpenSize', { size: formatBytes(modelBytes, locale) }) : t('viewer.tapOpen')}
             />
           </>
         )}

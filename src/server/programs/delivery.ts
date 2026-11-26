@@ -1,17 +1,18 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { Effect, Option } from 'effect'
 import * as schema from '../db/schema'
-import { ContentIntegrity, InvalidThumbnail, PreviewUnavailable, ResourceUnavailable, ValidationError, VersionUnavailable } from '../errors'
+import { ContentIntegrity, InvalidThumbnail, PreviewUnavailable, ResourceUnavailable, ValidationError, VersionChanged, VersionUnavailable } from '../errors'
 import { contentHeaders, imageContentType, type ImageKind, MAX_THUMBNAIL_BYTES, parseRange, rangeNotSatisfiableHeaders, sniffImage, thumbnailHeaders } from '../deliveryHttp'
 import type { PermissionAction, PermissionInput } from '../permissions'
 import { validateThumbnail } from '../thumbnail'
+import { type DerivativeColumns, modelKind, readyDerivative } from '../derivative'
 import { Db } from '../services/Db'
 import { RateLimit } from '../services/RateLimit'
 import { readBytes, Storage } from '../services/Storage'
 import { objectKey } from './uploads'
 import { recordDenied, recordDelivery } from './audit'
-import { can, openFile } from './fileContext'
-import { enqueueDeletion } from './storageCleanup'
+import { can, currentVersionOf, openFile } from './fileContext'
+import { drainStorageDeletions, enqueueDeletion } from './storageCleanup'
 import { authorize, type Caller, guard, newUlid, opt, runBatch, stillRole, toDate, traceOf, type Trace } from './shared'
 
 /** What the HTTP layer sends: a status, headers, and the bytes (a stream for content, bytes for a thumbnail). */
@@ -84,7 +85,7 @@ export const streamThumbnail = Effect.fnUntraced(function* (key: string, extraHe
 })
 
 /** The workspace of an uploaded file, found by id alone: delivery URLs carry only the file id. */
-const workspaceOfFile = Effect.fnUntraced(function* (fileId: string) {
+export const workspaceOfFile = Effect.fnUntraced(function* (fileId: string) {
   const db = yield* Db
   const rows = yield* db.use((d) =>
     d.select({ workspaceId: schema.files.workspaceId }).from(schema.files)
@@ -101,7 +102,7 @@ type FileRow = typeof schema.files.$inferSelect
  * permissions.ts for a delivery action. A caller who may not even `view` the file gets the same 404 as a missing one
  * (a guest without a grant must not learn that a file id exists); a caller who may view it gets the real denial.
  */
-const authorizeDelivery = (base: Omit<PermissionInput, 'action'>, action: PermissionAction, version?: PermissionInput['version']) =>
+export const authorizeDelivery = (base: Omit<PermissionInput, 'action'>, action: PermissionAction, version?: PermissionInput['version']) =>
   authorize({ ...base, ...opt('version', version), action }).pipe(
     Effect.catchTag('PermissionDenied', (denied) => Effect.fail(can(base, { kind: 'view' }) ? denied : new ResourceUnavailable())),
   )
@@ -159,22 +160,56 @@ export const deliverContent = Effect.fn('deliverContent')(function* (
   )
 })
 
+/** The derivative's MIME type (docs/11 §2.4); the source keeps `application/octet-stream`. */
+export const GLB_CONTENT_TYPE = 'model/gltf-binary'
+
+/** `Bracket.step` -> `Bracket.glb`: the derivative is saved under its own extension if someone keeps the response. */
+const glbName = (name: string) => {
+  const dot = name.lastIndexOf('.')
+  return `${dot > 0 ? name.slice(0, dot) : name}.glb`
+}
+
+/** The row fields `GET …/model` decides on and streams from (a `files` row, or the file part of a link's row). */
+export type ModelRow = DerivativeColumns & { readonly r2Key: string; readonly contentEtag: string | null; readonly name: string }
+
+/** What `model` will stream for this caller (D23), resolved before the audit row: the object and its name. */
+export const modelTarget = (row: ModelRow, canDownload: boolean) => {
+  const ready = readyDerivative(row)
+  const kind = modelKind(row, canDownload, ready)
+  if (kind === 'none') return undefined
+  const glb = kind === 'derivative' ? ready : undefined
+  return glb === undefined
+    ? { kind: 'source' as const, object: { key: row.r2Key, size: row.size, etag: row.contentEtag } satisfies StoredObject, name: row.name }
+    : { kind: 'derivative' as const, object: { key: glb.key, size: glb.size, etag: glb.etag } satisfies StoredObject, name: glbName(row.name) }
+}
+
+/** Streams a resolved model target: `content`'s headers and Range, with the GLB type for a derivative. */
+export const streamModel = Effect.fnUntraced(function* (
+  target: NonNullable<ReturnType<typeof modelTarget>>,
+  range: string | null,
+  extraHeaders: Readonly<Record<string, string>> = {},
+) {
+  const delivery = yield* streamContent({ object: target.object, name: target.name, range, extraHeaders })
+  if (target.kind === 'source' || delivery.status === 416) return delivery
+  return { ...delivery, headers: { ...delivery.headers, 'content-type': GLB_CONTENT_TYPE } } satisfies Delivery
+})
+
 /**
- * `GET /api/files/{fileId}/model`: what the 3D viewer reads (docs/11 §2.4). Always the current version, with the same
- * headers and Range handling as `content`, but audited as `file.previewed` (no security-log download event): opening the
- * viewer is not a download. There is no purpose flag on `content`; the endpoint itself is the purpose.
- *
- * Faz 5a: the body is the current source object and the permission is still `download` (the viewer is shown only to
- * callers who may download). 5b (D23) switches this endpoint to `preview` and serves the GLB derivative for STEP/IGES/3MF.
+ * `GET /api/files/{fileId}/model`: what the 3D viewer reads (docs/11 §2.4, D23). Always the current version, permission
+ * `preview` (every level, view and comment included). STEP/IGES/3MF answer with the GLB derivative
+ * (`model/gltf-binary`); without one, only a caller who may also download gets the source (the viewer converts it in
+ * place), everyone else `PreviewUnavailable`. STL/OBJ/PLY answer with the source itself. Same headers and Range as
+ * `content`, audited as `file.previewed` (no security-log download event): opening the viewer is not a download.
  */
 export const deliverModel = Effect.fn('deliverModel')(function* (caller: Caller, input: { readonly fileId: string; readonly range: string | null }) {
   const workspaceId = yield* workspaceOfFile(input.fileId)
   const { base, file } = yield* openFile(caller, workspaceId, input.fileId)
-  const target = yield* versionOf(file, 'current')
-  yield* authorizeDelivery(base, { kind: 'download' })
+  yield* authorizeDelivery(base, { kind: 'preview' })
+  const target = modelTarget(file, can(base, { kind: 'download' }))
+  if (target === undefined) return yield* new PreviewUnavailable()
   const trace = traceOf(caller)
   yield* recordDelivery({ workspaceId, actor: { kind: 'user', userId: caller.userId }, fileId: file.id, objectKey: target.object.key, purpose: 'preview', trace, now: base.now })
-  return yield* streamContent({ object: target.object, name: file.name, range: input.range }).pipe(
+  return yield* streamModel(target, input.range).pipe(
     noteIntegrity({ workspaceId, fileId: file.id, userId: caller.userId, trace, now: base.now, action: 'file.previewed' }),
   )
 })
@@ -203,15 +238,25 @@ export const deliverThumbnail = Effect.fn('deliverThumbnail')(function* (caller:
  * must parse as a PNG or WebP within 1024×1024 and 1 MiB and match the declared type. The Worker writes the object under
  * a fresh server-made key; the batch then points the file at it, guarded against the file having changed meanwhile
  * (a new version, the trash), and queues the replaced thumbnail key (the cleanup worker keeps any key a version row still holds).
+ * `expectedVersion` is the number the browser rendered from: a version that landed since then is `VersionChanged`, so an
+ * old version's image never sits on a new one, whichever tab or person uploaded it.
  */
 export const putThumbnail = Effect.fn('putThumbnail')(function* (
   caller: Caller,
-  input: { readonly fileId: string; readonly version: string; readonly contentType: string | null; readonly bytes: Uint8Array },
+  input: {
+    readonly fileId: string
+    readonly version: string
+    /** The version number the image was rendered from; another current number is `VersionChanged` (docs/11 5a note). */
+    readonly expectedVersion: number
+    readonly contentType: string | null
+    readonly bytes: Uint8Array
+  },
 ) {
   if (input.version !== 'current') return yield* new ValidationError({ message: 'only the current version takes a thumbnail' })
   const workspaceId = yield* workspaceOfFile(input.fileId)
   const { base, file, role, still } = yield* openFile(caller, workspaceId, input.fileId)
   yield* authorizeDelivery(base, { kind: 'edit' })
+  if ((yield* currentVersionOf(file)) !== input.expectedVersion) return yield* new VersionChanged()
   yield* (yield* RateLimit).hit({ action: 'thumbnailPut', target: caller.userId, ip: caller.ip })
   if (input.bytes.byteLength > MAX_THUMBNAIL_BYTES) return yield* new InvalidThumbnail()
   const kind: ImageKind | undefined = validateThumbnail(input.bytes, input.contentType)
@@ -224,11 +269,18 @@ export const putThumbnail = Effect.fn('putThumbnail')(function* (
   yield* runBatch((d) => [
     guard(d, sql`${stillRole(workspaceId, caller.userId, [role])} AND ${still(false)} AND EXISTS (
       SELECT 1 FROM files WHERE id = ${file.id} AND r2Key = ${file.r2Key})`),
+    // The thumbnail the file holds when this runs (another tab may have replaced the one read above).
+    d.insert(schema.storageDeletions).select(sql`SELECT thumbnailR2Key, 'purged', ${base.now}, 0, NULL, ${base.now} FROM files
+      WHERE id = ${file.id} AND r2Key = ${file.r2Key} AND thumbnailR2Key IS NOT NULL`).onConflictDoNothing(),
     d.update(schema.files).set({ thumbnailR2Key: key, updatedAt: at }).where(and(eq(schema.files.id, file.id), eq(schema.files.r2Key, file.r2Key))),
-    ...(file.thumbnailR2Key === null ? [] : [enqueueDeletion(d, file.thumbnailR2Key, 'purged', base.now)]),
   ]).pipe(
-    // The new object is unreferenced if the batch did not run; remove it (best effort, the queue is not involved).
-    Effect.tapError(() => storage.delete([key]).pipe(Effect.ignore)),
+    // The new object is unreferenced if the batch did not run: queue it (D1 first), then try the deletion now. A failed
+    // try leaves the queue row for the cron.
+    Effect.tapError(() =>
+      runBatch((d) => [enqueueDeletion(d, key, 'purged', base.now)]).pipe(
+        Effect.andThen(drainStorageDeletions({ keys: [key] })),
+        Effect.ignore,
+      )),
   )
   return { thumbnailAvailable: true }
 })

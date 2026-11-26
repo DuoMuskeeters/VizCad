@@ -5,14 +5,28 @@ import userEvent from '@testing-library/user-event'
 import '../../components/ui/test-utils'
 import { I18nProvider } from '#/i18n'
 import { UiProvider } from '#/components/ui/UiProvider'
+import type { ViewerProps } from '#/viewer/Viewer.client'
 import { formatSize } from './api'
 import { SharePage } from './SharePage'
+
+// The real viewer needs WebGL; here only what the page hands it matters.
+const seen = vi.hoisted(() => ({ props: [] as ViewerProps[] }))
+vi.mock('#/viewer/Viewer.client', () => ({
+  default: (props: ViewerProps) => {
+    seen.props.push(props)
+    return <section aria-label="3D view" />
+  },
+}))
+const last = () => seen.props.at(-1)
 
 const TOKEN = 'A'.repeat(43)
 const file = {
   name: 'Bracket.step', extension: 'step', size: 1536, updatedAt: 1, currentVersion: { number: 1 }, thumbnailAvailable: false,
   can: { download: true, comment: false as const }, sharer: { displayName: 'Ada', workspaceLabel: 'Acme' }, expiresAt: null,
+  model: { kind: 'source', bytes: 1536, derivative: null, maxConvertBytes: 52_428_800 },
 }
+const glb = { kind: 'derivative', bytes: 6_200_000, derivative: { state: 'ready', code: null, parts: 3 }, maxConvertBytes: 52_428_800 }
+const coarse = (on: boolean) => vi.stubGlobal('matchMedia', (query: string) => ({ matches: on && query === '(pointer: coarse)', media: query, addEventListener: () => {}, removeEventListener: () => {} }))
 
 type Reply = { status: number; body: unknown }
 const answer = (...replies: ReadonlyArray<Reply>) => {
@@ -28,7 +42,10 @@ const answer = (...replies: ReadonlyArray<Reply>) => {
 
 const mount = () => render(<I18nProvider><UiProvider><SharePage token={TOKEN} /></UiProvider></I18nProvider>)
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  seen.props = []
+})
 
 describe('formatSize', () => {
   it.each([[0, '0 B'], [1023, '1023 B'], [1536, '1.5 KB'], [5 * 1024 * 1024, '5.0 MB'], [150 * 1024 * 1024, '150 MB']])('%d -> %s', (bytes, text) => {
@@ -44,9 +61,47 @@ describe('SharePage', () => {
     expect(screen.getByText('Ada shared a file with you')).toBeInTheDocument()
     expect(screen.getByText('Acme')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Download · 1.5 KB' })).toHaveAttribute('href', `/s/${TOKEN}/content`)
-    expect(screen.getByText('There is no preview image for this file.')).toBeInTheDocument()
+    // A download link to a STEP without derivative: the viewer converts the source in place; nothing is stored.
+    expect(await screen.findByRole('region', { name: '3D view' })).toBeInTheDocument()
+    expect(last()).toMatchObject({ url: `/s/${TOKEN}/model`, source: 'source', start: 'auto' })
+    expect(last()?.onDerivative).toBeUndefined()
     expect(screen.getByText(/recorded for Acme as “via link”/)).toBeInTheDocument()
     expect(calls).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
+  })
+
+  it('a GLB over the plan cap reads as the 3D view being too large, not "over 50 MB"; a source over the limit says the limit', async () => {
+    const none = { kind: 'none', bytes: null, maxConvertBytes: 52_428_800 }
+    const capped = { ...file, can: { download: false, comment: false }, model: { ...none, derivative: { state: 'too_large', code: 'glb_too_large', parts: null } } }
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: capped } } })
+    const first = mount()
+    expect(await screen.findByText('The 3D view of this file is too large to show in the browser.')).toBeInTheDocument()
+    expect(screen.queryByText(/over 50 MB/)).not.toBeInTheDocument()
+    first.unmount()
+    const big = { ...capped, size: 60_000_000, model: { ...none, derivative: { state: 'too_large', code: 'too_large', parts: null } } }
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: big } } })
+    mount()
+    expect(await screen.findByText(/over 50 MB/)).toBeInTheDocument()
+  })
+
+  it('D23: a view link opens the GLB in 3D; on a phone only after “Open 3D · size”', async () => {
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false }, model: glb } } } })
+    const first = mount()
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last()).toMatchObject({ source: 'derivative', start: 'auto', modelBytes: 6_200_000 })
+    expect(last()?.downloadAction).toBeUndefined()
+    first.unmount()
+    coarse(true)
+    vi.stubGlobal('screen', { width: 390, height: 844 })
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false }, model: glb } } } })
+    mount()
+    await waitFor(() => expect(last()?.start).toBe('tap'))
+  })
+
+  it('a view link to a STEP without derivative shows the card and why there is no 3D', async () => {
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false }, model: { ...file.model, kind: 'none', bytes: null } } } } })
+    mount()
+    expect(await screen.findByText('This file is not ready for 3D yet. It will be once its owner opens it.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '3D view' })).toBeNull()
   })
 
   it('a view-only link has no download button', async () => {
