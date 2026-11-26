@@ -117,6 +117,28 @@ describe('occtLoader', () => {
     expect(deps.renderThumbnail).not.toHaveBeenCalled()
   })
 
+  it('parse with derive: a GLB export that fails still hands over the model, with glb null and no failure', async () => {
+    const { sent, deps, kinds } = harness({ exportGlb: vi.fn(async () => Promise.reject(new Error('GLTFExporter: out of memory'))) })
+    await handleMessage({ kind: 'parse', id: 6, format: 'stl', name: 'a.stl', bytes: stl(), thumbnail: true, derive: true }, deps)
+    expect(kinds()).not.toContain('failed')
+    const parsed = sent.at(-1)!
+    if (parsed.message.kind !== 'parsed') throw new Error('expected parsed')
+    expect(parsed.message.glb).toBeNull()
+    expect(parsed.message.thumbnail).toBeInstanceOf(Blob)
+    expect(parsed.transfer).toContain(parsed.message.model.meshes[0]!.position.buffer)
+  })
+
+  it('derive: a GLB export that fails answers derived with glb null and the thumbnail, not failed', async () => {
+    const { sent, deps, kinds } = harness({ exportGlb: vi.fn(async () => Promise.reject(new Error('export broke'))) })
+    await handleMessage({ kind: 'derive', id: 7, format: 'stl', name: 'a.stl', bytes: stl() }, deps)
+    expect(kinds()).not.toContain('failed')
+    const derived = sent.at(-1)!
+    if (derived.message.kind !== 'derived') throw new Error('expected derived')
+    expect(derived.message.glb).toBeNull()
+    expect(derived.message.thumbnail).toBeInstanceOf(Blob)
+    expect(derived.transfer).toEqual([])
+  })
+
   it('a source over the workspace limit is too_large before it is read', async () => {
     const { sent, deps } = harness()
     await handleMessage({ kind: 'derive', id: 5, format: '3mf', name: 'a.3mf', bytes: new ArrayBuffer(2000), maxConvertBytes: 1000 }, deps)

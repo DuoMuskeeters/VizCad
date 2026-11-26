@@ -91,7 +91,7 @@ export type WorkerResponse =
   | { readonly kind: 'progress'; readonly id: number; readonly stage: Stage; readonly ratio: number | null }
   | { readonly kind: 'parsed'; readonly id: number; readonly model: ParsedModel; readonly stats: Stats; readonly thumbnail: Blob | null; readonly glb: ArrayBuffer | null }
   | { readonly kind: 'thumbnail'; readonly id: number; readonly blob: Blob }
-  | { readonly kind: 'derived'; readonly id: number; readonly glb: ArrayBuffer; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
+  | { readonly kind: 'derived'; readonly id: number; readonly glb: ArrayBuffer | null; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
   | { readonly kind: 'failed'; readonly id: number; readonly code: ErrorCode }
 
 /** Limits the viewer enforces on any model it builds (docs/11 §2.3 "Güven"). */

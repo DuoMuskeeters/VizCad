@@ -51,7 +51,9 @@ export const handleMessage = async (data: unknown, deps: HandleDeps): Promise<vo
     let glb: ArrayBuffer | null = null
     if (derive && root !== null) {
       post({ kind: 'progress', id, stage: 'derive', ratio: null })
-      glb = await deps.exportGlb(root)
+      // The GLB is a stored copy, not the view: an export that fails leaves the model and the thumbnail as they are and
+      // answers `glb: null`, which nobody records as a failed conversion (the next desktop open tries again).
+      glb = await deps.exportGlb(root).catch(() => null)
     }
     let thumbnail: Blob | null = null
     if (wantsThumbnail && root !== null) {
@@ -59,8 +61,8 @@ export const handleMessage = async (data: unknown, deps: HandleDeps): Promise<vo
       // Rendered before the buffers move to the main thread; the geometry views are copied by WebGL, not kept.
       thumbnail = await deps.renderThumbnail(root)
     } else if (root !== null) disposeObject(root)
-    if (data.kind === 'derive' && glb !== null) {
-      post({ kind: 'derived', id, glb, thumbnail, tree: model.tree, stats }, [glb])
+    if (data.kind === 'derive') {
+      post({ kind: 'derived', id, glb, thumbnail, tree: model.tree, stats }, glb === null ? [] : [glb])
       return
     }
     post({ kind: 'parsed', id, model, stats, thumbnail, glb }, glb === null ? transferablesOf(model) : [...transferablesOf(model), glb])

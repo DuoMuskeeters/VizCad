@@ -243,7 +243,8 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       void jobs.enqueue(fileId, async () => {
         const [{ deriveInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
         const outcome = await deriveInWorker({ format, name: file.name, bytes, maxConvertBytes }).result
-        if (outcome.ok) return { version, thumbnail: outcome.thumbnail, derivative: { glb: outcome.glb, stats: outcome.stats, converter: converterOf(format) } }
+        // No GLB (its export failed) is not the file's fault: only the thumbnail is stored, the next desktop open converts again.
+        if (outcome.ok) return { version, thumbnail: outcome.thumbnail, derivative: outcome.glb === null ? null : { glb: outcome.glb, stats: outcome.stats, converter: converterOf(format) } }
         if (outcome.code !== 'canceled') await reportDerivativeFailure({ fileId, version, code: outcome.code })
         return null
       }).finally(() => mark(fileId, false))

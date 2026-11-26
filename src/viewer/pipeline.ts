@@ -32,7 +32,7 @@ export type ParseOutcome =
   | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
 
 export type DeriveOutcome =
-  | { readonly ok: true; readonly glb: ArrayBuffer; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
+  | { readonly ok: true; readonly glb: ArrayBuffer | null; readonly thumbnail: Blob | null; readonly tree: TreeNode; readonly stats: Stats }
   | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
 
 export type ThumbnailOutcome = { readonly ok: true; readonly blob: Blob } | { readonly ok: false; readonly code: ErrorCode | 'canceled' }
