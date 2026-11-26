@@ -227,8 +227,15 @@ describe('a thumbnail that lands while a new version or another thumbnail is bei
       yield* world
       const stale = putThumbnail(caller('bob'), { fileId: 'f1', version: 'current', expectedVersion: 1, contentType: 'image/png', bytes: png() })
       const next = yield* pendingVersion
+      // R2 refuses the immediate delete: only the queue row can bring the object back to the cron.
+      const control = yield* MemoryStorageControl
+      yield* control.failDeletes(true)
       const failed = yield* Effect.flip(stale.pipe(Effect.provideService(Db, yield* beforeFirstBatch(next.complete))))
       assert.strictEqual(failed._tag, 'WriteConflict')
+      const thumbs = (yield* control.keys).filter((k) => k.endsWith('.thumb'))
+      assert.strictEqual(thumbs.length, 1, 'the delete failed, the object is still there')
+      assert.include((yield* rows('storageDeletions')).map((r) => r.key), thumbs[0], 'and it is queued')
+      yield* control.failDeletes(false)
       const { orphans, dangling } = yield* audit
       assert.deepStrictEqual([orphans, dangling], [[], []])
       assert.isTrue((yield* MemoryStorageControl.use((c) => c.keys)).every((k) => !k.endsWith('.thumb')))

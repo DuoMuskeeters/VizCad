@@ -274,11 +274,11 @@ export const putThumbnail = Effect.fn('putThumbnail')(function* (
       WHERE id = ${file.id} AND r2Key = ${file.r2Key} AND thumbnailR2Key IS NOT NULL`).onConflictDoNothing(),
     d.update(schema.files).set({ thumbnailR2Key: key, updatedAt: at }).where(and(eq(schema.files.id, file.id), eq(schema.files.r2Key, file.r2Key))),
   ]).pipe(
-    // The new object is unreferenced if the batch did not run: queue it (D1 first), then try the deletion now.
+    // The new object is unreferenced if the batch did not run: queue it (D1 first), then try the deletion now. A failed
+    // try leaves the queue row for the cron.
     Effect.tapError(() =>
       runBatch((d) => [enqueueDeletion(d, key, 'purged', base.now)]).pipe(
         Effect.andThen(drainStorageDeletions({ keys: [key] })),
-        Effect.catch(() => storage.delete([key])),
         Effect.ignore,
       )),
   )
