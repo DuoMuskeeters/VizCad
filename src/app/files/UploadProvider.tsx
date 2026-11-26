@@ -1,8 +1,10 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
-import { ChevronDown, ChevronUp, UploadCloud, X } from 'lucide-react'
+import { Popover } from 'radix-ui'
+import { Check, ChevronDown, ChevronUp, CircleAlert, UploadCloud, X } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
+import { cx, fastTransition } from '#/components/ui/cx'
 import { FileTile } from '#/components/ui/DataList'
 import { Meter } from '#/components/ui/Meter'
 import { acceptedExtensions, extensionOf, supportedTypesText } from '#/shared/fileTypes'
@@ -42,6 +44,10 @@ type Uploads = {
   readonly finished: number
   /** Files whose GLB derivative is being made in this tab right now (the card shows "Preparing"). */
   readonly preparing: ReadonlySet<string>
+  readonly cancel: (id: number) => void
+  readonly retry: (id: number) => void
+  /** Empties the queue once nothing is running (closes the card). */
+  readonly dismiss: () => void
 }
 
 /** What a finished upload's Worker job hands to the store step. */
@@ -156,14 +162,33 @@ const UploadRow = ({ item, preparing, onCancel, onRetry }: { item: UploadItem; p
   )
 }
 
-const UploadCard = ({ items, preparing, onCancel, onRetry, onDismiss }: { items: readonly UploadItem[]; preparing: ReadonlySet<string>; onCancel: (id: number) => void; onRetry: (id: number) => void; onDismiss: () => void }) => {
+const useUploadTitle = (items: readonly UploadItem[]) => {
   const { t } = useI18n()
-  const [open, setOpen] = useState(true)
   const done = items.filter((item) => item.status === 'done').length
   const busy = items.some((item) => item.status === 'uploading' || item.status === 'queued')
   const title = busy ? t('upload.progressTitle', { done, total: items.length }) : done === items.length ? t('upload.allDone', { count: done }) : t('upload.finishedTitle', { done, total: items.length })
+  return { done, busy, title }
+}
+
+const UploadList = ({ className }: { className: string }) => {
+  const { items, preparing, cancel, retry } = useUploads()
   return (
-    <section aria-label={t('upload.region')} className="fixed inset-x-3 bottom-20 z-30 max-h-[60dvh] overflow-hidden rounded-lg border border-line bg-bg shadow-pop app:inset-x-auto app:bottom-6 app:right-6 app:w-96">
+    <ul className={cx('overflow-y-auto border-t border-line', className)}>
+      {items.map((item) => (
+        <UploadRow key={item.id} item={item} preparing={item.fileId !== undefined && preparing.has(item.fileId)} onCancel={() => cancel(item.id)} onRetry={() => retry(item.id)} />
+      ))}
+    </ul>
+  )
+}
+
+/** The queue as a floating card, from the `app` breakpoint up; below it `UploadPill` takes its place. */
+const UploadCard = () => {
+  const { t } = useI18n()
+  const { items, dismiss } = useUploads()
+  const [open, setOpen] = useState(true)
+  const { busy, title } = useUploadTitle(items)
+  return (
+    <section aria-label={t('upload.region')} className="fixed bottom-6 right-6 z-30 hidden max-h-[60dvh] w-96 overflow-hidden rounded-lg border border-line bg-bg shadow-pop app:block">
       <header className="flex items-center gap-1 px-4 py-1.5">
         <h2 aria-live="polite" className="min-w-0 flex-1 truncate text-md font-medium">
           {title}
@@ -172,19 +197,76 @@ const UploadCard = ({ items, preparing, onCancel, onRetry, onDismiss }: { items:
           {open ? <ChevronDown aria-hidden className="size-4.5" /> : <ChevronUp aria-hidden className="size-4.5" />}
         </IconButton>
         {busy ? null : (
-          <IconButton label={t('common.close')} size="sm" onClick={onDismiss}>
+          <IconButton label={t('common.close')} size="sm" onClick={dismiss}>
             <X aria-hidden className="size-4.5" />
           </IconButton>
         )}
       </header>
-      {open ? (
-        <ul className="max-h-[calc(60dvh-48px)] overflow-y-auto border-t border-line">
-          {items.map((item) => (
-            <UploadRow key={item.id} item={item} preparing={item.fileId !== undefined && preparing.has(item.fileId)} onCancel={() => onCancel(item.id)} onRetry={() => onRetry(item.id)} />
-          ))}
-        </ul>
-      ) : null}
+      {open ? <UploadList className="max-h-[calc(60dvh-48px)]" /> : null}
     </section>
+  )
+}
+
+/**
+ * The queue below the `app` breakpoint: a pill (count and progress) in the sticky top bar, so it never covers the page
+ * (the floating card hid the viewer's controls). A tap opens the list; tapping outside or opening a file closes it.
+ */
+export const UploadPill = () => {
+  const { t } = useI18n()
+  const { items, dismiss } = useUploads()
+  const [open, setOpen] = useState(false)
+  const { done, busy, title } = useUploadTitle(items)
+  const empty = items.length === 0
+  useEffect(() => {
+    if (empty) setOpen(false)
+  }, [empty])
+  if (empty) return null
+  const failed = items.some((item) => item.status === 'error')
+  const progress = items.reduce((sum, item) => sum + item.progress, 0)
+  const Icon = failed ? CircleAlert : busy ? UploadCloud : Check
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        data-upload-pill=""
+        aria-label={`${title}. ${open ? t('upload.collapse') : t('upload.expand')}`}
+        className={cx('grid min-h-11 min-w-16 shrink-0 app:hidden content-center gap-1 rounded-md border border-line-strong bg-bg px-2.5 text-sm font-medium hover:bg-hover', fastTransition)}
+      >
+        <span className="flex items-center justify-center gap-1.5">
+          <Icon aria-hidden className={cx('size-4 shrink-0', failed ? 'text-danger' : busy ? 'text-accent' : 'text-success')} />
+          {done}/{items.length}
+        </span>
+        {busy ? <Meter value={progress} max={items.length} label={title} valueText={`${Math.round((progress / items.length) * 100)}%`} tone="brand" /> : null}
+      </Popover.Trigger>
+      <span aria-live="polite" className="sr-only app:hidden">
+        {title}
+      </span>
+      <Popover.Portal>
+        <Popover.Content
+          data-motion="pop"
+          aria-label={t('upload.region')}
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          onClick={(event) => {
+            if (event.target instanceof Element && event.target.closest('a')) setOpen(false)
+          }}
+          className="z-30 w-[calc(100vw-24px)] max-w-96 overflow-hidden rounded-lg border border-line bg-bg shadow-pop app:hidden"
+        >
+          <header className="flex items-center gap-1 py-1.5 pl-4 pr-2">
+            <h2 className="min-w-0 flex-1 truncate text-md font-medium">{title}</h2>
+            <IconButton label={t('upload.collapse')} size="sm" tooltip={false} onClick={() => setOpen(false)}>
+              <ChevronUp aria-hidden className="size-4.5" />
+            </IconButton>
+            {busy ? null : (
+              <IconButton label={t('common.close')} size="sm" tooltip={false} onClick={dismiss}>
+                <X aria-hidden className="size-4.5" />
+              </IconButton>
+            )}
+          </header>
+          <UploadList className="max-h-[calc(60dvh-48px)]" />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 
@@ -385,7 +467,9 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     return () => window.removeEventListener('beforeunload', warn)
   }, [busy])
 
-  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, setProject, finished, preparing }), [items, allowed, pick, start, setProject, finished, preparing])
+  const dismiss = useCallback(() => setItems([]), [])
+
+  const value = useMemo<Uploads>(() => ({ items, allowed, pick, start, setProject, finished, preparing, cancel, retry, dismiss }), [items, allowed, pick, start, setProject, finished, preparing, cancel, retry, dismiss])
 
   return (
     <Ctx value={value}>
@@ -404,7 +488,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
           start(files, pickTarget.current)
         }}
       />
-      {items.length > 0 ? <UploadCard items={items} preparing={preparing} onCancel={cancel} onRetry={retry} onDismiss={() => setItems([])} /> : null}
+      {items.length > 0 ? <UploadCard /> : null}
       {dragging ? (
         <div aria-hidden className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-scrim p-6">
           <div className="grid justify-items-center gap-2 rounded-xl bg-bg px-8 py-7 text-center shadow-pop">

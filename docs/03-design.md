@@ -118,7 +118,7 @@ Durum yazımı ilkesi: boş ekran bir eylem çağrısıdır; hata ne olduğunu v
 
 ### 2.6 Yükleme
 - **Ana iş:** Bir veya birçok dosyayı yüklemek ve bittiğini görmek.
-- **İçerik:** Sürükle-bırak veya dosya seçici; sağ altta kalıcı ilerleme kartı (dosya başına ilerleme, iptal, tamamlananı aç). Sayfadan ayrılınca uyarı.
+- **İçerik:** Sürükle-bırak veya dosya seçici; sağ altta kalıcı ilerleme kartı (dosya başına ilerleme, iptal, tamamlananı aç); 900px altında kart yerine üst çubukta hap (sayı + ilerleme), dokununca liste açılır, içeriğin üstünü kapatmaz. Sayfadan ayrılınca uyarı.
 - **Boş:** Seçilmemiş hali yükleme alanının kendisi.
 - **Yükleniyor:** Dosya başına çubuk + kalan süre; küçük resim üretimi "Küçük resim hazırlanıyor" olarak ayrı satır.
 - **Hata:** Boyut sınırı (Entitlements): "rotor.step 240 MB; bu planda dosya başına sınır 100 MB." Depolama dolu: "Depolama dolu (5 / 5 GB). Yer aç ya da planı yükselt." Format desteklenmiyor (D15: reddedilir, yükleme başlamaz): "rotor.dwg yüklenmedi: bu dosya türü desteklenmiyor. Desteklenenler: STEP, IGES, STL, OBJ, PLY, 3MF." Ağ kesildi: "Yükleme durdu. Bağlantı gelince devam edecek." + yeniden dene.
