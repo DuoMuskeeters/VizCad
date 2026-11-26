@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 · Montaj · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<link rel="stylesheet" href="_studio.css">
+<style>
+  /* Klasör görünümü (Parçalar) */
+  .folder { min-height: 0; overflow: auto; padding: 20px 28px 48px; background: var(--bg); }
+  .crumbs2 { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; font-size: 14px; margin: -6px 0 10px -8px; }
+  .crumbs2 a, .crumbs2 b { display: inline-flex; align-items: center; height: 36px; padding: 0 8px; border-radius: 6px; white-space: nowrap; }
+  .crumbs2 a { color: var(--text-2); }
+  .crumbs2 a:hover { background: var(--hover); color: var(--text); }
+  .crumbs2 b { font-weight: 600; }
+  .crumbs2 svg { width: 14px; height: 14px; color: var(--text-3); }
+  .band { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--sidebar); margin-bottom: 16px; }
+  .band .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+  .band .t { min-width: 0; flex: 1; }
+  .band h1 { font-size: 18px; font-weight: 650; line-height: 1.3; }
+  .band p { font-size: 14px; color: var(--text-2); }
+  .band .prog { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .band .prog .bar { width: 120px; }
+  .ftools { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .ftools .tsearch { margin: 0; width: 280px; }
+  .ftools .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .vt { display: inline-flex; padding: 2px; border-radius: var(--radius); background: var(--hover); }
+  .vt button { display: grid; place-items: center; width: 34px; height: 32px; border-radius: 6px; color: var(--text-3); }
+  .vt button[aria-pressed="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 16px; }
+  .card { position: relative; display: grid; gap: 8px; padding: 8px; margin: -8px; border-radius: 14px; }
+  .card:hover { background: var(--hover); }
+  .card .th { position: relative; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--canvas); overflow: hidden; display: grid; place-items: center; }
+  .card .th svg { width: 100%; height: 100%; }
+  .card .th .chip { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 12px; background: rgb(11 16 23 / .78); color: #e6e9ee; font-size: 12px; font-weight: 500; }
+  .card .th .chip svg { width: 13px; height: 13px; }
+  .card .th .drawing { display: grid; justify-items: center; gap: 6px; font-size: 12px; color: #b3bcc8; }
+  .card .th .drawing svg { width: 20px; height: 20px; color: #5fd3ea; animation: spin 1s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .card .th .drawing svg { animation: none; } }
+  .card .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 4px; align-items: start; }
+  .card .meta b { font-weight: 500; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .card .meta b svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
+  .card .meta span { font-size: 13px; color: var(--text-3); }
+  .card .meta .icon-btn { grid-row: span 2; margin: -4px -4px 0 0; }
+  .card .menu { right: 0; top: 40px; }
+  .rows { border-top: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 56px minmax(0, 1fr) 150px 160px 36px; gap: 0 16px; align-items: center; min-height: 64px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .row .th { width: 56px; height: 42px; border-radius: 8px; background: var(--canvas); overflow: hidden; display: grid; }
+  .row .th svg { width: 100%; height: 100%; }
+  .row b { font-weight: 500; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .row b span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row b svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
+  .row .k, .row .m { color: var(--text-2); }
+  .row .m { font-variant-numeric: tabular-nums; }
+  .row small { display: none; }
+  .row .icon-btn { justify-self: end; }
+  .skc .th { background: var(--skel); }
+  .alert2 { max-width: 560px; margin: 32px auto; display: grid; gap: 12px; padding: 20px 22px; border: 1px solid var(--danger-line); background: var(--danger-soft); border-radius: var(--radius-lg); }
+  .alert2 .hd { display: flex; gap: 12px; align-items: flex-start; }
+  .alert2 .hd svg { color: var(--danger); margin-top: 2px; }
+  .alert2 h2 { font-size: 16px; font-weight: 650; }
+  .alert2 p { color: var(--text-2); font-size: 14px; margin-top: 2px; }
+  .alert2 .row3 { display: flex; flex-wrap: wrap; gap: 8px; padding-left: 30px; }
+  .alert2 .alt { display: flex; align-items: center; gap: 8px; padding: 12px 0 0 30px; border-top: 1px solid var(--danger-line); font-size: 14px; color: var(--text-2); }
+  .alert2 .alt a { margin-left: auto; color: var(--accent); font-weight: 500; }
+  .urlnote { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .urlnote code { font: 12px/1 ui-monospace, Menlo, monospace; color: var(--text-2); }
+  /* Düzenleme panosu başlığı (sahne hazırlama) */
+  .edhead { display: flex; align-items: center; gap: 8px; padding: 14px 16px 12px 20px; border-bottom: 1px solid var(--line); flex: none; }
+  .edhead h2 { font-size: 15px; font-weight: 650; }
+  .edhead .saved { margin-left: auto; }
+  .vtop { position: relative; }
+  .tooltip { position: absolute; z-index: 9; top: 52px; right: 118px; width: 240px; padding: 8px 10px; border-radius: 8px; background: #0b1017; color: #e6e9ee; font-size: 13px; line-height: 1.4; }
+  .thumbcard { display: grid; gap: 14px; width: min(440px, 100%); padding: 20px; border-radius: 14px; }
+  .thumbcard .big { aspect-ratio: 16 / 10; border-radius: 10px; background: #11161d; overflow: hidden; display: grid; position: relative; }
+  .thumbcard .big svg { width: 100%; height: 100%; }
+  .thumbcard .big span { position: absolute; left: 8px; bottom: 8px; font-size: 12px; color: #b3bcc8; background: rgb(11 16 23 / .8); padding: 2px 8px; border-radius: 6px; }
+  .thumbcard { color: var(--text); }
+  .modebar .t small { display: block; color: var(--text-2); font-size: 12px; }
+  .band .prog { flex-wrap: wrap; }
+  .thumbcard h2 { font-size: 17px; font-weight: 650; }
+  .thumbcard .p { font-size: 14px; color: var(--text-2); line-height: 1.55; margin-top: 4px; }
+  .thumbcard .row { display: flex; gap: 8px; }
+  @media (min-width: 900px) { .thumbcard.dk-d { background: var(--bg); border: 1px solid var(--line); box-shadow: 0 16px 40px rgb(0 0 0 / .35); } }
+  @media (max-width: 1100px) { .ftools .tsearch { width: 220px; } }
+  @media (max-width: 899px) {
+    .folder { height: 100%; padding: 12px 16px 32px; }
+    .crumbs2 { margin: -4px 0 8px -8px; flex-wrap: nowrap; overflow: hidden; }
+    .crumbs2 a, .crumbs2 b { height: 44px; }
+    .crumbs2 b { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 44px; }
+    .band { padding: 12px; }
+    .band .btn { width: 100%; height: 44px; }
+    .ftools .tsearch { width: auto; flex: 1; }
+    .vt button { width: 44px; height: 44px; }
+    .card .menu button { min-height: 44px; }
+    .dialog header .icon-btn { flex: none; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+    .card .meta .icon-btn { width: 44px; height: 44px; margin: -10px -12px 0 0; }
+    .row { grid-template-columns: 52px minmax(0, 1fr) 44px; min-height: 68px; gap: 0 12px; }
+    .row .k, .row .m { display: none; }
+    .row small { display: block; font-size: 13px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .th { width: 52px; height: 40px; }
+    body[data-view="folder"] .tools { display: none; }
+    body[data-view="folder"] .canvas { display: none; }
+    .vswitch a .lbl { display: none; }
+    .vswitch a { padding: 0 10px; width: 44px; justify-content: center; }
+    .card .menu { right: -4px; min-width: 230px; }
+    .tooltip { display: none; }
+    .thumbcard { background: var(--bg); border: 1px solid var(--line); }
+    .alert2 .row3, .alert2 .alt { padding-left: 0; }
+    .alert2 .alt a { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; }
+    .edhead { padding: 4px 8px 8px 16px; }
+  }
+  @media (min-width: 900px) { body[data-view="folder"] .canvas, body[data-view="folder"] .tree { display: none; } }
+  body[data-view="studio"] .folder { display: none; }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>13 · Montaj</strong>
+  <a data-pano href="?">Pano</a>
+  <span class="vr" aria-hidden="true"></span>
+  <a data-s="klasor">Parçalar</a>
+  <a data-s="klasor-alt">Alt montaj (?node=)</a>
+  <a data-s="studyo">Ağaç ve seçim</a>
+  <a data-s="izole">İzole</a>
+  <a data-s="sahne">Sahne hazırlama</a>
+  <a data-s="cakisma">Sahne çakışması</a>
+  <a data-s="eslesme">Yeni sürüm eşleme</a>
+  <a data-s="stl">STL indir</a>
+  <a data-s="salt-okunur">Salt okunur</a>
+  <a data-s="bos">Boş arama</a>
+  <a data-s="yukleniyor">Yükleniyor</a>
+  <a data-s="hata">Hata</a>
+  <a data-s="hazir-degil">3B hazır değil</a>
+  <span class="sp"></span>
+  <span class="urlnote" id="url"></span>
+  <span class="vr" aria-hidden="true"></span>
+  <a data-tema="acik">Açık</a><a data-tema="koyu">Koyu</a>
+  <span class="vr" aria-hidden="true"></span>
+  <a href="12-stüdyo.html">12 · Stüdyo</a>
+</nav>
+
+<div class="studio">
+  <header class="vtop">
+    <a class="back" href="05-proje.html"><i data-lucide="chevron-left"></i><span class="lbl">Pompa revizyonu</span><span class="sr">Pompa revizyonu projesine dön</span></a>
+    <span class="vsep" aria-hidden="true"></span>
+    <div class="fname">
+      <b>Pompa_grubu_A3.step</b>
+      <span class="d-only">STEP · 38,2 MB · Montaj, 455 parça</span>
+      <span class="m-only">Sürüm 4 · 455 parça</span>
+    </div>
+    <button class="ver d-only" type="button">Sürüm 4 <small>güncel</small><i data-lucide="chevron-down"></i></button>
+    <nav class="vswitch" aria-label="Görünüm">
+      <a href="?durum=studyo" data-v="studio"><i data-lucide="box"></i><span class="lbl">3B</span><span class="sr">3B görünüm</span></a>
+      <a href="?durum=klasor" data-v="folder"><i data-lucide="layout-grid"></i><span class="lbl">Parçalar</span><span class="sr">Parçalar</span></a>
+    </nav>
+    <div class="end">
+      <button class="btn d-only" type="button" id="dl"><i data-lucide="download"></i>İndir</button>
+      <a class="btn btn--primary d-only" href="02-goruntuleyici.html?durum=paylas"><i data-lucide="share-2"></i>Paylaş</a>
+      <a class="btn btn--primary btn--icon m-only" href="02-goruntuleyici.html?durum=paylas"><i data-lucide="share-2"></i><span class="sr">Paylaş</span></a>
+      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button>
+      <button class="btn btn--ghost btn--icon d-only tg" type="button" id="tgTree"><i data-lucide="panel-left"></i><span class="sr">Parça ağacını göster</span></button>
+      <button class="btn btn--ghost btn--icon d-only tg" type="button" aria-pressed="true"><i data-lucide="panel-right"></i><span class="sr">Sağ paneli gizle</span></button>
+    </div>
+    <p class="tooltip" data-durum="salt-okunur" role="tooltip">İndirme izni yok. Dosyayı indirmek için Ayşe Yılmaz'dan izin iste.</p>
+  </header>
+
+  <!-- Bantlar (2. satır) -->
+  <div class="modebar" data-durum="sahne">
+    <i data-lucide="paintbrush"></i>
+    <div class="t"><b>Görünümü düzenliyorsun.</b> <span>Renk, ad ve görünürlük bu dosyayı açan herkese böyle görünür; dosyanın kendisi değişmez.</span></div>
+    <div class="end"><span class="saved"><i data-lucide="cloud-check"></i>Kaydedildi</span><button class="btn btn--primary" type="button">Bitti</button></div>
+  </div>
+  <div class="modebar warn" data-durum="cakisma" role="alert">
+    <i data-lucide="triangle-alert"></i>
+    <div class="t"><b>Zeynep Arslan bu görünümü değiştirdi.</b> <span>Son değişikliğin (Pompa gövdesi rengi) kaydedilmedi; güncel hali yükleyip yeniden uygula.</span></div>
+    <div class="end"><button class="btn btn--primary" type="button"><i data-lucide="refresh-cw"></i>Yeniden yükle</button></div>
+  </div>
+  <div class="modebar" data-durum="eslesme">
+    <i data-lucide="git-compare-arrows"></i>
+    <div class="t"><b>Sürüm 3'teki renk ve adlar uygulansın mı?</b> <small class="m-only">438 / 455 parça eşleşti</small><span>438 parça eşleşti, 17 parça eşleşmedi. Uygulamazsan Sürüm 4 dosyadaki renklerle açılır.</span></div>
+    <div class="end"><button class="btn btn--ghost d-only" type="button">Eşleşmeyenler</button><button class="btn d-only" type="button">Yoksay</button><button class="btn btn--primary" type="button">Uygula</button></div>
+  </div>
+
+  <div class="sbody">
+    <!-- Ağaç paneli: masaüstünde sol sütun, mobilde alt sayfa -->
+    <aside class="tree sheet" aria-label="Parça ağacı">
+      <span class="handle" aria-hidden="true"></span>
+      <div class="th"><h2>Parçalar</h2><span class="n">455</span><button class="icon-btn" type="button"><i data-lucide="x" class="m-only"></i><i data-lucide="panel-left-close" class="d-only"></i><span class="sr">Ağacı kapat</span></button></div>
+      <label class="tsearch"><i data-lucide="search"></i><input id="tq" placeholder="Parça ara" aria-label="Parça ara"></label>
+      <div class="tlist" role="tree" id="tree"></div>
+      <div class="tfoot" id="tfoot"></div>
+    </aside>
+
+    <!-- Klasör görünümü -->
+    <main class="folder" id="folder" aria-label="Parçalar">
+      <nav class="crumbs2" id="crumbs" aria-label="Montaj yolu"></nav>
+      <section class="band" id="band"></section>
+      <div class="ftools" data-durum-not="hata">
+        <label class="tsearch"><i data-lucide="search"></i><input placeholder="Bu düzeyde ara" aria-label="Bu düzeyde ara"></label>
+        <div class="end"><div class="vt" role="group" aria-label="Görünüm"><button type="button" id="vg"><i data-lucide="layout-grid"></i><span class="sr">Izgara</span></button><button type="button" id="vl"><i data-lucide="list"></i><span class="sr">Liste</span></button></div></div>
+      </div>
+      <div id="items"></div>
+      <div class="alert2" data-durum="hata" role="alert">
+        <div class="hd"><i data-lucide="circle-alert"></i><div><h2>Parçalar açılamadı</h2><p>Dosya okunamadı. Bozuk olabilir. CAD programında STEP AP214 ya da AP242 olarak yeniden dışa aktarıp yeni sürüm yükle.</p></div></div>
+        <div class="row3"><button class="btn btn--primary" type="button"><i data-lucide="upload"></i>Yeni sürüm yükle</button><button class="btn" type="button"><i data-lucide="refresh-cw"></i>Yeniden dene</button></div>
+        <div class="alt"><i data-lucide="history"></i>Sürüm 3 sorunsuz açılıyor.<a href="#">Sürüm 3'ü aç</a></div>
+      </div>
+    </main>
+
+    <!-- 3B tuval -->
+    <section class="canvas" id="cv" aria-label="3B model: Pompa_grubu_A3.step">
+      <button class="cube" type="button" aria-label="Görünüm küpü" data-durum-not="hazir-degil">
+        <svg viewBox="0 0 76 76" aria-hidden="true">
+          <path d="M38 12 64 26 38 40 12 26Z" fill="#3d4654" stroke="#5c6776"/>
+          <path d="M12 26 38 40V66L12 52Z" fill="#323a46" stroke="#5c6776"/>
+          <path d="M38 40 64 26V52L38 66Z" fill="#2a313c" stroke="#5c6776"/>
+          <text x="38" y="29.5" text-anchor="middle">Üst</text><text x="25" y="50" text-anchor="middle">Ön</text><text x="51" y="50" text-anchor="middle">Sağ</text>
+        </svg>
+      </button>
+      <p class="stats" data-durum-not="hazir-degil">1.248.300 üçgen · 455 parça · mm</p>
+
+      <!-- Seçim çubuğu -->
+      <div class="selbar dk-d" data-durum="studyo salt-okunur sahne cakisma">
+        <span class="nm"><i data-lucide="boxes" class="sel-ico"></i><span id="selname">Motor 7,5 kW</span> <small id="selcnt">86 parça</small></span>
+        <button class="tool" type="button"><i data-lucide="focus"></i><span class="lbl">Yalnız bunu aç</span><span class="sr">Yalnız bunu aç</span></button>
+        <button class="tool" type="button"><i data-lucide="eye-off"></i><span class="lbl">Gizle</span><span class="sr">Gizle</span></button>
+        <button class="tool" type="button" id="selstl"><i data-lucide="file-down"></i><span class="lbl">STL</span><span class="sr">STL olarak indir</span></button>
+        <button class="tool" type="button"><i data-lucide="x"></i><span class="sr">Seçimi kaldır</span></button>
+      </div>
+
+      <!-- Yol çubuğu (izole) -->
+      <nav class="pathbar dk-d" data-durum="izole" aria-label="İzole yol">
+        <a href="?durum=studyo"><span class="d-only">Pompa grubu</span><i data-lucide="chevron-left" class="m-only"></i><span class="m-only">Montaj</span></a>
+        <i data-lucide="chevron-right" class="chev"></i>
+        <b>Pompa ünitesi</b>
+        <a class="btn exit d-only" href="?durum=studyo"><i data-lucide="maximize-2"></i>Tüm montaj</a>
+      </nav>
+
+      <div class="tools dk-d" role="toolbar" aria-label="Stüdyo araçları" data-durum-not="hazir-degil">
+        <button class="tool m-only" type="button" data-t="tree"><i data-lucide="list-tree"></i><span class="ml">Parçalar</span></button>
+        <button class="tool d-only" type="button" aria-haspopup="menu"><i data-lucide="box"></i><span class="lbl">Görünümler</span><i class="chev" data-lucide="chevron-down"></i><span class="sr">Görünümler</span></button>
+        <button class="tool d-only" type="button"><i data-lucide="scan"></i><span class="lbl">Sığdır</span><span class="sr">Sığdır</span></button>
+        <button class="tool d-only" type="button"><i data-lucide="grid-3x3"></i><span class="lbl">Tel kafes</span><span class="sr">Tel kafes</span></button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="tool" type="button"><i data-lucide="scissors-line-dashed"></i><span class="lbl">Kesit</span><span class="ml">Kesit</span></button>
+        <button class="tool" type="button"><i data-lucide="ruler"></i><span class="lbl">Ölçü</span><span class="ml">Ölçü</span></button>
+        <button class="tool" type="button"><i data-lucide="map-pin"></i><span class="lbl">Yorum pini</span><span class="ml">Yorum</span></button>
+        <button class="tool" type="button"><i data-lucide="camera"></i><span class="lbl">Ekran görüntüsü</span><span class="ml">Görüntü</span></button>
+        <button class="tool m-only" type="button"><i data-lucide="ellipsis"></i><span class="ml">Daha</span></button>
+      </div>
+
+      <!-- 3B hazır değil -->
+      <div class="status" data-durum="hazir-degil" role="status">
+        <div class="thumbcard dk-d">
+          <div class="big" id="bigthumb"><span>Küçük resim</span></div>
+          <div><h2 class="h">Bu dosya henüz 3B için hazırlanmadı</h2><p class="p">Dosyanın sahibi masaüstünde açtığında hazır olur; parça listesi de o zaman görünür.</p></div>
+          <div class="row"><button class="btn" type="button" aria-disabled="true" disabled><i data-lucide="download"></i>İndir</button></div>
+          <p class="why"><i data-lucide="lock"></i>İndirme izni yok. Ayşe Yılmaz'dan iste.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sağ panel -->
+    <aside class="panel sheet" aria-label="Dosya paneli">
+      <span class="handle" aria-hidden="true"></span>
+      <nav class="tabbar" aria-label="Panel sekmeleri" data-durum-not="sahne cakisma">
+        <a href="#" data-tab="ayrintilar" aria-current="page">Ayrıntılar</a>
+        <a href="#">Yorumlar <span class="n">4</span></a>
+        <a href="#">Aktivite</a>
+        <a href="#">Sürümler <span class="n">4</span></a>
+      </nav>
+      <div class="edhead" data-durum="sahne cakisma"><h2>Görünümü düzenle</h2><span class="saved" data-durum="sahne"><i data-lucide="cloud-check"></i>Kaydedildi · az önce</span></div>
+
+      <!-- Dosya ayrıntıları (klasör durumları) -->
+      <div class="pbody" data-durum="klasor klasor-alt yukleniyor hata eslesme">
+        <dl class="kv">
+          <dt>Format</dt><dd>STEP (AP242)</dd>
+          <dt>Boyut</dt><dd>38,2 MB</dd>
+          <dt>İçerik</dt><dd>Montaj · 455 parça</dd>
+          <dt>Düzeyler</dt><dd>4 alt montaj, en derin 4 düzey</dd>
+          <dt>Sürüm</dt><dd>4 · güncel</dd>
+          <dt>Yükleyen</dt><dd><span class="avatar a1">AY</span>Ayşe Yılmaz</dd>
+        </dl>
+        <section>
+          <div class="ph">Parçalar hakkında</div>
+          <div class="why"><i data-lucide="info"></i>Parçalar dosyanın içindeki bileşenlerdir; ayrı dosya değildir, depolama kotası tutmaz, ayrıca paylaşılamaz. Paylaşım her zaman bu dosyanın tamamıdır.</div>
+        </section>
+      </div>
+
+      <!-- Seçili düğüm (stüdyo) -->
+      <div class="pbody" data-durum="studyo izole salt-okunur bos stl">
+        <section class="selcard">
+          <div class="hd"><span class="ico"><i data-lucide="boxes" class="sel-ico"></i></span><div><b class="sel-name">Motor 7,5 kW</b><span class="sel-kind">Alt montaj · 86 parça</span></div></div>
+          <dl class="kv">
+            <dt>Yol</dt><dd class="sel-path">Pompa grubu › Motor 7,5 kW</dd>
+            <dt>Ölçüler</dt><dd class="sel-dim">420 × 248 × 372 mm</dd>
+            <dt>Renk</dt><dd class="sel-col">Dosyadan</dd>
+          </dl>
+          <div class="acts" data-durum="studyo bos stl">
+            <button class="btn" type="button"><i data-lucide="focus"></i>Yalnız bunu aç</button>
+            <button class="btn" type="button"><i data-lucide="eye-off"></i>Gizle</button>
+            <button class="btn" type="button"><i data-lucide="file-down"></i>STL olarak indir</button>
+          </div>
+          <div class="acts" data-durum="izole">
+            <a class="btn" href="?durum=studyo"><i data-lucide="maximize-2"></i>Tüm montaja dön</a>
+            <button class="btn" type="button"><i data-lucide="file-down"></i>STL olarak indir</button>
+          </div>
+          <p class="why" data-durum="izole"><i data-lucide="undo-2"></i>Tarayıcının geri tuşu da bir önceki düzeye döner.</p>
+          <div class="acts" data-durum="salt-okunur">
+            <button class="btn" type="button"><i data-lucide="focus"></i>Yalnız bunu aç</button>
+            <button class="btn" type="button"><i data-lucide="eye-off"></i>Gizle</button>
+            <button class="btn" type="button" aria-disabled="true" disabled><i data-lucide="file-down"></i>STL olarak indir</button>
+          </div>
+          <p class="why" data-durum="salt-okunur"><i data-lucide="lock"></i>STL için indirme izni gerekir. Ayşe Yılmaz'dan iste.</p>
+        </section>
+        <section data-durum="studyo bos stl izole">
+          <div class="ph">Görünüm <button class="lnk" type="button">Görünümü düzenle</button></div>
+          <div class="why"><i data-lucide="info"></i>Gizleme ve izole yalnız senin ekranını etkiler. Kalıcı renk, ad ve görünürlük için görünümü düzenle.</div>
+        </section>
+        <section data-durum="salt-okunur">
+          <div class="ph">Görünüm <button class="btn" type="button" aria-disabled="true" disabled>Görünümü düzenle</button></div>
+          <div class="why"><i data-lucide="lock"></i>Görünümü yalnız düzenleme izni olanlar değiştirir. Gizleme ve izole yalnız senin ekranını etkiler.</div>
+        </section>
+      </div>
+
+      <!-- Görünüm düzenleme (sahne hazırlama) -->
+      <div class="pbody" data-durum="sahne cakisma">
+        <section class="selcard">
+          <div class="hd"><span class="ico"><i data-lucide="box"></i></span><div><b>Pompa gövdesi</b><span>Dosyadaki adı: Salyangoz gövde</span></div></div>
+          <label class="fld"><span>Ad</span><input class="input" value="Pompa gövdesi"></label>
+          <div>
+            <div class="ph">Renk <button class="lnk" type="button">Dosyadaki renge dön</button></div>
+            <div class="swatches" role="group" aria-label="Renk">
+              <button class="c1" type="button" aria-pressed="true"><span class="sr">Kırmızı</span></button><button class="c2" type="button"><span class="sr">Turuncu</span></button><button class="c3" type="button"><span class="sr">Sarı</span></button><button class="c4" type="button"><span class="sr">Yeşil</span></button><button class="c5" type="button"><span class="sr">Mavi</span></button><button class="c6" type="button"><span class="sr">Mor</span></button>
+              <button class="c7" type="button"><span class="sr">Antrasit</span></button><button class="c8" type="button"><span class="sr">Koyu gri</span></button><button class="c9" type="button"><span class="sr">Gri</span></button><button class="c10" type="button"><span class="sr">Açık gri</span></button><button class="c11" type="button"><span class="sr">Beyaz</span></button><button class="c12" type="button"><span class="sr">Bronz</span></button>
+            </div>
+            <div class="hexrow"><span class="cur c1"></span><input class="input" value="#B23A2E" aria-label="Renk kodu"><button class="btn" type="button"><i data-lucide="pipette"></i><span class="sr">Modelden renk al</span></button></div>
+          </div>
+          <div><div class="ph">Yüzey</div><div class="seg" role="group" aria-label="Yüzey"><button type="button" aria-pressed="false">Mat</button><button type="button" aria-pressed="true">Saten</button><button type="button" aria-pressed="false">Metal</button></div></div>
+          <div class="trow"><span>Görünür<small>Kapalıysa herkes için gizli açılır</small></span><button class="sw" type="button" role="switch" aria-checked="true"><span></span><span class="sr">Görünür</span></button></div>
+        </section>
+        <section>
+          <div class="ph">Kayıtlı görünümler <small>3 / 20</small></div>
+          <div class="views" id="views"></div>
+          <button class="btn" type="button"><i data-lucide="bookmark-plus"></i>Şu anki görünümü kaydet</button>
+        </section>
+      </div>
+
+      <!-- 3B hazır değil -->
+      <div class="pbody" data-durum="hazir-degil">
+        <dl class="kv">
+          <dt>Format</dt><dd>STEP (AP242)</dd>
+          <dt>Boyut</dt><dd>38,2 MB</dd>
+          <dt>Sürüm</dt><dd>4 · güncel</dd>
+          <dt>Erişimin</dt><dd>Yorum yapabilir (misafir)</dd>
+        </dl>
+      </div>
+    </aside>
+  </div>
+
+  <!-- STL penceresi -->
+  <div class="scrim" data-durum="stl">
+    <section class="dialog" role="dialog" aria-labelledby="stlh">
+      <header><div><h2 id="stlh">Parçayı STL olarak indir</h2><p>Salyangoz gövde · Pompa grubu › Pompa ünitesi</p></div><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Kapat</span></button></header>
+      <div class="body">
+        <dl class="facts"><div><dt>Üçgen</dt><dd>48.210</dd></div><div><dt>Tahmini boyut</dt><dd>2,4 MB</dd></div><div><dt>Birim</dt><dd>mm</dd></div></dl>
+        <div class="fld"><span>Konum</span>
+          <div class="choice" role="radiogroup" aria-label="Konum">
+            <div class="opt" role="radio" aria-checked="true"><span class="dot"></span><b>Montajdaki yerinde</b><span>Koordinatlar montajla aynı kalır; başka parçalarla hizalı açılır.</span></div>
+            <div class="opt" role="radio" aria-checked="false"><span class="dot"></span><b>Kendi merkezinde</b><span>Parça orijine taşınır; 3B yazıcı ve dilimleyici için uygun.</span></div>
+          </div>
+        </div>
+        <p class="notice"><i data-lucide="info"></i><span>STL yalnız yüzey üçgenlerini içerir; renk, ad ve montaj ağacı taşınmaz. Ölçü hassasiyeti üçgenleştirmeyle sınırlıdır; asıl ölçüler için STEP dosyasını indir.</span></p>
+      </div>
+      <footer><button class="btn" type="button">Vazgeç</button><button class="btn btn--primary" type="button"><i data-lucide="download"></i>STL indir</button></footer>
+    </section>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="_model.js"></script>
+<script src="_studio.js"></script>
+<script>
+(() => {
+  if (WIRE.board) { lucide.createIcons(); return; }
+  const d = WIRE.durum;
+  const T = VZ.TREE;
+  const asmOf = (p) => T[p][1] > 1;
+  const kids = (p) => Object.keys(T).filter((k) => k.startsWith(p + '.') && k.split('.').length === p.split('.').length + 1);
+  const DIM = { '0.0': '1000 × 360 × 40 mm', '0.3.1': 'Ø 330 × 120 mm', '0.3.2': 'Ø 256 × 44 mm', '0.3.3': 'Ø 44 × 454 mm', '0.3.5': 'Ø 224 × 100 mm', '0.3.6': 'Ø 196 × 100 mm', '0.1.2': '110 × 96 × 54 mm' };
+  const SCENE = { '0.3.1': '#b23a2e', '0.3.5': '#9aa3ad', '0.1': '#2f5f99' };
+
+  // Durum başına: görünüm (klasör/stüdyo), mobil alt sayfa, ağaç, model
+  const S = {
+    klasor: { view: 'folder', node: '0', layout: 'grid', menu: '0.3', url: '' },
+    'klasor-alt': { view: 'folder', node: '0.3', layout: 'list', url: '?node=0.3' },
+    yukleniyor: { view: 'folder', node: '0', layout: 'grid', loading: true },
+    hata: { view: 'folder', node: '0', error: true },
+    studyo: { view: 'studio', sheet: 'tree', detent: 'half', select: '0.1', expand: ['0', '0.1'], hidden: ['0.4'], url: '' },
+    izole: { view: 'studio', sheet: 'panel', detent: 'peek', only: '0.3', expand: ['0', '0.3'], out: '0.3', sel: '0.3', url: '?node=0.3' },
+    sahne: { view: 'studio', sheet: 'panel', detent: 'half', select: '0.3.1', expand: ['0', '0.3'], colors: SCENE, rename: '0.3.1', edit: true },
+    cakisma: { view: 'studio', sheet: 'panel', detent: 'half', select: '0.3.1', expand: ['0', '0.3'], colors: SCENE, edit: true },
+    eslesme: { view: 'studio', sheet: 'panel', detent: 'peek', expand: ['0'] },
+    stl: { view: 'studio', sheet: 'panel', detent: 'peek', select: '0.3.1', expand: ['0', '0.3'] },
+    'salt-okunur': { view: 'studio', sheet: 'panel', detent: 'half', select: '0.3.1', expand: ['0', '0.3'], colors: SCENE },
+    bos: { view: 'studio', sheet: 'tree', detent: 'half', query: 'conta' },
+    'hazir-degil': { view: 'studio', sheet: 'none', detent: 'none', noTree: true },
+  }[d];
+  document.body.dataset.view = S.view;
+  document.body.dataset.sheet = S.sheet || 'none';
+  document.body.dataset.detent = S.detent || 'none';
+  if (S.view === 'studio' && !S.noTree) document.body.classList.add('has-tree');
+  if (S.view === 'studio' && !S.noTree) document.getElementById('tgTree').setAttribute('aria-pressed', 'true');
+  document.querySelector(`.vswitch [data-v="${S.view}"]`).setAttribute('aria-current', 'page');
+  if (S.sheet === 'tree') document.querySelector('.tool[data-t="tree"]').setAttribute('aria-pressed', 'true');
+  if (d === 'salt-okunur') { const b = document.getElementById('dl'); b.setAttribute('aria-disabled', 'true'); b.disabled = true; document.getElementById('selstl').setAttribute('aria-disabled', 'true'); }
+  document.getElementById('url').innerHTML = `Adres: <code>/app/files/01JD8…${S.url ?? ''}</code>`;
+
+  // Seçili düğüm bilgisi
+  const selP = S.select || S.sel;
+  if (selP) {
+    const [nm, n] = T[selP];
+    const name = S.rename === selP || S.colors && selP === '0.3.1' ? 'Pompa gövdesi' : nm;
+    const isAsm = asmOf(selP);
+    const path = selP.split('.').map((_, i, a) => a.slice(0, i + 1).join('.')).map((p) => T[p][0]).join(' › ');
+    document.getElementById('selname').textContent = name;
+    document.getElementById('selcnt').textContent = isAsm ? `${n} parça` : '';
+    document.querySelectorAll('.sel-name').forEach((e) => { e.textContent = name; });
+    document.querySelectorAll('.sel-kind').forEach((e) => { e.textContent = isAsm ? `Alt montaj · ${n} parça` : 'Parça'; });
+    document.querySelectorAll('.sel-path').forEach((e) => { e.textContent = path; });
+    document.querySelectorAll('.sel-dim').forEach((e) => { e.textContent = DIM[selP] || (selP === '0.3' ? '390 × 330 × 462 mm' : '420 × 248 × 372 mm'); });
+    document.querySelectorAll('.sel-col').forEach((e) => { e.textContent = S.colors?.[selP] ? `${S.colors[selP].toUpperCase()} · sahne kaydından` : 'Dosyadan'; });
+    document.querySelectorAll('.sel-ico').forEach((e) => e.setAttribute('data-lucide', isAsm ? 'boxes' : 'box'));
+  }
+
+  // Ağaç
+  const ex = new Set(S.expand || []);
+  const rows = [];
+  const walk = (p, depth) => {
+    const [nm, n] = T[p];
+    const ch = kids(p);
+    const asm = asmOf(p);
+    const hidden = (S.hidden || []).some((h) => VZ.under(p, h));
+    const out = S.out && !VZ.under(p, S.out) && !VZ.under(S.out, p);
+    const sel = S.select === p;
+    const sw = S.colors && S.colors[p];
+    const name = S.rename === p ? `<input class="ren" value="Pompa gövdesi" aria-label="Parça adı">` : `<span class="nm">${S.colors && p === '0.3.1' ? 'Pompa gövdesi' : nm}</span>`;
+    rows.push(`<div class="node d${Math.min(depth, 3)}${hidden ? ' off' : ''}${out ? ' out' : ''}" role="treeitem" aria-selected="${sel}"${asm ? ` aria-expanded="${ex.has(p)}"` : ''}>
+      <span class="tw${asm ? '' : ' leaf'}"><i data-lucide="${ex.has(p) ? 'chevron-down' : 'chevron-right'}"></i></span>
+      <i class="kind" data-lucide="${asm ? 'boxes' : 'box'}"></i>${name}${asm ? `<span class="cnt">${n}</span>` : ''}${sw ? `<span class="swatch" data-c="${sw}"></span>` : ''}
+      <button class="eye" type="button"><i data-lucide="${hidden ? 'eye-off' : 'eye'}"></i><span class="sr">${hidden ? 'Göster' : 'Gizle'}</span></button></div>`);
+    if (ex.has(p)) ch.forEach((c) => walk(c, depth + 1));
+  };
+  const tree = document.getElementById('tree');
+  const tfoot = document.getElementById('tfoot');
+  if (S.query) {
+    document.getElementById('tq').value = S.query;
+    tree.innerHTML = `<div class="empty-s"><span class="ring"><i data-lucide="search-x"></i></span><b>"conta" ile eşleşen parça yok</b><span>Parça adlarında ve alt montajların içinde aranır. Dosyadaki adlar farklı olabilir: "salmastra", "keçe" dene.</span><button class="btn" type="button">Aramayı temizle</button></div>`;
+    tfoot.innerHTML = '<span>0 sonuç</span>';
+  } else {
+    walk('0', 0);
+    tree.innerHTML = rows.join('');
+    tfoot.innerHTML = S.hidden ? '<span>455 parça · 41 gizli</span><a href="#">Tümünü göster</a>' : S.out ? '<span>Pompa ünitesi açık · 318 parça</span>' : '<span>455 parça</span>';
+  }
+  tree.querySelectorAll('.swatch').forEach((e) => { e.style.background = e.dataset.c; });
+
+  // Klasör görünümü
+  if (S.view === 'folder') {
+    const node = S.node;
+    const crumbs = node.split('.').map((_, i, a) => a.slice(0, i + 1).join('.'));
+    document.getElementById('crumbs').innerHTML = crumbs.map((p, i) => i === crumbs.length - 1
+      ? `<b>${T[p][0]}</b>` : `<a href="?durum=klasor">${T[p][0]}</a><i data-lucide="chevron-right"></i>`).join('');
+    const ch = kids(node);
+    const asm = ch.filter(asmOf).length;
+    const band = document.getElementById('band');
+    band.innerHTML = S.error ? '' : `<span class="ico"><i data-lucide="${node === '0' ? 'package' : 'boxes'}"></i></span>
+      <div class="t"><h1>${node === '0' ? 'Montaj' : 'Alt montaj'} · ${T[node][1]} parça</h1><p>Bu düzeyde ${asm} alt montaj, ${ch.length - asm} parça. Parçalar dosyanın içindedir, ayrı dosya değildir.</p>
+      ${S.loading ? '<div class="prog"><div class="bar"><span class="w40"></span></div>Küçük resimler çiziliyor · 2 / 5</div>' : ''}</div>
+      <a class="btn" href="?durum=${node === '0' ? 'studyo' : 'izole'}"><i data-lucide="box"></i>${node === '0' ? "3B'de aç" : "Bunu 3B'de aç"}</a>`;
+    if (S.error) band.hidden = true;
+    document.getElementById(S.layout === 'list' ? 'vl' : 'vg').setAttribute('aria-pressed', 'true');
+    document.getElementById(S.layout === 'list' ? 'vg' : 'vl').setAttribute('aria-pressed', 'false');
+    const items = document.getElementById('items');
+    const thumb = (p) => VZ.render({ only: p, shadow: false, cls: 'thsvg', pad: 0.14, label: T[p][0] }).svg;
+    const meta = (p) => asmOf(p) ? `Alt montaj · ${T[p][1]} parça` : (DIM[p] || 'Parça');
+    const menu = `<div class="menu" role="menu">
+      <button type="button"><i data-lucide="mouse-pointer-2"></i>Montajda göster</button>
+      <button type="button"><i data-lucide="focus"></i>Yalnız bunu aç</button>
+      <button type="button"><i data-lucide="file-down"></i>STL olarak indir</button>
+      <hr><button type="button"><i data-lucide="link"></i>Bu parçanın linkini kopyala</button></div>`;
+    if (S.error) items.innerHTML = '';
+    else if (S.layout === 'list') {
+      items.innerHTML = `<div class="rows">${ch.map((p) => `<div class="row"><span class="th">${thumb(p)}</span>
+        <div><b><i data-lucide="${asmOf(p) ? 'folder' : 'box'}"></i><span>${T[p][0]}</span></b><small>${meta(p)}</small></div>
+        <span class="k">${asmOf(p) ? 'Alt montaj' : 'Parça'}</span><span class="m">${asmOf(p) ? `${T[p][1]} parça` : (DIM[p] || '')}</span>
+        <button class="icon-btn" type="button"><i data-lucide="ellipsis"></i><span class="sr">${T[p][0]} eylemleri</span></button></div>`).join('')}</div>`;
+    } else {
+      items.innerHTML = `<div class="grid">${ch.map((p, i) => {
+        const drawn = !S.loading || i < 2;
+        return `<article class="card${drawn ? '' : ' skc'}"><div class="th">${drawn ? thumb(p) : '<span class="drawing"><i data-lucide="loader-circle"></i>Çiziliyor</span>'}
+          ${asmOf(p) ? `<span class="chip"><i data-lucide="folder"></i>${T[p][1]} parça</span>` : ''}</div>
+          <div class="meta"><b>${T[p][0]}</b><button class="icon-btn" type="button"><i data-lucide="ellipsis"></i><span class="sr">${T[p][0]} eylemleri</span></button><span>${meta(p)}</span></div>
+          ${S.menu === p ? menu : ''}</article>`;
+      }).join('')}</div>`;
+    }
+  }
+
+  // Kayıtlı görünümler
+  const views = document.getElementById('views');
+  views.innerHTML = [['Genel görünüm', 'Ayşe · 20 Kasım', {}], ['Kesit · mil ekseni', 'Ayşe · 21 Kasım', { section: 640, plane: false }], ['Servis: motor gizli', 'Mehmet · dün', { hidden: ['0.1'] }]]
+    .map(([n, m, o]) => `<div class="vw"><span class="th">${VZ.render({ ...o, colors: SCENE, shadow: false, cls: 'vwsvg', pad: .04 }).svg}</span><div><b>${n}</b><span>${m}</span></div><button class="icon-btn" type="button"><i data-lucide="ellipsis"></i><span class="sr">${n} eylemleri</span></button></div>`).join('');
+
+  // 3B model
+  const cv = document.getElementById('cv');
+  if (S.view === 'studio') {
+    VZ.mount(cv, { select: S.select, hidden: S.hidden, only: S.only, colors: S.colors, label: 'Pompa grubu montajının 3B görünümü' });
+    if (d === 'hazir-degil') {
+      cv.querySelector('.model').remove();
+      document.getElementById('bigthumb').insertAdjacentHTML('afterbegin', VZ.render({ cls: 'bt', shadow: false, pad: .06 }).svg);
+    }
+  }
+  lucide.createIcons();
+})();
+</script>
+</body>
+</html>

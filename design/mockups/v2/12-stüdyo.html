@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 · Stüdyo araçları · VizCad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_ui.css">
+<link rel="stylesheet" href="_studio.css">
+<style>
+  /* Ekran görüntüsü kartı: masaüstünde araç çubuğunun üstünde, düğmesine yakın */
+  @media (min-width: 900px) {
+    .toolcard.at-tools { top: auto; bottom: 78px; left: auto; right: max(14px, calc(50% - 370px)); }
+    .pill.low { top: auto; bottom: 80px; }
+  }
+  .keys { display: grid; gap: 2px; }
+  .keys li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 32px; font-size: 14px; }
+  .keys li svg { width: 16px; height: 16px; color: var(--text-3); }
+  .keys .kbd { color: var(--text-2); border-color: var(--line-strong); }
+  .mlist { display: grid; gap: 6px; }
+  .mrow { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 6px 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+  .mrow.on { border-color: var(--accent); background: var(--accent-soft); }
+  .mrow .pnum { background: var(--line-strong); color: var(--text); }
+  .mrow.on .pnum { background: var(--brand); color: #05262e; }
+  .mrow b { font-weight: 650; font-variant-numeric: tabular-nums; font-size: 15px; }
+  .mrow span { display: block; font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mrow .icon-btn { width: 32px; height: 32px; }
+  .delta { display: flex; gap: 12px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; padding-left: 44px; margin-top: -2px; }
+  .gest { position: absolute; inset: 0; z-index: 6; background: rgb(11 16 23 / .82); display: none; align-content: center; justify-items: center; gap: 18px; padding: 24px; color: #e6e9ee; }
+  .gest h2 { font-size: 18px; font-weight: 650; }
+  .gest ul { display: grid; gap: 14px; width: min(300px, 100%); }
+  .gest li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; font-size: 15px; }
+  .gest li .g { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid #4a5566; color: #5fd3ea; }
+  .gest li small { display: block; font-size: 13px; color: #b3bcc8; }
+  .gest .btn { min-width: 160px; }
+  .plane-knob { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; display: grid; place-items: center; background: #0b1017; border: 2px solid #5fe0f5; color: #5fe0f5; }
+  .plane-knob svg { width: 18px; height: 18px; }
+  .plane-tag { position: absolute; transform: translate(-50%, -150%); padding: 2px 8px; border-radius: 6px; background: #0b1017; color: #e6e9ee; font-size: 12px; font-weight: 600; border: 1px solid #3a4452; white-space: nowrap; }
+  @media (max-width: 899px) {
+    body[data-durum="dokunma"] .gest { display: grid; }
+    .mrow .icon-btn { width: 44px; height: 44px; }
+  }
+</style>
+</head>
+<body>
+<nav class="review wire-bar" aria-label="Taslak durumları">
+  <strong>12 · Stüdyo araçları</strong>
+  <a data-pano href="?">Pano</a>
+  <span class="vr" aria-hidden="true"></span>
+  <a data-s="hazir">Hazır</a>
+  <a data-s="alt-sayfa">Alt sayfa</a>
+  <a data-s="dokunma">Dokunma ve fare</a>
+  <a data-s="kesit">Kesit</a>
+  <a data-s="olcum">Ölçü</a>
+  <a data-s="ekran">Ekran görüntüsü</a>
+  <a data-s="pin">Yorum pini</a>
+  <a data-s="yorumlar">Pinli yorumlar</a>
+  <a data-s="bos">Boş</a>
+  <a data-s="yukleniyor">Yükleniyor</a>
+  <a data-s="hata">Hata</a>
+  <span class="sp"></span>
+  <a data-tema="acik">Açık</a><a data-tema="koyu">Koyu</a>
+  <span class="vr" aria-hidden="true"></span>
+  <a href="13-montaj.html">13 · Montaj</a>
+</nav>
+
+<div class="studio">
+  <header class="vtop">
+    <a class="back" href="05-proje.html"><i data-lucide="chevron-left"></i><span class="lbl">Pompa revizyonu</span><span class="sr">Pompa revizyonu projesine dön</span></a>
+    <span class="vsep" aria-hidden="true"></span>
+    <div class="fname">
+      <b>Pompa_grubu_A3.step</b>
+      <span class="d-only">STEP · 38,2 MB · Montaj, 455 parça</span>
+      <span class="m-only">Sürüm 4 · 455 parça</span>
+    </div>
+    <button class="ver d-only" type="button">Sürüm 4 <small>güncel</small><i data-lucide="chevron-down"></i></button>
+    <div class="end">
+      <button class="btn d-only" type="button"><i data-lucide="download"></i>İndir</button>
+      <a class="btn btn--primary d-only" href="02-goruntuleyici.html?durum=paylas"><i data-lucide="share-2"></i>Paylaş</a>
+      <a class="btn btn--primary btn--icon m-only" href="02-goruntuleyici.html?durum=paylas"><i data-lucide="share-2"></i><span class="sr">Paylaş</span></a>
+      <button class="btn btn--ghost btn--icon" type="button"><i data-lucide="ellipsis"></i><span class="sr">Diğer eylemler</span></button>
+      <button class="btn btn--ghost btn--icon d-only tg" type="button" aria-pressed="true"><i data-lucide="panel-right"></i><span class="sr">Sağ paneli gizle</span></button>
+    </div>
+  </header>
+
+  <div class="sbody">
+    <section class="canvas" id="cv" aria-label="3B model: Pompa_grubu_A3.step">
+      <!-- Model svg'si _model.js ile buraya çizilir -->
+      <button class="cube" type="button" aria-label="Görünüm küpü: yüzüne basınca o görünüme döner" data-durum-not="yukleniyor hata">
+        <svg viewBox="0 0 76 76" aria-hidden="true">
+          <path d="M38 12 64 26 38 40 12 26Z" fill="#3d4654" stroke="#5c6776"/>
+          <path d="M12 26 38 40V66L12 52Z" fill="#323a46" stroke="#5c6776"/>
+          <path d="M38 40 64 26V52L38 66Z" fill="#2a313c" stroke="#5c6776"/>
+          <text x="38" y="29.5" text-anchor="middle">Üst</text><text x="25" y="50" text-anchor="middle">Ön</text><text x="51" y="50" text-anchor="middle">Sağ</text>
+        </svg>
+      </button>
+      <div class="ovl" id="ovl" aria-hidden="true"></div>
+      <p class="stats" data-durum-not="yukleniyor hata">1.248.300 üçgen · 455 parça · mm</p>
+
+      <!-- Talimat hapları -->
+      <div class="pill" data-durum="pin"><i data-lucide="map-pin"></i><span class="d-only">Yorum için modelde bir noktaya tıkla</span><span class="m-only">Yorum için bir noktaya dokun</span><span class="kbd d-only">Esc</span></div>
+      <div class="pill low" data-durum="olcum"><i data-lucide="ruler"></i><span class="d-only">İkinci noktayı seç · köşe, kenar ve delik merkezine yapışır</span><span class="m-only">Parmağını kaydırıp bırak</span></div>
+
+      <!-- Araç çubuğu: masaüstünde tuvalin üstünde yüzer, mobilde ekranın altında tek sıra -->
+      <div class="tools dk-d" role="toolbar" aria-label="Stüdyo araçları">
+        <button class="tool m-only" type="button"><i data-lucide="list-tree"></i><span class="ml">Parçalar</span></button>
+        <button class="tool d-only" type="button" aria-haspopup="menu"><i data-lucide="box"></i><span class="lbl">Görünümler</span><i class="chev" data-lucide="chevron-down"></i><span class="sr">Görünümler</span></button>
+        <button class="tool d-only" type="button"><i data-lucide="scan"></i><span class="lbl">Sığdır</span><span class="sr">Sığdır</span></button>
+        <button class="tool d-only" type="button" aria-pressed="false"><i data-lucide="grid-3x3"></i><span class="lbl">Tel kafes</span><span class="sr">Tel kafes</span></button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="tool" type="button" data-t="kesit" aria-pressed="false"><i data-lucide="scissors-line-dashed"></i><span class="lbl">Kesit</span><span class="ml">Kesit</span></button>
+        <button class="tool" type="button" data-t="olcum" aria-pressed="false"><i data-lucide="ruler"></i><span class="lbl">Ölçü</span><span class="ml">Ölçü</span></button>
+        <button class="tool" type="button" data-t="pin" aria-pressed="false"><i data-lucide="map-pin"></i><span class="lbl">Yorum pini</span><span class="ml">Yorum</span></button>
+        <button class="tool" type="button" data-t="ekran" aria-pressed="false"><i data-lucide="camera"></i><span class="lbl">Ekran görüntüsü</span><span class="ml">Görüntü</span></button>
+        <button class="tool m-only" type="button"><i data-lucide="ellipsis"></i><span class="ml">Daha</span></button>
+      </div>
+
+      <!-- Kesit -->
+      <section class="toolcard dk-d" data-durum="kesit" aria-label="Kesit ayarları">
+        <header><h2><i data-lucide="scissors-line-dashed"></i>Kesit</h2><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Kesiti kapat</span></button></header>
+        <div class="tb">
+          <div><div class="lab">Eksen</div><div class="seg" role="group" aria-label="Kesit ekseni"><button type="button" aria-pressed="true">X</button><button type="button" aria-pressed="false">Y</button><button type="button" aria-pressed="false">Z</button></div></div>
+          <div><div class="lab">Konum <b>640 mm</b></div><div class="range" role="slider" aria-label="Kesit konumu" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="640"><span class="fill"></span><span class="knob"></span></div></div>
+          <div class="trow"><span>Kesit yüzünü tara<small>Kesilen yüzler çizgili görünür</small></span><button class="sw" type="button" role="switch" aria-checked="true"><span></span><span class="sr">Kesit yüzünü tara</span></button></div>
+          <p class="hint d-only">Düzlemi tuvaldeki tutamaktan da sürükleyebilirsin.</p>
+        </div>
+        <footer><button class="btn" type="button"><i data-lucide="flip-horizontal-2"></i>Ters çevir</button><button class="btn" type="button"><i data-lucide="bookmark-plus"></i>Görünüme kaydet</button></footer>
+      </section>
+
+      <!-- Ölçü -->
+      <section class="toolcard dk-d" data-durum="olcum" aria-label="Ölçüler">
+        <header><h2><i data-lucide="ruler"></i>Ölçü</h2><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Ölçüyü kapat</span></button></header>
+        <div class="tb">
+          <div class="mlist">
+            <div class="mrow on"><span class="pnum">1</span><div><b>1000,0 mm</b><span>Şase kaynaklı · kenar</span></div><button class="icon-btn" type="button"><i data-lucide="trash-2"></i><span class="sr">Ölçü 1'i sil</span></button></div>
+            <div class="delta"><span>ΔX 1000,0</span><span>ΔY 0,0</span><span>ΔZ 0,0</span></div>
+            <div class="mrow"><span class="pnum">2</span><div><b>224,0 mm</b><span>Emme flanşı DN100 · dış çap</span></div><button class="icon-btn" type="button"><i data-lucide="trash-2"></i><span class="sr">Ölçü 2'yi sil</span></button></div>
+          </div>
+          <div><div class="lab">Birim</div><div class="seg" role="group" aria-label="Birim"><button type="button" aria-pressed="true">mm</button><button type="button" aria-pressed="false">inç</button></div></div>
+          <p class="hint">Dosyanın birimi: mm (STEP'ten okundu).</p>
+        </div>
+        <footer><button class="btn" type="button"><i data-lucide="eraser"></i>Tümünü temizle</button></footer>
+      </section>
+      <section class="toolcard dk-d d-only" data-durum="bos" aria-label="Ölçüler">
+        <header><h2><i data-lucide="ruler"></i>Ölçü</h2><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Ölçüyü kapat</span></button></header>
+        <div class="tb">
+          <p class="hint"><b>Henüz ölçü yok.</b> Modelde iki nokta seç; köşe, kenar ve delik merkezine yapışır. Ölçüler kaydedilmez, sayfayı kapatınca silinir.</p>
+          <div><div class="lab">Birim</div><div class="seg" role="group" aria-label="Birim"><button type="button" aria-pressed="true">mm</button><button type="button" aria-pressed="false">inç</button></div></div>
+        </div>
+      </section>
+
+      <!-- Ekran görüntüsü -->
+      <section class="toolcard dk-d at-tools" data-durum="ekran" aria-label="Ekran görüntüsü">
+        <header><h2><i data-lucide="camera"></i>Ekran görüntüsü</h2><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Kapat</span></button></header>
+        <div class="tb">
+          <div><div class="lab">Arka plan</div><div class="seg" role="group" aria-label="Arka plan"><button type="button" aria-pressed="true">Tuval</button><button type="button" aria-pressed="false">Beyaz</button><button type="button" aria-pressed="false">Şeffaf</button></div></div>
+          <div><div class="lab">Boyut</div><div class="seg" role="group" aria-label="Boyut"><button type="button" aria-pressed="false">Ekran</button><button type="button" aria-pressed="true">2 kat</button></div></div>
+          <div>
+            <div class="chk" role="checkbox" aria-checked="true"><span class="box"><i data-lucide="check"></i></span>Yorum pinlerini ekle</div>
+            <div class="chk" role="checkbox" aria-checked="true"><span class="box"><i data-lucide="check"></i></span>Ölçüleri ekle</div>
+          </div>
+          <p class="hint">İndirme izni gerekmez: yalnız ekranda görüneni kaydeder, dosyanın kendisini değil.</p>
+        </div>
+        <footer><button class="btn btn--primary d-only" type="button"><i data-lucide="download"></i>PNG indir</button><button class="btn btn--primary m-only" type="button"><i data-lucide="share"></i>Paylaş ya da kaydet</button></footer>
+      </section>
+
+      <!-- Fare ve klavye (masaüstü) -->
+      <section class="toolcard dk-d d-only" data-durum="dokunma" aria-label="Fare ve klavye">
+        <header><h2><i data-lucide="mouse"></i>Fare ve klavye</h2><button class="icon-btn" type="button"><i data-lucide="x"></i><span class="sr">Kapat</span></button></header>
+        <div class="tb">
+          <ul class="keys">
+            <li><i data-lucide="rotate-3d"></i>Döndür<span class="kbd">Sol tuş</span></li>
+            <li><i data-lucide="move"></i>Kaydır<span class="kbd">Sağ tuş</span></li>
+            <li><i data-lucide="zoom-in"></i>Yakınlaştır<span class="kbd">Tekerlek</span></li>
+            <li><i data-lucide="mouse-pointer-click"></i>Parçayı seç<span class="kbd">Tık</span></li>
+            <li><i data-lucide="scan"></i>Sığdır<span class="kbd">F</span></li>
+            <li><i data-lucide="box"></i>Standart görünümler<span class="kbd">0–4</span></li>
+            <li><i data-lucide="x"></i>Aracı kapat<span class="kbd">Esc</span></li>
+          </ul>
+          <p class="hint">Bu kart ilk açılışta bir kez görünür; sonra ⋯ menüsünde "Kısayollar".</p>
+        </div>
+      </section>
+
+      <!-- Dokunma ipuçları (mobil, ilk açılış) -->
+      <div class="gest" role="dialog" aria-label="Dokunma hareketleri">
+        <h2>Modeli parmağınla incele</h2>
+        <ul>
+          <li><span class="g"><i data-lucide="rotate-3d"></i></span><span>Tek parmakla sürükle<small>Döndürür</small></span></li>
+          <li><span class="g"><i data-lucide="zoom-in"></i></span><span>İki parmakla sıkıştır<small>Yakınlaştırır, uzaklaştırır</small></span></li>
+          <li><span class="g"><i data-lucide="move"></i></span><span>İki parmakla sürükle<small>Kaydırır</small></span></li>
+          <li><span class="g"><i data-lucide="pointer"></i></span><span>Bir parçaya dokun<small>Seçer; çift dokunma sığdırır</small></span></li>
+        </ul>
+        <button class="btn btn--primary" type="button">Anladım</button>
+      </div>
+
+      <!-- Yükleniyor -->
+      <div class="status" data-durum="yukleniyor" role="status">
+        <div class="scard dk-d">
+          <h2>Model açılıyor</h2>
+          <ol class="steps">
+            <li class="now"><i data-lucide="loader-circle"></i>3B kopya indiriliyor<span class="pct">14,6 / 22,1 MB</span></li>
+            <li class="todo"><i data-lucide="circle"></i>Renkler ve adlar uygulanıyor</li>
+          </ol>
+          <div class="bar"><span class="w66"></span></div>
+          <div class="row"><button class="btn" type="button">İptal</button></div>
+        </div>
+      </div>
+
+      <!-- Hata -->
+      <div class="status" data-durum="hata" role="alert">
+        <div class="scard dk-d">
+          <span class="ic"><i data-lucide="triangle-alert"></i></span>
+          <div><h2>Dosya bu cihazda açılamadı</h2><p>Model bu cihazın belleğine sığmadı. Daha güçlü bir bilgisayarda yeniden dene ya da dosyayı indir.</p></div>
+          <div class="row"><button class="btn btn--primary" type="button"><i data-lucide="download"></i>İndir</button><button class="btn" type="button"><i data-lucide="refresh-cw"></i>Yeniden dene</button></div>
+          <p class="code">Hata kodu: out_of_memory · <a href="#">Sorunu bize bildir</a></p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel sheet" aria-label="Dosya paneli">
+      <span class="handle" aria-hidden="true"></span>
+      <nav class="tabbar" aria-label="Panel sekmeleri">
+        <a href="#" data-tab="ayrintilar">Ayrıntılar</a>
+        <a href="#" data-tab="yorumlar">Yorumlar <span class="n">4</span></a>
+        <a href="#" data-tab="aktivite">Aktivite</a>
+        <a href="#" data-tab="surumler">Sürümler <span class="n">4</span></a>
+      </nav>
+
+      <div class="pbody" data-durum="hazir alt-sayfa dokunma kesit olcum ekran yukleniyor hata">
+        <p class="desc dim">Santrifüj pompa grubu, Kaya Hidrolik siparişi. Sürüm 4'te motor 7,5 kW'a çıkarıldı.</p>
+        <dl class="kv">
+          <dt>Format</dt><dd>STEP (AP242)</dd>
+          <dt>Boyut</dt><dd>38,2 MB</dd>
+          <dt>Ölçüler</dt><dd>920 × 460 × 462 mm</dd>
+          <dt>İçerik</dt><dd>Montaj · 455 parça, 4 alt montaj</dd>
+          <dt>Birim</dt><dd>mm (dosyadan)</dd>
+          <dt>Sürüm</dt><dd>4 · güncel</dd>
+          <dt>Yükleyen</dt><dd><span class="avatar a1">AY</span>Ayşe Yılmaz</dd>
+          <dt>Yüklendi</dt><dd>26 Kasım 2026, 10:42</dd>
+        </dl>
+        <section>
+          <div class="ph">Kayıtlı görünümler <small>3</small></div>
+          <div class="why"><i data-lucide="info"></i>Görünüm, renk ve ad düzenlemeleri dosyayı değiştirmez; sahne kaydında tutulur (13 · Montaj).</div>
+        </section>
+      </div>
+
+      <!-- Yorumlar: pin yerleştirme -->
+      <div class="pbody" data-durum="pin">
+        <div class="cm"><span class="avatar a2">MK</span><div><div class="who"><b>Mehmet Kaya</b><time>Dün 16:10</time></div><p>Salyangoz gövdenin üst cıvataları için tork değeri belirtilmeli.</p><span class="anc"><span class="pnum">1</span>Salyangoz gövde</span></div></div>
+        <div class="cm"><span class="avatar a3">ZA</span><div><div class="who"><b>Zeynep Arslan</b><time>Bugün 09:15</time></div><p>Kaplin koruması bu sürümde yok mu?</p><span class="anc"><span class="pnum">2</span>Kaplin</span></div></div>
+        <div class="cm"><span class="avatar a4">ÖK</span><div><div class="who"><b>Ömer Koç</b><span class="badge badge--guest">Misafir</span><time>11:02</time></div><p>Emme flanşı DN100 PN16 mı, teyit eder misiniz?</p><span class="anc"><span class="pnum">3</span>Emme flanşı DN100</span></div></div>
+      </div>
+      <form class="composer" data-durum="pin" onsubmit="return false">
+        <div class="anchor"><span class="pnum">4</span><span>Pompa grubu › Motor 7,5 kW › Klemens kutusu</span><button type="button"><i data-lucide="x"></i><span class="sr">Pini kaldır</span></button></div>
+        <div class="box focus"><label class="sr" for="y1">Yorum</label><textarea id="y1" rows="1" placeholder="Bu noktayla ilgili yorumunu yaz"></textarea><button class="btn btn--primary" type="submit" aria-disabled="true" disabled>Gönder</button></div>
+        <span class="vis"><i data-lucide="eye"></i>Yorumları misafir Ömer Koç da görür.</span>
+      </form>
+
+      <!-- Yorumlar: liste -->
+      <div class="pbody" data-durum="yorumlar">
+        <div class="trow"><span>Pinleri tuvalde göster</span><button class="sw" type="button" role="switch" aria-checked="true"><span></span><span class="sr">Pinleri tuvalde göster</span></button></div>
+        <div class="cm on"><span class="avatar a2">MK</span><div><div class="who"><b>Mehmet Kaya</b><time>Dün 16:10</time></div><p>Salyangoz gövdenin üst cıvataları için tork değeri belirtilmeli.</p><span class="anc"><span class="pnum">1</span>Pompa ünitesi › Salyangoz gövde</span></div></div>
+        <div class="cm"><span class="avatar a3">ZA</span><div><div class="who"><b>Zeynep Arslan</b><time>Bugün 09:15</time></div><p>Kaplin koruması bu sürümde yok mu?</p><span class="anc"><span class="pnum faded">2</span>Kaplin · gizli<a href="#">Göster</a></span></div></div>
+        <div class="cm"><span class="avatar a4">ÖK</span><div><div class="who"><b>Ömer Koç</b><span class="badge badge--guest">Misafir</span><time>11:02</time></div><p>Emme flanşı DN100 PN16 mı, teyit eder misiniz?</p><span class="anc"><span class="pnum">3</span>Pompa ünitesi › Emme flanşı DN100</span></div></div>
+        <div class="cm"><span class="avatar a1">AY</span><div><div class="who"><b>Ayşe Yılmaz</b><time>20 Kasım</time><span class="v">Sürüm 3</span></div><p>Motor ayaklarındaki delikler 14 mm'ye büyütülecek.</p><span class="anc"><i data-lucide="map-pin-off"></i>Pin Sürüm 3'te bırakıldı, bu sürümde gösterilmez</span></div></div>
+      </div>
+      <form class="composer" data-durum="yorumlar" onsubmit="return false">
+        <div class="box"><label class="sr" for="y2">Yorum</label><textarea id="y2" rows="1" placeholder="Yorum yaz, @ ile birini an"></textarea><button class="btn pinbtn" type="button"><i data-lucide="map-pin"></i><span class="sr">Pin ekle</span></button><button class="btn btn--primary" type="submit">Gönder</button></div>
+      </form>
+
+      <!-- Yorumlar: boş -->
+      <div class="pbody" data-durum="bos">
+        <div class="empty-s"><span class="ring"><i data-lucide="message-square"></i></span><b>Henüz yorum yok</b><span>Modelde bir noktayı işaretleyip yorum bırakabilirsin. Pin, yorumu o parçaya bağlar.</span><button class="btn" type="button"><i data-lucide="map-pin"></i>Pin bırak</button></div>
+      </div>
+      <form class="composer" data-durum="bos" onsubmit="return false">
+        <div class="box"><label class="sr" for="y3">Yorum</label><textarea id="y3" rows="1" placeholder="İlk yorumu yaz"></textarea><button class="btn pinbtn" type="button"><i data-lucide="map-pin"></i><span class="sr">Pin ekle</span></button><button class="btn btn--primary" type="submit">Gönder</button></div>
+      </form>
+    </aside>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="_model.js"></script>
+<script src="_studio.js"></script>
+<script>
+(() => {
+  if (WIRE.board) { lucide.createIcons(); return; }
+  const d = WIRE.durum;
+  // Mobil alt sayfa ve yükseklik (peek / yarım / tam), sağ panel sekmesi, model ayarları
+  const S = {
+    hazir: { sheet: 'panel', detent: 'peek', tab: 'ayrintilar', pins: true },
+    'alt-sayfa': { sheet: 'panel', detent: 'half', tab: 'ayrintilar', pins: true },
+    dokunma: { sheet: 'none', detent: 'none', tab: 'ayrintilar' },
+    kesit: { sheet: 'tool', detent: 'half', tab: 'ayrintilar', tool: 'kesit', model: { section: 640 } },
+    olcum: { sheet: 'tool', detent: 'half', tab: 'ayrintilar', tool: 'olcum' },
+    ekran: { sheet: 'tool', detent: 'half', tab: 'ayrintilar', tool: 'ekran', pins: true },
+    pin: { sheet: 'panel', detent: 'half', tab: 'yorumlar', tool: 'pin', pins: true, newPin: true },
+    yorumlar: { sheet: 'panel', detent: 'half', tab: 'yorumlar', pins: true, active: 1, model: { hidden: ['0.2'] } },
+    bos: { sheet: 'panel', detent: 'half', tab: 'yorumlar', tool: 'olcum' },
+    yukleniyor: { sheet: 'panel', detent: 'peek', tab: 'ayrintilar', blur: true },
+    hata: { sheet: 'panel', detent: 'peek', tab: 'ayrintilar', blur: true },
+  }[d];
+  document.body.dataset.sheet = S.sheet;
+  document.body.dataset.detent = S.detent;
+  document.querySelector(`[data-tab="${S.tab}"]`).setAttribute('aria-current', 'page');
+  if (d === 'bos') document.querySelector('[data-tab="yorumlar"] .n').remove();
+  if (S.tool && !(d === 'bos' && innerWidth < 900)) document.querySelectorAll(`.tool[data-t="${S.tool}"]`).forEach((b) => b.setAttribute('aria-pressed', 'true'));
+  if (d === 'yukleniyor' || d === 'hata') document.querySelectorAll('.tools .tool').forEach((b) => b.setAttribute('aria-disabled', 'true'));
+
+  const cv = document.getElementById('cv');
+  const toPx = VZ.mount(cv, { ...(S.model || {}), label: 'Pompa grubu montajının 3B görünümü' });
+  if (S.blur) cv.querySelector('.model').classList.add('blur');
+  lucide.createIcons();
+
+  const ovl = document.getElementById('ovl');
+  const PINS = [[1, [790, 286, 331]], [2, [490, 213, 262]], [3, [920, 262, 225]]];
+  function draw() {
+    ovl.innerHTML = '';
+    const add = (html) => ovl.insertAdjacentHTML('beforeend', html);
+    const at = (p) => { const [x, y] = toPx(p); return `left:${x}px;top:${y}px`; };
+    if (S.pins) for (const [n, p] of PINS) {
+      const faded = d === 'yorumlar' && n === 2;
+      add(`<span class="pin${faded ? ' faded' : ''}${S.active === n ? ' active' : ''}" style="${at(p)}"><b>${n}</b></span>`);
+    }
+    if (S.newPin) add(`<span class="pin new" style="${at([260, 180, 372])}"><b>4</b></span>`);
+    if (S.active === 1 && innerWidth >= 900) {
+      const [x, y] = toPx(PINS[0][1]);
+      add(`<div class="pinpop dk" style="left:${x + 22}px;top:${y - 64}px"><div class="who"><span class="avatar a2">MK</span><b>Mehmet Kaya</b>Dün 16:10</div>Salyangoz gövdenin üst cıvataları için tork değeri belirtilmeli.<br><a href="#">Yoruma git</a></div>`);
+    }
+    if (d === 'kesit') {
+      const [x, y] = toPx([640, 180, 520]);
+      add(`<span class="plane-knob" style="left:${x}px;top:${y}px"><i data-lucide="move-horizontal"></i></span><span class="plane-tag" style="left:${x}px;top:${y - 18}px">X = 640 mm</span>`);
+    }
+    if (d === 'olcum') {
+      const a = toPx([0, 360, 40]), b = toPx([1000, 360, 40]);
+      const c = toPx([920, 180, 93]), e = toPx([920, 180, 317]);
+      const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      const m1 = mid(a, b), m2 = mid(c, e);
+      add(`<svg><path d="M${a}L${b}" stroke="#5fe0f5" stroke-width="2"/><path d="M${c}L${e}" stroke="#9aa4b2" stroke-width="1.5" stroke-dasharray="4 4"/></svg>`);
+      for (const p of [a, b]) add(`<span class="mpt" style="left:${p[0]}px;top:${p[1]}px"></span>`);
+      for (const p of [c, e]) add(`<span class="mpt" style="left:${p[0]}px;top:${p[1]}px;border-color:#9aa4b2"></span>`);
+      const mob = innerWidth < 900;
+      add(`<span class="mlabel" style="left:${m1[0]}px;top:${m1[1] + (mob ? -20 : 22)}px">1000,0 mm</span>`);
+      add(`<span class="mlabel dim" style="left:${m2[0] + (mob ? -62 : 58)}px;top:${m2[1]}px">Ø 224,0 mm</span>`);
+      if (innerWidth >= 900) {
+        const s = toPx([400, 288, 84]);
+        add(`<span class="snap" style="left:${s[0]}px;top:${s[1]}px"></span><span class="snaplbl" style="left:${s[0] + 16}px;top:${s[1] - 30}px">Köşe</span>`);
+      } else {
+        // Mobil: parmak noktayı kapattığı için büyüteç noktanın üstünde
+        const model = cv.querySelector('.model'); const mb = model.getBoundingClientRect(); const cb = cv.getBoundingClientRect();
+        const k = 3, L = 56, [x, y] = b;
+        add(`<span class="finger" style="left:${x}px;top:${y + 4}px"></span>`);
+        const lp = document.createElement('span'); lp.className = 'loupe'; lp.style.cssText = `left:${x}px;top:${y}px`;
+        const clone = model.cloneNode(true); clone.removeAttribute('class');
+        clone.style.cssText = `position:absolute;width:${mb.width * k}px;height:${mb.height * k}px;left:${L - (x - (mb.left - cb.left)) * k}px;top:${L - (y - (mb.top - cb.top)) * k}px`;
+        lp.append(clone); ovl.append(lp);
+      }
+    }
+    lucide.createIcons();
+  }
+  document.fonts.ready.then(draw);
+  addEventListener('resize', draw);
+})();
+</script>
+</body>
+</html>
