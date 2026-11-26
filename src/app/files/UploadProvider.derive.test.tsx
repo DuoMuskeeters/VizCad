@@ -16,11 +16,11 @@ const okPut: Put = async () => ({ status: 200, etag: '"abc"' })
 const step = (name = 'pump.step') => new File(['ISO-10303-21;\nHEADER;\nENDSEC;\n'], name)
 const stats = { triangles: 4, nodes: 2, parts: 1, bbox: { min: [0, 0, 0], max: [1, 1, 1] }, ms: 3 } as const
 
-const Probe = ({ file }: { file: File }) => {
+const Probe = ({ file, files }: { file: File; files?: readonly File[] }) => {
   const uploads = useUploads()
   return (
     <>
-      <button type="button" onClick={() => uploads.start([file])}>go</button>
+      <button type="button" onClick={() => uploads.start(files ?? [file])}>go</button>
       <p data-testid="preparing">{[...uploads.preparing].join(',')}</p>
     </>
   )
@@ -63,6 +63,47 @@ describe('after an upload', () => {
     const after = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(after)
     expect(after.defaultPrevented).toBe(false)
+  })
+
+  it('two jobs for the same file: it stays Preparing (and warns on leave) until the last one ends', async () => {
+    const finishers: Array<(outcome: DeriveOutcome) => void> = []
+    // The second upload ends only once the first conversion is running: two jobs for f9, one after the other.
+    let release: () => void = () => {}
+    const firstRunning = new Promise<void>((resolve) => (release = resolve))
+    worker.derive.mockImplementation(() => {
+      release()
+      return { result: new Promise((resolve) => finishers.push(resolve)), cancel: vi.fn() }
+    })
+    let puts = 0
+    const gatedPut: Put = async (request) => (++puts === 1 ? okPut(request) : firstRunning.then(() => okPut(request)))
+    let version = 0
+    const { user } = renderApp(<UploadProvider put={gatedPut}><Probe file={step()} files={[step('a.step'), step('b.step')]} /></UploadProvider>, 'admin', (operation) =>
+      operation === 'completeUpload' ? json({ fileId: 'f9', name: 'pump.step', extension: 'step', size: 30, versionNumber: ++version, isNewVersion: version > 1, maxConvertBytes: 1000 }) : undefined)
+    await user.click(await screen.findByRole('button', { name: 'go' }))
+    await waitFor(() => expect(finishers).toHaveLength(1))
+    await waitFor(() => expect(version).toBe(2))
+    const failed = { ok: false, code: 'canceled' } as const
+    await act(async () => finishers[0]?.(failed))
+    await waitFor(() => expect(finishers).toHaveLength(2))
+    expect(screen.getByTestId('preparing')).toHaveTextContent('f9')
+    const leave = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(leave)
+    expect(leave.defaultPrevented).toBe(true)
+    await act(async () => finishers[1]?.(failed))
+    await waitFor(() => expect(screen.getByTestId('preparing')).toHaveTextContent(''))
+    const after = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(after)
+    expect(after.defaultPrevented).toBe(false)
+  })
+
+  it('a conversion whose GLB export failed stores only the thumbnail and records nothing', async () => {
+    worker.derive.mockImplementation(() => ({
+      result: Promise.resolve({ ok: true, glb: null, thumbnail: new Blob(['t'], { type: 'image/webp' }), tree: { name: 'x', path: '0', mesh: null, matrix: null, children: [] }, stats }),
+      cancel: vi.fn(),
+    }))
+    const { user } = renderApp(<UploadProvider put={okPut}><Probe file={step()} /></UploadProvider>, 'admin')
+    await user.click(await screen.findByRole('button', { name: 'go' }))
+    await waitFor(() => expect(posts).toEqual([expect.stringMatching(/^POST \/api\/files\/f-new-\d+\/thumbnail\?v=current&expect=1$/)]))
   })
 
   it('a conversion that fails for the file is recorded with its code', async () => {

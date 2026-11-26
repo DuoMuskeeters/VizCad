@@ -219,14 +219,24 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       return glb === 'ready' || image
     }, () => setFinished((count) => count + 1)),
   )
+  // Jobs per file: a second version of the same file can be converting while the first finishes; the file leaves
+  // `preparing` (and stops holding the leave warning) only when its last job ends.
   const [preparing, setPreparing] = useState<ReadonlySet<string>>(() => new Set())
-  const mark = useCallback((fileId: string, on: boolean) => setPreparing((current) => {
-    if (current.has(fileId) === on) return current
-    const next = new Set(current)
-    if (on) next.add(fileId)
-    else next.delete(fileId)
-    return next
-  }), [])
+  const jobsPerFile = useRef(new Map<string, number>())
+  const mark = useCallback((fileId: string, on: boolean) => {
+    const counts = jobsPerFile.current
+    const left = (counts.get(fileId) ?? 0) + (on ? 1 : -1)
+    if (left > 0) counts.set(fileId, left)
+    else counts.delete(fileId)
+    const busy = left > 0
+    setPreparing((current) => {
+      if (current.has(fileId) === busy) return current
+      const next = new Set(current)
+      if (busy) next.add(fileId)
+      else next.delete(fileId)
+      return next
+    })
+  }, [])
   const queueAfterUpload = useCallback((uploaded: UploadedFile, file: File) => {
     const { fileId, versionNumber: version, maxConvertBytes } = uploaded
     const format = formatOfExtension(extensionOf(file.name))
