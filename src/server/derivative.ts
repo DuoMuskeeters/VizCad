@@ -62,10 +62,11 @@ export interface DerivativeColumns {
   readonly size: number
 }
 
-/** The GLB `model` can serve: key, size and ETag, only for a `ready` derivative with readable meta. */
-export const readyDerivative = (row: DerivativeColumns) => {
+type StoredMetaValue = typeof StoredMeta.Type
+
+/** The GLB `model` can serve: key, size and ETag, only for a `ready` derivative with readable meta. `meta` is parsed once by the caller when it has it. */
+export const readyDerivative = (row: DerivativeColumns, meta: Option.Option<StoredMetaValue> = parseMeta(row.derivativeMeta)) => {
   if (row.derivativeR2Key === null || stateOf(row.derivativeState) !== 'ready') return undefined
-  const meta = parseMeta(row.derivativeMeta)
   if (Option.isNone(meta) || !('bytes' in meta.value)) return undefined
   return { key: row.derivativeR2Key, size: meta.value.bytes, etag: meta.value.etag, meta: meta.value }
 }
@@ -73,22 +74,22 @@ export const readyDerivative = (row: DerivativeColumns) => {
 /**
  * What `GET …/model` sends a caller who may `preview` the file (D23): STEP/IGES/3MF the GLB derivative when it is
  * ready, otherwise the source but only to a caller who may download it (so the viewer can convert in place), otherwise
- * nothing (404). STL/OBJ/PLY the source itself, at every level.
+ * nothing (404). STL/OBJ/PLY the source itself, at every level. `ready` is `readyDerivative(row)`, passed when known.
  */
-export const modelKind = (row: DerivativeColumns, canDownload: boolean): ModelPreview['kind'] => {
+export const modelKind = (row: DerivativeColumns, canDownload: boolean, ready: ReturnType<typeof readyDerivative> = readyDerivative(row)): ModelPreview['kind'] => {
   const type = fileTypeOfExtension(row.extension)
   if (type === undefined) return 'none'
   if (!hasDerivative(type.id)) return 'source'
-  if (readyDerivative(row) !== undefined) return 'derivative'
+  if (ready !== undefined) return 'derivative'
   return canDownload ? 'source' : 'none'
 }
 
-/** The `model` block of a file view (no key, no ETag). */
+/** The `model` block of a file view (no key, no ETag). The stored meta is parsed once per row. */
 export const modelPreview = (row: DerivativeColumns, canDownload: boolean, maxConvertBytes: number): ModelPreview => {
   const type = fileTypeOfExtension(row.extension)
-  const kind = modelKind(row, canDownload)
-  const ready = readyDerivative(row)
   const meta = parseMeta(row.derivativeMeta)
+  const ready = readyDerivative(row, meta)
+  const kind = modelKind(row, canDownload, ready)
   const state = type !== undefined && hasDerivative(type.id) ? stateOf(row.derivativeState) : null
   return {
     kind,

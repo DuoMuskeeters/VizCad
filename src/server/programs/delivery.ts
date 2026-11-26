@@ -174,9 +174,10 @@ export type ModelRow = DerivativeColumns & { readonly r2Key: string; readonly co
 
 /** What `model` will stream for this caller (D23), resolved before the audit row: the object and its name. */
 export const modelTarget = (row: ModelRow, canDownload: boolean) => {
-  const kind = modelKind(row, canDownload)
+  const ready = readyDerivative(row)
+  const kind = modelKind(row, canDownload, ready)
   if (kind === 'none') return undefined
-  const glb = kind === 'derivative' ? readyDerivative(row) : undefined
+  const glb = kind === 'derivative' ? ready : undefined
   return glb === undefined
     ? { kind: 'source' as const, object: { key: row.r2Key, size: row.size, etag: row.contentEtag } satisfies StoredObject, name: row.name }
     : { kind: 'derivative' as const, object: { key: glb.key, size: glb.size, etag: glb.etag } satisfies StoredObject, name: glbName(row.name) }
