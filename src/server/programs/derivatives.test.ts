@@ -234,7 +234,7 @@ describe('completeDerivative', () => {
     })),
   )
 
-  it.effect('a new derivative replaces the old one: the old key is queued and deleted, unless a version snapshot still holds it', () =>
+  it.effect('a new derivative replaces the old one: the old key is queued and deleted, unless a row of another source still holds it', () =>
     run(Effect.gen(function* () {
       yield* world
       yield* complete('bob', yield* upload('bob', glb()))
@@ -245,12 +245,24 @@ describe('completeDerivative', () => {
       assert.notInclude(yield* keys, first)
       assert.include(yield* keys, second)
 
-      // A snapshot (restore history) holds the second key: replacing it again must not delete it.
+      // A snapshot of the same source object (restore history) holding the second key is repointed at the new GLB, so
+      // the second key goes: one GLB per source object.
+      const source = (yield* fileRow())?.r2Key ?? ''
       yield* Db.use((db) => db.use((d) => d.insert(schema.fileVersions).values({
-        id: 'v1', fileId: 'f1', versionNumber: 1, r2Key: 'w/acme/f/f1/obj-f1', size: 1, uploadedByUserId: 'bob', createdAt: new Date(0), derivativeR2Key: second, derivativeState: 'ready',
+        id: 'v1', fileId: 'f1', versionNumber: 1, r2Key: source, size: 1, uploadedByUserId: 'bob', createdAt: new Date(0), derivativeR2Key: second, derivativeState: 'ready',
       })))
       yield* complete('bob', yield* upload('bob', glb({ binBytes: 32 })))
-      assert.include(yield* keys, second)
+      const third = (yield* fileRow())?.derivativeR2Key ?? ''
+      assert.notInclude(yield* keys, second)
+      assert.strictEqual((yield* rows('fileVersions')).find((v) => v.id === 'v1')?.derivativeR2Key, third)
+
+      // A row of another source object that holds the current key keeps it: replacing it must not delete it.
+      yield* Db.use((db) => db.use((d) => d.insert(schema.fileVersions).values({
+        id: 'v0', fileId: 'f1', versionNumber: 0, r2Key: 'w/acme/f/f1/other', size: 1, uploadedByUserId: 'bob', createdAt: new Date(0), derivativeR2Key: third, derivativeState: 'ready',
+      })))
+      yield* complete('bob', yield* upload('bob', glb({ binBytes: 48 })))
+      assert.include(yield* keys, third)
+      assert.strictEqual((yield* rows('fileVersions')).find((v) => v.id === 'v0')?.derivativeR2Key, third)
       assert.strictEqual((yield* rows('storageDeletions')).length, 0, 'the skipped key left the queue')
     })),
   )

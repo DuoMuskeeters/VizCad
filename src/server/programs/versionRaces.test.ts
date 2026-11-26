@@ -165,6 +165,35 @@ describe('a derivative that completes while a restore is being written', () => {
   }
 })
 
+describe('restoring and deriving the same sources again and again', () => {
+  it.effect('keeps at most one GLB per source object; every GLB is referenced or queued', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* withOlderVersion
+      const current = yield* fileRow
+      const sources = ['w/acme/f/f1/old', current?.r2Key ?? '']
+      for (let round = 0; round < 3; round++) {
+        for (const source of sources) {
+          // The newest snapshot of that source object becomes current, then gets a fresh GLB.
+          const snapshot = (yield* rows('fileVersions')).filter((v) => v.r2Key === source).sort((a, b) => b.versionNumber - a.versionNumber)[0]
+          if (snapshot === undefined) return assert.fail(`no snapshot of ${source}`)
+          if ((yield* fileRow)?.r2Key !== source) yield* restoreVersion(caller('bob'), { workspaceId: 'acme', fileId: 'f1', versionId: snapshot.id })
+          yield* deriveNow(glb({ binBytes: 16 * (round + 1) }), (yield* fileRow)?.currentVersionNumber ?? 0)
+
+          const { orphans, dangling } = yield* audit
+          assert.deepStrictEqual([orphans, dangling], [[], []], `round ${round}, ${source}`)
+          const held = [...(yield* rows('files')), ...(yield* rows('fileVersions'))].filter((r) => r.derivativeR2Key !== null)
+          for (const key of sources) {
+            const glbs = new Set(held.filter((r) => r.r2Key === key).map((r) => r.derivativeR2Key))
+            assert.isAtMost(glbs.size, 1, `one GLB for ${key} (round ${round})`)
+          }
+          const stored = (yield* MemoryStorageControl.use((c) => c.keys)).filter((k) => k.endsWith('.glb'))
+          assert.isAtMost(stored.length, sources.length, `round ${round}: ${stored.length} GLBs in R2`)
+        }
+      }
+    })))
+})
+
 describe('a thumbnail that lands while a new version or another thumbnail is being written', () => {
   it.effect('new version: the snapshot holds the thumbnail that landed, the replaced one is deleted', () =>
     run(Effect.gen(function* () {

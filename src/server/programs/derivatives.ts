@@ -132,11 +132,24 @@ const queueCurrentDerivative = (d: Database, fileId: string, keep: string | null
     WHERE id = ${fileId} AND derivativeR2Key IS NOT NULL AND derivativeR2Key IS NOT ${keep}`).onConflictDoNothing()
 
 /**
+ * A restore brings a snapshot's GLB back and snapshots the current state, so the same source object can sit in several
+ * `file_versions` rows, each with its own GLB (one per restore-and-derive). Completing a GLB for that source points
+ * them all at it: queues the GLBs they hold now (read at write time), unless a row outside that set still holds one,
+ * and the update below repoints them. One GLB per source object stays in R2.
+ */
+const queueSnapshotDerivatives = (d: Database, fileId: string, sourceR2Key: string, keep: string, now: number) =>
+  d.insert(schema.storageDeletions).select(sql`SELECT DISTINCT v.derivativeR2Key, 'purged', ${now}, 0, NULL, ${now} FROM file_versions v
+    WHERE v.fileId = ${fileId} AND v.r2Key = ${sourceR2Key} AND v.derivativeR2Key IS NOT NULL AND v.derivativeR2Key IS NOT ${keep}
+      AND NOT EXISTS (SELECT 1 FROM file_versions o WHERE o.derivativeR2Key = v.derivativeR2Key AND NOT (o.fileId = ${fileId} AND o.r2Key = ${sourceR2Key}))
+      AND NOT EXISTS (SELECT 1 FROM files f WHERE f.derivativeR2Key = v.derivativeR2Key AND f.id <> ${fileId})`).onConflictDoNothing()
+
+/**
  * `POST /api/files/{id}/derivative/complete { sessionId, etag, stats }` (docs/11 §2.3). Re-checks `edit`, then: the
  * file still on the session's source object (else the GLB is of an old version: deleted, `VersionChanged`), the object's
  * size and ETag (HEAD) equal to what was declared and reported, at most `maxDerivativeBytes`, and its first 20 bytes a GLB 2.0
  * header whose length is the object's size and whose first chunk is JSON (else `InvalidDerivative`). One batch, guarded on
- * the same source key, then points the file at the GLB, queues the derivative it replaces and completes the session.
+ * the same source key, then points the file and its snapshots of the same source object at the GLB, queues the
+ * derivatives they replace (`queueSnapshotDerivatives`) and completes the session.
  * Idempotent: a completed session answers the same.
  */
 export const completeDerivative = Effect.fn('completeDerivative')(function* (
@@ -164,11 +177,19 @@ export const completeDerivative = Effect.fn('completeDerivative')(function* (
   if (normalizeEtag(first.value.etag) !== etag) return yield* reject(session, now, new UploadMismatch())
   if (!isValidGlbHeader(yield* readBytes(session.r2Key, first.value), head.value.size)) return yield* reject(session, now, new InvalidDerivative())
 
+  const db = yield* Db
+  // Only for the immediate drain below: the batch reads the keys again at write time.
+  const snapshotKeys = yield* db.use((d) =>
+    d.selectDistinct({ key: schema.fileVersions.derivativeR2Key }).from(schema.fileVersions)
+      .where(and(eq(schema.fileVersions.fileId, file.id), eq(schema.fileVersions.r2Key, session.sourceR2Key))),
+  )
+  const ready = { derivativeR2Key: session.r2Key, derivativeState: 'ready' as const, derivativeMeta: readyMetaText(input.stats, head.value.size, etag) }
   yield* runBatch((d) => [
     guard(d, sql.join([sessionPending(session.id), stillRole(session.workspaceId, caller.userId, [role]), still(false), onSource(file.id, session.sourceR2Key)], sql` AND `)),
     queueCurrentDerivative(d, file.id, session.r2Key, now),
-    d.update(schema.files).set({ derivativeR2Key: session.r2Key, derivativeState: 'ready', derivativeMeta: readyMetaText(input.stats, head.value.size, etag) })
-      .where(and(eq(schema.files.id, file.id), eq(schema.files.r2Key, session.sourceR2Key))),
+    queueSnapshotDerivatives(d, file.id, session.sourceR2Key, session.r2Key, now),
+    d.update(schema.files).set(ready).where(and(eq(schema.files.id, file.id), eq(schema.files.r2Key, session.sourceR2Key))),
+    d.update(schema.fileVersions).set(ready).where(and(eq(schema.fileVersions.fileId, file.id), eq(schema.fileVersions.r2Key, session.sourceR2Key))),
     d.update(schema.derivativeSessions).set({ status: 'completed', completedAt: toDate(now) }).where(eq(schema.derivativeSessions.id, session.id)),
   ]).pipe(
     // A concurrent call completed this very session (same answer), or the file moved on (the GLB is stale).
@@ -177,13 +198,13 @@ export const completeDerivative = Effect.fn('completeDerivative')(function* (
         const latest = yield* loadSession(caller.userId, input.fileId, session.id)
         if (latest.status === 'completed') return
         if (latest.status !== 'pending') return yield* new UploadUnavailable()
-        const db = yield* Db
         const moved = yield* db.use((d) => d.select({ r2Key: schema.files.r2Key }).from(schema.files).where(eq(schema.files.id, file.id)).limit(1))
         if (moved[0]?.r2Key !== session.sourceR2Key) return yield* reject(session, now, new VersionChanged())
         return yield* conflict
       })),
   )
-  if (file.derivativeR2Key !== null && file.derivativeR2Key !== session.r2Key) yield* drainStorageDeletions({ keys: [file.derivativeR2Key] }).pipe(Effect.ignore)
+  const replaced = [...new Set([file.derivativeR2Key, ...snapshotKeys.map((row) => row.key)])].filter((key): key is string => key !== null && key !== session.r2Key)
+  if (replaced.length > 0) yield* drainStorageDeletions({ keys: replaced }).pipe(Effect.ignore)
   return { state: 'ready' as const }
 })
 

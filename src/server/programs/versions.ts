@@ -72,7 +72,8 @@ export const restoreVersion = Effect.fn('restoreVersion')(function* (
       sql`EXISTS (SELECT 1 FROM file_versions WHERE id = ${version.id} AND fileId = ${file.id} AND r2Key = ${version.r2Key})`,
     ], sql` AND `)),
     snapshotCurrentVersion(d, { snapshotId, fileId: file.id, r2Key: file.r2Key, versionNumber: currentNumber, at: base.now }),
-    // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows).
+    // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows). A GLB
+    // completed later for this source repoints every row of it (`completeDerivative`), so GLBs do not pile up per restore.
     d.update(schema.files).set({
       r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag, thumbnailR2Key: version.thumbnailR2Key,
       derivativeR2Key: version.derivativeR2Key, derivativeState: version.derivativeState, derivativeMeta: version.derivativeMeta,
