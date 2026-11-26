@@ -3,7 +3,6 @@
  * ref, never in React state. Renders on demand: a frame is drawn only when the camera moved or something changed.
  */
 import {
-  Box3,
   type BufferGeometry,
   Color,
   EdgesGeometry,
@@ -23,7 +22,7 @@ import { ViewHelper } from 'three/examples/jsm/helpers/ViewHelper.js'
 import { EDGES_TRIANGLE_LIMIT } from '../state'
 import type { Stats } from '../worker/protocol'
 import { disposeObject } from './dispose'
-import { boundingSphere, fitCamera, viewDirection, type ViewName } from './fit'
+import { fitCamera, worldBox, viewDirection, type ViewName } from './fit'
 import { addLights, CANVAS_COLOR } from './lights'
 
 /** The axes gizmo is 128 px; on a narrow canvas it would cover the model. */
@@ -127,10 +126,10 @@ export const createScene = (canvas: HTMLCanvasElement, container: HTMLElement): 
 
   const place = (direction: ReturnType<typeof viewDirection>) => {
     if (model === null) return
-    const sphere = boundingSphere(model)
-    fitCamera(camera, sphere, direction)
-    controls.target.copy(sphere.center)
-    controls.maxDistance = sphere.radius * 50
+    const box = worldBox(model)
+    const distance = fitCamera(camera, box, direction)
+    controls.target.copy(box.getCenter(new Vector3()))
+    controls.maxDistance = distance * 20
     controls.update()
     dirty = true
   }
@@ -154,7 +153,7 @@ export const createScene = (canvas: HTMLCanvasElement, container: HTMLElement): 
       triangles = stats.triangles
       scene.add(root)
       // Grid under the model in world space (the root may be turned for a Y-up source), sized in round steps.
-      const box = new Box3().setFromObject(root)
+      const box = worldBox(root)
       const center = box.getCenter(new Vector3())
       const extent = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, 1e-3)
       const step = 10 ** Math.floor(Math.log10(extent / 2))

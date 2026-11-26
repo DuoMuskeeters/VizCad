@@ -4,7 +4,7 @@
  */
 import { Color, PerspectiveCamera, Scene, WebGLRenderer, type Object3D } from 'three'
 import { disposeObject } from './dispose'
-import { boundingSphere, fitCamera, viewDirection } from './fit'
+import { fitCamera, worldBox, viewDirection } from './fit'
 import { addLights, CANVAS_COLOR } from './lights'
 
 export const THUMBNAIL_SIZE = 512
@@ -28,7 +28,7 @@ export const renderThumbnail = async (root: Object3D): Promise<Blob | null> => {
   scene.add(camera)
   addLights(scene, camera)
   scene.add(root)
-  fitCamera(camera, boundingSphere(root), viewDirection('iso'), 1.04)
+  fitCamera(camera, worldBox(root), viewDirection('iso'), 1.04)
 
   let renderer: WebGLRenderer | null = null
   try {

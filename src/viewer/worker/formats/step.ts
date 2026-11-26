@@ -22,12 +22,19 @@ export type Occt = {
 /** Same triangulation as the benchmark (docs/10 §3.1): millimetres, deflection relative to the bounding box. */
 export const TRIANGULATION = { linearUnit: 'millimeter', linearDeflectionType: 'bounding_box_ratio', linearDeflection: 0.001, angularDeflection: 0.5 } as const
 
-const rgb = (value: ReadonlyArray<number> | null | undefined): Rgb | null =>
-  value && value.length >= 3 ? [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0] : null
+/**
+ * Pure black counts as "no colour": IGES exports (and some STEP ones) write it as their default, and a black part
+ * disappears on the dark canvas. A part really meant to be black shows in the neutral part colour instead.
+ */
+const rgb = (value: ReadonlyArray<number> | null | undefined): Rgb | null => {
+  if (!value || value.length < 3) return null
+  const color: Rgb = [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0]
+  return color.every((c) => c < 0.004) ? null : color
+}
 
 /** Face colours as groups that cover every triangle; uncoloured runs take the mesh colour. */
 export const faceGroups = (mesh: OcctMesh, triangles: number): FaceGroup[] => {
-  const faces = (mesh.brep_faces ?? []).filter((face) => face.color !== null).slice().sort((a, b) => a.first - b.first)
+  const faces = (mesh.brep_faces ?? []).filter((face) => rgb(face.color) !== null).slice().sort((a, b) => a.first - b.first)
   if (faces.length === 0) return []
   const base = rgb(mesh.color)
   const groups: FaceGroup[] = []

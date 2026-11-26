@@ -148,8 +148,10 @@ describe('STEP and IGES (occt-import-js in Node)', () => {
   }, 60_000)
 
   it('reads IGES', async () => {
-    const { stats } = await parseSource('iges', file(`${occtFiles}/cube-10x10mm/Cube 10x10.igs`), 'cube.igs', deps)
+    const { stats, model } = await parseSource('iges', file(`${occtFiles}/cube-10x10mm/Cube 10x10.igs`), 'cube.igs', deps)
     expect(stats.triangles).toBeGreaterThanOrEqual(12)
+    // The file declares black everywhere (an IGES default): read as "no colour", not as an invisible black part.
+    expect(model.meshes.every((mesh) => mesh.color === null && mesh.groups.length === 0)).toBe(true)
     expect(stats.bbox.max[0] - stats.bbox.min[0]).toBeCloseTo(10, 1)
   }, 60_000)
 
