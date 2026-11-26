@@ -192,7 +192,14 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
     let stop: (() => void) | null = () => controller.abort()
     cancelJob.current = () => stop?.()
     void (async () => {
-      const fetched = await download(url, controller.signal, (ratio) => dispatch({ type: 'progress', stage: 'download', ratio }))
+      // One render per whole percent, not per network chunk.
+      let shown = -2
+      const fetched = await download(url, controller.signal, (ratio) => {
+        const step = ratio === null ? -1 : Math.floor(ratio * 100)
+        if (step === shown) return
+        shown = step
+        dispatch({ type: 'progress', stage: 'download', ratio })
+      })
       if (controller.signal.aborted) return
       if (!fetched.ok) return dispatch({ type: 'fail', code: 'network' })
       const job = parseInWorker({
