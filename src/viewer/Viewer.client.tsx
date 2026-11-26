@@ -157,8 +157,7 @@ const StatusPanel = ({ state, format, onCancel, onStart, onUploadVersion, downlo
 const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onUploadVersion, downloadAction }: ViewerProps) => {
   const { t, locale } = useI18n()
   const [state, dispatch] = useReducer(viewerReducer, deferred, initialViewerState)
-  const container = useRef<HTMLDivElement>(null)
-  const canvas = useRef<HTMLCanvasElement>(null)
+  const host = useRef<HTMLDivElement>(null)
   const scene = useRef<SceneHandle | null>(null)
   const cancelJob = useRef<(() => void) | null>(null)
   const thumbnailSink = useRef(onThumbnail)
@@ -166,12 +165,13 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
   const format = formatOfExtension(extension)
   const label = fileTypeOfExtension(extension)?.label ?? extension.toUpperCase()
   const ready = state.phase.status === 'ready'
+  const canvasLabel = t('viewer.canvas', { name })
 
   // The scene: one renderer per mounted viewer, disposed on unmount (docs/11 §6).
   useEffect(() => {
-    if (!canvas.current || !container.current) return
+    if (!host.current) return
     try {
-      scene.current = createScene(canvas.current, container.current)
+      scene.current = createScene(host.current, canvasLabel)
     } catch (error) {
       if (error instanceof WebGlUnavailable) dispatch({ type: 'fail', code: 'webgl' })
       else throw error
@@ -180,6 +180,8 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
       scene.current?.dispose()
       scene.current = null
     }
+    // The label is set once; a language switch while the viewer is open keeps the first text until the next open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // One load per attempt: download → Worker → three objects. Leaving the page or Cancel stops both.
@@ -234,13 +236,8 @@ const Viewer = ({ name, extension, url, thumbnailUrl, deferred, onThumbnail, onU
 
   return (
     <section aria-label={t('viewer.region')} className="grid min-w-0 gap-2">
-      <div ref={container} className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
-        <canvas
-          ref={canvas}
-          role="img"
-          aria-label={t('viewer.canvas', { name })}
-          className={cx('block size-full touch-none select-none', ready ? 'cursor-grab active:cursor-grabbing' : 'invisible')}
-        />
+      <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
+        <div ref={host} className={cx('size-full', !ready && 'invisible')} />
         {ready ? null : (
           <>
             {thumbnailUrl ? <img src={thumbnailUrl} alt="" className={cx('absolute inset-0 size-full object-contain', state.phase.status === 'error' && 'opacity-50')} /> : null}

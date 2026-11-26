@@ -59,13 +59,22 @@ const materialsOf = (root: Object3D) => {
   return out
 }
 
-export const createScene = (canvas: HTMLCanvasElement, container: HTMLElement): SceneHandle => {
+/**
+ * Creates its own canvas inside `container` and removes it on dispose: a lost context (forceContextLoss frees GPU memory
+ * at once, docs/11 §6) is never reused, also not by React's double mount in development.
+ */
+export const createScene = (container: HTMLElement, label: string): SceneHandle => {
+  const canvas = document.createElement('canvas')
+  canvas.setAttribute('role', 'img')
+  canvas.setAttribute('aria-label', label)
+  canvas.className = 'block size-full touch-none select-none cursor-grab active:cursor-grabbing'
   let renderer: WebGLRenderer
   try {
     renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   } catch {
     throw new WebGlUnavailable()
   }
+  container.appendChild(canvas)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.autoClear = false
   renderer.setClearColor(new Color(CANVAS_COLOR), 1)
@@ -225,6 +234,7 @@ export const createScene = (canvas: HTMLCanvasElement, container: HTMLElement): 
       renderer.renderLists.dispose()
       renderer.dispose()
       renderer.forceContextLoss()
+      canvas.remove()
     },
   }
 }
