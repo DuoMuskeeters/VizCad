@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { Call } from '../api'
 import { FilesPage } from './FilesPage'
 import { renderApp } from './testApp'
-import { UploadProvider } from './UploadProvider'
+import { UploadPill, UploadProvider } from './UploadProvider'
 import { checkBeforeUpload, runUpload, type Put } from './upload'
 
 vi.mock('@tanstack/react-router', async () => (await import('./routerMock')).routerMock)
@@ -153,6 +153,30 @@ describe('progress card', () => {
     await user.upload(screen.getByLabelText('Choose files to upload'), [step('Mil.step')])
     await user.click(await screen.findByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/^Uploaded · /)).toBeInTheDocument()
+  })
+
+  it('keeps the mobile pill collapsed until it is tapped, then collapses again', async () => {
+    const { user } = renderApp(
+      <UploadProvider put={okPut}>
+        <UploadPill />
+        <FilesPage />
+      </UploadProvider>,
+      'owner',
+    )
+    fireEvent.change(await screen.findByLabelText('Choose files to upload'), { target: { files: [step('Mil.step')] } })
+    const pill = await screen.findByRole('button', { name: /\. Expand$/ })
+    await waitFor(() => expect(pill.textContent).toContain('1/1'))
+    expect(pill.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('dialog', { name: 'Uploads' })).toBeNull()
+
+    await user.click(pill)
+    const panel = await screen.findByRole('dialog', { name: 'Uploads' })
+    expect(pill.getAttribute('aria-expanded')).toBe('true')
+    expect(within(panel).getByRole('link', { name: 'Open' })).toBeTruthy()
+
+    await user.click(within(panel).getByRole('button', { name: 'Collapse' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Uploads' })).toBeNull())
+    expect(pill.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('disables the upload button with a reason for a commenter', async () => {

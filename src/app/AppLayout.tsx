@@ -15,7 +15,7 @@ import { postAuth } from '#/auth/api'
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
 import { failureKey } from './errors'
 import { roleKey } from './roles'
-import { UploadProvider } from './files/UploadProvider'
+import { UploadPill, UploadProvider } from './files/UploadProvider'
 import { RequireSession, SessionProvider, useUser } from './session'
 import { useWorkspace, useWorkspaceState, WorkspaceProvider } from './workspace'
 
@@ -187,6 +187,7 @@ const ReadyFrame = ({
                 </MenuItem>
               }
             />
+            <UploadPill />
             <Avatar name={user.name} className="mr-1" />
           </>
         }
