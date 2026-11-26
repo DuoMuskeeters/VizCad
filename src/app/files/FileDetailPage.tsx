@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { createClientOnlyFn } from '@tanstack/react-start'
 import { Download, FileQuestion, Share2 } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
@@ -28,8 +29,9 @@ import { uploadThumbnail } from './thumbnail'
 import { abilitiesOf, contentUrl, isFullView, thumbnailUrl, type AnyFileView } from './types'
 import { useUploads } from './UploadProvider'
 
-/** The viewer chunk (three.js) loads only here, on the client (app routes have no SSR). */
-const Viewer = lazy(() => import('#/viewer/Viewer.client'))
+/** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
+const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
+const Viewer = lazy(loadViewer)
 
 /** What the viewer area shows while its chunk loads: the thumbnail on the canvas colour, like the viewer's own loading state. */
 const ViewerFallback = ({ src }: { src: string | null }) => (

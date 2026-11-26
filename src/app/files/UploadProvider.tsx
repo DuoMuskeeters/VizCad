@@ -1,5 +1,6 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { createClientOnlyFn } from '@tanstack/react-start'
 import { ChevronDown, ChevronUp, UploadCloud, X } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
 import { FileTile } from '#/components/ui/DataList'
@@ -56,6 +57,9 @@ export const useUploads = (): Uploads => {
 }
 
 const CONCURRENCY = 2
+
+/** The parse Worker's main-thread side, client only: the server build never bundles the Worker. */
+const loadPipeline = createClientOnlyFn(() => import('#/viewer/pipeline'))
 
 /** Development fixture: a presigned URL of `/__fixture/…` is answered in memory with a short progress run. */
 const fixturePut: Put = ({ signal, onProgress }) =>
@@ -195,7 +199,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
     if (format === null || !canMakeThumbnail(format, file.size, isPhone(readDeviceHints()))) return
     thumbnails.current = thumbnails.current
       .then(async () => {
-        const [{ thumbnailInWorker }, bytes] = await Promise.all([import('#/viewer/pipeline'), file.arrayBuffer()])
+        const [{ thumbnailInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
         const outcome = await thumbnailInWorker({ format, name: file.name, bytes }).result
         if (outcome.ok && (await uploadThumbnail(fileId, outcome.blob))) setFinished((count) => count + 1)
       })

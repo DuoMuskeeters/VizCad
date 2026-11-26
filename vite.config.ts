@@ -27,6 +27,8 @@ export default defineConfig({
     'import.meta.env.VIZCAD_PRODUCTION': JSON.stringify(production),
   },
   resolve: { tsconfigPaths: true },
+  // ES module Workers can split: the viewer's parse Worker loads the occt-import-js glue (and its WASM) only for STEP/IGES.
+  worker: { format: 'es' },
   // Pre-bundle server deps at startup. Without this, Vite discovers them on the first API call,
   // re-optimizes mid-session and loads a second copy of effect/react (breaks Redacted and hooks in dev).
   environments: {
