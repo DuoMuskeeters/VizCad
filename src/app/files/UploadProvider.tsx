@@ -229,7 +229,7 @@ export const UploadPill = () => {
       <Popover.Trigger
         data-upload-pill=""
         aria-label={`${title}. ${open ? t('upload.collapse') : t('upload.expand')}`}
-        className={cx('grid min-h-11 min-w-16 shrink-0 content-center gap-1 rounded-md border border-line-strong bg-bg px-2.5 text-sm font-medium hover:bg-hover', fastTransition)}
+        className={cx('grid min-h-11 min-w-16 shrink-0 app:hidden content-center gap-1 rounded-md border border-line-strong bg-bg px-2.5 text-sm font-medium hover:bg-hover', fastTransition)}
       >
         <span className="flex items-center justify-center gap-1.5">
           <Icon aria-hidden className={cx('size-4 shrink-0', failed ? 'text-danger' : busy ? 'text-accent' : 'text-success')} />
