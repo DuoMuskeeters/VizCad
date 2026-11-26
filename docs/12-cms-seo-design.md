@@ -1,0 +1,524 @@
+# Faz 6 · CMS, pazarlama ve SEO tasarımı
+
+Durum **teknik tasarım, inceleme bekliyor** (26 Kasım 2026). D3, D4, D5, D6, D9 ve D14 bağlayıcıdır. Çelişki olursa `01-decisions.md` kazanır. [Kararlar](01-decisions.md) · [Plan, Faz 6](00-refactor-plan.md) · [Tasarım §2.15–2.18](03-design.md) · [Faz 4 tasarımı](09-files-sharing-design.md) · [Faz 5 tasarımı](11-viewer-design.md)
+
+Her başlıkta önce **karar**, sonra **gerekçe** ve reddedilen **alternatif** gelir. Kod adları öneridir, davranış bağlayıcıdır.
+
+Kısaca: blog, yazarlar, site metinleri, sayfa SEO'su ve yasal metinler D1'de, 5 dilde tutulur. Pazarlama sayfaları Worker'da SSR ile çizilir ve Cloudflare Cache API'de saklanır. Önbellek isabeti Effect'i ve router'ı hiç yüklemez. Admin yayınlayınca etkilenen URL'ler saf bir fonksiyonla hesaplanır ve temizlenir. Temizleme başarısız olursa kuyruğa girer. İngilizce önek almaz (`/blog/x`), diğer diller önek alır (`/tr/blog/x`). Böylece canlıdaki her blog URL'si aynı kalır. Mevcut yazılar `posts` tablosunda durur ve çeviri satırı yoksa `en` çevirisi sayılır. Cutover'da `post_translations`'a kopyalanır. Admin bundan sonra İngilizceyi yayınladığında aynı batch'te `posts` sütunlarına da yazar, böylece eski Worker'a geri dönüş blogu kırmaz.
+
+### Uygulamaya başlamadan önce düzeltilmesi gerekenler
+
+| # | Zorunlu kural |
+|---|---|
+| 1 | Önbelleğe giren HTML çereze, oturuma ve `Accept-Language`'a bağlı olamaz. `Set-Cookie` taşıyan, 200 olmayan ya da `GET`/`HEAD` olmayan yanıt önbelleğe girmez. Pazarlama başlığı oturumlu ve oturumsuz ziyaretçide aynıdır. |
+| 2 | `Cache.live.ts`'teki TODO kapatılır: `CF_ZONE_ID`/`CF_PURGE_TOKEN` yoksa yayın `CacheError` ile **başarısız sayılır**. Yalnız yerel silme, yayın için başarı değildir. `purge_everything` hiç kullanılmaz, çünkü zone legacy siteyle ortak. |
+| 3 | Legacy `GET /api/blog?status=draft` ve `GET /api/blog/{id}` taslakları kimlik doğrulamadan veriyor. `POST /api/blog` gövdeyi `...data` ile olduğu gibi yazıyor. Bu uçlar yeni Worker'da yok (404). Yerine admin uçları gelir (§3). |
+| 4 | Markdown güvenli çevrilir: ham HTML kaçışlanır, `javascript:`/`data:` bağlantıları atılır, görsel yalnız kendi alan adımızdan gelir (§4.3). JSON-LD içinde `<` karakteri `<` olarak yazılır. |
+| 5 | Legacy blog görselleri (`/api/blog/image/{kodlanmış anahtar}`, R2 `blog/...`) aynı URL'de çalışmaya devam eder. R2 anahtarı yeniden adlandırılmaz. SVG yüklemesi kapanır. Var olan SVG'ler `CSP: sandbox` ve `nosniff` ile verilir. |
+| 6 | `posts.authorId` kullanıcı silinince `CASCADE` ile yazıları siliyor (legacy 0006). Kullanıcı tablosuna bir `BEFORE DELETE` trigger'ı eklenir: yazısı olan kullanıcı silinemez (§1.4). |
+
+## 0. Kapsam
+
+| Var (Faz 6) | Yok (sonra) |
+|---|---|
+| Blog: liste, yazı, yazar sayfası; 5 dilde URL ve çeviri altyapısı | Çeviri içeriği: D9'a göre çeviriler acil değil. Altyapı hazır olur, içerik admin yazdıkça açılır |
+| Admin CMS: yazılar, yazarlar, site metinleri, sayfa SEO'su, yasal metinler, görseller, önbellek günlüğü | Zamanlanmış yayın, çok kişili editör rolleri (yalnız platform admini yazar) |
+| SSR + edge cache + yayında temizleme (D4), başarısız temizleme kuyruğu | Kategori ve etiket sayfaları (zayıf içerik; kategori yalnız etiket olarak görünür) |
+| SEO: canonical, hreflang (5 dil + `x-default`), JSON-LD, dil başına sitemap, robots, `llms.txt`, RSS, OG | Worker'da dinamik OG görseli üretimi (Free plan CPU) |
+| Landing, fiyatlandırma iskeleti, SSS, iletişim (Turnstile + e-posta), yasal sayfalar ve kabul kaydı | Fiyat verisi ve ödeme sayfaları (Faz 8, Q9/Q10). Bülten (legacy EmailJS, K8) |
+| Legacy URL'lerin korunması ve yönlendirmeler | Uygulama içi metinlerin adminden değiştirilmesi (K4) |
+
+## 1. Veri modeli ve migration
+
+### 1.1 Legacy tabloların bugünkü şekli
+
+Kaynak: `src/server/db/schema.ts` (legacy `0006`, `0007`, `0008`) ve `legacy/src/lib/blog.server.ts`, `legacy/src/routes/api/blog*.ts`, `legacy/src/components/admin/BlogEditor.tsx`.
+
+| Tablo | Canlı alanlar | Legacy davranışı (önemli olanlar) |
+|---|---|---|
+| `posts` | `id`, `slug` (UQ), `title`, `excerpt`, `content` (markdown), `coverImage?` (URL metni), `metaTitle?`, `metaDescription?`, `keywords?` (JSON dizi), `tableOfContents` (bool, varsayılan 1), `publishedAt?`, `status` (`draft/published/archived`), `category` (serbest metin, zorunlu), `tags?` (JSON), `readTime` (dk, zorunlu), `featured`, `views` (0008), `authorId` → `user.id` **ON DELETE CASCADE**, `createdAt`, `updatedAt` | Tek dilli. Yazar oturumdaki kullanıcı. Yayına geçişte `publishedAt` boşsa doldurulur. `views` her ziyarette okunup bir artırılarak yazılır (yarışlı). Markdown `@uiw/react-md-editor` ile istemcide çizilir; ham HTML içerebilir. |
+| `author_profiles` | `id`, `userId` (UQ, cascade), `name`, `bio?`, `role?`, `avatarUrl?` (serbest URL), `socialLinks?` (JSON nesne), `createdAt`, `updatedAt` | `posts.authorId = author_profiles.userId` ile birleşir. Yazar sayfası yok; JSON-LD'deki `/author/{userId}` bağlantısı 404'e gidiyor. |
+| `survey_responses` | `id`, `source`, `createdAt` | D6: soru onboarding'e taşındı. Faz 6 dokunmaz, rapor Faz 7'de. |
+
+**URL'ler (canlı).** `/`, `/blog`, `/blog/{slug}`, `/faq`, `/contact`, `/ModelSnap` (sitemap'te `/modelsnap`), `/sitemap.xml`. Dil URL'de yok: legacy dili istemcide tarayıcıdan seçiyor, SSR her zaman İngilizce. Yasal sayfa yok. Yeni giriş/kayıt ekranları `/legal/privacy` ve `/legal/terms`'e bağlantı veriyor; ikisi bugün 404.
+
+**R2.** Blog görselleri `blog/{yazı slug'ı ya da general}/{ad}` anahtarında, `/api/blog/image/{encodeURIComponent(key)}` ile `public, max-age=31536000, immutable` veriliyor. Yazı içerikleri ve `coverImage` bu URL'leri barındırıyor. Silme işçisi `blog/` önekine dokunmuyor (09 §5.3, `storageCleanup.ts`).
+
+### 1.2 URL şeması
+
+**Karar.**
+
+| Sayfa | `en` | Diğer diller (`tr`, `de`, `es`, `fr`) |
+|---|---|---|
+| Landing | `/` | `/tr` |
+| Blog listesi | `/blog`, `/blog/page/2` | `/tr/blog`, `/tr/blog/page/2` |
+| Yazı | `/blog/{slug}` | `/tr/blog/{dile özgü slug}` |
+| Yazar | `/authors/{slug}` | `/tr/authors/{slug}` |
+| Fiyatlandırma, SSS, iletişim | `/pricing`, `/faq`, `/contact` | `/tr/pricing` … |
+| Yasal | `/legal/privacy`, `/legal/terms`, `/legal/cookies`, `/legal/subprocessors` | `/tr/legal/...`; `kvkk` yalnız `/tr/legal/kvkk` |
+| RSS | `/blog/rss.xml` | `/tr/blog/rss.xml` |
+| Sitemap, robots, llms | `/sitemap.xml` (dizin), `/sitemaps/{locale}.xml`, `/robots.txt`, `/llms.txt` | aynı dosyalar |
+
+- Rota parçaları her dilde İngilizce kalır; yalnız yazı slug'ı dile özgüdür (D3). `/en/...` → `/...` 301. Sondaki `/` → `/` olmayan sürüme 301. Büyük harfli dil öneki (`/TR`) 404.
+- TanStack Router'da isteğe bağlı parametre: `src/routes/{-$locale}/...`. `params.parse` yalnız `tr|de|es|fr` kabul eder, `en` 301'e, diğeri 404'e gider. Statik rotalar (`/app`, `/s/...`, `/sign-in`) parametreli rotadan önce eşleşir. 6a'da rota sıralama testiyle doğrulanır.
+- Pazarlama sayfaları arası bağlantılar `reloadDocument` ile tam sayfa gezinmesidir. İstemci router'ı pazarlamada sunucu fonksiyonu çağırmaz; her gezinme edge cache'ten gelir.
+- **Gerekçe.** Canlı blog URL'leri ve Search Console kaydı aynen kalır, hiçbir yazı için yönlendirme gerekmez. Dil başına çevrilmiş rota parçaları (`/tr/fiyatlandirma`) her rotayı beş kez tanımlamayı ve temizleme listesini büyütmeyi gerektirir, SEO kazancı küçüktür.
+- **Alternatif.** Her dil önekli (`/en/blog/x`): tüm legacy URL'ler 301 olur. Reddedildi. Alt alan adı (`tr.viz-cad.com`): ayrı sertifika ve çerez kapsamı, reddedildi.
+- **Dil seçimi.** Otomatik yönlendirme yok: `Accept-Language`'a göre yönlendirmek önbellek anahtarını böler ve tarayıcıları (çoğu `en-US`) yanıltır. Üst çubukta ve alt bilgide dil seçici var. Seçici, aynı sayfanın o dildeki URL'sine gider; sayfa o dilde yoksa o dilin ana sayfasına. Uygulama içi dil tercihi (`vizcad_locale`) ayrıdır ve URL'yi etkilemez (K2).
+
+### 1.3 Yeni tablolar
+
+Migration `0016_cms` (5b `0015_viewer`'ı alıyor; numara birleştirme sırasına göre). Tümü yeni tablo ya da legacy tabloda izinli işlem (§1.4). Zaman damgaları mevcut şemadaki gibi `integer` (ms). `locale` sütunlarında `CHECK (locale IN ('en','tr','de','es','fr'))`.
+
+**`post_translations`** (yayındaki çeviri, dil başına bir satır)
+
+| Sütun | Not |
+|---|---|
+| `postId` → `posts.id` ON DELETE CASCADE, `locale` | PK (`postId`, `locale`) |
+| `slug` | `UNIQUE (locale, slug)`. Biçim §4.2 |
+| `title`, `excerpt` | Zorunlu. Başlık ≤ 120, özet ≤ 300 |
+| `contentMd` | Kaynak markdown, ≤ 200 KB |
+| `contentHtml` | Kayıtta sunucuda üretilmiş güvenli HTML (§4.3). SSR yalnız bunu basar |
+| `toc` | JSON: `[{ depth, id, text }]`, kayıtta üretilir |
+| `readTimeMin` | Kayıtta hesaplanır (dil başına kelime hızı) |
+| `metaTitle?`, `metaDescription?`, `keywords?` (JSON) | Boşsa başlık ve özet kullanılır |
+| `coverAlt?` | Kapak görselinin bu dildeki alt metni |
+| `ogAssetId?` → `cms_assets.id` ON DELETE SET NULL | Kapaktan farklı OG görseli istenirse |
+| `publishedAt`, `updatedAt`, `updatedByUserId` → `user.id` SET NULL | `publishedAt` bu dilin ilk yayını; `updatedAt` son yayın |
+
+**`post_drafts`** (çalışma kopyası). `post_translations` ile aynı içerik sütunları (`contentHtml`/`toc` yok, önizlemede üretilir) + `revision INTEGER NOT NULL`, `updatedAt`, `updatedByUserId`. PK (`postId`, `locale`). Yayın taslağı `post_translations`'a kopyalar ve taslak satırını siler. Yayındaki yazıyı düzenlemek canlı sayfayı değiştirmez.
+
+**`post_slug_redirects`**: `locale`, `slug`, `postId` → `posts.id` CASCADE, `createdAt`. PK (`locale`, `slug`). Slug değişince eskisi buraya yazılır; eski URL 301 ile yeniye gider. Aynı slug yeni bir yazıya verilirse yönlendirme satırı silinir (yayın batch'inde).
+
+**`author_translations`**: `authorId` → `author_profiles.id` CASCADE, `locale`, `bio?` (≤ 600), `jobTitle?` (≤ 80), `updatedAt`. PK (`authorId`, `locale`). `en` satırı yoksa legacy `bio` ve `role` okunur.
+
+**`site_texts`**: `key`, `locale`, `value?`, `draftValue?`, `updatedAt`, `updatedByUserId`, `publishedAt?`. PK (`key`, `locale`). Anahtar kod kaydında olmalı (§5.1). `value` yayında olan, `draftValue` yayınlanmamış değişiklik.
+
+**`page_seo`**: `pageKey`, `locale`, `title?`, `description?`, `ogAssetId?`, aynı üç alanın `draft*` karşılıkları, `live INTEGER NOT NULL DEFAULT 0`, `updatedAt`, `updatedByUserId`, `publishedAt?`. PK (`pageKey`, `locale`). `pageKey` kod kaydında olmalı. `live = 1` o sayfanın o dilde yayında (dizine açık) olduğunu söyler (§6.2).
+
+**`cms_assets`**: `id` (ULID), `r2Key` UQ, `mime` (`image/webp|png|jpeg|gif|avif`), `bytes`, `width`, `height`, `sha256` UQ (aynı dosya ikinci kez yüklenmez), `variants` (JSON: `{ "800": "<r2Key>" }`), `alt?` (varsayılan, İngilizce), `createdAt`, `createdByUserId`. R2 anahtarı `blog/a/{id}.{ext}`, varyant `blog/a/{id}-800.webp`. `blog/` öneki silme işçisinin korunan öneki olarak kalır.
+
+**`legal_documents`**: `id`, `kind` (`privacy`, `terms`, `cookies`, `subprocessors`, `kvkk`), `locale`, `version INTEGER`, `title`, `contentMd`, `contentHtml`, `changeSummary?`, `effectiveAt`, `publishedAt?`, `createdAt`, `createdByUserId`. `UNIQUE (kind, locale, version)`. Yayınlanmış satır değişmez: `BEFORE UPDATE … WHEN OLD.publishedAt IS NOT NULL` ve `BEFORE DELETE` aynı koşulla `RAISE(ABORT)`. Yeni metin yeni sürümdür.
+
+**`legal_acceptances`**: `userId` → `user.id` CASCADE, `kind`, `version`, `locale`, `acceptedAt`. PK (`userId`, `kind`, `version`). Kayıtta `terms` ve `privacy` için yazılır (§8.3).
+
+**`cache_purges`** (temizleme kuyruğu, `storage_deletions` kalıbı): `url` PK, `reason`, `createdAt`, `attempts`, `lastError?`, `notBefore`.
+
+**`contact_messages`**: `id`, `name` (≤ 80), `email`, `company?` (≤ 120), `message` (≤ 4000), `locale`, `createdAt`, `emailedAt?`. IP ve tarayıcı bilgisi yok (hız sınırı DO'da tutulur). 365 günde silinir (cron).
+
+**`site_settings`**: `key` PK, `value` (JSON), `updatedAt`, `updatedByUserId`. Anahtarlar kodda tipli: `organization.legalName`, `organization.sameAs` (URL dizisi), `organization.logoAssetId`, `contact.recipient`, `defaultOg.{locale}`, `legal.controller` (veri sorumlusu adı, adresi, iletişim). Değerler `Schema` ile çözülür.
+
+### 1.4 Legacy tablolarda değişiklik (yalnız izinli işlemler)
+
+| Tablo | İşlem | NULL yedek anlamı / not |
+|---|---|---|
+| `posts` | `ADD COLUMN revision INTEGER` | NULL = 0. Yazı düzeyindeki alanlarda (kategori, etiketler, yazar, kapak, öne çıkan) iyimser kilit |
+| `posts` | `ADD COLUMN coverAssetId TEXT REFERENCES cms_assets(id) ON DELETE SET NULL` | NULL: `coverImage` URL'si kullanılır (legacy) |
+| `posts` | `ADD COLUMN updatedByUserId TEXT REFERENCES user(id) ON DELETE SET NULL` | NULL: "bilinmiyor" |
+| `author_profiles` | `ADD COLUMN slug TEXT` + `CREATE UNIQUE INDEX author_profiles_slug_uq ON author_profiles(slug)` | NULL: yazar sayfası yok, `Person` JSON-LD'de `url` atlanır. Yeni sütun tamamen NULL olduğu için benzersiz indeks legacy veride çakışmaz |
+| `author_profiles` | `ADD COLUMN avatarAssetId TEXT REFERENCES cms_assets(id) ON DELETE SET NULL` | NULL: `avatarUrl` kullanılır, o da yoksa baş harfler |
+| `user` | `CREATE TRIGGER user_delete_guard_author BEFORE DELETE ON user WHEN EXISTS (SELECT 1 FROM posts WHERE authorId = OLD.id) BEGIN SELECT RAISE(ABORT, 'author_has_posts'); END` | Legacy admin panelinden yazar silinirse işlem hata verir. İstenen davranış budur: yazılar sessizce silinmez. Hesap silme akışı (Faz 7) önce yazıları başka yazara devretmeyi ister |
+| indeksler | `post_translations(locale, publishedAt DESC)`, `posts(status, publishedAt)` (benzersiz değil) | Liste ve sitemap sorguları |
+
+`scripts/check-migrations.ts` değişmez; `0016` onun izin listesinden geçmelidir (`UPDATE`, `DELETE`, `INSERT … SELECT` kopyası migration'da yok). Ek test: 0016 uygulandıktan sonra legacy'nin yazdığı her `posts`/`author_profiles` şekli hâlâ başarılı. Legacy `POST /api/blog` gövdeyi aynen yazdığı için fixture yeni sütunları **içermeyen** satırla koşar. Trigger testi: yazısı olan kullanıcıyı silmek reddedilir, yazısı olmayanı silmek geçer.
+
+### 1.5 Mevcut yazıların `en` çevirisine geçişi
+
+**Karar.** Kopya migration'da değil, cutover'da yapılır. O zamana kadar okuma tarafında bir yedek kural çalışır.
+
+1. **Okuma yedeği (`legacyEnTranslation`).** Bir yazının `post_translations` içinde `en` satırı yoksa ve `posts.status = 'published'` ise, `posts` sütunları `en` çevirisi sayılır: `slug`, `title`, `excerpt`, `content` → `contentMd`, `metaTitle`, `metaDescription`, `keywords`, `readTime`, `publishedAt`, `updatedAt`. `contentHtml` ve `toc` istek anında üretilmez; bu satırlar için SSR'da markdown çevrilir ve sonuç önbelleğe girer. Yedek yalnız staging ve cutover arası içindir; kaynağı test fixture'larıdır.
+2. **Cutover adımı (`materializeLegacyTranslations`, script).** Yazımlar dondurulmuşken, production kopyasında provadan sonra koşar (08 §3 sırasının içinde): her yazı için `INSERT … ON CONFLICT (postId, locale) DO NOTHING` ile `en` satırı yazılır, `contentHtml`/`toc`/`readTimeMin` §4.3 çeviricisinden üretilir. İdempotent. Sonuç raporu: yazı sayısı, kopyalanan satır, ham HTML içeren yazılar (§4.3, kaçışlanan etiketlerin listesi), kuraldışı slug'lar. Rapor kullanıcıya gösterilir; ham HTML'li yazı varsa yayına ayrı onay gelir.
+3. **Ayna kuralı.** Cutover'dan sonra admin `en` çevirisini yayınladığında aynı `db.batch` içinde `posts.slug/title/excerpt/content/metaTitle/metaDescription/keywords/readTime/status/publishedAt/updatedAt` da yazılır. Yeni yazı oluşturmak da `posts`'un zorunlu legacy sütunlarını doldurur (`category` boşsa `general`). Böylece eski Worker sürümüne geri dönüşte (Faz 9 geri dönüş planı) blog çalışır.
+4. **Geri dönüşten sonra yeniden ileri.** Legacy geri dönüş sırasında `posts`'u değiştirdiyse, `materializeLegacyTranslations --source-wins` yalnız `posts.updatedAt > post_translations.updatedAt` olan `en` satırlarını günceller. Aynı script, ayrı bayrak.
+5. **Yazarlar.** `author_profiles.slug` cutover adımında addan üretilir (§4.2, çakışmada `-2`). `bio`/`role` `en` yedeği olarak okunur; ayna kuralı yazarda da geçerli.
+
+- **Gerekçe.** `0016` cutover'dan önce production'a uygulanabilir (09 §1.3). Migration içinde kopya, legacy'nin sonradan yazdığı yazıları kaçırır ve iki kaynak oluşturur. Okuma yedeği staging'de legacy biçimli fixture'la test edilir, cutover adımı ise tek ve idempotenttir.
+- **Alternatif.** `posts`'a dil sütunları eklemek ya da `posts`'u yeniden oluşturmak. İlki tabloyu şişirir; ikincisi yasak (`__new_` kopya, 08 §3).
+
+## 2. Görünürlük kuralları
+
+- Bir yazı `L` dilinde yayındadır: `posts.status = 'published'` **ve** `post_translations(post, L)` var **ve** (`L = 'en'` ya da `en` de yayında). `en` yayında değilse hiçbir dil yayında olamaz (K3). Böylece `x-default` her zaman vardır ve ayna kuralı tutarlı kalır.
+- `en` yayından kaldırılınca `posts.status = 'draft'` olur, tüm dillerin URL'leri 404 döner.
+- **Arşiv:** `posts.status = 'archived'` → tüm dillerin URL'leri **410** döner, sitemap ve listelerden çıkar. Arşivden çıkarılınca eski hâline döner.
+- Taslak hiçbir genel uçta görünmez. Önizleme yalnız admin rotasında (§7.2).
+- Bir sayfa (`pageKey`) `L` dilinde dizine açıktır: `page_seo(pageKey, L).live = 1`. `en` her zaman açık. Kapalı dilde sayfa yine çizilir (İngilizce yedek metinlerle), ama canonical `en` sürümünü gösterir, hreflang listesinde ve sitemap'te yer almaz (§6.2).
+
+## 3. Programlar, uçlar ve servisler
+
+### 3.1 Genel (önbellekli SSR, oturumsuz)
+
+`src/server/programs/cms/public.ts`. Route loader'ları `createServerFn` üzerinden `#/server/http/entry.cms`'i dinamik `import()` ile yükler (CLAUDE.md kuralı). Her program sayfa başına en çok 3 D1 sorgusu yapar (`db.batch` ile tek gidiş). Free planda çağrı başına 50 D1 sorgusu sınırı var.
+
+| Program | Girdi → çıktı | Hata etiketleri |
+|---|---|---|
+| `getPublicPage` | `pageKey, locale` → `{ texts, seo, alternates, canonical, live }` | `PageUnavailable` |
+| `listPublicPosts` | `locale, page` → `{ cards, total, alternates }` (12 kart/sayfa, öne çıkan en üstte) | `PageUnavailable` (sayfa aralık dışı) |
+| `getPublicPost` | `locale, slug` → `PostView` \| `Redirect(url)` | `PostUnavailable` (404), `PostGone` (410) |
+| `getPublicAuthor` | `locale, slug` → `{ author, posts, alternates }` | `AuthorUnavailable` |
+| `getLegalDocument` | `kind, locale` → en güncel yayınlanmış sürüm (+ sürüm listesi) | `LegalUnavailable` |
+| `buildSitemapIndex`, `buildSitemap(locale)` | → XML | — |
+| `buildRss(locale)` | → RSS 2.0 (son 20 yazı) | — |
+| `buildLlmsTxt` | → metin | — |
+| `buildRobotsTxt` | `appEnv` → metin | — |
+| `submitContactMessage` | `name, email, company?, message, locale, turnstileToken` → `void` | `CaptchaFailed`, `RateLimitExceeded`, `EmailError` (mesaj yine kaydedilir, `emailedAt` boş kalır, cron yeniden dener) |
+
+`PostView` = başlık, özet, `contentHtml`, `toc`, okuma süresi, kapak (URL, boyut, alt), yazar (ad, slug, görsel, bio, unvan), tarih, kategori, ilgili yazılar (aynı dilde, kategori + etiket puanı, legacy algoritması, en çok 3), `alternates` (yayında olan diller ve URL'leri). İlgili yazılar yayında hesaplanmaz; liste küçük olduğu için sorguda sıralanır.
+
+### 3.2 Admin (yalnız platform admini)
+
+`POST /api/cms/<operation>` dağıtıcısı (`http/cms.ts`, `entry.cms.ts`). `/api/app` ile aynı katmanlar: CSRF (`http/csrf.ts`), oturum, hız sınırı (`cmsWrite`), `Schema`, `private, no-store`. Ek olarak `requirePlatformAdmin`: oturum özetine `platformRole` (`user.role = 'admin'`, better-auth admin eklentisinin legacy alanı) eklenir; karar `permissions.ts`'te `canManageContent(platformRole)` olarak tek yerde durur. Admin değilse 403 `PermissionDenied`, oturum yoksa 401.
+
+| Program | Girdi → çıktı | Hata etiketleri (ortak `DbError`, `ValidationError`, `RateLimitExceeded`, `PermissionDenied` hariç) |
+|---|---|---|
+| `listPostsAdmin` | `status?, missingLocale?, q?, cursor` → satırlar (dil kapsaması, taslak var mı, görüntülenme) | — |
+| `getPostAdmin` | `postId` → yazı + her dil için yayın ve taslak | `PostUnavailable` |
+| `createPost` | `title` (en) → `postId` | — |
+| `saveDraft` | `postId, locale, fields, revision` → `{ revision }` | `PostUnavailable`, `ContentConflict` (409) |
+| `updatePostMeta` | `postId, category, tags, authorId, coverAssetId, featured, revision` | `ContentConflict`, `AuthorUnavailable`, `AssetUnavailable` |
+| `previewDraft` | `postId, locale` → `PostView` (taslaktan) | `PostUnavailable` |
+| `publishTranslation` | `postId, locale, revision` → `{ urls, purge }` | `ContentConflict`, `SlugConflict` (409), `PublishBlocked` (422: `en` yayında değil, zorunlu alan eksik) |
+| `unpublishTranslation` | `postId, locale` → `{ urls, purge }` | `PublishBlocked` (`en` kaldırılırken diğer diller yayındaysa onay bayrağı ister) |
+| `archivePost`, `restorePost` | `postId` → `{ urls, purge }` | — |
+| `deletePost` | `postId` → `void`, yalnız hiç yayınlanmamış yazı | `PublishBlocked` |
+| `listAuthors`, `saveAuthor`, `saveAuthorTranslation` | yazar alanları, `userId` | `AuthorUnavailable`, `SlugConflict` |
+| `listSiteTexts` | `pageKey?, locale, missingOnly?` → anahtar, kod varsayılanı, yayındaki, taslak, sınır | — |
+| `saveTextDrafts` | `[{ key, locale, draftValue }]` (≤ 200) | `UnknownTextKey`, `TextTooLong`, `PlaceholderMismatch` (422) |
+| `publishTexts`, `discardTextDrafts` | `pageKey \| 'shared', locale` → `{ urls, purge }` | — |
+| `listPages`, `savePageSeoDraft`, `publishPageSeo` | `pageKey, locale, title, description, ogAssetId` | `UnknownPage`, `TextTooLong` |
+| `setPageLive` | `pageKey, locale, live` → `{ urls, purge }` | `TranslationIncomplete` (422, eksik anahtarlar listesiyle) |
+| `listLegal`, `createLegalDraft`, `saveLegalDraft`, `publishLegal` | `kind, locale, contentMd, effectiveAt, changeSummary` | `LegalImmutable` (409), `LegalUnavailable` |
+| `listAssets`, `updateAssetAlt`, `deleteAsset` | — | `AssetInUse` (409: bir yazı, yazar, OG ya da ayar kullanıyor) |
+| `getSettings`, `saveSettings` | §1.3 `site_settings` anahtarları | `ValidationError` |
+| `listPurges`, `drainPurges`, `purgeUrls` | — / `limit` / `urls` (yalnız kendi hostumuz) | `CacheError` |
+
+**Yayın batch'i.** Her yayın tek `db.batch`: içerik satırları, (dil `en` ise) `posts` aynası, slug yönlendirmesi, `cache_purges` satırları (etkilenen URL'ler). Batch'ten sonra temizleme hemen denenir (§7.4). D1 yazısı temizlemeden önce gelir; temizleme başarısızsa içerik yine yayındadır, kuyrukta bekleyen URL'ler admin ekranında görünür.
+
+**İkili uçlar.**
+
+| Uç | Kim | Ne yapar |
+|---|---|---|
+| `POST /api/cms/assets` | platform admini, CSRF | Gövde ≤ 5 MB görsel (istemci önceden küçültür, §7.3). Sihirli baytlar (PNG, JPEG, WebP, GIF, AVIF), boyut başlıktan okunur (≤ 4096 px), SHA-256 ile tekilleştirme. SVG ve diğer türler 415. R2'ye `put`, sonra `cms_assets` satırı. Varyant ikinci istekle (`?variant=800&of={id}`) |
+| `GET /media/{assetId}[-800].{ext}` | herkes | R2 akışı, `public, max-age=31536000, immutable`, `nosniff`, `Content-Security-Policy: sandbox`, kayıtlı MIME. Bilinmeyen kimlik 404 |
+| `GET /api/blog/image/{key}` | herkes (legacy) | Yalnız `blog/` öneki, aynı uzun önbellek, ek olarak `nosniff` ve `CSP: sandbox`. Yalnız GET. İçerikteki eski bağlantılar için kalıcı |
+| `POST /api/contact` | herkes | CSRF (Origin), Turnstile (`contact` eylemi), hız sınırı (IP başına saatte 5), `Schema` |
+
+**Yeni tagged error'lar ve durumlar** (`respond.ts` `STATUS`, tam eşleme): `PageUnavailable` 404, `PostUnavailable` 404, `PostGone` 410, `AuthorUnavailable` 404, `LegalUnavailable` 404, `AssetUnavailable` 404, `UnknownPage` 404, `ContentConflict` 409, `SlugConflict` 409, `AssetInUse` 409, `LegalImmutable` 409, `PublishBlocked` 422, `TranslationIncomplete` 422, `UnknownTextKey` 422, `TextTooLong` 422, `PlaceholderMismatch` 422, `InvalidAsset` 422. `CacheError` admin uçlarında 502 olarak döner, genel sayfalarda hiç dönmez.
+
+### 3.3 Servisler
+
+| Servis | Faz 6'daki rolü | Değişiklik |
+|---|---|---|
+| `Db` | tüm tablolar | yok. `Db.memory` 0016 dahil tüm migration'larla |
+| `Storage` | `blog/` görselleri: `put`, `get`, `head` | yok |
+| `Cache` | yayında temizleme (`purge`) | yapılandırma yoksa `CacheError` (kural 2). `purge` URL listesini yalnız `siteUrl` hostuyla kabul eder |
+| `EdgeCache` (yeni, **Effect'siz**) | isabet yolu: `match`, `put`, anahtar normalleştirme | `services/EdgeCache.ts`. `D1Health` gibi bilinçli istisna (CLAUDE.md'ye eklenir): isabette Effect, Drizzle ve router yüklenmez |
+| `AppConfig` | `siteUrl`, `appEnv`, `cachePurge`, `turnstile` | ek: `contactRecipient` (yoksa iletişim formu `ConfigError` ile kapalı) |
+| `Auth` | oturum özeti | `SessionSummary.platformRole` (`'admin' \| 'user'`), aynı sorgudan |
+| `Email` | iletişim mesajı | şablon `emails/contact.ts` (düz metin, kullanıcı girdisi kaçışlı, `Reply-To` gönderen) |
+| `Turnstile`, `RateLimit` | iletişim, görsel yükleme, admin yazımları | yeni eylemler: `contact`, `cmsWrite`, `cmsAsset` |
+
+Markdown çeviricisi, slug, metin çözümleyici, SEO kurucuları ve `affectedUrls` saf modüllerdir (`src/server/cms/*.ts`, `src/shared/seo/*.ts`), servis değildir. `Entitlements` ve `Billing` CMS'e girmez (D2: CMS workspace bilmez).
+
+## 4. İçerik işleme
+
+### 4.1 Editör ve biçim
+
+**Karar.** Kaynak biçim markdown (GFM: tablo, görev listesi, üstü çizili) olarak kalır. Admin editörü CodeMirror 6 (markdown modu), `/admin/cms` chunk'ında tembel yüklenir. Önizleme sunucudaki aynı çeviricinin çıktısıdır (`previewDraft`), istemcide ayrı çevirici yok.
+
+- **Gerekçe.** Legacy içerik markdown. Tek çevirici, önizleme ile yayının farklı görünmesini engeller. `@uiw/react-md-editor` hem ağır hem de yayın sayfasına da giriyordu (legacy `blog.$slug.tsx` editör paketini okuyucuya yüklüyordu).
+- **Alternatif.** Blok editör (TipTap/Lexical) ve JSON içerik: legacy içeriği dönüştürme gerektirir, reddedildi.
+
+### 4.2 Slug
+
+`^[a-z0-9]+(?:-[a-z0-9]+)*$`, ≤ 96 karakter. Başlıktan üretilir: küçük harf, Türkçe/Almanca/İspanyolca/Fransızca harf eşlemesi (`ı→i`, `ğ→g`, `ş→s`, `ç→c`, `ö→o`, `ü→u`, `ß→ss`, `ñ→n`, aksanlar düşer), diğer her şey `-`. Ayrılmış: `page`, `rss.xml`. Legacy slug kurala uymasa da okunur ve değiştirilmedikçe korunur. Değişen slug `post_slug_redirects`'e yazılır.
+
+### 4.3 Güvenli çeviri (`renderMarkdown`)
+
+**Karar.** `mdast-util-from-markdown` + `micromark-extension-gfm`/`mdast-util-gfm` ile sözdizimi ağacı, ağaç üzerinde son işlem, sonra `mdast-util-to-hast` (ham HTML **kapalı**: HTML düğümleri kaçışlanmış metin olur) ve `hast-util-to-html`. Son işlem (dizgi üzerinde değil, ağaçta):
+
+- Başlıklara `id` (slug kuralı, sayfa içinde tekil) ve `toc` çıkarımı (h2–h3).
+- Bağlantılar: yalnız `https:`, `mailto:` ve göreli. Dış bağlantıya `rel="noopener"`; `nofollow` yok (editoryal içerik).
+- Görseller: yalnız `/media/...`, `/api/blog/image/...` ya da `https://viz-cad.com/...`. Diğer görsel adresi metin bağlantısına çevrilir ve kayıtta uyarı döner. `loading="lazy"`, `decoding="async"`, `cms_assets`'ten bilinen `width`/`height` (CLS), varyant varsa `srcset`.
+- Kod blokları: sözdizimi renklendirmesi yok (ilk sürüm), `<pre><code class="language-x">`.
+- Okuma süresi: kelime / dil hızı (en 230, tr 190, de 200, es 220, fr 210 kelime/dk), en az 1.
+
+`contentHtml` kayıtta üretilir, SSR hiç markdown çevirmez (Free plan CPU, §7.5). Çevirici saftır ve sabit girdide sabit çıktı verir (test). Legacy içerikte ham HTML varsa kaçışlanmış metin olarak görünür; cutover raporu bunları listeler (§1.5 adım 2).
+
+- **Gerekçe.** Admin tek yazar olsa da oturumu çalınan bir admin hesabının tüm ziyaretçilere betik basması kabul edilemez. HTML'i kapatmak ayrı bir temizleyici (DOMPurify, sanitize-html) çalıştırmaktan hem daha güvenli hem Worker'da daha ucuzdur.
+- **Alternatif.** `marked` + `sanitize-html`: iki kütüphane, temizleyici Worker'da CPU harcar. Reddedildi. Çeviri yalnız kayıtta (admin isteği) ve cutover script'inde çalışır; genel sayfa isteğinde çalışmaz (legacy yedek satırları hariç, §1.5).
+
+## 5. Site metinleri
+
+### 5.1 Kayıt (kodda, tipli)
+
+`src/i18n/marketing.ts`: CMS'ten değiştirilebilen her anahtar burada İngilizce varsayılanıyla tanımlıdır. Her anahtarın kaydında `page` (`landing`, `pricing`, `faq`, `contact`, `blog`, `legal`, `shared` = üst çubuk ve alt bilgi), `maxLength` ve izinli parametreler (`{count}`) vardır. Anahtar adı tipli olduğu için yazım hatası derleme hatasıdır (D3). Kodda Türkçe çeviri de bulunabilir (mevcut `app.ts`/`files.ts` kalıbı).
+
+SSS ilk sürümde sabit bir anahtar listesidir (`faq.items` = kodda sıralı kimlikler, her biri `faq.{id}.q` ve `faq.{id}.a`). Admin metni değiştirir; soru eklemek kod değişikliğidir. Bir dilde sorusu boş kalan madde o dilde gizlenir.
+
+**Kapsam (K4).** Yalnız genel sayfaların metinleri: landing, fiyatlandırma, SSS, iletişim, blog arayüzü, yasal sayfa kabuğu, üst çubuk ve alt bilgi, `llms.txt` özeti. Uygulama içi metinler (`auth.*`, `files.*`, `viewer.*`) kodda kalır.
+
+### 5.2 Çözümleme sırası
+
+`resolveText(key, locale)`: `site_texts[locale].value` → kod[`locale`] → `site_texts['en'].value` → kod[`en`]. Parametreli metinde parametre kümesi İngilizce varsayılanla aynı olmalıdır; değilse kayıt `PlaceholderMismatch` ile reddedilir. Metin düz metindir; HTML ve markdown yok. Bağlantı gereken yerler kodda bileşen olarak kurulur, metin yalnız etiketi verir.
+
+Bir dilin metni İngilizce metinden eski kaldığında (`site_texts[en].publishedAt > site_texts[L].publishedAt`) admin tablosunda "İngilizce sonradan değişti" işareti çıkar.
+
+### 5.3 Taslak ve yayın
+
+Kayıt `draftValue`'ya yazar. "Yayınla" bir sayfa grubunun bir dildeki tüm taslaklarını tek batch'te `value`'ya taşır ve etkilenen URL'leri kuyruğa yazar. Önizleme (`/admin/cms/preview/page/{pageKey}/{locale}`) taslakları gösterir. Böylece birden çok değişiklik tek temizlemeyle yayınlanır.
+
+## 6. SEO
+
+### 6.1 Ortak `<head>` kurucusu
+
+`src/shared/seo/head.ts` (saf, istemci ve sunucuda aynı). Route `head()` loader verisinden şunu üretir:
+
+| Etiket | Kural |
+|---|---|
+| `<html lang>` | URL'deki dil. Kök belge SSR'da doğru `lang` ile çizilir (bugün istemcide ayarlanıyor) |
+| `title` | `page_seo.title` → sayfa varsayılanı. Yazıda `metaTitle` → `title`, sonuna ` · VizCad Blog`. ≤ 60 karakter uyarısı adminde |
+| `description` | `page_seo.description` / `metaDescription` → özet. ≤ 160 uyarısı |
+| `canonical` | Mutlak, `siteUrl` + yol, sorgu dizgisi yok. Yayındaki dilde kendisi, kapalı dilde `en` sürümü |
+| `alternate hreflang` | Yayında olan her dil için bir satır + `x-default` (`en`). Her sayfa kendini de listeler. Kapalı dil sayfası hiç hreflang basmaz |
+| `robots` | Pazarlama: yok (varsayılan index). Uygulama rotaları, admin, önizleme, `/s/*`, giriş ekranları: `noindex, nofollow` meta **ve** `X-Robots-Tag` başlığı. Staging'de her yanıtta `X-Robots-Tag: noindex, nofollow` |
+| Open Graph | `og:type` (`website` / `article`), `og:url` = canonical, `og:title`, `og:description`, `og:image` (mutlak, 1200×630, `og:image:width/height/alt`), `og:site_name`, `og:locale` (`en_US`, `tr_TR`, `de_DE`, `es_ES`, `fr_FR`) ve yayındaki diğer diller için `og:locale:alternate`. Yazıda `article:published_time`, `article:modified_time`, `article:author` (yazar sayfası URL'si), `article:section` |
+| X | `twitter:card = summary_large_image`, `twitter:site` `site_settings`'ten |
+| JSON-LD | §6.3 |
+
+### 6.2 Kapalı dil sayfası ve yinelenen içerik
+
+Bir sayfa `L` dilinde `live = 0` ise sayfa İngilizce yedekle çizilir: kullanıcı kırık sayfa görmez, ama arama motoru bunu `en` sürümünün kopyası olarak görür. Bu yüzden canonical `en`'i gösterir, sayfa hreflang'e ve sitemap'e girmez, iç bağlantılar (dil seçici hariç) bu sayfaya gitmez. `noindex` konmaz; canonical ile `noindex` birlikte çelişen sinyaldir.
+
+`setPageLive(L, true)` sayfanın tüm zorunlu anahtarları `L` dilinde (D1 ya da kod) varsa geçer, yoksa eksik listesiyle `TranslationIncomplete`. Yazıda dilin varlığı zaten çeviri satırıdır; bu kural yalnız sayfalar içindir.
+
+### 6.3 JSON-LD
+
+`src/shared/seo/jsonld.ts`, her biri saf fonksiyon, `@id`'ler sabit (`{siteUrl}/#organization`, `{siteUrl}/#website`, `{yazar URL'si}#person`). Serileştirme `JSON.stringify` + `<` → `<`, `>` → `>`, `&` → `&` (`</script>` kaçışı).
+
+| Sayfa | Türler | Not |
+|---|---|---|
+| Landing | `Organization` (ad, `url`, `logo`, `sameAs`, `legalName` ayardan), `WebSite` (`inLanguage`, `publisher` → org), `SoftwareApplication` (`name`, `applicationCategory: BusinessApplication`, `operatingSystem: Web`, `url`) | `offers` yalnız Faz 8'de gerçek fiyat gelince. Uydurma `aggregateRating` hiçbir zaman yok |
+| Fiyatlandırma | `SoftwareApplication` + `offers` (Faz 8) | Faz 6'da iskelet, `offers` yok |
+| Yazı | `BlogPosting` (`headline`, `description`, `image` [1200 px genişlik], `datePublished`, `dateModified`, `inLanguage`, `author` → `Person` `@id`, `publisher` → org `@id`, `mainEntityOfPage`, `isPartOf` → `Blog`), `BreadcrumbList` (Ana sayfa › Blog › yazı) | Legacy kırıntıdaki `?category=` bağlantısı kalkar |
+| Blog listesi | `Blog` (`blogPost`: sayfadaki yazılar, yalnız `@id` + `headline` + `url`) | |
+| Yazar | `ProfilePage` + `mainEntity: Person` (`name`, `jobTitle`, `image`, `description`, `sameAs`, `url`) | D5 (E-E-A-T) |
+| SSS | `FAQPage` | Google zengin sonucu bu tür siteler için 2023'ten beri göstermiyor; işaretleme yine geçerli, sohbet motorları okuyor. Vaat değil |
+| Yasal | `BreadcrumbList` | |
+
+### 6.4 Sitemap
+
+- `/sitemap.xml` = sitemap dizini (Search Console'daki kayıtlı adres korunur) → `/sitemaps/{locale}.xml`, her dil için bir dosya.
+- Her `<url>`: `loc`, gerçek `lastmod` (yazıda çevirinin `updatedAt`'i, sayfada `page_seo` ve sayfa metinlerinin en yeni `publishedAt`'i), ve yayındaki her dil + `x-default` için `xhtml:link rel="alternate" hreflang`. `changefreq`/`priority` yok (arama motorları yok sayıyor).
+- Yalnız dizine açık URL'ler: yayındaki yazılar, `live` sayfalar, yazısı olan yazarlar, yasal sayfalar. Sayfalanmış blog listeleri (`/blog/page/2`) girmez.
+- XML kaçışı (`&`, `<`, `'`, `"`) tek fonksiyonda. 50.000 URL sınırı uzak; tek dosyada kalır.
+
+### 6.5 robots.txt
+
+Kodda üretilir (`buildRobotsTxt`), statik `public/robots.txt` silinir.
+
+- **Production:** `User-agent: *` → `Allow: /`; `Disallow: /app`, `/admin`, `/api/`, `/s/`, `/dev/`, `/onboarding`, `/invite/`, `/guest-invite/`; `Sitemap: https://viz-cad.com/sitemap.xml`. Uygulama rotaları ayrıca `X-Robots-Tag: noindex` gönderir. Giriş/kayıt sayfaları taranabilir ama `noindex`. Legacy dosyadaki `/src/`, `/node_modules/` gibi satırlar kalkar (öyle yollar yok).
+- **Yapay zekâ tarayıcıları (K11):** GPTBot, ClaudeBot, PerplexityBot, Google-Extended için aynı kurallar: pazarlama ve blog açık, uygulama kapalı. Cloudflare zone'undaki "AI botlarını engelle" ve "Managed robots.txt" ayarları bu dosyanın önüne geçebilir; 6a'da salt okunur kontrol edilir, değişiklik kullanıcı onayıyla.
+- **Staging:** `User-agent: *` → `Disallow: /` ve her yanıtta `X-Robots-Tag`.
+
+### 6.6 llms.txt
+
+`/llms.txt`, llmstxt.org biçimi, İngilizce: `# VizCad`, `>` ile tek paragraf özet (`llms.summary` site metni), "Product" bölümünde landing, fiyatlandırma, SSS, yasal sayfaların bağlantıları ve tek satır açıklamaları, "Blog" bölümünde son 30 yayındaki `en` yazının başlık + URL + özeti, "Languages" bölümünde dil ana sayfaları. Yalnız gerçekten var olan özellikler (03 §6: olmayanı vaat etme). Yayında temizlenen URL listesinde. `llms-full.txt` ilk sürümde yok.
+
+### 6.7 RSS
+
+`/blog/rss.xml` ve `/{locale}/blog/rss.xml`, RSS 2.0, son 20 yazı, `description` = özet (tam içerik yok). Blog sayfalarının `<head>`'inde `alternate type="application/rss+xml"`.
+
+### 6.8 OG görselleri
+
+- **Karar.** Worker OG görseli üretmez. Sırayla: çevirinin `ogAssetId`'si → yazının kapağı (≥ 1200 px genişlik şartı, yoksa uyarı) → admin tarayıcısında şablondan üretilmiş kart → `site_settings.defaultOg.{locale}`.
+- **Şablon kart:** yazı kaydedilirken kapak yoksa editör, `OffscreenCanvas` üzerinde 1200×630 kart çizer (logo, başlık, dil, marka rengi, Figtree; gradyan yok). WebP olarak `POST /api/cms/assets`'e yüklenir ve `ogAssetId` olur. Başlık değişince yeniden üretilir. Aynı kalıp sayfa SEO'sunda da var.
+- **Gerekçe.** Satori + resvg WASM'ı Worker'da çalıştırmak Free plandaki 10 ms CPU sınırını aşar. Küçük resim ve GLB'de olduğu gibi üretimi tarayıcı yapar, sunucu doğrular (09, 11 kalıbı).
+- **Alternatif.** Build anında her sayfaya PNG: içerik adminden değiştiği için build eskir (D4 ile aynı gerekçe). Reddedildi.
+
+### 6.9 Yönlendirmeler (301)
+
+| Eski | Yeni |
+|---|---|
+| `/ModelSnap`, `/modelsnap` | `/` (stüdyo Çıktı sekmesi taşınmadı, D15; K12) |
+| `/author/{userId}` (legacy JSON-LD'deki ölü bağlantı) | `/authors/{slug}` ya da `/blog` |
+| `/en/...` | önek olmadan |
+| `/blog/{eski slug}` | `post_slug_redirects` ile güncel slug |
+| `/blog?category=x` | `/blog` (sorgu atılır) |
+
+`/dashboard`, `/app`, `/file/*`, `/shared/*` yönlendirmeleri Faz 4'te var (`legacyRedirect.ts`).
+
+## 7. SSR, edge cache ve yayında temizleme (D4)
+
+### 7.1 İstek yolu
+
+```
+istek → src/server.ts fetch
+  ├─ marketingCacheKey(request)  (saf, Effect'siz; pazarlama rotası değilse null)
+  │    null → TanStack handler (değişiklik yok)
+  │
+  ├─ EdgeCache.match(key) ── isabet → yanıt + x-vizcad-cache: hit   (Effect, router, D1 yok)
+  │
+  └─ ıska → TanStack handler (SSR, loader → entry.cms → program → D1)
+         └─ isCacheable(yanıt) → ctx.waitUntil(EdgeCache.put(key, kenar başlıklarıyla kopya))
+            yanıt + x-vizcad-cache: miss
+```
+
+- **Pazarlama rotaları:** `/`, dil ana sayfaları, `/blog/**`, `/authors/*`, `/pricing`, `/faq`, `/contact`, `/legal/**`, `/sitemap.xml`, `/sitemaps/*`, `/robots.txt`, `/llms.txt`, RSS. Kalıplar tek listede (`src/shared/marketingRoutes.ts`), hem `marketingCacheKey` hem `affectedUrls` bu listeyi kullanır.
+- **Anahtar:** `https://{siteUrl hostu}{yol}`. Sorgu dizgisi atılır (utm ve benzeri önbelleği delip CPU harcatmasın). Yol normalleştirilmez; normalleştirme gerekiyorsa 301 verilir, 301 de önbelleğe girer.
+- **`isCacheable`:** `GET`/`HEAD`, durum 200 ya da 301, `Set-Cookie` yok, yanıtta `x-vizcad-no-store` yok. 404 ve 410 önbelleğe girmez (rastgele URL'ler önbelleği doldurmasın; 410 yalnız var olan yazı için ve D1'de ucuz).
+- **Başlıklar:** önbelleğe giden kopya `Cache-Control: public, s-maxage=86400` (güvenlik ağı: temizleme kaçarsa en geç bir günde yenilenir). Tarayıcıya giden `Cache-Control: public, max-age=0, must-revalidate` + `ETag` (yayın anında görünsün). Görseller ve fontlar `immutable`.
+- **Pazarlama HTML'i çerez okumaz.** Üst çubukta her zaman "Giriş yap" ve "Ücretsiz başla" vardır; oturumu açık kişi `/sign-in`'den uygulamaya yönlenir (bugünkü davranış). İletişim formu Turnstile'ı istemcide yükler.
+- **Önizleme ve admin** pazarlama listesinde değildir: `private, no-store`, `noindex`.
+- `Cache.live.ts`'teki not geçerli: Cache API workers.dev'de çalışmaz, yalnız özel alan adında. Staging doğrulaması için §10.
+
+### 7.2 Önizleme
+
+`/admin/cms/preview/post/{postId}/{locale}` ve `/admin/cms/preview/page/{pageKey}/{locale}`: genel şablonun aynısı, taslak verisiyle, üstte "Önizleme · yayınlanmadı" bandı. Yalnız platform admini.
+
+### 7.3 Görsel yükleme akışı
+
+Editörde dosya seçilir ya da yapıştırılır → istemci `createImageBitmap` ile okur, en uzun kenar 1600 px'e küçültür, WebP'ye çevirir (Safari'de desteklenmiyorsa JPEG), ayrıca 800 px varyantı üretir → iki `POST /api/cms/assets` → editöre `![alt](/media/{id}.webp)` eklenir. Alt metin zorunlu alan olarak sorulur.
+
+### 7.4 Temizleme
+
+**`affectedUrls(change)`** saf fonksiyonu (`src/server/cms/affectedUrls.ts`), tam test edilir:
+
+| Değişiklik | Temizlenen URL'ler |
+|---|---|
+| Yazı çevirisi yayın/kaldırma (`L`) | Yazının **tüm** dillerdeki URL'leri (hreflang listeleri değişir) + eski slug; `L` blog listesinin tüm sayfaları; `L` RSS; yazarın tüm dillerdeki sayfası; `L` sitemap'i ve dizin; `L = en` ise `/llms.txt`; landing "son yazılar" gösteriyorsa `L` landing'i |
+| Arşiv/geri alma, yazı alanları (kapak, yazar, kategori) | yukarıdakinin tüm diller için birleşimi |
+| Sayfa metinleri/SEO (`pageKey`, `L`) | o sayfanın `L` URL'si; sayfa `live` değiştiyse o sayfanın tüm dilleri (hreflang) + `L` sitemap'i |
+| `shared` metinler (üst çubuk, alt bilgi) | `L` dilindeki tüm pazarlama URL'leri (yazılar dahil) |
+| Yazar | yazar sayfası (tüm diller) + yazarın yazıları (tüm diller) |
+| Yasal sürüm | o belgenin URL'si + `L` sitemap'i |
+| Ayarlar (`organization.*`, `defaultOg`) | tüm pazarlama URL'leri |
+
+**Akış.** Yayın batch'i URL'leri `cache_purges`'e yazar. Aynı istek en çok 10 API çağrısı (30'ar URL, 300 URL) dener: Free planda istek başına 50 alt istek sınırı var. Başarılı URL'ler kuyruktan silinir. Kalan varsa yanıt `{ purge: { done, queued } }` döner ve admin ekranı `drainPurges`'ı kuyruk boşalana kadar tekrar çağırır ("Önbellek temizleniyor · 120/340"). Saatlik cron (`drainCachePurges`, mevcut `0 * * * *`) yarım kalanı tamamlar; deneme sayısı 10'u geçen URL ekranda "başarısız" olarak kalır ve elle yeniden denenir. Yayın bildirimi: "Yayınlandı · önbellek temizlendi: 12 URL" ya da "Yayınlandı · 3 URL temizlenemedi, yeniden denenecek" (03 §2.15).
+
+- Büyük temizlemeler (`shared` metin, ayarlar) için hostname ile temizleme Free planda varsa (`hosts: ["viz-cad.com"]`) kullanılır. 6a'da API ile doğrulanır; yoksa URL listesi ve kuyruk yeterlidir (site küçük: tahmini 5 dil × 40 URL).
+- `purge` yalnız `siteUrl` hostundaki URL'leri kabul eder; staging kodu production URL'si temizleyemez.
+- **Gerekçe.** D4 kararı URL bazlı temizlemedir ve `Cache` servisi bunun için yazıldı. Kuyruk, D1 yazısı ile temizleme arasındaki tutarsızlığı görünür ve onarılabilir kılar.
+- **Alternatif.** Önbellek anahtarına bir "içerik nesli" sayısı eklemek (yayında nesil artar, temizleme API'si gerekmez). Doğruluğu kolay ama her isabette nesli okumak gerekir ve tek bir değişiklik o dilin bütün önbelleğini soğutur: Free planda her veri merkezinde bir SSR dalgası. 6a ölçümünde URL temizleme güvenilmez çıkarsa yedek plan olarak kalır.
+
+### 7.5 CPU ve performans bütçesi
+
+Free plan: çağrı başına 10 ms CPU, 50 D1 sorgusu, 50 alt istek (kullanıcı Paid istemiyor, 07 PR #16).
+
+| Yol | Bütçe | Nasıl |
+|---|---|---|
+| İsabet | ≤ 2 ms CPU | `src/server.ts`'te router'dan önce, Effect'siz |
+| Iska (yazı, landing) | ≤ 8 ms CPU (ölçülecek) | `contentHtml` hazır, en çok 3 D1 sorgusu tek batch'te, bileşen ağacı sade. 6a kabulünde `wrangler` gözlem verisinden `cpuTime` ölçülür |
+| Pazarlama ilk JS | ≤ 120 KB gzip | three.js landing'de yalnız görünür olunca ve dokununca (11 kalıbı). Yazı sayfasında yalnız dil seçici ve menü etkileşimli |
+| Lighthouse (mobil) | Performans ≥ 90, SEO 100, erişilebilirlik ≥ 95, en iyi uygulamalar ≥ 95 | Figtree kendi sunucumuzdan, `preload`, `font-display: swap`; LCP görseli `fetchpriority="high"` |
+
+Iska 10 ms'yi aşarsa sırası: ağacı sadeleştir, ilgili yazıları istemciye bırak, son çare olarak kullanıcıya Workers Paid sorulur (K6).
+
+## 8. Pazarlama sayfaları ve yasal metinler
+
+### 8.1 Sayfalar
+
+| Sayfa | Faz 6 içeriği | Not |
+|---|---|---|
+| Landing | Faz 6f'de, onaylı tasarımla (Opus high, 07 Dalga 5). 6a–6e'de yer tutucu kalır | Gerçek ekran görüntüleri, hafif canlı model. Yalnız var olan özellikler (03 §6) |
+| Fiyatlandırma | İskelet: ücretsiz planın gerçek limitleri (`Entitlements` varsayılanları, D21) ve iletişim çağrısı. Fiyat tablosu yok (Q10), "yakında" metni yok (03 §6) | Plan verisi Faz 8'de koddan; metinler CMS'ten |
+| SSS | §5.1, `FAQPage` | |
+| İletişim | Ad, e-posta, firma (isteğe bağlı), mesaj, Turnstile. Gönderilince "Mesajın ulaştı. 2 iş günü içinde dönüyoruz." (03 §2.18) | EmailJS kalkar. Kayıt + e-posta (§3.1) |
+| Blog, yazı, yazar | 03 §2.17: ≤ 75 karakter satır, 17 px gövde, yazar kutusu, ilgili yazılar, içindekiler (yazının `tableOfContents` bayrağı) | JS olmadan okunur |
+
+Görüntülenme sayacı (K7): legacy `views` artık artırılmaz, yalnız admin listesinde eski değer görünür. Trafik Cloudflare Web Analytics (çerezsiz) ile izlenir, böylece çerez bandı gerekmez.
+
+### 8.2 Yasal sayfalar
+
+| Belge | Diller | İçerik (taslağın iskeleti) |
+|---|---|---|
+| Gizlilik politikası (`privacy`) | 5 dil | Veri sorumlusu (`site_settings.legal.controller`), toplanan veriler (hesap, workspace, dosyalar ve türevleri, yorumlar, aktivite kaydı 365 gün, güvenlik kaydı IP/tarayıcı 90 gün (D21), onboarding cevapları, iletişim mesajları 365 gün), amaçlar ve hukuki dayanak, alt işleyenler, yurt dışı aktarım (Cloudflare), saklama süreleri, haklar ve başvuru yolu |
+| Kullanım şartları (`terms`) | 5 dil | Hizmet tanımı, hesap, kabul edilebilir kullanım, kullanıcı içeriğinin sahipliği, paylaşım linklerinin sorumluluğu, hizmet seviyesi yok (ücretsiz plan), fesih, uygulanacak hukuk. Ödeme maddeleri Faz 8'de yeni sürümle |
+| Çerez politikası (`cookies`) | 5 dil | Yalnız zorunlu çerezler (oturum, CSRF, link parola kanıtı); analitik çerezsiz. Bu yüzden onay bandı yok |
+| Alt işleyenler (`subprocessors`) | 5 dil | Cloudflare (barındırma, D1, R2, e-posta), Google (isteğe bağlı giriş). B2B satış için gerekli |
+| KVKK aydınlatma metni (`kvkk`) | yalnız `tr` | 6698 sayılı Kanun md. 10 başlıkları |
+
+- Taslakları orkestratör, VizCad'in **gerçek** veri akışından (09, 11, D21) çıkarır ve "hukuki inceleme gerekli" işaretiyle `legal_documents`'a taslak olarak yazar. Yayın kullanıcının onayıyla yapılır (K10). Şirket bilgisi (Q9) gelmeden veri sorumlusu alanı boş kalır ve `publishLegal` `privacy`/`kvkk` için `PublishBlocked` döner.
+- Mesafeli satış sözleşmesi, ön bilgilendirme formu ve iade koşulları ödeme sağlayıcısına bağlıdır (Q9; merchant of record bunların bir kısmını üstlenir); Faz 8'de aynı tabloyla eklenir.
+- Sayfa: başlık, "Yürürlük: 1 Aralık 2026 · Sürüm 3", içindekiler, metin, önceki sürümler listesi (`/legal/privacy/v/2`, salt okunur, `noindex`).
+
+### 8.3 Kabul kaydı
+
+Kayıt formundaki "hesap oluşturarak kabul edersin" cümlesi (`auth.signUp.termsAgreement`) yürürlükteki `terms` ve `privacy` sürümlerine bağlanır. Kayıt başarılı olunca `legal_acceptances`'a iki satır yazılır (sürüm, dil, zaman). Google ile kayıtta aynı. Bu Faz 3 kayıt akışına küçük bir ektir (`Auth` hook'u, aynı batch değil; kayıt sonrası program). Mevcut kullanıcılar için kayıt yok: kabul tarihi bilinmez, yeni sürümde kabul isteme akışı Faz 8'de (ödeme şartlarıyla) gelir.
+
+## 9. Admin CMS ekranları
+
+Masaüstü öncelikli, mobilde tam çalışır (D14). 03 §2.15 ve §5 token'ları. Tel kafesler 6c başlamadan `design/mockups/v2/14-cms.html` olarak onaya sunulur. Kenar menüde platform admininin "İçerik" bölümü: Yazılar · Yazarlar · Sayfalar · Site metinleri · Yasal · Görseller · Önbellek.
+
+| Ekran | Route | İçerik | Boş / hata |
+|---|---|---|---|
+| Yazılar | `/admin/cms/posts` | Tablo: başlık (en), durum rozeti, dil kapsaması (`EN ●` yayında, `TR ◐` taslak, `DE –` yok), yazar, son yayın, görüntülenme (legacy). Filtre: durum, "çevirisi eksik dil", arama | "Henüz yazı yok. İlk yazıyı oluştur." |
+| Yazı editörü | `/admin/cms/posts/$id?locale=tr` | Üst çubuk: geri, başlık, durum, Kaydet, Önizle, Yayınla / Yayından kaldır. Dil sekmeleri (durum noktalarıyla). Sol: CodeMirror (başlık, kalın, bağlantı, görsel, kod araçları). Sağ panel sekmeleri: **Ayrıntılar** (slug, özet, kategori, etiketler, yazar, kapak, öne çıkan, içindekiler), **SEO** (meta başlık/açıklama sayaçlı, anahtar kelimeler, Google sonucu ve sosyal kart önizlemesi, OG görseli), **Çeviri** ("İngilizce 3 gün sonra güncellendi", İngilizce metni yan yana açma) | Kaydedilmemiş değişiklik uyarısı; slug çakışması alan altında; `ContentConflict`: "Başkası bu yazıyı değiştirdi. Yeniden yükle"; çeviri yok: "Türkçe çeviri yok; ziyaretçiler İngilizceyi görür." |
+| Yazarlar | `/admin/cms/authors` | Liste + düzenleme: kullanıcı seçimi, görünen ad, slug, avatar (yükleme), dil sekmeli unvan ve bio, sosyal bağlantılar (`sameAs`) | Yazısı olan yazarın silinmesi kapalı, nedeni yazılı |
+| Sayfalar | `/admin/cms/pages` | Sayfa × dil ızgarası (yayında / İngilizce yedek / eksik anahtar sayısı). Sayfa ayrıntısı: dil başına başlık, açıklama, OG görseli, arama sonucu önizlemesi, "Bu dilde yayınla" anahtarı (eksik varsa devre dışı + eksik listesi, 03 §1 kuralı) | |
+| Site metinleri | `/admin/cms/texts?page=landing&locale=tr` | Solda sayfa grupları, ortada anahtar tablosu: anahtar, İngilizce (gri yer tutucu), bu dildeki değer (satır içi düzenleme), sınır sayacı, durum (taslak / eski / eksik). "Yalnız eksikler" filtresi. Üstte "Yayınla (7 değişiklik)" ve "Taslakları at" | Parametre uyuşmazlığı ve sınır alan altında |
+| Yasal | `/admin/cms/legal` | Belge × dil listesi, sürüm geçmişi, yeni sürüm (önceki metinden kopya), yürürlük tarihi, değişiklik özeti, yayın (geri alınamaz uyarısıyla) | Veri sorumlusu bilgisi yoksa yayın devre dışı, nedeni yazılı |
+| Görseller | `/admin/cms/assets` | Izgara: önizleme, boyut, alt metin, kullanıldığı yerler, URL kopyala, sil (kullanılıyorsa devre dışı) | SVG reddi: "SVG yüklenemez. PNG, JPEG, WebP, GIF ya da AVIF kullan." |
+| Önbellek | `/admin/cms/cache` | Kuyruk (URL, deneme, son hata), "Yeniden dene", "Bir URL'yi temizle" (yalnız kendi hostumuz), son 50 yayının temizleme sonucu | Yapılandırma yoksa üstte kırmızı bant: "Önbellek temizleme yapılandırılmamış; yayın kapalı." |
+
+Ayarlar (`/admin/cms/settings`): kuruluş adı, sosyal profiller, logo, varsayılan OG görselleri, iletişim formu alıcısı, veri sorumlusu bilgisi.
+
+## 10. Staging ihtiyaçları
+
+### 10.1 Kullanıcıdan istenecekler
+
+1. **Staging için özel alan adı (K5).** Cache API workers.dev'de çalışmadığı için önbellek ve temizleme yalnız özel alan adında denenebilir. Öneri: `staging.viz-cad.com` → `vizcad-rewrite` Worker (`routes: [{ pattern: "staging.viz-cad.com", custom_domain: true }]`). Bu, production zone'una bir DNS kaydı ekler; onay gerekir. Staging her yanıtta `noindex` ve `Disallow: /` gönderir.
+2. **Önbellek temizleme token'ı.** Cloudflare panosu → My Profile → API Tokens → Create Token → Custom: izin **Zone · Cache Purge · Purge**, kaynak **yalnız viz-cad.com zone'u**. Değer orkestratörün açacağı gizli giriş kartına yapıştırılır. `CF_ZONE_ID` (salt okunur bilgi) ve `CF_PURGE_TOKEN` yalnız staging'e yazılır. Production'a cutover'da, onayla.
+
+### 10.2 Orkestratörün kendi yapacakları
+
+- `CONTACT_RECIPIENT` staging değişkeni (staging e-posta izin listesinde olan bir adres).
+- Staging D1'e legacy biçimli örnek yazılar (sahte içerik; çeviri satırı olmayan, ham HTML içeren, kuraldışı slug'lı, legacy görsel URL'li birer yazı) ve `blog/` altında örnek görseller.
+- Zone'daki "AI botlarını engelle" / "Managed robots.txt" ayarlarının salt okunur kontrolü (§6.5), sonucu bu dokümana not.
+- Search Console: cutover'da sitemap yeniden gönderilir (kullanıcının hesabı; o gün adım listesinde).
+
+## 11. Test planı
+
+- **Saf:** `renderMarkdown` (ham HTML kaçışı, `<script>`, `javascript:`/`data:` bağlantı, dış görsel, başlık kimliği tekilliği, `toc`, GFM tablo, deterministik çıktı, legacy içerik örnekleri), slug üretimi (5 dilin harfleri, ayrılmış kelimeler, uzunluk), okuma süresi, `resolveText` sırası (dört kaynak, kısmi D1), parametre denetimi, `head.ts` (canonical ve hreflang: yalnız `en`, `en`+`tr`, kapalı dil sayfası, arşiv), JSON-LD kurucuları (beklenen anahtar kümeleri + `</script>` ve `&` kaçışı), sitemap XML (kaçış, alternatifler, yalnız yayındakiler, `lastmod`), robots (production/staging), `llms.txt` biçimi, RSS, `affectedUrls` (§7.4 tablosunun her satırı, slug değişimi, `live` değişimi), `marketingCacheKey` (sorgu atma, rota dışı null), `isCacheable` (Set-Cookie, 404, POST, `x-vizcad-no-store`).
+- **Program (memory `Db` + `Storage` + `Cache.memory`/`CachePurges` + `Turnstile` + `Email` + `RateLimit`):** taslak → yayın → canlı; yayındaki yazıyı düzenlemek canlıyı değiştirmez; `en` olmadan başka dil yayını `PublishBlocked`; `en` kaldırınca tüm diller 404; arşiv 410; slug çakışması dil içinde (diller arası serbest); slug değişimi yönlendirme yazar ve eski yönlendirmeyi yeni yazıya bırakmaz; revizyon çakışması; **ayna**: `en` yayını `posts` sütunlarını aynı batch'te yazar ve legacy okuyucu (fixture) aynı yazıyı görür; **legacy yedek**: çeviri satırı olmayan legacy yazı `en` olarak çıkar, taslak legacy yazı çıkmaz; `materializeLegacyTranslations` idempotent, `--source-wins` yalnız yeni olanı günceller; her admin işleminde admin olmayan 403, oturumsuz 401; yayın `CachePurges`'e beklenen URL'leri yazar; temizleme hatası içerik yayınını geri almaz, kuyruk ve cron boşaltır; yapılandırma yoksa yayın `CacheError`; görsel: SVG, uzantısı PNG içeriği HTML, 4096 px üstü, yinelenen SHA; kullanımdaki görsel silinemez; yasal sürüm yayından sonra değişmez (trigger), veri sorumlusu yoksa yayın kapalı; iletişim: Turnstile hatası, hız sınırı, e-posta hatasında kayıt durur ve cron yeniden dener; kabul kaydı kayıt akışında yazılır.
+- **Migration:** `0016` `check-migrations`'tan geçer. 0016 sonrası legacy `posts`/`author_profiles` yazım şekilleri başarılı. `user_delete_guard_author` trigger'ı (yazarlı/yazarsız kullanıcı). `sqlite_master`'da beklenen indeksler ve trigger'lar.
+- **HTTP:** pazarlama yanıt başlıkları (tarayıcı ve kenar kopyası ayrı), `x-vizcad-cache` hit/miss, `Set-Cookie`'li yanıtın önbelleğe girmemesi, uygulama rotalarında `X-Robots-Tag`, staging'de her yanıtta `noindex`, 301/404/410, `/api/cms/*` CSRF ve bilinmeyen işlem 404, legacy `/api/blog` JSON uçları 404, `/api/blog/image` yalnız `blog/` ve başlıklar, `/media` başlıkları, `/api/contact` CSRF.
+- **Rota:** `{-$locale}` statik rotaları gölgelemez (`/app`, `/s/x`, `/sign-in`, `/api/health`), `/en/x` 301, `/xx/blog` 404.
+- **Kontrat:** `PostView` ve genel yanıtlarda e-posta, `userId`, taslak alanı ve R2 anahtarı yok.
+- **Staging (elle, özel alan adında, her PR kabulünde listelenir):** ikinci istekte `hit`; yayından sonra birkaç saniye içinde yeni içerik (iki farklı ağdan, ör. telefon hücresel + masaüstü); temizleme API yanıtı; JS kapalıyken yazı okunuyor; Google Rich Results Test ve Schema.org doğrulayıcısı (yazı, yazar, landing); Lighthouse mobil (landing, yazı, SSS); 320, 390 ve 1280 px, açık ve koyu; ıska `cpuTime` ölçümü.
+
+## 12. Bölünme ve kabul ölçütleri
+
+Her PR `rewrite`'a. Ortak kabul: `pnpm check` ve `pnpm build` yeşil, yeni programların testleri var, `respond.ts` eşlemesi tam, staging'e elle yayın ve listedeki elle doğrulama (07 kalite kapısı). Opus yazar, Sonnet inceler.
+
+| Alt faz | İçerik | Kabul |
+|---|---|---|
+| **6a** Altyapı | `0016_cms` (tablolar, legacy sütunlar, trigger'lar), `{-$locale}` rota iskeleti ve dil seçici, `EdgeCache` isabet yolu + `put`, `isCacheable`, `Cache.live` TODO'su (yapılandırma zorunlu), `cache_purges` + `affectedUrls` + cron, `head.ts`, `Organization`/`WebSite` JSON-LD, `buildRobotsTxt`, sitemap dizini iskeleti, staging `noindex`, `platformRole`, `canManageContent`, `/api/cms` dağıtıcısı. Staging özel alan adı ve token (§10) | Migration denetimi, legacy yazar ve trigger testleri. Staging özel alan adında `hit`/`miss` ve gerçek API temizlemesi doğrulandı, sonuç (hostname temizleme var mı) bu dokümana not edildi. Iska `cpuTime` ölçüldü (yer tutucu sayfa + örnek yazı), §7.5 bütçesiyle karşılaştırıldı. Rota gölgeleme testi |
+| **6b** Genel blog | `renderMarkdown`, slug, `getPublicPost`/`listPublicPosts`/`getPublicAuthor`, legacy `en` yedeği, yazı/liste/yazar sayfaları (03 §2.17, mobil öncelikli), `BlogPosting`/`Blog`/`ProfilePage`/`BreadcrumbList`, dil başına sitemap, RSS, `llms.txt`, `/media` ve legacy görsel ucu, yönlendirmeler (§6.9), legacy JSON uçlarının kaldırılması, `materializeLegacyTranslations` script'i | Staging'deki legacy biçimli örnek yazıların hepsi eski URL'lerinde açılıyor, görselleri geliyor. Ham HTML kaçışlı. Rich Results Test geçiyor. JS kapalı okuma. Lighthouse mobil §7.5. 320/390/1280 açık/koyu |
+| **6c** Admin: yazılar, yazarlar, görseller | Tel kafes onayı (`14-cms.html`), yazı listesi ve editörü (CodeMirror, dil sekmeleri, önizleme, SEO paneli, OG şablon kartı), yazarlar, görsel yükleme (istemcide küçültme), önbellek ekranı, yayın bildirimi | Staging'de: yazı oluştur → taslak → önizle → yayınla → genel sayfada birkaç saniyede görünür ve `hit` olur; slug değiştir → eski URL 301; çakışma ve slug hataları ekranda; admin olmayan hesapla tüm uçlar 403. Ekran 390 px'te çalışıyor |
+| **6d** Site metinleri, sayfa SEO'su, sayfalar | `marketing.ts` kaydı, `resolveText`, taslak/yayın, `page_seo`, `setPageLive`, admin ekranları (Sayfalar, Site metinleri, Ayarlar), fiyatlandırma iskeleti, SSS + `FAQPage`, iletişim formu (`submitContactMessage`, Turnstile, e-posta, cron) | Bir metni `tr` için değiştir → yayınla → `/tr/...` güncel, `en` değişmedi; eksik çeviride `live` açılamıyor; kapalı dil sayfasında canonical `en` ve hreflang yok; iletişim formu staging izin listesindeki adrese ulaşıyor; Lighthouse SSS ve iletişim |
+| **6e** Yasal | `legal_documents`, `legal_acceptances`, sayfalar ve sürüm geçmişi, admin Yasal ekranı, kayıtta kabul kaydı, taslak metinler (§8.2) | Taslaklar kullanıcıya sunuldu (yayın onayı ayrı); `/legal/privacy` ve `/legal/terms` artık 404 değil; kayıt sonrası iki kabul satırı; yayınlanmış sürüm değiştirilemiyor |
+| **6f** Landing | Landing tasarımı (gerçek ekranlarla, Opus high) ve yapımı, `SoftwareApplication`, hafif canlı model | Tasarım onayı; Lighthouse mobil §7.5; 320 px'te yatay kaydırma yok; vaat edilen her özellik uygulamada var (03 §6) |
+
+Sıra: 6a → 6b → 6c ve 6d paralel → 6e → 6f. 6f, 07'deki "Landing tasarımı ve yapımı" işidir; Faz 5 ekranları bitmeden başlamaz (gerçek ekran görüntüleri).
+
+**Cutover adımları (Faz 9 listesine eklenir):** `0016` production'a (yedek kapısıyla, onaylı) → yazımlar dondurulmuşken `materializeLegacyTranslations` (kopyada prova, rapor kullanıcıya) → yazar slug'ları → production `CF_ZONE_ID`/`CF_PURGE_TOKEN` ve `CONTACT_RECIPIENT` → yasal metinlerin yayını → Search Console'da sitemap → `public/robots.txt`'nin kalktığının doğrulanması.
+
+## 13. Açık sorular (kullanıcı kararı)
+
+Her birinde önerilen varsayılan var. Cevap gelmezse varsayılanla ilerlenir; K5 ve K10 ise kullanıcının bir işlem yapmasını gerektirir.
+
+| # | Soru | Önerilen varsayılan |
+|---|---|---|
+| K1 | URL yapısı: İngilizce öneksiz, diğer diller `/tr/...`, rota adları her dilde İngilizce, yalnız yazı slug'ı dile özgü. | **Evet.** Canlı blog URL'leri değişmez. |
+| K2 | Ziyaretçiyi tarayıcı diline göre otomatik yönlendirelim mi? | **Hayır.** Yalnız dil seçici. Yönlendirme önbelleği böler ve tarayıcıları yanıltır. |
+| K3 | Bir yazının başka bir dilde yayını için önce İngilizcesi yayında olsun mu? | **Evet.** Yedek dil hep var olur, eski Worker'a geri dönüş bozulmaz. |
+| K4 | Adminden değiştirilebilen metinler yalnız genel sayfalarınki mi (landing, fiyat, SSS, iletişim, blog arayüzü, üst çubuk/alt bilgi)? | **Evet.** Uygulama içi metinler kodda kalır. Yoksa her uygulama açılışında metin indirmek gerekir. |
+| K5 | Önbelleği staging'de denemek için `staging.viz-cad.com` alan adı ve yalnız viz-cad.com'da önbellek temizleyebilen bir token. | **Evet** (§10.1). İkisi de senin onayın ya da işlemin. Olmazsa önbellek ilk kez production'da denenir. |
+| K6 | Önbellekte olmayan sayfanın çizimi Free plandaki 10 ms CPU sınırını aşarsa? | **Önce sadeleştirme** (§7.5). Ölçüm yine aşarsa Workers Paid (aylık 5 $) sana ayrıca sorulur. |
+| K7 | Yazı görüntülenme sayacı. | **Cloudflare Web Analytics** (çerezsiz, çerez bandı gerekmez). Eski sayaç dondurulur, adminde görünür. |
+| K8 | Blogdaki bülten kutusu (EmailJS ile e-posta topluyordu). | **Kaldır.** Gönderim altyapısı ve çift onay yok. Gerekirse sonra iletişim kalıbıyla. |
+| K9 | Kapak görseli olmayan yazının paylaşım görseli. | **Admin tarayıcısında şablondan otomatik kart** (logo + başlık). Sunucuda üretim yok. |
+| K10 | Yasal metinleri kim yazacak, veri sorumlusu kim (şirket adı, adres, iletişim)? | **Taslakları ben gerçek veri akışından hazırlarım**, "hukuki inceleme gerekli" işaretiyle. Şirket bilgisi (Q9) gelene kadar gizlilik ve KVKK yayınlanmaz. Yayından önce bir hukukçuya göstermeni öneririm. |
+| K11 | Yapay zekâ tarayıcıları (ChatGPT, Claude, Perplexity, Google AI) pazarlama ve bloga erişsin mi? | **Evet**, uygulama kapalı. `llms.txt` ile aynı amaç: yapay zekâ cevaplarında görünmek. Cloudflare'in "AI botlarını engelle" ayarı açıksa kapatmak için onayın gerekir. |
+| K12 | Eski `/ModelSnap` sayfası nereye yönlensin? | **Ana sayfaya 301.** Stüdyo Çıktı sekmesi taşınmadı (D15). |
+| K13 | Yazarlar bir kullanıcı hesabına bağlı kalsın mı? | **Evet.** Legacy tablo bunu zorunlu kılıyor, gerçek kişi yazar E-E-A-T için de doğru (D5). "VizCad Ekibi" gibi hesapsız yazar olmaz. |
