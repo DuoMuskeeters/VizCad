@@ -28,7 +28,7 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 |---|---|
 | Kararlar | D1–D22 verildi. Açık: Q9 (ödeme sağlayıcısı), Q10 (fiyat), Q12 (pivot) |
 | Tasarım | Görsel dil onaylandı (v2). Çizilenler: Tüm dosyalar, Projeler, Proje (dosyalar, erişim, aktivite, misafir), Ekip. Eski gri tel kafesler `design/mockups/` kökünde, arşiv |
-| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Faz 4 (dosyalar ve paylaşım) bitti, staging'de. Faz 5 tasarımı yazıldı (`11`), D23 verildi; 5a başladı (görüntüleyici çekirdeği). Claude kullanımı `~/.claude/bin/usage-pace.py` ile ölçülüp hıza göre çalışılıyor (25 Kasım) |
+| Geliştirme | Faz 1 ve Faz 3 (auth, workspace, ekip, davet, ekranlar) `rewrite`'ta ve staging'de. Faz 4 (dosyalar ve paylaşım) bitti, staging'de. Faz 5 tasarımı yazıldı (`11`), 5a staging'de; sırada 5b (GLB türevi) (görüntüleyici çekirdeği). Claude kullanımı `~/.claude/bin/usage-pace.py` ile ölçülüp hıza göre çalışılıyor (25 Kasım) |
 | Hosting | Staging yayında. Kullanıcı staging'de kayıt, doğrulama e-postası ve girişi denedi: çalışıyor (24 Kasım) |
 
 ## Dalgalar
@@ -68,7 +68,8 @@ Sağlayıcı sırası (24 Kasım kararı): önce **Antigravity** (Gemini), onun 
 ### Dalga 4: görüntüleyici
 - [x] Motor araştırması (PR #22, `docs/10-viewer-engine.md`): three.js seçildi, STEP yüklemede GLB'ye çevrilir (D22)
 - [x] Faz 5 teknik tasarımı `docs/11-viewer-design.md`: GLB türevi (presigned + başlık denetimi), sahne kaydı `file_scenes`, montaj klasör görünümü, alt fazlar 5a–5d; kararlar D23
-- [ ] Faz 5a–5d: görüntüleyici çekirdeği, GLB türevi, montaj + sahne, araçlar + mobil. *Opus high*
+- [x] 5a görüntüleyici çekirdeği (PR #23; Opus yazdı, Sonnet inceledi, 5 önemli + 10 küçük bulgu düzeltildi; staging'de). Önizleme `model` ucundan, `file.previewed` olarak kaydedilir
+- [ ] 5b GLB türevi, 5c montaj + sahne, 5d araçlar + mobil. *Opus high*
 - [x] **Kullanıcı kararı:** motor three.js, orijinal STEP indirilebilir, kopya yoksa küçük resim + İndir, eski dosyalar ilk açılışta (D22)
 
 ### Dalga 5: içerik, admin, ödeme
