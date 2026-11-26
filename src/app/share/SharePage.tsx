@@ -12,6 +12,7 @@ import { Logo } from '#/components/ui/Logo'
 import { Notice } from '#/components/ui/Notice'
 import { Skeleton } from '#/components/ui/Skeleton'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
+import { sourceTooLarge } from '#/shared/fileViews'
 import { type I18nKey, useI18n } from '#/i18n'
 import { deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { ViewerStart } from '#/viewer/state'
@@ -175,8 +176,11 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
     : file.model.kind === 'source' && format !== null && deferOpen(format, phone) ? 'phone'
     : 'tap'
   const hasDerivativeFormat = format !== null && isConvertFormat(format)
-  const noModelText = file.model.derivative?.state === 'too_large'
+  // Same size rule as the file page: "over N MB" only while the source is over the limit; a GLB over the plan's cap (or
+  // a too_large from a lower limit) reads as the 3D copy being too large, in a guest's words.
+  const noModelText = sourceTooLarge(file)
     ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
+    : file.model.derivative?.state === 'too_large' ? t(file.can.download ? 'sp.glbTooLargeDownload' : 'sp.glbTooLarge')
     : file.model.derivative?.state === 'failed' ? t('viewer.error.corrupt') : t('viewer.notPrepared')
   return (
     <Frame company={company}>

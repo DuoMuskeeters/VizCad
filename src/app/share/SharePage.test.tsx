@@ -69,6 +69,24 @@ describe('SharePage', () => {
     expect(calls).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
   })
 
+  it('a GLB over the plan cap reads as the 3D view being too large, not "over 50 MB"; a source over the limit says the limit', async () => {
+    const none = { kind: 'none', bytes: null, maxConvertBytes: 52_428_800 }
+    const capped = { ...file, can: { download: false, comment: false }, model: { ...none, derivative: { state: 'too_large', code: 'glb_too_large', parts: null } } }
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: capped } } })
+    const first = mount()
+    expect(await screen.findByText('The 3D view of this file is too large to show in the browser.')).toBeInTheDocument()
+    expect(screen.queryByText(/over 50 MB/)).not.toBeInTheDocument()
+    first.unmount()
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...capped, can: { download: true, comment: false } } } } })
+    const second = mount()
+    expect(await screen.findByText(/Download the file to open it\./)).toBeInTheDocument()
+    second.unmount()
+    const big = { ...capped, size: 60_000_000, model: { ...none, derivative: { state: 'too_large', code: 'too_large', parts: null } } }
+    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: big } } })
+    mount()
+    expect(await screen.findByText(/over 50 MB/)).toBeInTheDocument()
+  })
+
   it('D23: a view link opens the GLB in 3D; on a phone only after “Open 3D · size”', async () => {
     answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...file, can: { download: false, comment: false }, model: glb } } } })
     const first = mount()
