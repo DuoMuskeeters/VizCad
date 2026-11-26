@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { Box3, type Mesh, type Object3D } from 'three'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { glbHeaderProblem } from '#/server/glb'
 import { allPaths } from '../tree/tree'
 import { parseSource } from '../worker/formats'
@@ -17,7 +17,7 @@ import type { Occt } from '../worker/formats/step'
 import { formatOfExtension, type ParsedModel, type TreeNode } from '../worker/protocol'
 import { buildModel } from './build'
 import { exportGlb, GLB_ROOT_NAME } from './glb'
-import { loadGlb } from './loadGlb'
+import { loadGlb, onlyEmbeddedUris } from './loadGlb'
 
 const require = createRequire(import.meta.url)
 let occt: Occt
@@ -120,7 +120,67 @@ describe('exportGlb → loadGlb', () => {
   it('refuses GLB bytes that are not a model', async () => {
     await expect(loadGlb(new TextEncoder().encode('not a glb at all').buffer)).rejects.toMatchObject({ code: 'corrupt' })
   })
+
+  it('never fetches a URI the GLB names: an external buffer or image is refused as corrupt without a request', async () => {
+    const triangle = {
+      accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] }],
+      bufferViews: [{ buffer: 0, byteLength: 36 }],
+      meshes: [{ primitives: [{ attributes: { POSITION: 0 }, material: 0 }] }],
+      nodes: [{ mesh: 0 }],
+      scenes: [{ nodes: [0] }],
+      scene: 0,
+    }
+    const embedded = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...new Uint8Array(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer)))}`
+    const cases = [
+      { ...triangle, buffers: [{ uri: 'https://example.invalid/mesh.bin', byteLength: 36 }], materials: [{}] },
+      { ...triangle, buffers: [{ uri: '../mesh.bin', byteLength: 36 }], materials: [{}] },
+      {
+        ...triangle, buffers: [{ uri: embedded, byteLength: 36 }],
+        images: [{ uri: 'https://example.invalid/track.png' }], textures: [{ source: 0 }], materials: [{ pbrMetallicRoughness: { baseColorTexture: { index: 0 } } }],
+      },
+    ]
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const requests: string[] = []
+    const realOpen = XMLHttpRequest.prototype.open
+    const openSpy = vi.spyOn(XMLHttpRequest.prototype, 'open').mockImplementation(function (this: XMLHttpRequest, method: string, url: string | URL) {
+      requests.push(String(url))
+      realOpen.call(this, method, url, true)
+    })
+    const imageSrc = vi.spyOn(HTMLImageElement.prototype, 'src', 'set')
+    try {
+      for (const json of cases) {
+        await expect(loadGlb(glbOf(JSON.stringify({ asset: { version: '2.0' }, ...json })))).rejects.toMatchObject({ code: 'corrupt' })
+      }
+      const external = [...fetchSpy.mock.calls.map((call) => (call[0] instanceof Request ? call[0].url : String(call[0]))), ...requests, ...imageSrc.mock.calls.map((call) => String(call[0]))]
+        .filter((url) => !/^(data|blob):/.test(url))
+      expect(external).toEqual([])
+    } finally {
+      fetchSpy.mockRestore()
+      openSpy.mockRestore()
+      imageSrc.mockRestore()
+    }
+    // The manager is the second guard: a URI the JSON check did not see is never requested either.
+    expect(onlyEmbeddedUris(glbOf(JSON.stringify({ asset: { version: '2.0' }, ...cases[2] })))).toBe(false)
+    // The same model with its buffer embedded loads.
+    const ok = await loadGlb(glbOf(JSON.stringify({ asset: { version: '2.0' }, ...triangle, buffers: [{ uri: embedded, byteLength: 36 }], materials: [{}] })))
+    expect(ok.stats.triangles).toBe(1)
+  })
 })
+
+/** A GLB with only a JSON chunk (its buffers come from `uri`s). */
+function glbOf(json: string): ArrayBuffer {
+  const text = new TextEncoder().encode(json)
+  const padded = Math.ceil(text.byteLength / 4) * 4
+  const bytes = new Uint8Array(20 + padded).fill(0x20, 20)
+  const view = new DataView(bytes.buffer)
+  view.setUint32(0, 0x46546c67, true)
+  view.setUint32(4, 2, true)
+  view.setUint32(8, bytes.byteLength, true)
+  view.setUint32(12, padded, true)
+  view.setUint32(16, 0x4e4f534a, true)
+  bytes.set(text, 20)
+  return bytes.buffer
+}
 
 const samples = process.env['VIZCAD_SAMPLES']
 describe.skipIf(samples === undefined || !existsSync(samples))('bench samples (VIZCAD_SAMPLES)', () => {
