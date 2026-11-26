@@ -180,7 +180,7 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   // a too_large from a lower limit) reads as the 3D copy being too large, in a guest's words.
   const noModelText = sourceTooLarge(file)
     ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
-    : file.model.derivative?.state === 'too_large' ? t(file.can.download ? 'sp.glbTooLargeDownload' : 'sp.glbTooLarge')
+    : file.model.derivative?.state === 'too_large' ? t('sp.glbTooLarge')
     : file.model.derivative?.state === 'failed' ? t('viewer.error.corrupt') : t('viewer.notPrepared')
   return (
     <Frame company={company}>

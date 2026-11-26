@@ -75,8 +75,13 @@ export const restoreVersion = Effect.fn('restoreVersion')(function* (
     // The restored version brings its own thumbnail and derivative back (the same keys now sit in two rows). A GLB
     // completed later for this source repoints every row of it (`completeDerivative`), so GLBs do not pile up per restore.
     d.update(schema.files).set({
-      r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag, thumbnailR2Key: version.thumbnailR2Key,
-      derivativeR2Key: version.derivativeR2Key, derivativeState: version.derivativeState, derivativeMeta: version.derivativeMeta,
+      // Thumbnail and derivative columns are read at write time: `completeDerivative` may repoint this row (and queue
+      // its old GLB) between the read above and this batch.
+      r2Key: version.r2Key, size: version.size, contentEtag: version.contentEtag,
+      thumbnailR2Key: sql`(SELECT thumbnailR2Key FROM file_versions WHERE id = ${version.id})`,
+      derivativeR2Key: sql`(SELECT derivativeR2Key FROM file_versions WHERE id = ${version.id})`,
+      derivativeState: sql`(SELECT derivativeState FROM file_versions WHERE id = ${version.id})`,
+      derivativeMeta: sql`(SELECT derivativeMeta FROM file_versions WHERE id = ${version.id})`,
       currentVersionNumber: currentNumber + 1, currentUploadedByUserId: version.uploadedByUserId, updatedAt: at,
     }).where(and(eq(schema.files.id, file.id), eq(schema.files.workspaceId, input.workspaceId))),
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'file', targetId: file.id, action: 'file.version_restored', at: base.now }, activityId),

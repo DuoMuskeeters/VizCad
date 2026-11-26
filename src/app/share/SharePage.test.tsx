@@ -77,10 +77,6 @@ describe('SharePage', () => {
     expect(await screen.findByText('The 3D view of this file is too large to show in the browser.')).toBeInTheDocument()
     expect(screen.queryByText(/over 50 MB/)).not.toBeInTheDocument()
     first.unmount()
-    answer({ status: 200, body: { ok: true, data: { kind: 'file', file: { ...capped, can: { download: true, comment: false } } } } })
-    const second = mount()
-    expect(await screen.findByText(/Download the file to open it\./)).toBeInTheDocument()
-    second.unmount()
     const big = { ...capped, size: 60_000_000, model: { ...none, derivative: { state: 'too_large', code: 'too_large', parts: null } } }
     answer({ status: 200, body: { ok: true, data: { kind: 'file', file: big } } })
     mount()

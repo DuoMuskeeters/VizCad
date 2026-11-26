@@ -163,6 +163,30 @@ describe('a derivative that completes while a restore is being written', () => {
         if (before !== null) assert.notInclude(yield* MemoryStorageControl.use((c) => c.keys), before)
       })))
   }
+  it.effect('restoring a snapshot of the current source while its new GLB lands: the file holds the new GLB, nothing dangles', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* withOlderVersion
+      const source = (yield* fileRow)?.r2Key ?? ''
+      yield* deriveNow(glb(), 2)
+      const k1 = (yield* fileRow)?.derivativeR2Key ?? null
+      // v1 becomes current, leaving a snapshot S of the source with GLB K1; restoring S makes the source current again.
+      yield* restoreVersion(caller('bob'), { workspaceId: 'acme', fileId: 'f1', versionId: 'v1' })
+      const s = (yield* rows('fileVersions')).find((v) => v.r2Key === source && v.derivativeR2Key === k1)
+      if (s === undefined) return assert.fail('no snapshot of the source with K1')
+      yield* restoreVersion(caller('bob'), { workspaceId: 'acme', fileId: 'f1', versionId: s.id })
+
+      const pending = yield* pendingDerivative(glb({ binBytes: 16 }), (yield* fileRow)?.currentVersionNumber ?? 0)
+      yield* restoreVersion(caller('bob'), { workspaceId: 'acme', fileId: 'f1', versionId: s.id }).pipe(
+        Effect.provideService(Db, yield* beforeFirstBatch(completeDerivative(caller('bob'), pending))),
+      )
+
+      const session = (yield* rows('derivativeSessions')).find((x) => x.id === pending.sessionId)
+      assert.strictEqual(session?.status, 'completed')
+      assert.strictEqual((yield* fileRow)?.derivativeR2Key, session?.r2Key, 'the restore wrote the GLB that landed, not K1')
+      const { orphans, dangling } = yield* audit
+      assert.deepStrictEqual([orphans, dangling], [[], []])
+    })))
 })
 
 describe('restoring and deriving the same sources again and again', () => {

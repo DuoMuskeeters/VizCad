@@ -184,7 +184,14 @@ export const FileDetailPage = () => {
   if (preparingHere && held !== state.file.id) setHeld(state.file.id)
   useEffect(() => {
     if (held === null || preparingHere) return
-    void load().finally(() => setHeld((current) => (current === held ? null : current)))
+    // Only the latest reload releases the hold: a new job (or a new load) marks this one stale.
+    let stale = false
+    void load().finally(() => {
+      if (!stale) setHeld((current) => (current === held ? null : current))
+    })
+    return () => {
+      stale = true
+    }
   }, [held, preparingHere, load])
 
   // A new version finished uploading: the file card and the version list change.
