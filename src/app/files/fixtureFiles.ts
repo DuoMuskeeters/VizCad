@@ -34,6 +34,8 @@ type Stored = {
   recent: boolean
   /** A link on the file: none, live, or expired. */
   link: 'none' | 'active' | 'expired'
+  /** Bytes of a stored GLB derivative (STEP/IGES/3MF), or absent. */
+  glb?: number
 }
 
 type Person = { readonly userId: string; readonly name: string; readonly email: string; readonly role: Role }
@@ -58,7 +60,7 @@ const seed = (): Stored[] => {
   })
   return [
     row('f1', 'Flanş_DN100_rev3.step', 12_400_000, 'Ayşe Yılmaz', 3_600, { starred: true, project: 'p-pompa', version: 3, recent: true }),
-    row('f2', 'Pompa_gövdesi_montaj.step', 86_200_000, 'Mehmet Kaya', 9 * 3_600, { project: 'p-pompa', recent: true }),
+    row('f2', 'Pompa_gövdesi_montaj.step', 86_200_000, 'Mehmet Kaya', 9 * 3_600, { project: 'p-pompa', recent: true, glb: 14_900_000 }),
     row('f3', 'Konveyör_şase.iges', 41_000_000, 'Ayşe Yılmaz', day + 3_600, { recent: true }),
     row('f4', 'Rulman_yuvası_6205.stl', 3_800_000, 'Zeynep Arslan', 6 * day),
     row('f5', 'Mil_Ø25x300.step', 1_200_000, 'Mehmet Kaya', 7 * day, { starred: true }),
@@ -73,11 +75,17 @@ const seed = (): Stored[] => {
   ]
 }
 
-/** What `model` would answer in the fixture: no derivative exists, so STEP/IGES/3MF fall back to the source for downloaders. */
+/** What `model` would answer in the fixture (D23): a stored GLB for everyone, else STEP/IGES/3MF only for downloaders. */
 const fixtureModel = (file: Stored, canDownload: boolean): ModelPreview => {
   const type = fileTypeOfExtension(file.extension)
-  const kind = type === undefined ? 'none' : !hasDerivative(type.id) || canDownload ? 'source' : 'none'
-  return { kind, bytes: kind === 'none' ? null : file.size, derivative: null, maxConvertBytes: 50 * 1024 * 1024 }
+  const derives = type !== undefined && hasDerivative(type.id)
+  const kind = type === undefined ? 'none' : derives && file.glb !== undefined ? 'derivative' : !derives || canDownload ? 'source' : 'none'
+  return {
+    kind,
+    bytes: kind === 'derivative' ? (file.glb ?? null) : kind === 'source' ? file.size : null,
+    derivative: derives && file.glb !== undefined ? { state: 'ready', code: null, parts: 455 } : null,
+    maxConvertBytes: 50 * 1024 * 1024,
+  }
 }
 
 const viewOf = (file: Stored, role: Role, projectName: (id: string | null) => string | null, people: number): AnyFileView => {
@@ -89,9 +97,9 @@ const viewOf = (file: Stored, role: Role, projectName: (id: string | null) => st
   const edits = role === 'owner' || role === 'admin' || role === 'member'
   const view: FileView = {
     id: file.id, name: file.name, extension: file.extension, size: file.size, projectId: file.project, projectName: projectName(file.project),
-    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false, model: fixtureModel(file, true),
+    createdAt: file.createdAt, updatedAt: file.updatedAt, starred: file.starred, thumbnailAvailable: false, model: fixtureModel(file, role !== 'commenter'),
     currentVersion: { number: file.version, uploadedBy: { displayName: file.uploader } }, access: { people, link: file.link },
-    can: { edit: edits, comment: true, download: true, viewHistory: true, trash: edits, share: edits },
+    can: { edit: edits, comment: true, download: role !== 'commenter', viewHistory: true, trash: edits, share: edits },
   }
   return view
 }

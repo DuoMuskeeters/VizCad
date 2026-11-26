@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { download, parseInWorker, thumbnailInWorker, type WorkerLike } from './pipeline'
+import { deriveInWorker, download, parseInWorker, thumbnailInWorker, type WorkerLike } from './pipeline'
 import type { ParsedModel, Stats, WorkerRequest, WorkerResponse } from './worker/protocol'
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
@@ -41,6 +41,23 @@ describe('parse pipeline', () => {
     expect(await job.result).toEqual({ ok: true, model, stats, thumbnail: null, glb: null })
     expect(progress).toEqual([['parse', null]])
     expect(worker.terminated).toBe(1)
+  })
+
+  it('derive: asks for the GLB with the workspace limit and resolves with GLB, thumbnail, tree and stats; parse may derive too', async () => {
+    const worker = new FakeWorker()
+    const job = deriveInWorker({ format: 'step', name: 'a.stp', bytes: new ArrayBuffer(4), maxConvertBytes: 1234, spawn: () => worker })
+    expect(worker.sent[0]!.message).toEqual({ kind: 'derive', id: worker.sent[0]!.message.id, format: 'step', name: 'a.stp', bytes: expect.any(ArrayBuffer), maxConvertBytes: 1234 })
+    const glb = new ArrayBuffer(20)
+    const thumbnail = new Blob(['t'], { type: 'image/webp' })
+    worker.reply({ kind: 'derived', glb, thumbnail, tree: model.tree, stats })
+    expect(await job.result).toEqual({ ok: true, glb, thumbnail, tree: model.tree, stats })
+
+    const second = new FakeWorker()
+    void parseInWorker({ format: 'step', name: 'a.stp', bytes: new ArrayBuffer(1), thumbnail: false, derive: true, spawn: () => second })
+    expect(second.sent[0]!.message).toMatchObject({ kind: 'parse', derive: true })
+    const third = new FakeWorker()
+    void parseInWorker({ format: 'stl', name: 'a.stl', bytes: new ArrayBuffer(1), thumbnail: false, spawn: () => third })
+    expect(third.sent[0]!.message).not.toHaveProperty('derive')
   })
 
   it('passes failure codes through', async () => {

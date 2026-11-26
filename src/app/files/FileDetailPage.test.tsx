@@ -31,13 +31,14 @@ describe('file page', () => {
     expect(screen.queryByText('No thumbnail yet.')).not.toBeInTheDocument()
   })
 
-  it('keeps the thumbnail card for callers without download permission (3D for view levels comes with 5b)', async () => {
+  it('keeps the thumbnail card when model has nothing for the caller (a STEP without derivative, no download)', async () => {
     renderApp(page(), 'admin', (operation) => {
       if (operation !== 'getFile') return undefined
       const file = {
         id: 'f1', name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, projectId: null, projectName: null, createdAt: 1, updatedAt: 1,
         starred: false, thumbnailAvailable: false, currentVersion: { number: 1, uploadedBy: null }, access: { people: 0, link: 'none' },
         can: { edit: false, comment: true, download: false, viewHistory: false, trash: false, share: false },
+        model: { kind: 'none', bytes: null, derivative: null, maxConvertBytes: 52_428_800 },
       }
       return new Response(JSON.stringify({ ok: true, data: file }), { status: 200, headers: { 'content-type': 'application/json' } })
     })

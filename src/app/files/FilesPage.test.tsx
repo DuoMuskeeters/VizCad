@@ -56,7 +56,7 @@ describe('all files', () => {
 })
 
 describe('row menu follows the permissions', () => {
-  it('a commenter sees rename, share, move and trash disabled with the reason, download enabled', async () => {
+  it('a commenter sees rename, share, move, trash and download disabled with the reason', async () => {
     const { user } = renderApp(<UploadProvider><FilesPage /></UploadProvider>, 'files-commenter')
     const row = await rowOf('Flanş_DN100_rev3.step')
     await user.click(within(row).getByRole('button', { name: 'Flanş_DN100_rev3.step: more actions' }))
@@ -65,7 +65,7 @@ describe('row menu follows the permissions', () => {
     expect(rename).toHaveTextContent('No edit permission. Ask the owner of the file.')
     expect(screen.getByRole('menuitem', { name: /Share/ })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /Move to trash/ })).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('menuitem', { name: /Download/ })).not.toHaveAttribute('aria-disabled')
+    expect(screen.getByRole('menuitem', { name: /Download/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('a member can use every action, moving a file without a project included', async () => {

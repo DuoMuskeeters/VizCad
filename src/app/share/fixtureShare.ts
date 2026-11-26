@@ -7,8 +7,13 @@ import type { LinkFileView } from './api'
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const now = () => Math.floor(Date.now() / 1000)
 
+const MAX_CONVERT = 50 * 1024 * 1024
+const source = { kind: 'source', bytes: 12_400_000, derivative: null, maxConvertBytes: MAX_CONVERT } as const
+/** A view link to a STEP with a stored GLB (D23): 3D opens, the source stays closed. */
+const glb = { kind: 'derivative', bytes: 6_200_000, derivative: { state: 'ready', code: null, parts: 18 }, maxConvertBytes: MAX_CONVERT } as const
+
 const file = (over: Partial<LinkFileView> = {}): LinkFileView => ({
-  name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, updatedAt: now() - 3_600, currentVersion: { number: 3 }, thumbnailAvailable: false,
+  name: 'Flanş_DN100_rev3.step', extension: 'step', size: 12_400_000, updatedAt: now() - 3_600, currentVersion: { number: 3 }, thumbnailAvailable: false, model: source,
   can: { download: true, comment: false }, sharer: { displayName: 'Ayşe Yılmaz', workspaceLabel: 'Demir Makina' }, expiresAt: now() + 7 * 86_400, ...over,
 })
 
@@ -22,7 +27,9 @@ export const shareFixtureFetch = (scenario: string): typeof fetch =>
     if (url !== '/api/s/resolve') return json(404, { ok: false, error: 'LinkUnavailable' })
     switch (scenario) {
       case 'share-view':
-        return json(200, { ok: true, data: { kind: 'file', file: file({ can: { download: false, comment: false } }) } })
+        return json(200, { ok: true, data: { kind: 'file', file: file({ can: { download: false, comment: false }, model: { ...source, kind: 'none', bytes: null } }) } })
+      case 'share-3d':
+        return json(200, { ok: true, data: { kind: 'file', file: file({ can: { download: false, comment: false }, model: glb, thumbnailAvailable: true }) } })
       case 'share-password':
         return json(200, { ok: true, data: { kind: 'password' } })
       case 'share-expired':

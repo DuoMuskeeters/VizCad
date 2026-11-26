@@ -1,4 +1,5 @@
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { createClientOnlyFn } from '@tanstack/react-start'
 import { CircleAlert, Clock, Download, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { Turnstile, turnstileSiteKey } from '#/auth/Turnstile'
 import { Avatar } from '#/components/ui/Avatar'
@@ -12,7 +13,23 @@ import { Notice } from '#/components/ui/Notice'
 import { Skeleton } from '#/components/ui/Skeleton'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { type I18nKey, useI18n } from '#/i18n'
+import { deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
+import type { ViewerStart } from '#/viewer/state'
+import { formatOfExtension, isConvertFormat } from '#/viewer/worker/protocol'
 import { tileText } from '../files/format'
+
+/** The viewer chunk (three.js) loads only on the client, only when the link has something to show in 3D. */
+const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
+const Viewer = lazy(loadViewer)
+
+const ViewerFallback = ({ src }: { src: string | null }) => (
+  <div className="grid min-w-0 gap-2">
+    <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
+      {src ? <img src={src} alt="" className="absolute inset-0 size-full object-contain" /> : null}
+    </div>
+    <div className="h-11 app:h-9.5" />
+  </div>
+)
 import { formatSize, type LinkFileView, resolveLink, type ShareFailure, sendPassword } from './api'
 
 /** Public page of a share link (docs/09 §4.3): a file card for a live link, the password gate, or one plain explanation. */
@@ -148,6 +165,18 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   const size = formatSize(file.size)
   const day = (seconds: number) => new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(seconds * 1000))
   const showThumbnail = file.thumbnailAvailable && !thumbnailFailed
+  const format = formatOfExtension(file.extension)
+  const thumbnail = file.thumbnailAvailable ? `/s/${encodeURIComponent(token)}/thumbnail` : null
+  const phone = useMemo(() => isPhone(readDeviceHints()), [])
+  // Mobile first (D14): on a phone 3D never opens by itself (docs/11 §6); a STEP/IGES source keeps the 5a phone rule.
+  const start: ViewerStart = file.model.derivative?.state === 'failed' && file.model.kind === 'source' ? { failed: 'corrupt' }
+    : !phone ? 'auto'
+    : file.model.kind === 'source' && format !== null && deferOpen(format, phone) ? 'phone'
+    : 'tap'
+  const hasDerivativeFormat = format !== null && isConvertFormat(format)
+  const noModelText = file.model.derivative?.state === 'too_large'
+    ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
+    : file.model.derivative?.state === 'failed' ? t('viewer.error.corrupt') : t('viewer.notPrepared')
   return (
     <Frame company={company}>
       <div className="grid gap-5 app:grid-cols-[minmax(0,1fr)_340px] app:gap-x-8 [&>*]:min-w-0">
@@ -167,6 +196,30 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
           </div>
         </div>
 
+        {format !== null && file.model.kind !== 'none' ? (
+          <section aria-label={t('sp.stage')} className="min-w-0 app:col-start-1 app:row-span-3 app:row-start-1">
+            <Suspense fallback={<ViewerFallback src={thumbnail} />}>
+              <Viewer
+                name={file.name}
+                extension={file.extension}
+                size={file.size}
+                url={`/s/${encodeURIComponent(token)}/model`}
+                thumbnailUrl={thumbnail}
+                start={start}
+                source={file.model.kind}
+                modelBytes={file.model.bytes}
+                maxConvertBytes={file.model.maxConvertBytes}
+                downloadAction={file.can.download ? (
+                  <Button asChild>
+                    <a href={`/s/${encodeURIComponent(token)}/content`} download>
+                      <Download aria-hidden /> {t('sp.downloadSize', { size })}
+                    </a>
+                  </Button>
+                ) : undefined}
+              />
+            </Suspense>
+          </section>
+        ) : (
         <section aria-label={t('sp.stage')} className="grid place-items-center overflow-hidden rounded-lg border border-line bg-surface app:col-start-1 app:row-span-3 app:row-start-1 app:min-h-96">
           {showThumbnail ? (
             <img
@@ -182,7 +235,9 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
               <p className="text-sm text-text-3">{t('sp.previewNone')}</p>
             </div>
           )}
+          {format !== null && hasDerivativeFormat ? <p className="px-4 pb-4 text-center text-sm text-text-3">{noModelText}</p> : null}
         </section>
+        )}
 
         <div className="grid gap-3 app:col-start-2 app:row-start-2">
           {file.can.download ? (

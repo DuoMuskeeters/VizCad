@@ -18,7 +18,8 @@ const pick = (pattern: RegExp) => files.filter((name) => pattern.test(name))
 
 const rows: Array<[string, string]> = [
   ['viewer chunk (three.js, scene, UI)', '^Viewer\\.client-.*\\.js$'],
-  ['parse Worker (three.js, readers, thumbnail)', '^parse\\.worker-.*\\.js$'],
+  ['GLB loader (main thread, lazy: only for a GLB derivative)', '^loadGlb-.*\\.js$'],
+  ['parse Worker (three.js, readers, thumbnail, GLB writer)', '^parse\\.worker-.*\\.js$'],
   ['pipeline (main thread, also used by uploads)', '^pipeline-.*\\.js$'],
   ['occt-import-js glue (Worker, STEP/IGES only)', '^occt-import-js-.*\\.js$'],
   ['occt-import-js.wasm (Worker, STEP/IGES only)', '^occt-import-js-.*\\.wasm$'],

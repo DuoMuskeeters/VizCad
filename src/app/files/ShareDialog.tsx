@@ -10,6 +10,7 @@ import { Skeleton } from '#/components/ui/Skeleton'
 import { SwitchRow } from '#/components/ui/Switch'
 import { useToast } from '#/components/ui/Toast'
 import { useI18n } from '#/i18n'
+import { fileTypeOfExtension, hasDerivative } from '#/shared/fileTypes'
 import { AccessPanel } from '../access/AccessPanel'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
@@ -17,7 +18,7 @@ import { formatDay, fromDateInput, toDateInput } from './format'
 import type { LinkLevel, ShareLinkSummary } from './types'
 
 /** The share window needs only which file it is for. */
-export type ShareTarget = { readonly id: string; readonly name: string }
+export type ShareTarget = { readonly id: string; readonly name: string; readonly extension: string }
 
 const DAY = 86_400
 const nowSeconds = () => Math.floor(Date.now() / 1000)
@@ -122,7 +123,7 @@ const LinkSection = ({ file, workspaceId }: { file: ShareTarget; workspaceId: st
   }
 
   const locked = link?.legacy === true
-  const levelHint = link?.level === 'download' ? t('share.link.levelDownloadHint') : t('share.link.levelViewHint')
+  const levelHint = link?.level === 'download' ? t('share.link.levelDownloadHint') : viewLevelText(t, file.extension)
   return (
     <section aria-labelledby="share-link" className="grid gap-3">
       <div className="flex items-start gap-3">
@@ -227,6 +228,15 @@ const LinkSection = ({ file, workspaceId }: { file: ShareTarget; workspaceId: st
   )
 }
 
+/**
+ * What the view level opens (D23, docs/11 §5), said honestly: STEP/IGES/3MF show their GLB derivative and keep the
+ * source closed, but the shape on screen can be copied; for STL/OBJ/PLY the preview is the file itself.
+ */
+const viewLevelText = (t: ReturnType<typeof useI18n>['t'], extension: string) => {
+  const type = fileTypeOfExtension(extension)
+  return type !== undefined && hasDerivative(type.id) ? t('share.view3d.derivative', { format: type.label }) : t('share.view3d.mesh')
+}
+
 /** The share window (docs/03 §2.3): people (members or e-mailed guests, with an end date for guests) and the file's one link. */
 export const ShareDialog = ({ file, workspaceId, onClose }: { file: ShareTarget; workspaceId: string; onClose: () => void }) => {
   const { t } = useI18n()
@@ -234,6 +244,7 @@ export const ShareDialog = ({ file, workspaceId, onClose }: { file: ShareTarget;
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent title={t('share.title')} description={file.name} className="app:max-w-140">
         <AccessPanel workspaceId={workspaceId} target={{ kind: 'file', fileId: file.id }} />
+        <p className="text-sm text-text-3">{t('share.view3d.people', { text: viewLevelText(t, file.extension) })}</p>
         <hr className="border-line" />
         <LinkSection file={file} workspaceId={workspaceId} />
       </DialogContent>
