@@ -311,7 +311,12 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
         const read = (cookieHeader: string) => Auth.use((a) => a.readSession(new Headers({ cookie: cookieHeader })))
         assert.isTrue(Option.isSome(yield* read(cookie)))
         const decoded = decodeURIComponent(value)
-        const flip = (text: string) => `${text.slice(0, -2)}${text.at(-2) === 'A' ? 'B' : 'A'}=`
+        // Changes the signature's first base64 character: all six of its bits are data. (The last one before `=` carries
+        // two padding bits, so swapping A and B there could decode to the same signature.)
+        const flip = (text: string) => {
+          const at = text.lastIndexOf('.') + 1
+          return `${text.slice(0, at)}${text[at] === 'A' ? 'B' : 'A'}${text.slice(at + 1)}`
+        }
         const forged = [
           `${name}=${encodeURIComponent(flip(decoded))}`, // signature changed
           `${name}=${token}`, // unsigned token
