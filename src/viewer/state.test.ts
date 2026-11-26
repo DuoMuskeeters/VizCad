@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EDGES_TRIANGLE_LIMIT, edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type ViewerAction, type ViewerState } from './state'
+import { viewerEn } from '#/i18n/viewer'
 import { ERROR_CODES, type Stats } from './worker/protocol'
 
 const stats = (triangles = 1000): Stats => ({ triangles, nodes: 1, parts: 1, bbox: { min: [0, 0, 0], max: [1, 1, 1] }, ms: 5 })
@@ -65,7 +66,10 @@ describe('viewerReducer', () => {
   })
 
   it('has a text and actions for every error code', () => {
-    for (const code of [...ERROR_CODES, 'network', 'webgl'] as const) expect(errorTextKey(code)).toMatch(/^viewer\.error\./)
+    for (const code of [...ERROR_CODES, 'webgl'] as const) expect(Object.keys(viewerEn)).toContain(errorTextKey(code))
+    // The size limit and the node/triangle limits are different problems with different texts.
+    expect(errorTextKey('too_complex')).not.toBe(errorTextKey('too_large'))
+    expect(errorActions('too_complex')).toEqual({ retry: false, newVersion: false })
     expect(errorActions('corrupt')).toEqual({ retry: false, newVersion: true })
     expect(errorActions('network')).toEqual({ retry: true, newVersion: false })
     expect(errorActions('too_large')).toEqual({ retry: false, newVersion: false })

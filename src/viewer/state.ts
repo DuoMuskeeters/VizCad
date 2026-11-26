@@ -2,12 +2,14 @@
  * The viewer's React state (docs/11 §1.1): one pure reducer over plain data. three.js objects never enter it; the scene
  * lives in a ref. 5c adds the selected node and the isolated path, 5d more tools.
  */
+import type { I18nKey } from '#/i18n'
 import type { ErrorCode, Stage, Stats } from './worker/protocol'
 
 /** Edges (EdgesGeometry, 30°) are off above this many triangles: building them would stall the page. */
 export const EDGES_TRIANGLE_LIMIT = 1_500_000
 
-export type ViewerError = ErrorCode | 'network' | 'webgl'
+/** `network` comes from the Worker too (its chunk or the WASM did not load), and from the model download. */
+export type ViewerError = ErrorCode | 'webgl'
 
 export type LoadStage = 'download' | Stage | 'build'
 
@@ -78,12 +80,14 @@ export const viewerReducer = (state: ViewerState, action: ViewerAction): ViewerS
 }
 
 /** Which §8 text an error shows. */
-export const errorTextKey = (code: ViewerError) => {
+export const errorTextKey = (code: ViewerError): I18nKey => {
   switch (code) {
     case 'empty':
       return 'viewer.error.empty'
     case 'too_large':
       return 'viewer.error.tooLarge'
+    case 'too_complex':
+      return 'viewer.error.tooComplex'
     case 'timeout':
     case 'out_of_memory':
       return 'viewer.error.device'
