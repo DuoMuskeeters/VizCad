@@ -15,6 +15,7 @@ const accessOutcomes = ["allowed", "denied"] as const;
 const migrationSources = ["file_shares", "file_invitations"] as const;
 const migrationOutcomes = ["mapped", "ineligible", "quarantined"] as const;
 const uploadStatuses = ["pending", "completed", "expired", "rejected"] as const;
+export const derivativeStates = ["ready", "failed", "too_large"] as const;
 export const storageDeletionReasons = ["upload_rejected", "upload_expired", "upload_canceled", "purged", "trash_retention"] as const;
 export const securityEvents = ["sign_in_succeeded", "sign_in_failed", "password_reset_requested", "link_opened", "link_password_failed", "file_downloaded"] as const;
 
@@ -183,6 +184,11 @@ export const files = sqliteTable("files", {
   currentVersionNumber: integer("currentVersionNumber"),
   currentUploadedByUserId: text("currentUploadedByUserId").references(() => user.id, { onDelete: "set null" }),
   deletedByUserId: text("deletedByUserId").references(() => user.id, { onDelete: "set null" }),
+  // 0015 (docs/11 §2.2): the GLB derivative of the current version (STEP/IGES/3MF). All nullable; legacy never reads them.
+  // NULL derivativeState: not tried yet. derivativeMeta: JSON text written by the server (display only, never permission).
+  derivativeR2Key: text("derivativeR2Key"),
+  derivativeState: text("derivativeState", { enum: derivativeStates }),
+  derivativeMeta: text("derivativeMeta"),
 }, (t) => [
   uniqueIndex("files_workspace_id_uq").on(t.workspaceId, t.id),
   index("files_workspace_deleted_updated_idx").on(t.workspaceId, t.isDeleted, t.updatedAt, t.id),
@@ -279,6 +285,10 @@ export const fileVersions = sqliteTable("file_versions", {
   // 0014: NULL means a legacy snapshot (no ETag check, no thumbnail).
   contentEtag: text("contentEtag"),
   thumbnailR2Key: text("thumbnailR2Key"),
+  // 0015: the derivative of this version, moved here with the thumbnail when a new version arrives.
+  derivativeR2Key: text("derivativeR2Key"),
+  derivativeState: text("derivativeState", { enum: derivativeStates }),
+  derivativeMeta: text("derivativeMeta"),
 }, (t) => [
   // Not unique: legacy races produced duplicate (fileId, versionNumber) rows.
   index("file_versions_file_version_idx").on(t.fileId, t.versionNumber),
@@ -612,6 +622,33 @@ export const uploadSessions = sqliteTable("upload_sessions", {
   check("upload_sessions_size_check", sql`${t.declaredSize} > 0`),
   check("upload_sessions_completed_check", sql`(${t.status} = 'completed') = (${t.completedAt} IS NOT NULL)`),
   check("upload_sessions_target_check", sql`${t.targetFileId} IS NULL OR ${t.targetFileId} = ${t.fileId}`),
+]);
+
+/**
+ * GLB derivative uploads in flight (docs/11 §2.3). Same life cycle as `upload_sessions`, but no quota, no `files` row
+ * created: the session binds one source object (`sourceR2Key`, the file's `r2Key` when it started) and one GLB key minted
+ * here. `fileId` is a snapshot without a foreign key, so purging a file never waits on its sessions.
+ */
+export const derivativeSessions = sqliteTable("derivative_sessions", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull().references(() => organization.id, { onDelete: "restrict" }),
+  fileId: text("fileId").notNull(),
+  sourceR2Key: text("sourceR2Key").notNull(),
+  userId: text("userId").notNull().references(() => user.id, { onDelete: "restrict" }),
+  r2Key: text("r2Key").notNull(),
+  declaredSize: integer("declaredSize").notNull(),
+  status: text("status", { enum: uploadStatuses }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  completedAt: integer("completedAt", { mode: "timestamp" }),
+}, (t) => [
+  uniqueIndex("derivative_sessions_r2_key_uq").on(t.r2Key),
+  index("derivative_sessions_status_expiry_idx").on(t.status, t.expiresAt),
+  index("derivative_sessions_file_status_idx").on(t.fileId, t.status),
+  index("derivative_sessions_user_status_idx").on(t.userId, t.status),
+  check("derivative_sessions_status_check", sql`${t.status} IN (${sqlValues(uploadStatuses)})`),
+  check("derivative_sessions_size_check", sql`${t.declaredSize} > 0`),
+  check("derivative_sessions_completed_check", sql`(${t.status} = 'completed') = (${t.completedAt} IS NOT NULL)`),
 ]);
 
 /**
