@@ -2,6 +2,7 @@ import type { Locale } from './locales'
 import { appEn, appTr } from './app'
 import { filesEn, filesTr } from './files'
 import { screensEn, screensTr } from './screens'
+import { viewerEn, viewerTr } from './viewer'
 
 export const en = {
   'auth.signIn.title': 'Sign in',
@@ -113,6 +114,7 @@ export const en = {
   ...appEn,
   ...filesEn,
   ...screensEn,
+  ...viewerEn,
 } as const
 
 export type I18nKey = keyof typeof en
@@ -227,6 +229,7 @@ export const tr: Record<I18nKey, string> = {
   ...appTr,
   ...filesTr,
   ...screensTr,
+  ...viewerTr,
 }
 
 export const translations: Record<Locale, Record<I18nKey, string>> = {

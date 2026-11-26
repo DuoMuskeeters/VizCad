@@ -207,24 +207,39 @@ export const verifyLinkPassword = Effect.fn('verifyLinkPassword')(function* (
 
 const LINK_HEADERS = { 'referrer-policy': 'no-referrer' } as const
 
-/** `GET /s/{token}/content`: the current version's bytes, only for a `download` link with its proof; audited as `file.downloaded`. */
-export const deliverLinkContent = Effect.fn('deliverLinkContent')(function* (request: LinkRequest, token: string, range: string | null) {
+/** The current version's bytes for a `download` link with its proof, audited under `purpose` before the stream. */
+const deliverLinkSource = Effect.fnUntraced(function* (request: LinkRequest, token: string, range: string | null, purpose: 'download' | 'preview') {
   const row = yield* loadByToken(token)
   const { now, decision } = yield* decide(request, row, 'download')
   if (!decision.allowed) return yield* refusal(decision.reason, row)
   const trace = traceOf(request)
   const actor = { kind: 'link', linkId: row.link.id } as const
-  yield* recordDelivery({ workspaceId: row.workspaceId, actor, fileId: row.file.id, objectKey: row.file.r2Key, purpose: 'download', trace, now })
+  yield* recordDelivery({ workspaceId: row.workspaceId, actor, fileId: row.file.id, objectKey: row.file.r2Key, purpose, trace, now })
+  const action = purpose === 'download' ? 'file.downloaded' : 'file.previewed'
   return yield* streamContent({
     object: { key: row.file.r2Key, size: row.file.size, etag: row.file.contentEtag }, name: row.file.name, range, extraHeaders: LINK_HEADERS,
   }).pipe(
     Effect.tapError((error) =>
       error._tag !== 'ContentIntegrity' ? Effect.void : Effect.logWarning('delivery integrity check failed').pipe(
         Effect.annotateLogs({ requestId: request.requestId }),
-        Effect.andThen(recordDenied({ workspaceId: row.workspaceId, actor, fileId: row.file.id, action: 'file.downloaded', reason: 'integrity', security: false, trace, now })),
+        Effect.andThen(recordDenied({ workspaceId: row.workspaceId, actor, fileId: row.file.id, action, reason: 'integrity', security: false, trace, now })),
         Effect.ignore,
       )),
   )
+})
+
+/** `GET /s/{token}/content`: the current version's bytes, only for a `download` link with its proof; audited as `file.downloaded`. */
+export const deliverLinkContent = Effect.fn('deliverLinkContent')(function* (request: LinkRequest, token: string, range: string | null) {
+  return yield* deliverLinkSource(request, token, range, 'download')
+})
+
+/**
+ * `GET /s/{token}/model`: what the shared page's 3D viewer reads (docs/11 §2.4); same bytes and headers as `content`,
+ * audited as `file.previewed` (no security-log download event). Faz 5a: still a `download` link and the source object;
+ * 5b (D23) moves it to `preview` (every live link) and the GLB derivative.
+ */
+export const deliverLinkModel = Effect.fn('deliverLinkModel')(function* (request: LinkRequest, token: string, range: string | null) {
+  return yield* deliverLinkSource(request, token, range, 'preview')
 })
 
 /** `GET /s/{token}/thumbnail`: the current thumbnail for any live link (`view` suffices); audited as `file.previewed`. */

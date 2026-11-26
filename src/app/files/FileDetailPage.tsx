@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { createClientOnlyFn } from '@tanstack/react-start'
 import { Download, FileQuestion, Share2 } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
@@ -13,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/Tabs'
 import { useToast } from '#/components/ui/Toast'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
 import { useI18n } from '#/i18n'
+import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
+import { formatOfExtension } from '#/viewer/worker/protocol'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
@@ -22,8 +25,23 @@ import { ActivityTab, CommentsTab, VersionsTab } from './FileTabs'
 import { startDownload } from './download'
 import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
-import { abilitiesOf, isFullView, type AnyFileView } from './types'
-import { useUploads } from './UploadProvider'
+import { uploadThumbnail } from './thumbnail'
+import { abilitiesOf, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
+import { type UploadItem, useUploads } from './UploadProvider'
+
+/** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
+const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
+const Viewer = lazy(loadViewer)
+
+/** What the viewer area shows while its chunk loads: the thumbnail on the canvas colour, like the viewer's own loading state. */
+const ViewerFallback = ({ src }: { src: string | null }) => (
+  <div className="grid min-w-0 gap-2">
+    <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
+      {src ? <img src={src} alt="" className="absolute inset-0 size-full object-contain" /> : null}
+    </div>
+    <div className="h-11 app:h-9.5" />
+  </div>
+)
 
 type State = { readonly status: 'loading' } | { readonly status: 'missing' } | { readonly status: 'error' } | { readonly status: 'ready'; readonly file: AnyFileView }
 
@@ -71,7 +89,10 @@ const Details = ({ file }: { file: AnyFileView }) => {
   )
 }
 
-/** The file page (docs/03 §2.5, D18): thumbnail or file card with a download until the viewer arrives in Faz 5, and the tabbed panel. */
+/**
+ * The file page (docs/03 §2.5, D18): the 3D viewer for callers who may download (Faz 5a: the `model` endpoint still needs
+ * `download`; view/comment levels get 3D when it moves to `preview` in 5b, D23), otherwise the thumbnail or file card; and the tabbed panel.
+ */
 export const FileDetailPage = () => {
   const { t, locale } = useI18n()
   const { call, expire } = useSession()
@@ -87,6 +108,7 @@ export const FileDetailPage = () => {
   const [sharing, setSharing] = useState(search.share === true)
   const [tab, setTab] = useState('details')
   const [versionKey, setVersionKey] = useState(0)
+  const phone = useMemo(() => isPhone(readDeviceHints()), [])
 
   const load = useCallback(async () => {
     const result = await call<AnyFileView>('getFile', { workspaceId: active.id, fileId: id })
@@ -99,6 +121,20 @@ export const FileDetailPage = () => {
     setState({ status: 'loading' })
     void load()
   }, [load])
+
+  // The viewer rendered a thumbnail for a file without one (lazy path, docs/11 §9 5a): store it, then show it. The
+  // endpoint stores on whatever is current when it lands, so a thumbnail of a version that is no longer current (or
+  // with a new version on its way) is dropped.
+  const shown = useRef<{ file: AnyFileView | null; uploading: readonly UploadItem[] }>({ file: null, uploading: [] })
+  shown.current = { file: state.status === 'ready' ? state.file : null, uploading: uploads.items }
+  const saveThumbnail = useCallback((fileId: string, version: number, blob: Blob) => {
+    const still = (file: AnyFileView | null) => file !== null && file.id === fileId && file.currentVersion.number === version
+    const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
+    if (!still(shown.current.file) || pending) return
+    void uploadThumbnail(fileId, blob).then((stored) => {
+      if (stored) setState((current) => (current.status === 'ready' && still(current.file) ? { status: 'ready', file: { ...current.file, thumbnailAvailable: true } } : current))
+    })
+  }, [])
 
   // A new version finished uploading: the file card and the version list change.
   useEffect(() => {
@@ -142,6 +178,8 @@ export const FileDetailPage = () => {
   const file = state.file
   const can = abilitiesOf(file)
   const typeLabel = fileTypeOfExtension(file.extension)?.label ?? file.extension.toUpperCase()
+  const format = formatOfExtension(file.extension)
+  const thumbnail = file.thumbnailAvailable ? thumbnailUrl(file.id, file.currentVersion.number) : null
   return (
     <>
       <PageHeader
@@ -195,17 +233,39 @@ export const FileDetailPage = () => {
       />
 
       <div className="grid items-start gap-6 app:grid-cols-[minmax(0,1fr)_380px]">
-        <section aria-label={file.name} className="grid justify-items-center gap-4 rounded-lg border border-line bg-surface p-4 app:p-8">
-          {file.thumbnailAvailable ? (
-            <img src={`/api/files/${file.id}/thumbnail?v=${file.currentVersion.number}`} alt={t('file.preview.alt', { name: file.name })} className="max-h-110 w-full max-w-160 rounded-md bg-canvas object-contain" />
-          ) : (
-            <div className="grid justify-items-center gap-3 py-10">
-              <FileTile ext={tileText(file.extension)} className="size-20 text-sm" />
-              <p className="text-md text-text-2">{t('file.preview.none')}</p>
-            </div>
-          )}
-          <p className="max-w-md text-center text-sm text-text-3">{t('file.preview.note')}</p>
-        </section>
+        {can.download && format !== null ? (
+          <Suspense fallback={<ViewerFallback src={thumbnail} />}>
+            <Viewer
+              key={`${file.id}:${file.currentVersion.number}`}
+              name={file.name}
+              extension={file.extension}
+              size={file.size}
+              url={modelUrl(file.id)}
+              thumbnailUrl={thumbnail}
+              deferred={deferOpen(format, phone)}
+              onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone) ? (blob) => saveThumbnail(file.id, file.currentVersion.number, blob) : undefined}
+              onUploadVersion={can.edit && uploads.allowed ? () => uploads.pick(file.id) : undefined}
+              downloadAction={
+                <Button onClick={() => startDownload(file.id)}>
+                  <Download aria-hidden className="size-4.5" />
+                  {t('file.download')}
+                </Button>
+              }
+            />
+          </Suspense>
+        ) : (
+          <section aria-label={file.name} className="grid justify-items-center gap-4 rounded-lg border border-line bg-surface p-4 app:p-8">
+            {thumbnail ? (
+              <img src={thumbnail} alt={t('file.preview.alt', { name: file.name })} className="max-h-110 w-full max-w-160 rounded-md bg-canvas object-contain" />
+            ) : (
+              <div className="grid justify-items-center gap-3 py-10">
+                <FileTile ext={tileText(file.extension)} className="size-20 text-sm" />
+                <p className="text-md text-text-2">{t('file.preview.none')}</p>
+              </div>
+            )}
+            <p className="max-w-md text-center text-sm text-text-3">{t('file.preview.note')}</p>
+          </section>
+        )}
 
         <section aria-label={t('file.tabs.label')} className="min-w-0">
           <Tabs value={tab} onValueChange={setTab}>

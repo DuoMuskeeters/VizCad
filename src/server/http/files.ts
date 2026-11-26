@@ -1,7 +1,7 @@
 import { Effect, type Layer, Schema } from 'effect'
 import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
 import { MAX_THUMBNAIL_BYTES } from '../deliveryHttp'
-import { type Delivery, deliverContent, deliverThumbnail, putThumbnail } from '../programs/delivery'
+import { type Delivery, deliverContent, deliverModel, deliverThumbnail, putThumbnail } from '../programs/delivery'
 import { AppConfig } from '../services/AppConfig'
 import type { Auth } from '../services/Auth'
 import type { Db } from '../services/Db'
@@ -14,8 +14,8 @@ import { readCaller } from './session'
 
 export type FilesServices = Db | Auth | AppConfig | Storage | RateLimit
 
-/** `/api/files/{fileId}/content` and `/api/files/{fileId}/thumbnail`. */
-const PATH = /^\/api\/files\/([^/]+)\/(content|thumbnail)$/
+/** `/api/files/{fileId}/content`, `/api/files/{fileId}/model` and `/api/files/{fileId}/thumbnail`. */
+const PATH = /^\/api\/files\/([^/]+)\/(content|model|thumbnail)$/
 
 const FileId = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128), Schema.isPattern(/^[A-Za-z0-9_-]+$/))
 
@@ -30,7 +30,7 @@ const sealed = (data: unknown) =>
   Response.json({ ok: true, data }, { status: 200, headers: { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } })
 
 /**
- * File delivery for signed-in members (docs/09 §3.1). GET content and thumbnail: same-origin only (`checkReadRequest`),
+ * File delivery for signed-in members (docs/09 §3.1, docs/11 §2.4). GET content, model and thumbnail: same-origin only (`checkReadRequest`),
  * session, then the program (permission, audit, stream). POST thumbnail: the CSRF check for a mutation with an image body
  * (PNG or WebP, at most 1 MiB, cut off while reading). Unknown paths are 404; an unknown `v` is the program's 404.
  */
@@ -55,9 +55,15 @@ export const filesProgram = (request: Request) =>
     yield* checkReadRequest(request, trustedOrigins)
     const { caller } = yield* readCaller(request)
     if (version !== 'current') yield* decodeId(version)
+    const range = request.headers.get('range')
+    if (kind === 'model') {
+      // The model is the current version only (docs/11 §2.4); an older one opens through `content`.
+      if (version !== 'current') return yield* new ResourceUnavailable()
+      return deliveryResponse(yield* deliverModel(caller, { fileId, range }))
+    }
     return deliveryResponse(
       kind === 'content'
-        ? yield* deliverContent(caller, { fileId, version, range: request.headers.get('range') })
+        ? yield* deliverContent(caller, { fileId, version, range })
         : yield* deliverThumbnail(caller, { fileId, version }),
     )
   })

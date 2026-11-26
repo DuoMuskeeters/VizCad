@@ -11,7 +11,7 @@ import { png } from '../testing/images'
 import { caller, programLayer, rows, seedLink, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { createShareLink, revokeShareLink, updateShareLink } from './links'
 import {
-  deliverLinkContent, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword,
+  deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword,
 } from './shareLinks'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>) => TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(defaultPlan)))
@@ -312,6 +312,36 @@ describe('password gate and proof cookie', () => {
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token: 'nope', password: 'x' })))._tag, 'LinkUnavailable')
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token, password: '' })))._tag, 'ValidationError')
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token, password: 'x'.repeat(129) })))._tag, 'ValidationError')
+    })),
+  )
+})
+
+describe('deliverLinkModel', () => {
+  it.effect('same bytes and headers as content, audited as a preview with no security event', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const { token, linkId } = yield* share()
+      const delivery = yield* deliverLinkModel(visitor(), token, null)
+      assert.strictEqual(delivery.status, 200)
+      assert.deepStrictEqual(delivery.headers, (yield* deliverLinkContent(visitor(), token, null)).headers)
+      assert.strictEqual(yield* bodyText(delivery), CONTENT)
+      const access = yield* accessRows
+      assert.deepStrictEqual(access.map((r) => [r.action, r.linkId]).sort(), [['file.downloaded', linkId], ['file.previewed', linkId]])
+      assert.deepStrictEqual((yield* linkRows('securityLog')).map((r) => r.event), ['file_downloaded'], 'only the content request')
+      assert.strictEqual((yield* deliverLinkModel(visitor(), token, 'bytes=4-9')).status, 206)
+    })),
+  )
+
+  it.effect('5a: a view link gets no model (403) and a password link needs its proof (401)', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const view = yield* share({ level: 'view' })
+      const denied = yield* failure(deliverLinkModel(visitor(), view.token, null))
+      assert.deepStrictEqual([denied._tag, 'reason' in denied ? denied.reason : ''], ['PermissionDenied', 'INSUFFICIENT_LEVEL'])
+      yield* revokeShareLink(caller('bob'), ids)
+      const secret = yield* share({ password: 'correct horse' })
+      assert.strictEqual((yield* failure(deliverLinkModel(visitor(), secret.token, null)))._tag, 'LinkPasswordRequired')
+      assert.strictEqual((yield* accessRows).length, 0)
     })),
   )
 })

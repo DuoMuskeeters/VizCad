@@ -160,6 +160,26 @@ export const deliverContent = Effect.fn('deliverContent')(function* (
 })
 
 /**
+ * `GET /api/files/{fileId}/model`: what the 3D viewer reads (docs/11 §2.4). Always the current version, with the same
+ * headers and Range handling as `content`, but audited as `file.previewed` (no security-log download event): opening the
+ * viewer is not a download. There is no purpose flag on `content`; the endpoint itself is the purpose.
+ *
+ * Faz 5a: the body is the current source object and the permission is still `download` (the viewer is shown only to
+ * callers who may download). 5b (D23) switches this endpoint to `preview` and serves the GLB derivative for STEP/IGES/3MF.
+ */
+export const deliverModel = Effect.fn('deliverModel')(function* (caller: Caller, input: { readonly fileId: string; readonly range: string | null }) {
+  const workspaceId = yield* workspaceOfFile(input.fileId)
+  const { base, file } = yield* openFile(caller, workspaceId, input.fileId)
+  const target = yield* versionOf(file, 'current')
+  yield* authorizeDelivery(base, { kind: 'download' })
+  const trace = traceOf(caller)
+  yield* recordDelivery({ workspaceId, actor: { kind: 'user', userId: caller.userId }, fileId: file.id, objectKey: target.object.key, purpose: 'preview', trace, now: base.now })
+  return yield* streamContent({ object: target.object, name: file.name, range: input.range }).pipe(
+    noteIntegrity({ workspaceId, fileId: file.id, userId: caller.userId, trace, now: base.now, action: 'file.previewed' }),
+  )
+})
+
+/**
  * `GET /api/files/{fileId}/thumbnail?v=`: the thumbnail for anyone who may `preview` the file (view level suffices).
  * Members' own thumbnails are list furniture and are not audited; a guest's are (a guest sees only what was shared).
  */

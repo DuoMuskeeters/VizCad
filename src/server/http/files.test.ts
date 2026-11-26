@@ -151,6 +151,45 @@ describe('GET /api/files/{id}/content', () => {
   )
 })
 
+describe('GET /api/files/{id}/model', () => {
+  it.effect('200 with the content headers; audited as a preview, not as a download', () =>
+    run(Effect.gen(function* () {
+      const res = yield* call(get('/api/files/f1/model'))
+      const content = yield* call(get('/api/files/f1/content', { cookie: 'session=tok-bob' }))
+      assert.strictEqual(res.status, 200)
+      assert.strictEqual(res.text, CONTENT)
+      for (const name of ['content-type', 'content-disposition', 'x-content-type-options', 'content-security-policy', 'cache-control', 'accept-ranges', 'content-length'])
+        assert.strictEqual(res.headers.get(name), content.headers.get(name), name)
+      const access = yield* rows('accessLog')
+      assert.deepStrictEqual(access.map((r) => [r.actorUserId, r.action]).sort(), [['bob', 'file.downloaded'], ['max', 'file.previewed']])
+      assert.deepStrictEqual((yield* rows('securityLog')).map((r) => r.userId), ['bob'])
+      const part = yield* call(get('/api/files/f1/model', { range: 'bytes=4-9' }))
+      assert.deepStrictEqual([part.status, part.text], [206, CONTENT.slice(4, 10)])
+    })),
+  )
+
+  it.effect('a guest: no grant 404, view and comment 403, download 200; cross-site 403; only the current version', () =>
+    run(Effect.gen(function* () {
+      const guest = { cookie: 'session=tok-eve' }
+      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 404)
+      yield* seedFileGrant('f1', 'eve', 'acme', 'view')
+      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 403)
+      const setLevel = (level: 'comment' | 'download') =>
+        Db.use((db) => db.use((d) => d.update(schema.fileAccess).set({ level }).where(eq(schema.fileAccess.userId, 'eve'))))
+      yield* setLevel('comment')
+      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 403)
+      yield* setLevel('download')
+      assert.strictEqual((yield* call(get('/api/files/f1/model', guest))).status, 200)
+      assert.strictEqual((yield* call(get('/api/files/f1/model', { 'sec-fetch-site': 'cross-site' }))).status, 403)
+      assert.strictEqual((yield* call(get('/api/files/f1/model', { cookie: '' }))).status, 401)
+      assert.strictEqual((yield* call(get('/api/files/f1/model?v=v1'))).status, 404)
+      assert.strictEqual((yield* call(get('/api/files/f1/model?v=current'))).status, 200)
+      assert.strictEqual((yield* call(get('/api/files/f1/model/extra'))).status, 404)
+      assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/model`, { method: 'POST', headers: { cookie: 'session=tok-max', origin: ORIGIN, 'content-type': 'image/png' }, body: '{}' }))).status, 403)
+    })),
+  )
+})
+
 describe('/api/files/{id}/thumbnail', () => {
   const putRequest = (body: BodyInit, headers: Record<string, string> = {}) =>
     new Request(`${ORIGIN}/api/files/f1/thumbnail`, {

@@ -144,6 +144,27 @@ describe('GET /s/{token}/content', () => {
   )
 })
 
+describe('GET /s/{token}/model', () => {
+  it.effect('a download link: the bytes with the link headers, audited as a preview; a view link 403', () =>
+    run(Effect.gen(function* () {
+      const token = yield* share()
+      const res = yield* call(getContent(token, {}, 'model'))
+      assert.deepStrictEqual([res.status, res.text], [200, CONTENT])
+      assert.deepStrictEqual(
+        ['content-type', 'x-content-type-options', 'content-security-policy', 'cache-control', 'referrer-policy'].map((n) => res.headers.get(n)),
+        ['application/octet-stream', 'nosniff', 'sandbox', 'private, no-store', 'no-referrer'],
+      )
+      assert.deepStrictEqual((yield* rows('accessLog')).map((l) => l.action), ['link.created', 'file.previewed'])
+      assert.strictEqual((yield* rows('securityLog')).length, 0)
+      assert.strictEqual((yield* call(getContent(token, { 'sec-fetch-site': 'cross-site' }, 'model'))).status, 403)
+      assert.strictEqual((yield* call(new Request(`${ORIGIN}/s/${token}/model?v=1`, { headers: { 'sec-fetch-site': 'same-origin' } }))).status, 400)
+      yield* revokeShareLink(caller('bob'), ids)
+      const view = yield* share({ level: 'view' })
+      assert.strictEqual((yield* call(getContent(view, {}, 'model'))).status, 403)
+    })),
+  )
+})
+
 describe('POST /api/s/resolve and /api/s/password', () => {
   it.effect('resolve returns the file card for a live link and the gate for a password link', () =>
     run(Effect.gen(function* () {
