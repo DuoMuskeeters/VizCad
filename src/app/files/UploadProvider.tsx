@@ -13,6 +13,7 @@ import { formatBytes, tileText } from './format'
 import { canMakeThumbnail, isPhone, readDeviceHints } from '#/viewer/device'
 import { formatOfExtension } from '#/viewer/worker/protocol'
 import { uploadThumbnail } from './thumbnail'
+import { createThumbnailQueue } from './thumbnailQueue'
 import { runUpload, xhrPut, type Put, type UploadFailureReason } from './upload'
 
 export type UploadItem = {
@@ -192,19 +193,18 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
   const workspaceId = active.id
 
   // Thumbnails of finished uploads (docs/11 §9 5a), one at a time in the parse Worker, from the bytes already in hand.
-  // The Worker code loads only now; a failure leaves the file-type card in place.
-  const thumbnails = useRef<Promise<void>>(Promise.resolve())
+  // The Worker code loads only now; a failure leaves the file-type card in place. A newer version of the same file
+  // (started or finished) drops older jobs, so an old version's image never lands on the current one.
+  const [thumbnails] = useState(() => createThumbnailQueue((fileId, blob) => uploadThumbnail(fileId, blob), () => setFinished((count) => count + 1)))
   const queueThumbnail = useCallback((fileId: string, file: File) => {
     const format = formatOfExtension(extensionOf(file.name))
-    if (format === null || !canMakeThumbnail(format, file.size, isPhone(readDeviceHints()))) return
-    thumbnails.current = thumbnails.current
-      .then(async () => {
-        const [{ thumbnailInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
-        const outcome = await thumbnailInWorker({ format, name: file.name, bytes }).result
-        if (outcome.ok && (await uploadThumbnail(fileId, outcome.blob))) setFinished((count) => count + 1)
-      })
-      .catch(() => undefined)
-  }, [])
+    if (format === null || !canMakeThumbnail(format, file.size, isPhone(readDeviceHints()))) return thumbnails.supersede(fileId)
+    void thumbnails.enqueue(fileId, async () => {
+      const [{ thumbnailInWorker }, bytes] = await Promise.all([loadPipeline(), file.arrayBuffer()])
+      const outcome = await thumbnailInWorker({ format, name: file.name, bytes }).result
+      return outcome.ok ? outcome.blob : null
+    })
+  }, [thumbnails])
 
   const update = useCallback((id: number, change: Partial<UploadItem>) => setItems((current) => current.map((item) => (item.id === id ? { ...item, ...change } : item))), [])
 
@@ -213,6 +213,8 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       const controller = new AbortController()
       controllers.current.set(item.id, controller)
       update(item.id, { status: 'uploading', progress: 0 })
+      // A new version is on its way: a thumbnail still being made from the previous one must not be posted.
+      if (item.targetFileId !== undefined) thumbnails.supersede(item.targetFileId)
       const outcome = await runUpload({
         call,
         put,
@@ -231,7 +233,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
       } else if (outcome.canceled) setItems((current) => current.filter((entry) => entry.id !== item.id))
       else update(item.id, { status: 'error', reason: outcome.reason })
     },
-    [call, put, workspaceId, update, queueThumbnail],
+    [call, put, workspaceId, update, queueThumbnail, thumbnails],
   )
 
   // Starts queued items while fewer than CONCURRENCY run.

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
 import { Download, FileQuestion, Share2 } from 'lucide-react'
@@ -27,7 +27,7 @@ import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
 import { uploadThumbnail } from './thumbnail'
 import { abilitiesOf, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
-import { useUploads } from './UploadProvider'
+import { type UploadItem, useUploads } from './UploadProvider'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
 const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
@@ -122,10 +122,17 @@ export const FileDetailPage = () => {
     void load()
   }, [load])
 
-  // The viewer rendered a thumbnail for a file without one (lazy path, docs/11 §9 5a): store it, then show it.
-  const saveThumbnail = useCallback((fileId: string, blob: Blob) => {
+  // The viewer rendered a thumbnail for a file without one (lazy path, docs/11 §9 5a): store it, then show it. The
+  // endpoint stores on whatever is current when it lands, so a thumbnail of a version that is no longer current (or
+  // with a new version on its way) is dropped.
+  const shown = useRef<{ file: AnyFileView | null; uploading: readonly UploadItem[] }>({ file: null, uploading: [] })
+  shown.current = { file: state.status === 'ready' ? state.file : null, uploading: uploads.items }
+  const saveThumbnail = useCallback((fileId: string, version: number, blob: Blob) => {
+    const still = (file: AnyFileView | null) => file !== null && file.id === fileId && file.currentVersion.number === version
+    const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
+    if (!still(shown.current.file) || pending) return
     void uploadThumbnail(fileId, blob).then((stored) => {
-      if (stored) setState((current) => (current.status === 'ready' && current.file.id === fileId ? { status: 'ready', file: { ...current.file, thumbnailAvailable: true } } : current))
+      if (stored) setState((current) => (current.status === 'ready' && still(current.file) ? { status: 'ready', file: { ...current.file, thumbnailAvailable: true } } : current))
     })
   }, [])
 
@@ -236,7 +243,7 @@ export const FileDetailPage = () => {
               url={modelUrl(file.id)}
               thumbnailUrl={thumbnail}
               deferred={deferOpen(format, phone)}
-              onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone) ? (blob) => saveThumbnail(file.id, blob) : undefined}
+              onThumbnail={!file.thumbnailAvailable && can.edit && canMakeThumbnail(format, file.size, phone) ? (blob) => saveThumbnail(file.id, file.currentVersion.number, blob) : undefined}
               onUploadVersion={can.edit && uploads.allowed ? () => uploads.pick(file.id) : undefined}
               downloadAction={
                 <Button onClick={() => startDownload(file.id)}>
