@@ -110,7 +110,7 @@ const reasonKey: Record<UploadFailureReason, I18nKey> = {
 
 const retryable = (reason: UploadFailureReason | undefined) => reason === 'network' || reason === 'conflict' || reason === 'failed' || reason === 'rejected'
 
-const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: () => void; onRetry: () => void }) => {
+const UploadRow = ({ item, preparing, onCancel, onRetry }: { item: UploadItem; preparing: boolean; onCancel: () => void; onRetry: () => void }) => {
   const { t, locale } = useI18n()
   const percent = Math.round(item.progress * 100)
   return (
@@ -120,7 +120,10 @@ const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: ()
         <div className="min-w-0 flex-1">
           <div className="truncate text-md font-medium">{item.name}</div>
           {item.status === 'done' ? (
-            <div className="text-sm text-success">{t('upload.done', { size: formatBytes(item.file.size, locale) })}</div>
+            <div className="text-sm text-success">
+              {t('upload.done', { size: formatBytes(item.file.size, locale) })}
+              {preparing ? <span className="text-text-3"> · {t('viewer.preparing')}</span> : null}
+            </div>
           ) : item.status === 'error' ? (
             <div className="text-sm font-medium text-danger">{t('upload.failed')}</div>
           ) : (
@@ -153,7 +156,7 @@ const UploadRow = ({ item, onCancel, onRetry }: { item: UploadItem; onCancel: ()
   )
 }
 
-const UploadCard = ({ items, onCancel, onRetry, onDismiss }: { items: readonly UploadItem[]; onCancel: (id: number) => void; onRetry: (id: number) => void; onDismiss: () => void }) => {
+const UploadCard = ({ items, preparing, onCancel, onRetry, onDismiss }: { items: readonly UploadItem[]; preparing: ReadonlySet<string>; onCancel: (id: number) => void; onRetry: (id: number) => void; onDismiss: () => void }) => {
   const { t } = useI18n()
   const [open, setOpen] = useState(true)
   const done = items.filter((item) => item.status === 'done').length
@@ -177,7 +180,7 @@ const UploadCard = ({ items, onCancel, onRetry, onDismiss }: { items: readonly U
       {open ? (
         <ul className="max-h-[calc(60dvh-48px)] overflow-y-auto border-t border-line">
           {items.map((item) => (
-            <UploadRow key={item.id} item={item} onCancel={() => onCancel(item.id)} onRetry={() => onRetry(item.id)} />
+            <UploadRow key={item.id} item={item} preparing={item.fileId !== undefined && preparing.has(item.fileId)} onCancel={() => onCancel(item.id)} onRetry={() => onRetry(item.id)} />
           ))}
         </ul>
       ) : null}
@@ -390,7 +393,7 @@ export const UploadProvider = ({ children, put = defaultPut }: { children: React
           start(files, pickTarget.current)
         }}
       />
-      {items.length > 0 ? <UploadCard items={items} onCancel={cancel} onRetry={retry} onDismiss={() => setItems([])} /> : null}
+      {items.length > 0 ? <UploadCard items={items} preparing={preparing} onCancel={cancel} onRetry={retry} onDismiss={() => setItems([])} /> : null}
       {dragging ? (
         <div aria-hidden className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-scrim p-6">
           <div className="grid justify-items-center gap-2 rounded-xl bg-bg px-8 py-7 text-center shadow-pop">

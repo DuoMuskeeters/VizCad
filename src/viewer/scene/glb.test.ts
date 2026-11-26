@@ -5,7 +5,7 @@
  * `vizcadPath` survive the round trip, the Y-up root is explicit, and the server's header check accepts the bytes.
  * Samples outside the repo (`VIZCAD_SAMPLES`, e.g. ~/Desktop/vizcad-test-dosyalari) are converted too when set.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { Box3, type Mesh, type Object3D } from 'three'
@@ -132,6 +132,9 @@ describe.skipIf(samples === undefined || !existsSync(samples))('bench samples (V
     const { model, stats, glb, loaded } = await roundTrip(format, bufferOf(readFileSync(path)), fileName)
     expect(pathsIn(loaded.root).all).toEqual([...allPaths(model.tree)].sort())
     expect(loaded.stats.triangles).toBe(stats.triangles)
+    // Screenshots and manual checks reuse the GLBs (scripts/shoot-derivative.cjs).
+    const out = process.env['VIZCAD_GLB_OUT']
+    if (out !== undefined) writeFileSync(join(out, `${fileName}.glb`), new Uint8Array(glb))
     console.log(JSON.stringify({ file: fileName, sourceMB: +(statSync(path).size / 1e6).toFixed(1), glbMB: +(glb.byteLength / 1e6).toFixed(1), nodes: stats.nodes, parts: stats.parts, triangles: stats.triangles, ms: Math.round(performance.now() - started) }))
   }, 600_000)
 })

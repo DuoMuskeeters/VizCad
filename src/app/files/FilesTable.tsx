@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react'
+import { Loader2, Star } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Checkbox } from '#/components/ui/Checkbox'
 import { DataList, DataListBody, DataListCell, DataListHead, DataListHeader, DataListPrimary, DataListRow, DataListSelectCell, FileTile } from '#/components/ui/DataList'
@@ -22,6 +22,8 @@ export const accessText = (file: AnyFileView, t: ReturnType<typeof useI18n>['t']
 }
 
 export type FilesTableProps = {
+  /** Files this tab is converting to their GLB derivative (UploadProvider): "Preparing" next to the name. */
+  readonly preparing?: ReadonlySet<string>
   readonly files: readonly AnyFileView[]
   readonly selected: ReadonlySet<string>
   readonly onSelectedChange: (id: string, selected: boolean) => void
@@ -30,7 +32,7 @@ export type FilesTableProps = {
 }
 
 /** The "Tüm dosyalar" list of the approved mockup (docs/03 §2.1): checkbox, name, project, uploader, date, size, menu. */
-export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, handlersFor }: FilesTableProps) => {
+export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, handlersFor, preparing }: FilesTableProps) => {
   const { t, locale } = useI18n()
   const all = files.length > 0 && files.every((file) => selected.has(file.id))
   const selecting = selected.size > 0
@@ -59,9 +61,18 @@ export const FilesTable = ({ files, selected, onSelectedChange, onSelectAll, han
             <DataListRow key={file.id} selected={selected.has(file.id)}>
               <DataListSelectCell label={t('files.selectOne', { name: file.name })} checked={selected.has(file.id)} onCheckedChange={(value) => onSelectedChange(file.id, value)} />
               <DataListPrimary
-                leading={<FileTile ext={tileText(file.extension)} />}
+                leading={preparing?.has(file.id) === true ? (
+                  <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface">
+                    <Loader2 className="size-4.5 text-brand motion-safe:animate-spin" />
+                  </span>
+                ) : <FileTile ext={tileText(file.extension)} />}
                 meta={[owner, formatWhen(file.updatedAt, locale), formatBytes(file.size, locale)].filter(Boolean).join(' · ')}
-                trailing={starred ? <Star aria-label={t('files.starred')} className="size-3.5 fill-warn text-warn" /> : null}
+                trailing={
+                  <>
+                    {starred ? <Star aria-label={t('files.starred')} className="size-3.5 fill-warn text-warn" /> : null}
+                    {preparing?.has(file.id) === true ? <span role="status" className="shrink-0 text-sm text-text-3">{t('viewer.preparing')}</span> : null}
+                  </>
+                }
               >
                 <Link to="/app/files/$id" params={{ id: file.id }} className="rounded-sm font-medium text-text hover:underline">
                   {file.name}

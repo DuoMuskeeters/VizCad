@@ -288,7 +288,7 @@ export const FilesPage = ({ project }: { project?: { readonly id: string } }) =>
           {view === 'grid' ? (
             <FilesGrid files={items} selected={selected} onSelectedChange={toggleSelected} handlersFor={handlersFor} preparing={uploads.preparing} phone={phone} />
           ) : (
-            <FilesTable files={items} selected={selected} onSelectedChange={toggleSelected} onSelectAll={(all) => setSelected(all ? new Set(items.map((item) => item.id)) : new Set())} handlersFor={handlersFor} />
+            <FilesTable files={items} selected={selected} onSelectedChange={toggleSelected} onSelectAll={(all) => setSelected(all ? new Set(items.map((item) => item.id)) : new Set())} handlersFor={handlersFor} preparing={uploads.preparing} />
           )}
           {list.state.nextCursor !== null ? (
             <div className="flex justify-center py-5">
