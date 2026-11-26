@@ -10,7 +10,7 @@ Kısaca: blog, yazarlar, site metinleri, sayfa SEO'su ve yasal metinler D1'de, 5
 
 | # | Zorunlu kural |
 |---|---|
-| 1 | Önbelleğe giren HTML çereze, oturuma ve `Accept-Language`'a bağlı olamaz. `Set-Cookie` taşıyan, 200 olmayan ya da `GET`/`HEAD` olmayan yanıt önbelleğe girmez. Pazarlama başlığı oturumlu ve oturumsuz ziyaretçide aynıdır. |
+| 1 | Önbelleğe giren HTML çereze, oturuma, sorgu dizgisine ve `Accept-Language`'a bağlı olamaz: ıskada SSR'a sorgusuz ve çerezsiz, temizlenmiş bir istek gider (§7.1). Önbelleği yalnız `GET` ıskası doldurur. `HEAD`, `Set-Cookie` taşıyan ya da 200/301 olmayan yanıt önbelleğe girmez. Anahtar build kimliğini içerir, deploy eski HTML'i geçersiz kılar. Pazarlama başlığı oturumlu ve oturumsuz ziyaretçide aynıdır. |
 | 2 | `Cache.live.ts`'teki TODO kapatılır: `CF_ZONE_ID`/`CF_PURGE_TOKEN` yoksa yayın `CacheError` ile **başarısız sayılır**. Yalnız yerel silme, yayın için başarı değildir. `purge_everything` hiç kullanılmaz, çünkü zone legacy siteyle ortak. |
 | 3 | Legacy `GET /api/blog?status=draft` ve `GET /api/blog/{id}` taslakları kimlik doğrulamadan veriyor. `POST /api/blog` gövdeyi `...data` ile olduğu gibi yazıyor. Bu uçlar yeni Worker'da yok (404). Yerine admin uçları gelir (§3). |
 | 4 | Markdown güvenli çevrilir: ham HTML kaçışlanır, `javascript:`/`data:` bağlantıları atılır, görsel yalnız kendi alan adımızdan gelir (§4.3). JSON-LD içinde `<` karakteri `<` olarak yazılır. |
@@ -211,7 +211,7 @@ Migration `0016_cms` (5b `0015_viewer`'ı alıyor; numara birleştirme sırasın
 | `Db` | tüm tablolar | yok. `Db.memory` 0016 dahil tüm migration'larla |
 | `Storage` | `blog/` görselleri: `put`, `get`, `head` | yok |
 | `Cache` | yayında temizleme (`purge`) | yapılandırma yoksa `CacheError` (kural 2). `purge` URL listesini yalnız `siteUrl` hostuyla kabul eder |
-| `EdgeCache` (yeni, **Effect'siz**) | isabet yolu: `match`, `put`, anahtar normalleştirme | `services/EdgeCache.ts`. `D1Health` gibi bilinçli istisna (CLAUDE.md'ye eklenir): isabette Effect, Drizzle ve router yüklenmez |
+| `EdgeCache` (yeni, **Effect'siz**) | isabet yolu: `match`, `put`, anahtar (`BUILD_ID` ekiyle), `sanitizeForSsr` | `services/EdgeCache.ts`. `D1Health` gibi bilinçli istisna (CLAUDE.md'ye eklenir): isabette Effect, Drizzle ve router yüklenmez |
 | `AppConfig` | `siteUrl`, `appEnv`, `cachePurge`, `turnstile` | ek: `contactRecipient` (yoksa iletişim formu `ConfigError` ile kapalı) |
 | `Auth` | oturum özeti | `SessionSummary.platformRole` (`'admin' \| 'user'`), aynı sorgudan |
 | `Email` | iletişim mesajı | şablon `emails/contact.ts` (düz metin, kullanıcı girdisi kaçışlı, `Reply-To` gönderen) |
@@ -318,7 +318,7 @@ Kodda üretilir (`buildRobotsTxt`), statik `public/robots.txt` silinir.
 
 - **Production:** `User-agent: *` → `Allow: /`; `Disallow: /app`, `/admin`, `/api/`, `/s/`, `/dev/`, `/onboarding`, `/invite/`, `/guest-invite/`; `Sitemap: https://viz-cad.com/sitemap.xml`. Uygulama rotaları ayrıca `X-Robots-Tag: noindex` gönderir. Giriş/kayıt sayfaları taranabilir ama `noindex`. Legacy dosyadaki `/src/`, `/node_modules/` gibi satırlar kalkar (öyle yollar yok).
 - **Yapay zekâ tarayıcıları (K11):** GPTBot, ClaudeBot, PerplexityBot, Google-Extended için aynı kurallar: pazarlama ve blog açık, uygulama kapalı. Cloudflare zone'undaki "AI botlarını engelle" ve "Managed robots.txt" ayarları bu dosyanın önüne geçebilir; 6a'da salt okunur kontrol edilir, değişiklik kullanıcı onayıyla.
-- **Staging:** `User-agent: *` → `Disallow: /` ve her yanıtta `X-Robots-Tag`.
+- **Staging:** `User-agent: *` → `Disallow: /` ve her yanıtta `X-Robots-Tag`. Statik dosyalar (Workers Static Assets) Worker'dan geçmez, bu yüzden staging build'i `dist/client/_headers` dosyasına `/*` → `X-Robots-Tag: noindex, nofollow` yazar. Production build bu dosyayı yazmaz (Vite eklentisi, `CLOUDFLARE_ENV`'e göre; `vite.config.ts`'teki mevcut ayrım). Test: staging build çıktısında `_headers` var ve bu satırı içeriyor, production çıktısında yok.
 
 ### 6.6 llms.txt
 
@@ -343,7 +343,8 @@ Kodda üretilir (`buildRobotsTxt`), statik `public/robots.txt` silinir.
 | `/author/{userId}` (legacy JSON-LD'deki ölü bağlantı) | `/authors/{slug}` ya da `/blog` |
 | `/en/...` | önek olmadan |
 | `/blog/{eski slug}` | `post_slug_redirects` ile güncel slug |
-| `/blog?category=x` | `/blog` (sorgu atılır) |
+
+`/blog?category=x` yönlendirilmez: pazarlama sayfaları sorgu dizgisini hiç okumaz ve `/blog` yanıtını verir (canonical sorgusuz, §7.1). Yönlendirme yanıtı sorguya bağlı olacağı için önbellek anahtarını zehirlerdi.
 
 `/dashboard`, `/app`, `/file/*`, `/shared/*` yönlendirmeleri Faz 4'te var (`legacyRedirect.ts`).
 
@@ -353,20 +354,25 @@ Kodda üretilir (`buildRobotsTxt`), statik `public/robots.txt` silinir.
 
 ```
 istek → src/server.ts fetch
-  ├─ marketingCacheKey(request)  (saf, Effect'siz; pazarlama rotası değilse null)
+  ├─ marketingCacheKey(request)  (saf, Effect'siz; pazarlama rotası değilse ya da yöntem GET/HEAD değilse null)
   │    null → TanStack handler (değişiklik yok)
   │
-  ├─ EdgeCache.match(key) ── isabet → yanıt + x-vizcad-cache: hit   (Effect, router, D1 yok)
+  ├─ EdgeCache.match(key) ── isabet → kopya, tarayıcı başlıklarıyla + x-vizcad-cache: hit   (Effect, router, D1 yok)
+  │                          HEAD ise gövdesiz; match hatası → ıska
   │
-  └─ ıska → TanStack handler (SSR, loader → entry.cms → program → D1)
-         └─ isCacheable(yanıt) → ctx.waitUntil(EdgeCache.put(key, kenar başlıklarıyla kopya))
-            yanıt + x-vizcad-cache: miss
+  └─ ıska → sanitizeForSsr(request): aynı yol, sorgu yok, Cookie ve diğer başlıklar yok, yöntem GET
+         → TanStack handler (SSR, loader → entry.cms → program → D1)
+         └─ istek GET ve isCacheable(yanıt) → ctx.waitUntil(EdgeCache.put(key, kenar başlıklarıyla kopya))
+            yanıt + x-vizcad-cache: miss   (HEAD ise gövdesiz, put hiç çağrılmaz)
 ```
 
 - **Pazarlama rotaları:** `/`, dil ana sayfaları, `/blog/**`, `/authors/*`, `/pricing`, `/faq`, `/contact`, `/legal/**`, `/sitemap.xml`, `/sitemaps/*`, `/robots.txt`, `/llms.txt`, RSS. Kalıplar tek listede (`src/shared/marketingRoutes.ts`), hem `marketingCacheKey` hem `affectedUrls` bu listeyi kullanır.
-- **Anahtar:** `https://{siteUrl hostu}{yol}`. Sorgu dizgisi atılır (utm ve benzeri önbelleği delip CPU harcatmasın). Yol normalleştirilmez; normalleştirme gerekiyorsa 301 verilir, 301 de önbelleğe girer.
-- **`isCacheable`:** `GET`/`HEAD`, durum 200 ya da 301, `Set-Cookie` yok, yanıtta `x-vizcad-no-store` yok. 404 ve 410 önbelleğe girmez (rastgele URL'ler önbelleği doldurmasın; 410 yalnız var olan yazı için ve D1'de ucuz).
-- **Başlıklar:** önbelleğe giden kopya `Cache-Control: public, s-maxage=86400` (güvenlik ağı: temizleme kaçarsa en geç bir günde yenilenir). Tarayıcıya giden `Cache-Control: public, max-age=0, must-revalidate` + `ETag` (yayın anında görünsün). Görseller ve fontlar `immutable`.
+- **Anahtar:** `https://{siteUrl hostu}{yol}?v={BUILD_ID}`. İsteğin sorgu dizgisi atılır (utm ve benzeri önbelleği delip CPU harcatmasın). `BUILD_ID` build anında Vite `define` ile koda gömülür (git kısa SHA + build zamanı). Deploy Cache API kayıtlarını silmez; eski kayıtlar artık var olmayan hash'li JS/CSS dosyalarına bağlanır. Her build kendi anahtar alanını kullandığı için eski HTML deploy'dan sonra bir daha eşleşmez ve `s-maxage` ile düşer. Temizleme (§7.4) URL'leri API'ye aynı `?v=` ekiyle gönderir. Yol normalleştirilmez; normalleştirme gerekiyorsa 301 verilir, 301 de önbelleğe girer.
+- **Temizlenmiş istek (`sanitizeForSsr`, saf).** Iskada handler'a orijinal istek gitmez: `new Request(origin + yol, { method: 'GET', headers: { accept: 'text/html' } })`. Sorgu, `Cookie`, `Authorization`, `Accept-Language` ve diğer bütün başlıklar düşer. Böylece önbelleğe giren yanıt yalnız yola bağlıdır: sorgu ya da çerez yanıtı değiştirip (ör. bir 301 ya da oturuma özel içerik) o yolun anahtarına yazamaz. Hiçbir pazarlama sayfası sorgu dizgisi okumaz. `/blog?category=x` `/blog` ile aynı yanıtı alır (200, canonical sorgusuz), yönlendirme yok (§6.9).
+- **`isCacheable`:** istek `GET`, durum 200 ya da 301, `Set-Cookie` yok, yanıtta `x-vizcad-no-store` yok. `HEAD` hiçbir zaman `put` çağırmaz: gövdesiz bir yanıt anahtarı doldurursa sonraki `GET`'ler boş sayfa alır. `HEAD` isabeti, kaydın başlıklarını gövdesiz döner. 404 ve 410 önbelleğe girmez (rastgele URL'ler önbelleği doldurmasın; 410 yalnız var olan yazı için ve D1'de ucuz).
+- **Başlıklar ve ETag.** Kenar kopyası `Cache-Control: public, s-maxage=86400` (güvenlik ağı: temizleme kaçarsa en geç bir günde yenilenir) ve `ETag: W/"{BUILD_ID}.{put zamanı, base36}"` taşır. ETag ıskada üretilir, gövde hash'lenmez (CPU). Tarayıcıya giden yanıtta, ıskada da isabette de, `Cache-Control` `public, max-age=0, must-revalidate` ile değiştirilir (yayın anında görünsün) ve ETag aynen gider. İstekteki `If-None-Match` kaydın ETag'iyle eşleşiyorsa 304 (gövdesiz). Farklı veri merkezleri farklı ETag üretir; bunun bedeli yalnız fazladan bir indirmedir. Görseller ve fontlar `immutable`.
+- **Önbellek hatası ıskadır.** `match` istisna atarsa istek ıska yoluna gider. `put` hatası yalnız etiketle günlüğe yazılır ve yanıtı etkilemez. Bozuk önbellek sayfayı kırmaz.
+- **Alternatif (deploy).** Her deploy'dan sonra hostname temizleme. Deploy yollarının hepsine (elle staging, ileride Workers Builds) bir adım ekler ve adım unutulursa site kırılır. Reddedildi. Kalan risk: kademeli dağıtım sürerken eski sürümdeki isolate'ler eski anahtarlarla hizmet verir ve o arada yapılan yayının temizliği onlara ulaşmayabilir. Pencere dağıtım süresi kadardır.
 - **Pazarlama HTML'i çerez okumaz.** Üst çubukta her zaman "Giriş yap" ve "Ücretsiz başla" vardır; oturumu açık kişi `/sign-in`'den uygulamaya yönlenir (bugünkü davranış). İletişim formu Turnstile'ı istemcide yükler.
 - **Önizleme ve admin** pazarlama listesinde değildir: `private, no-store`, `noindex`.
 - `Cache.live.ts`'teki not geçerli: Cache API workers.dev'de çalışmaz, yalnız özel alan adında. Staging doğrulaması için §10.
@@ -478,13 +484,13 @@ Ayarlar (`/admin/cms/settings`): kuruluş adı, sosyal profiller, logo, varsayı
 
 ## 11. Test planı
 
-- **Saf:** `renderMarkdown` (ham HTML kaçışı, `<script>`, `javascript:`/`data:` bağlantı, dış görsel, başlık kimliği tekilliği, `toc`, GFM tablo, deterministik çıktı, legacy içerik örnekleri), slug üretimi (5 dilin harfleri, ayrılmış kelimeler, uzunluk), okuma süresi, `resolveText` sırası (dört kaynak, kısmi D1), parametre denetimi, `head.ts` (canonical ve hreflang: yalnız `en`, `en`+`tr`, kapalı dil sayfası, arşiv), JSON-LD kurucuları (beklenen anahtar kümeleri + `</script>` ve `&` kaçışı), sitemap XML (kaçış, alternatifler, yalnız yayındakiler, `lastmod`), robots (production/staging), `llms.txt` biçimi, RSS, `affectedUrls` (§7.4 tablosunun her satırı, slug değişimi, `live` değişimi), `marketingCacheKey` (sorgu atma, rota dışı null), `isCacheable` (Set-Cookie, 404, POST, `x-vizcad-no-store`).
+- **Saf:** `renderMarkdown` (ham HTML kaçışı, `<script>`, `javascript:`/`data:` bağlantı, dış görsel, başlık kimliği tekilliği, `toc`, GFM tablo, deterministik çıktı, legacy içerik örnekleri), slug üretimi (5 dilin harfleri, ayrılmış kelimeler, uzunluk), okuma süresi, `resolveText` sırası (dört kaynak, kısmi D1), parametre denetimi, `head.ts` (canonical ve hreflang: yalnız `en`, `en`+`tr`, kapalı dil sayfası, arşiv), JSON-LD kurucuları (beklenen anahtar kümeleri + `</script>` ve `&` kaçışı), sitemap XML (kaçış, alternatifler, yalnız yayındakiler, `lastmod`), robots (production/staging), `llms.txt` biçimi, RSS, `affectedUrls` (§7.4 tablosunun her satırı, slug değişimi, `live` değişimi), `marketingCacheKey` (sorgu atma, `?v={BUILD_ID}` eki, rota dışı null, POST null), `sanitizeForSsr` (sorgu, `Cookie`, `Authorization`, `Accept-Language` düşer; yöntem GET), `isCacheable` (Set-Cookie, 404, POST, HEAD, `x-vizcad-no-store`).
 - **Program (memory `Db` + `Storage` + `Cache.memory`/`CachePurges` + `Turnstile` + `Email` + `RateLimit`):** taslak → yayın → canlı; yayındaki yazıyı düzenlemek canlıyı değiştirmez; `en` olmadan başka dil yayını `PublishBlocked`; `en` kaldırınca tüm diller 404; arşiv 410; slug çakışması dil içinde (diller arası serbest); slug değişimi yönlendirme yazar ve eski yönlendirmeyi yeni yazıya bırakmaz; revizyon çakışması; **ayna**: `en` yayını `posts` sütunlarını aynı batch'te yazar ve legacy okuyucu (fixture) aynı yazıyı görür; **legacy yedek**: çeviri satırı olmayan legacy yazı `en` olarak çıkar, taslak legacy yazı çıkmaz; `materializeLegacyTranslations` idempotent, `--source-wins` yalnız yeni olanı günceller; her admin işleminde admin olmayan 403, oturumsuz 401; yayın `CachePurges`'e beklenen URL'leri yazar; temizleme hatası içerik yayınını geri almaz, kuyruk ve cron boşaltır; yapılandırma yoksa yayın `CacheError`; görsel: SVG, uzantısı PNG içeriği HTML, 4096 px üstü, yinelenen SHA; kullanımdaki görsel silinemez; yasal sürüm yayından sonra değişmez (trigger), veri sorumlusu yoksa yayın kapalı; iletişim: Turnstile hatası, hız sınırı, e-posta hatasında kayıt durur ve cron yeniden dener; kabul kaydı kayıt akışında yazılır.
 - **Migration:** `0016` `check-migrations`'tan geçer. 0016 sonrası legacy `posts`/`author_profiles` yazım şekilleri başarılı. `user_delete_guard_author` trigger'ı (yazarlı/yazarsız kullanıcı). `sqlite_master`'da beklenen indeksler ve trigger'lar.
-- **HTTP:** pazarlama yanıt başlıkları (tarayıcı ve kenar kopyası ayrı), `x-vizcad-cache` hit/miss, `Set-Cookie`'li yanıtın önbelleğe girmemesi, uygulama rotalarında `X-Robots-Tag`, staging'de her yanıtta `noindex`, 301/404/410, `/api/cms/*` CSRF ve bilinmeyen işlem 404, legacy `/api/blog` JSON uçları 404, `/api/blog/image` yalnız `blog/` ve başlıklar, `/media` başlıkları, `/api/contact` CSRF.
+- **HTTP:** pazarlama yanıt başlıkları (tarayıcı ve kenar kopyası ayrı; isabette tarayıcı `Cache-Control`'ü yeniden yazılır), ETag ve `If-None-Match` → 304, `x-vizcad-cache` hit/miss, `Set-Cookie`'li yanıtın önbelleğe girmemesi, **zehirleme**: önce `Cookie` başlığıyla `/blog?category=x`, sonra çıplak `/blog` istenir; ikincisi 200 ve liste döner, SSR handler'ın gördüğü istekte sorgu ve `Cookie` yoktur; **HEAD**: `HEAD` ıskası `put` çağırmaz, ardından gelen `GET` `miss` ve tam gövde alır; `match` istisnası ıskaya düşer, `put` istisnası yanıtı bozmaz; uygulama rotalarında `X-Robots-Tag`, staging'de her yanıtta `noindex`, 301/404/410, `/api/cms/*` CSRF ve bilinmeyen işlem 404, legacy `/api/blog` JSON uçları 404, `/api/blog/image` yalnız `blog/` ve başlıklar, `/media` başlıkları, `/api/contact` CSRF.
 - **Rota:** `{-$locale}` statik rotaları gölgelemez (`/app`, `/s/x`, `/sign-in`, `/api/health`), `/en/x` 301, `/xx/blog` 404.
 - **Kontrat:** `PostView` ve genel yanıtlarda e-posta, `userId`, taslak alanı ve R2 anahtarı yok.
-- **Staging (elle, özel alan adında, her PR kabulünde listelenir):** ikinci istekte `hit`; yayından sonra birkaç saniye içinde yeni içerik (iki farklı ağdan, ör. telefon hücresel + masaüstü); temizleme API yanıtı; JS kapalıyken yazı okunuyor; Google Rich Results Test ve Schema.org doğrulayıcısı (yazı, yazar, landing); Lighthouse mobil (landing, yazı, SSS); 320, 390 ve 1280 px, açık ve koyu; ıska `cpuTime` ölçümü.
+- **Staging (elle, özel alan adında, her PR kabulünde listelenir):** ikinci istekte `hit`; **deploy**: sayfa `hit` iken yeniden deploy edilir, sonraki ilk istek `miss` olur ve HTML'deki her `/assets/*` adresi 200 döner; yayından sonra birkaç saniye içinde yeni içerik (iki farklı ağdan, ör. telefon hücresel + masaüstü); temizleme API yanıtı; JS kapalıyken yazı okunuyor; Google Rich Results Test ve Schema.org doğrulayıcısı (yazı, yazar, landing); Lighthouse mobil (landing, yazı, SSS); 320, 390 ve 1280 px, açık ve koyu; ıska `cpuTime` ölçümü.
 
 ## 12. Bölünme ve kabul ölçütleri
 
