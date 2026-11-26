@@ -5,8 +5,12 @@
  */
 import type { ErrorCode, Stats } from '#/viewer/worker/protocol'
 
+/** A source within `maxConvertBytes` whose GLB is over the plan's cap (docs/11 §2.6): kept apart from `too_large`. */
+export const GLB_TOO_LARGE = 'glb_too_large'
+export type RecordedCode = ErrorCode | typeof GLB_TOO_LARGE
+
 /** Worker codes worth recording: they are about the file. `network` and a cancel are not (the next open tries again). */
-export const RECORDED_CODES: ReadonlySet<ErrorCode> = new Set(['empty', 'unsupported', 'too_large', 'too_complex', 'out_of_memory', 'corrupt', 'timeout'])
+export const RECORDED_CODES: ReadonlySet<RecordedCode> = new Set(['empty', 'unsupported', 'too_large', GLB_TOO_LARGE, 'too_complex', 'out_of_memory', 'corrupt', 'timeout'])
 
 export type DerivativeResult = 'ready' | 'failed' | 'version_changed' | 'error'
 
@@ -55,8 +59,9 @@ export const uploadDerivative = async (input: DerivativeUpload): Promise<Derivat
     if (!started.ok) {
       const error = await errorOf(started)
       if (error === 'VersionChanged') return 'version_changed'
-      // The GLB is over the plan's cap (a multiple of the source, docs/11 §2.6): recorded as too_large, like a source over maxConvertBytes.
-      if (error === 'FileTooLarge') return reportDerivativeFailure({ fileId: input.fileId, version: input.version, code: 'too_large', fetcher })
+      // The GLB is over the plan's cap (a multiple of the source, docs/11 §2.6): its own code, so the page tells it from a
+      // source over maxConvertBytes.
+      if (error === 'FileTooLarge') return reportDerivativeFailure({ fileId: input.fileId, version: input.version, code: GLB_TOO_LARGE, fetcher })
       return 'error'
     }
     const ticket = await dataOf<{ sessionId: string; url: string; headers: Record<string, string> }>(started)
@@ -72,7 +77,7 @@ export const uploadDerivative = async (input: DerivativeUpload): Promise<Derivat
 }
 
 /** Records a failed conversion (`too_large` included); other codes are dropped. */
-export const reportDerivativeFailure = async (input: { readonly fileId: string; readonly version: number; readonly code: ErrorCode; readonly fetcher?: Fetch }): Promise<DerivativeResult> => {
+export const reportDerivativeFailure = async (input: { readonly fileId: string; readonly version: number; readonly code: RecordedCode; readonly fetcher?: Fetch }): Promise<DerivativeResult> => {
   if (!RECORDED_CODES.has(input.code)) return 'error'
   const fetcher = input.fetcher ?? ((...args: Parameters<Fetch>) => fetch(...args))
   try {

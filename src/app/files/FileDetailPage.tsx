@@ -13,6 +13,7 @@ import { Skeleton } from '#/components/ui/Skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/Tabs'
 import { useToast } from '#/components/ui/Toast'
 import { fileTypeOfExtension } from '#/shared/fileTypes'
+import { sourceTooLarge } from '#/shared/fileViews'
 import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { ViewerStart } from '#/viewer/state'
@@ -45,6 +46,10 @@ const ViewerFallback = ({ src }: { src: string | null }) => (
   </div>
 )
 
+/** The reason a too_large file has no 3D for this caller: the limit when the source is over it, else the GLB cap. */
+const tooLargeText = (t: ReturnType<typeof useI18n>['t'], file: AnyFileView) =>
+  sourceTooLarge(file) ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` }) : t('viewer.derivativeTooLarge')
+
 /** The code a failed derivative stored; an unknown one reads as "could not be read". */
 const storedCode = (code: string | null): ErrorCode => ERROR_CODES.find((known) => known === code) ?? 'corrupt'
 
@@ -55,12 +60,7 @@ const storedCode = (code: string | null): ErrorCode => ERROR_CODES.find((known) 
 const noModelText = (t: ReturnType<typeof useI18n>['t'], file: AnyFileView) => {
   const derivative = file.model.derivative
   if (fileTypeOfExtension(file.extension) === undefined) return t('file.preview.note')
-  if (derivative?.state === 'too_large') {
-    // A source within the limit was too_large for its GLB (over the plan's cap, docs/11 §2.6), or under a lower limit.
-    return file.size > file.model.maxConvertBytes
-      ? t('viewer.error.tooLarge', { size: `${Math.round(file.model.maxConvertBytes / (1024 * 1024))} MB` })
-      : t('viewer.derivativeTooLarge')
-  }
+  if (derivative?.state === 'too_large') return tooLargeText(t, file)
   if (derivative?.state === 'failed') {
     const code = storedCode(derivative.code)
     return t(code === 'empty' ? 'viewer.error.empty' : code === 'timeout' || code === 'out_of_memory' ? 'viewer.error.device' : code === 'too_complex' ? 'viewer.error.tooComplex' : 'viewer.error.corrupt')
@@ -238,10 +238,10 @@ export const FileDetailPage = () => {
   const storesDerivative = converts && model.kind === 'source' && can.edit && can.download && !phone
   // The same person with a stored GLB that does not load may rebuild it from the source.
   const rebuilds = converts && model.kind === 'derivative' && can.edit && can.download && !phone
-  // A stored too_large counts only while the source is over the limit: one recorded under a lower limit, or for a GLB
-  // over the plan's cap, is converted in place again.
+  // A stored too_large counts only while the source is over the limit (`sourceTooLarge`); a conversion that fails on
+  // its own (a 3MF past its inflate budget is `too_complex`) is a `failed` record and is never converted again unasked.
   const start: ViewerStart = !converts || model.kind !== 'source' ? 'auto'
-    : derivative?.state === 'too_large' && file.size > model.maxConvertBytes ? { failed: 'too_large' }
+    : sourceTooLarge(file) ? { failed: 'too_large' }
     : derivative?.state === 'failed' ? { failed: storedCode(derivative.code) }
     : format !== null && deferOpen(format, phone) ? 'phone'
     : 'auto'

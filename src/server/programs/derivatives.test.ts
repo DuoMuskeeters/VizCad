@@ -276,6 +276,10 @@ describe('failDerivative', () => {
       assert.deepStrictEqual([file?.derivativeState, JSON.parse(file?.derivativeMeta ?? '{}')], ['failed', { v: 1, code: 'corrupt' }])
       yield* failDerivative(caller('ada'), { fileId: 'f1', version: 1, code: 'too_large' })
       assert.strictEqual((yield* fileRow())?.derivativeState, 'too_large')
+      // The GLB over the plan's cap is the too_large state too, with its own code kept.
+      yield* failDerivative(caller('ada'), { fileId: 'f1', version: 1, code: 'glb_too_large' })
+      file = yield* fileRow()
+      assert.deepStrictEqual([file?.derivativeState, JSON.parse(file?.derivativeMeta ?? '{}')], ['too_large', { v: 1, code: 'glb_too_large' }])
       assert.strictEqual((yield* failure(failDerivative(caller('cat'), { fileId: 'f1', version: 1, code: 'empty' })))._tag, 'PermissionDenied')
       assert.strictEqual((yield* failure(failDerivative(caller('bob'), { fileId: 'f1', version: 2, code: 'empty' })))._tag, 'VersionChanged')
 

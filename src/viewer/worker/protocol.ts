@@ -7,7 +7,7 @@ export type SourceFormat = 'step' | 'iges' | 'stl' | 'obj' | 'ply' | '3mf'
 
 /**
  * Stable failure codes; each one has a text (`viewer.error.*`, docs/11 §8). `too_large` is the file size (over
- * `MAX_CONVERT_BYTES`, or a 3MF that expands past its budget); `too_complex` the node or triangle limit; `network` a
+ * `MAX_CONVERT_BYTES`); `too_complex` the node or triangle limit, or a 3MF that expands past its budget; `network` a
  * part of the viewer (the Worker chunk, the OCCT WASM) that could not be fetched.
  */
 export type ErrorCode = 'empty' | 'unsupported' | 'too_large' | 'too_complex' | 'out_of_memory' | 'corrupt' | 'timeout' | 'network'

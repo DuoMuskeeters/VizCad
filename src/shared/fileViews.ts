@@ -1,5 +1,5 @@
 /**
- * Shapes the file API returns (docs/09 §3.5). Plain types, no Effect: the browser imports them too.
+ * Shapes the file API returns (docs/09 §3.5). Plain types (and pure rules on them), no Effect: the browser imports them too.
  * The projections are allow-lists built field by field in `src/server/programs/fileContext.ts`; a contract test pins the
  * exact key sets. Neither shape ever carries an R2 key, a user id, an e-mail address or a token.
  */
@@ -31,6 +31,14 @@ export interface ModelPreview {
   /** `Entitlements.maxConvertBytes`: the largest STEP/IGES/3MF the browser converts. */
   readonly maxConvertBytes: number
 }
+
+/**
+ * A stored `too_large` that still holds: the source is over the current `maxConvertBytes`. One recorded under a lower
+ * limit, or for a GLB over the plan's cap (`glb_too_large`, the source within the limit), is not about the source
+ * size: the file page converts in place again, and every page says "the 3D copy is too large", not "over N MB".
+ */
+export const sourceTooLarge = (file: { readonly size: number; readonly model: ModelPreview }) =>
+  file.model.derivative?.state === 'too_large' && file.size > file.model.maxConvertBytes
 
 /** What an internal member (owner, admin, member, commenter) sees about a file. */
 export interface FileView {

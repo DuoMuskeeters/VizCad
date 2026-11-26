@@ -136,7 +136,23 @@ describe('file page viewer', () => {
     expect(last().onDerivative).toBeUndefined()
   })
 
-  it('a stored too_large is ignored while the source is within maxConvertBytes (a lower limit then, or a GLB over the cap)', async () => {
+  it('a GLB over the plan cap (glb_too_large) is converted in place again for an editor', async () => {
+    const capped = { kind: 'source', bytes: 12_400_000, derivative: { state: 'too_large', code: 'glb_too_large', parts: null }, maxConvertBytes: 52_428_800 }
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: true, download: true }, { model: capped })) : undefined))
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last()).toMatchObject({ start: 'auto' })
+    expect(last().onDerivative).toBeTypeOf('function')
+  })
+
+  it('a 3MF past its inflate budget is a failed too_complex record: no conversion on open', async () => {
+    const bomb = { kind: 'source', bytes: 400_000, derivative: { state: 'failed', code: 'too_complex', parts: null }, maxConvertBytes: 52_428_800 }
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer(fileWith({ edit: true, download: true }, { name: 'Bomb.3mf', extension: '3mf', size: 400_000, model: bomb })) : undefined)
+    await screen.findByRole('region', { name: '3D view' })
+    expect(last()).toMatchObject({ start: { failed: 'too_complex' } })
+  })
+
+  it('a too_large recorded under a lower limit is ignored once the source is within maxConvertBytes', async () => {
     const tooLarge = { kind: 'source', bytes: 12_400_000, derivative: { state: 'too_large', code: 'too_large', parts: null }, maxConvertBytes: 52_428_800 }
     renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(fileWith({ edit: true, download: true }, { model: tooLarge })) : undefined))
     await screen.findByRole('region', { name: '3D view' })

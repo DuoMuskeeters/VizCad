@@ -232,14 +232,14 @@ const relationshipTarget = (rels: Uint8Array | undefined) => {
   return target ?? ROOT_MODEL
 }
 
-/** Inflates named entries only, refusing (`too_large`) once the declared sizes of what was inflated pass the budget. */
+/** Inflates named entries only, refusing (`too_complex`) once the declared sizes of what was inflated pass the budget. */
 const zipReader = (bytes: Uint8Array) => {
   let inflated = 0
   return (names: ReadonlySet<string>): Record<string, Uint8Array> => {
     const take = (file: UnzipFileInfo) => {
       if (!names.has(file.name)) return false
       inflated += file.originalSize
-      if (inflated > MAX_INFLATED_BYTES) throw new ParseFailure('too_large', '3MF expands past the budget')
+      if (inflated > MAX_INFLATED_BYTES) throw new ParseFailure('too_complex', '3MF expands past the budget')
       return true
     }
     try {

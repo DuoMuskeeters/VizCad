@@ -312,7 +312,7 @@ describe('3MF', () => {
     const model = `<model><resources>${tetra(1, 'A')}</resources><build><item objectid="1"/></build></model>`
     const files = { '3D/3dmodel.model': model, '3D/unused.model': model, 'Metadata/thumbnail.png': 'png' }
     // A lying central directory: 600 MB for the root model would be allocated up front.
-    expect(await failure(parseSource('3mf', declare(archive(files), '3D/3dmodel.model', 600 * 1024 * 1024), 'bomb.3mf', deps))).toBe('too_large')
+    expect(await failure(parseSource('3mf', declare(archive(files), '3D/3dmodel.model', 600 * 1024 * 1024), 'bomb.3mf', deps))).toBe('too_complex')
     // The same lie on parts the build never reads costs nothing.
     let quiet = declare(archive(files), '3D/unused.model', 0xffff_fff0)
     quiet = declare(quiet, 'Metadata/thumbnail.png', 0xffff_fff0)

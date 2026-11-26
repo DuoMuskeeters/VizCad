@@ -28,9 +28,10 @@ export type DerivativeStats = typeof DerivativeStats.Type
 
 /**
  * Failure codes the browser may record (the Worker's codes that say something about the file). `network` and a
- * cancel say nothing about it and are never stored; `too_large` becomes the `too_large` state.
+ * cancel say nothing about it and are never stored. `too_large` (the source over `maxConvertBytes`) and `glb_too_large`
+ * (a source within it whose GLB is over the plan's cap, docs/11 §2.6) become the `too_large` state.
  */
-export const derivativeFailureCodes = ['empty', 'unsupported', 'too_large', 'too_complex', 'out_of_memory', 'corrupt', 'timeout'] as const
+export const derivativeFailureCodes = ['empty', 'unsupported', 'too_large', 'glb_too_large', 'too_complex', 'out_of_memory', 'corrupt', 'timeout'] as const
 export type DerivativeFailureCode = (typeof derivativeFailureCodes)[number]
 
 /** `ready`: the client's stats plus what the server measured (size and ETag from HEAD). `failed`: the code. */

@@ -189,7 +189,7 @@ export const completeDerivative = Effect.fn('completeDerivative')(function* (
 
 /**
  * `POST /api/files/{id}/derivative/failed { version, code }` (docs/11 §2.3): the browser could not convert the file.
- * `too_large` becomes the `too_large` state, every other code `failed` with the code kept for the text (§8). `edit`
+ * `too_large` and `glb_too_large` become the `too_large` state, every other code `failed` with the code kept for the text (§8). `edit`
  * only. Never overwrites a stored derivative, and a new version since the attempt is `VersionChanged`. `failed` is not
  * final: an edit user's retry starts a new conversion; it only stops automatic retries on every desktop open.
  */
@@ -198,7 +198,7 @@ export const failDerivative = Effect.fn('failDerivative')(function* (
   input: { readonly fileId: string; readonly version: number; readonly code: DerivativeFailureCode },
 ) {
   const { file, role, still, workspaceId } = yield* openForDerivative(caller, input.fileId, input.version)
-  const state = input.code === 'too_large' ? 'too_large' : 'failed'
+  const state = input.code === 'too_large' || input.code === 'glb_too_large' ? 'too_large' : 'failed'
   yield* runBatch((d) => [
     guard(d, sql.join([stillRole(workspaceId, caller.userId, [role]), still(false), onSource(file.id, file.r2Key)], sql` AND `)),
     d.update(schema.files).set({ derivativeState: state, derivativeMeta: failedMetaText(input.code) })
