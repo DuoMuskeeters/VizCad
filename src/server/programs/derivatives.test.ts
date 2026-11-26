@@ -84,7 +84,7 @@ describe('startDerivative', () => {
     })),
   )
 
-  it.effect('STEP, IGES and 3MF only; the source within maxConvertBytes and the GLB within maxFileBytes; the version must be current', () =>
+  it.effect('STEP, IGES and 3MF only; the source within maxConvertBytes and the GLB never over maxFileBytes; the version must be current', () =>
     run(Effect.gen(function* () {
       yield* world
       for (const [extension, ok] of [['stp', true], ['IGES', true], ['igs', true], ['3mf', true], ['stl', false], ['obj', false], ['ply', false]] as const) {
@@ -100,6 +100,33 @@ describe('startDerivative', () => {
       assert.strictEqual((yield* failure(startDerivative(caller('bob'), { fileId: 'f1', version: 2, size: 64 })))._tag, 'VersionChanged')
       assert.isString((yield* startDerivative(caller('bob'), { fileId: 'f1', version: 1, size: 1000 })).sessionId)
     }), { ...defaultPlan, maxConvertBytes: 500, maxFileBytes: 1000 }),
+  )
+
+  it.effect('the GLB is capped at a multiple of its source (GLBs are not counted in storage), with a floor for tiny files', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      // Source 1000 bytes: max(floor 2000, 4 × 1000) = 4000.
+      yield* updateFile('f1', { size: 1000 })
+      assert.isString((yield* startDerivative(caller('bob'), { fileId: 'f1', version: 1, size: 4000 })).sessionId)
+      assert.strictEqual((yield* failure(startDerivative(caller('bob'), { fileId: 'f1', version: 1, size: 4001 })))._tag, 'FileTooLarge')
+      // Source 100 bytes: the floor.
+      yield* updateFile('f1', { size: 100 })
+      assert.isString((yield* startDerivative(caller('bob'), { fileId: 'f1', version: 1, size: 2000 })).sessionId)
+      assert.strictEqual((yield* failure(startDerivative(caller('bob'), { fileId: 'f1', version: 1, size: 2001 })))._tag, 'FileTooLarge')
+    }), { ...defaultPlan, derivativeBytesPerSourceByte: 4, derivativeMinBytes: 2000 }),
+  )
+
+  it.effect('complete re-checks the cap against the stored object: an over-size GLB is rejected and deleted', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* updateFile('f1', { size: 10_000 })
+      const uploaded = yield* upload('bob', glb({ binBytes: 64 }))
+      // The cap dropped between start and complete (the row's size is what the server trusts): HEAD size decides.
+      yield* updateFile('f1', { size: 1 })
+      assert.strictEqual((yield* failure(complete('bob', uploaded)))._tag, 'FileTooLarge')
+      assert.strictEqual((yield* rows('derivativeSessions'))[0]?.status, 'rejected')
+      assert.isTrue((yield* keys).every((key) => !key.endsWith('.glb')))
+    }), { ...defaultPlan, derivativeBytesPerSourceByte: 1, derivativeMinBytes: 16 }),
   )
 
   it.effect('a legacy row without a version number counts its snapshots', () =>

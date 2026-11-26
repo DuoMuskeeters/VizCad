@@ -17,7 +17,7 @@ import {
 import { GLB_HEADER_BYTES, isValidGlbHeader } from '../glb'
 import { fileTypeOfExtension, hasDerivative } from '../../shared/fileTypes'
 import { Db, type Database } from '../services/Db'
-import { Entitlements } from '../services/Entitlements'
+import { Entitlements, maxDerivativeBytes } from '../services/Entitlements'
 import { RateLimit } from '../services/RateLimit'
 import { normalizeEtag, readBytes, Storage } from '../services/Storage'
 import { authorizeDelivery, workspaceOfFile } from './delivery'
@@ -65,7 +65,8 @@ const openForDerivative = Effect.fnUntraced(function* (caller: Caller, fileId: s
 
 /**
  * `POST /api/files/{id}/derivative/start { version, size }` (docs/11 §2.3). `edit`; STEP/IGES/3MF; the source at most
- * `maxConvertBytes` (a larger one is never converted, D22); the GLB at most `maxFileBytes`; rate limit `derivativeStart`
+ * `maxConvertBytes` (a larger one is never converted, D22); the GLB at most `maxDerivativeBytes` (a multiple of the source,
+ * since GLBs are not counted in storage); rate limit `derivativeStart`
  * (user and IP) and at most `uploadSessionsPerUser` open sessions. The URL binds the key (minted here), the exact
  * Content-Length and `If-None-Match: *`; the session binds the source object, so a completion after a new version fails.
  */
@@ -75,7 +76,7 @@ export const startDerivative = Effect.fn('startDerivative')(function* (
 ) {
   const { file, role, still, workspaceId, base } = yield* openForDerivative(caller, input.fileId, input.version)
   const limits = yield* (yield* Entitlements).limits(workspaceId)
-  if (file.size > limits.maxConvertBytes || input.size > limits.maxFileBytes) return yield* new FileTooLarge()
+  if (file.size > limits.maxConvertBytes || input.size > maxDerivativeBytes(limits, file.size)) return yield* new FileTooLarge()
   yield* (yield* RateLimit).hit({ action: 'derivativeStart', target: caller.userId, ip: caller.ip })
   const db = yield* Db
   const now = base.now
@@ -133,7 +134,7 @@ const queueCurrentDerivative = (d: Database, fileId: string, keep: string | null
 /**
  * `POST /api/files/{id}/derivative/complete { sessionId, etag, stats }` (docs/11 §2.3). Re-checks `edit`, then: the
  * file still on the session's source object (else the GLB is of an old version: deleted, `VersionChanged`), the object's
- * size and ETag (HEAD) equal to what was declared and reported, at most `maxFileBytes`, and its first 20 bytes a GLB 2.0
+ * size and ETag (HEAD) equal to what was declared and reported, at most `maxDerivativeBytes`, and its first 20 bytes a GLB 2.0
  * header whose length is the object's size and whose first chunk is JSON (else `InvalidDerivative`). One batch, guarded on
  * the same source key, then points the file at the GLB, queues the derivative it replaces and completes the session.
  * Idempotent: a completed session answers the same.
@@ -157,7 +158,7 @@ export const completeDerivative = Effect.fn('completeDerivative')(function* (
   if (Option.isNone(head)) return yield* new UploadIncomplete()
   const etag = normalizeEtag(head.value.etag)
   if (head.value.size !== session.declaredSize || normalizeEtag(input.etag) !== etag) return yield* reject(session, now, new UploadMismatch())
-  if (head.value.size > limits.maxFileBytes) return yield* reject(session, now, new FileTooLarge())
+  if (head.value.size > maxDerivativeBytes(limits, file.size)) return yield* reject(session, now, new FileTooLarge())
   const first = yield* storage.getRange(session.r2Key, { offset: 0, length: GLB_HEADER_BYTES })
   if (Option.isNone(first)) return yield* new UploadIncomplete()
   if (normalizeEtag(first.value.etag) !== etag) return yield* reject(session, now, new UploadMismatch())

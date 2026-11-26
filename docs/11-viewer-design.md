@@ -98,7 +98,7 @@ Yeni nesneler mevcut anahtar biçiminde: `w/{workspaceId}/f/{fileId}/{objectId}.
 
 **Karar.** GLB, asıl yüklemeyle aynı yoldan gider: `POST /api/files/{id}/derivative/start` → presigned PUT (R2'ye doğrudan) → `POST /api/files/{id}/derivative/complete`.
 
-- **start:** yetki `edit`; format STEP/IGES/3MF; kaynak boyutu `Entitlements.maxConvertBytes` (50 MB) altında; beyan edilen GLB boyutu ≤ `maxFileBytes`; rate limit `derivativeStart` (kullanıcı + IP). Yanıt: `{ sessionId, url, headers }`. İmza `Content-Length`'i bağlar.
+- **start:** yetki `edit`; format STEP/IGES/3MF; kaynak boyutu `Entitlements.maxConvertBytes` (50 MB) altında; beyan edilen GLB boyutu ≤ `maxDerivativeBytes` (kaynağın katı, aşağıda §2.6); rate limit `derivativeStart` (kullanıcı + IP). Yanıt: `{ sessionId, url, headers }`. İmza `Content-Length`'i bağlar.
 - **complete:** `HEAD` ile boyut, Range GET ile ilk 20 bayt: `glTF` sihri, sürüm 2, başlıktaki toplam uzunluk = nesne boyutu, ilk chunk `JSON`. Tutarsa tek batch: `files.derivativeR2Key/State/Meta` yazılır, eski türev silme kuyruğuna girer, oturum `completed`. Batch, dosyanın hâlâ aynı `r2Key`'de olduğunu şart koşar (sürüm değiştiyse türev eskidir; nesne silinir, `409 VersionChanged`).
 - `meta` istemciden gelir ve `Schema` ile doğrulanır (sayılar sınırlı, `converter` ≤ 64 karakter). Değerler yalnız görüntüleme amaçlıdır, yetkiye girmez.
 - **Başarısızlık:** `POST /api/files/{id}/derivative/failed { code }` → `derivativeState = 'failed' | 'too_large'`. Yalnız `edit`.
@@ -134,6 +134,10 @@ Yeni nesneler mevcut anahtar biçiminde: `w/{workspaceId}/f/{fileId}/{objectId}.
 | `maxConvertBytes` | 50 MB | D22 karar 4. Yükleme sınırı (`maxFileBytes`, 100 MB) ayrı kalır |
 | `scenesPerFile` | 1 | Sahne kaydı sayısı (ileride birden fazla "sunum" olabilir) |
 | `savedViewsPerScene` | 20 | |
+| `derivativeBytesPerSourceByte` | 4 | GLB ≤ `max(derivativeMinBytes, 4 × kaynak)`, hiçbir zaman `maxFileBytes` üstü değil (`maxDerivativeBytes`). start ve complete (HEAD boyutu) ikisi de denetler |
+| `derivativeMinBytes` | 2 MB | Küçük kaynağın tabanı (birkaç KB'lık eğri yüzeyli STEP de üçgen üretir) |
+
+**GLB ve depolama kotası.** Türev `storageBytes`'a sayılmaz; bunun yerine boyutu kaynağa bağlıdır. Seçim gerekçesi: kotaya saymak her yükleme ve kullanım göstergesi sorgusunu (`committedBytes`), değiştirilen türevin çıkarılmasını ve "kotam neden doldu" metnini değiştirirdi; oran sınırı tek bir denetimdir ve türevlerin toplamını sayılan depolamanın sabit bir katıyla (artı dosya başına 2 MB) sınırlar. Ölçülen oranlar (Faz 5b notları): STEP 0,3–0,5, 3MF en çok 2,5. Sınırı aşan GLB yüklenmez; istemci `too_large` kaydeder ve dosya, kaynak `maxConvertBytes` altında olduğu için düzenleme yetkilisinin açılışında yerinde çevrilmeye devam eder.
 
 İstemci bunları zaten açılan limit nesnesinden okur (Faz 3 artıkları, PR #13 kalıbı).
 
