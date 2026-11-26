@@ -178,7 +178,7 @@ describe('Viewer', () => {
   it('a reload that finds the GLB stored (source → derivative) does not restart the open model', async () => {
     const view = render(wrap(<Viewer {...props} name="Pump.step" extension="step" onDerivative={vi.fn()} />))
     await waitFor(() => expect(mocks.setModel).toHaveBeenCalledTimes(1))
-    view.rerender(wrap(<Viewer {...props} name="Pump.step" extension="step" source="derivative" modelBytes={6_200_000} />))
+    view.rerender(wrap(<Viewer {...props} name="Pump.step" extension="step" source="derivative" modelBytes={6_200_000} rebuildUrl="/api/files/f1/content" />))
     await act(async () => {})
     expect(mocks.download).toHaveBeenCalledTimes(1)
     expect(mocks.setModel).toHaveBeenCalledTimes(1)

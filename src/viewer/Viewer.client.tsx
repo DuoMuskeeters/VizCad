@@ -264,6 +264,10 @@ const Viewer = ({
   derivativeSink.current = onDerivative
   const failureSink = useRef(onConvertFailed)
   failureSink.current = onConvertFailed
+  // A reload that finds the GLB stored turns `rebuildUrl` on (kind 'derivative'): read through a ref, so the open model
+  // does not download again.
+  const rebuildRef = useRef(rebuildUrl)
+  rebuildRef.current = rebuildUrl
   // A rename changes the name, not the model: the load reads it from a ref and does not restart.
   const nameRef = useRef(name)
   nameRef.current = name
@@ -296,7 +300,8 @@ const Viewer = ({
     if (format === null) return dispatch({ type: 'fail', code: 'unsupported' })
     // The source of a STEP/IGES/3MF: the Worker converts it, and writes the GLB when the page can store it. A rebuild
     // reads the source from `rebuildUrl` even though `model` would answer with the (broken) GLB.
-    const rebuilding = fromSource.current && rebuildUrl !== undefined
+    const rebuildFrom = rebuildRef.current
+    const rebuilding = fromSource.current && rebuildFrom !== undefined
     const converting = (source === 'source' || rebuilding) && isConvertFormat(format)
     const deriving = converting && derivativeSink.current !== undefined
     const failed = (code: ErrorCode) => {
@@ -311,7 +316,7 @@ const Viewer = ({
     void (async () => {
       // One render per whole percent, not per network chunk.
       let shown = -2
-      const fetched = await download(rebuilding ? rebuildUrl : url, controller.signal, (ratio) => {
+      const fetched = await download(rebuilding ? rebuildFrom : url, controller.signal, (ratio) => {
         const step = ratio === null ? -1 : Math.floor(ratio * 100)
         if (step === shown) return
         shown = step
@@ -371,7 +376,7 @@ const Viewer = ({
       stop = null
       cancelJob.current = null
     }
-  }, [state.attempt, url, format, size, source, maxConvertBytes, rebuildUrl])
+  }, [state.attempt, url, format, size, source, maxConvertBytes])
 
   useEffect(() => {
     if (ready) scene.current?.setWireframe(state.wireframe)
