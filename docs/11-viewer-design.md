@@ -75,7 +75,7 @@ Tek Worker, istek başına bir iş. Mesajlar `protocol.ts`'te ayrık birleşim (
 | 3MF | Evet | Çok parçalı; klasör görünümü aynı ağaç modelinden beslenir |
 | STL, OBJ, PLY | Hayır | Zaten üçgen ağı; okuyucu hızlı. Türev aynı veriyi kopyalamaktan ibaret |
 
-STL/OBJ/PLY için türev yoksa görüntüleyici `content` ucundan okur (indirme yetkisi gerekir). Yalnızca görüntüleme düzeyi için bkz. §5 ve açık soru A1.
+STL/OBJ/PLY için türev yoktur; görüntüleyici kaynağı `model` ucundan okur (§2.4, D23).
 
 ### 2.2 Saklama ve şema (`0015_viewer`, yalnız izinli işlemler)
 
@@ -110,8 +110,8 @@ Yeni nesneler mevcut anahtar biçiminde: `w/{workspaceId}/f/{fileId}/{objectId}.
 
 | Uç | Yetki | Yanıt |
 |---|---|---|
-| `GET /api/files/{id}/derivative` | `preview` veya `download` (A1'e göre) | R2 akışı, `Content-Type: model/gltf-binary`, `nosniff`, `CSP: sandbox`, `private, no-store`, `Content-Disposition: attachment`. Yoksa 404 `PreviewUnavailable` |
-| `GET /s/{token}/derivative` | link + aynı kural | Aynı başlıklar + `Referrer-Policy: no-referrer` |
+| `GET /api/files/{id}/model` | `preview` (D23: tüm düzeyler) | STEP/IGES/3MF: GLB türevi; STL/OBJ/PLY: kaynak nesne. R2 akışı, `Content-Type: model/gltf-binary` (türev) veya `application/octet-stream` (kaynak), `nosniff`, `CSP: sandbox`, `private, no-store`, `Content-Disposition: attachment`. Yoksa 404 `PreviewUnavailable` |
+| `GET /s/{token}/model` | link + aynı kural | Aynı başlıklar + `Referrer-Policy: no-referrer` |
 
 - Audit: `file.previewed` (indirme değildir). 09 §3.4'teki 10 dakikalık teslim kimliği aynen.
 - `Sec-Fetch-Site: same-origin` şartı aynen (09 §3.1).
@@ -218,11 +218,11 @@ Masaüstü üç sütun: sol ağaç (onay kutulu görünürlük, arama, izole), o
 |---|---|---|---|---|---|---|
 | owner / editor | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | download (link/misafir) | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| view / comment | ✓ | A1 | A1 | | | |
+| view / comment | ✓ | ✓ (D23) | ✓ (D23) | | | |
 
-- 09 §3.3 bugün `view/comment` için 3B'yi kapatıyor. D22 kararı 2 (görüntüleme düzeyine GLB açmak) `10-viewer-engine.md` §8'de önerildi. D22 metninde açıkça yazılı değil, bu yüzden A1 olarak soruluyor.
-- **Dürüst metin:** görüntüleme düzeyine 3B açılırsa paylaşım penceresinde "3B önizleme açılır; kaynak dosya (STEP) indirilemez. Önizlemedeki şekil kopyalanabilir." STL/OBJ/PLY'de önizleme ile kaynak aynı veridir; bu türlerde "yalnızca görüntüleme" 3B açarsa fiilen indirme olur.
-- Kontrat testleri (09 §3.3'e ek): `view` linki → `derivative` A1'e göre 200 veya 404, `content` 404; `download` linki → ikisi de 200; sahne `PUT` yalnız `edit`.
+- D23 (A1): görüntüleme düzeyi tüm formatlarda 3B açar; 09 §3.3'teki kısıtın yerine geçer. `content` ucu yine `download` ister.
+- **Dürüst metin:** görüntüleme düzeyine 3B açılırsa paylaşım penceresinde "3B önizleme açılır; kaynak dosya (STEP) indirilemez. Önizlemedeki şekil kopyalanabilir." STL/OBJ/PLY'de metin: "3B önizleme açılır; bu biçimde önizleme dosyanın kendisidir, indirme düğmesi gösterilmez."
+- Kontrat testleri (09 §3.3'e ek): `view` linki → `model` 200, `content` 404; `download` linki → ikisi de 200; sahne `PUT` yalnız `edit`.
 
 ## 6. Performans bütçesi
 
@@ -242,7 +242,7 @@ Mobilde paylaşılan sayfada 3B otomatik açılmaz: küçük resim + "3B'yi aç"
 | Program | Dosya | Test |
 |---|---|---|
 | `startDerivative`, `completeDerivative`, `failDerivative` | `programs/derivatives.ts` | yetki matrisi, sınırlar, başlık denetimi (geçerli/bozuk GLB baytları `testing/glb.ts`), sürüm değişti yarışı, eski türevin silme kuyruğu |
-| `deliverDerivative` | `programs/delivery.ts` | başlıklar, audit, A1 düzeyleri, link |
+| `deliverModel` | `programs/delivery.ts` | türev/kaynak seçimi, başlıklar, audit, D23 düzeyleri, link |
 | `getScene`, `putScene` | `programs/scenes.ts` | Schema sınırları, revizyon çakışması, yetki, yeni sürümde boş kayıt |
 | yorum `anchor` | `programs/comments.ts` | doğrulama, eski yorumlar `NULL` |
 | silme yolları | `trash.ts`, `versions.ts`, `uploads.ts`, `storageCleanup.ts` | türev ve sahne satırı küçük resimle aynı yollardan temizlenir |
@@ -250,7 +250,7 @@ Mobilde paylaşılan sayfada 3B otomatik açılmaz: küçük resim + "3B'yi aç"
 
 İstemci: `viewerReducer`, düğüm yolu, ad-yolu eşleme, sahne gövdesi üretimi (saf, Vitest). Worker: Node'da `occt-import-js` ile örnek dosyalar (`bench/viewer/node-convert.cjs` kalıbı), ağaç ve `vizcadPath` doğrulaması. Görüntüleyici: Playwright ile staging'de aç/kapa, seçme, kesit, 390 ve 1280 px, açık/koyu.
 
-HTTP: `http/files.ts` yolu `content|thumbnail|derivative|scene` olarak genişler; `/derivative/start|complete|failed` CSRF ile. `respond.ts` `STATUS`'a `SceneConflict` (409), `VersionChanged` (409), `InvalidDerivative` (422) eklenir.
+HTTP: `http/files.ts` yolu `content|thumbnail|model|scene` olarak genişler; `/derivative/start|complete|failed` CSRF ile. `respond.ts` `STATUS`'a `SceneConflict` (409), `VersionChanged` (409), `InvalidDerivative` (422) eklenir.
 
 ## 8. Durumlar ve metinler
 
@@ -279,7 +279,10 @@ Metinler i18n anahtarı olarak İngilizce varsayılanla yazılır (`viewer.*`), 
 
 Her alt faz kendi branch'inde (`rewrite-faz5a` …), inceleme sonrası `rewrite`'a birleşir (07 kalite kapısı). 5c ve 5d başlamadan önce ilgili ekranların tel kafesleri (`design/mockups/v2/12-stüdyo.html`, `13-montaj.html`) onaya sunulur.
 
-## 10. Açık sorular (kullanıcı kararı)
+## 10. Kararlar (D23, 26 Kasım 2026)
+
+A1: tüm formatlarda evet (öneriden farklı: kullanıcı STL/OBJ/PLY'de de açılmasını seçti). A2: onayla. A3: anlık. A4: hayır.
+
 
 | # | Soru | Öneri |
 |---|---|---|

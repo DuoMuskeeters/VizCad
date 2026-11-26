@@ -102,6 +102,12 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - Akış (kullanıcı, 25 Kasım): yüklemede dosya kartının küçük resmi üstünde, uygulama yüklenirkenki gibi bir yükleniyor göstergesi; montaj çevrilene kadar kullanıcı bekler (sekme açık kalmalı; kapanırsa kopya ilk masaüstü açılışında üretilir). Bitince montaj klasör gibi davranır: içine girilip alt parçalar ayrı ayrı incelenir; üstte "Montaj · N parça" bandı. Alt parçalar sanal öğedir (GLB düğümleri), ayrı dosya değildir, kota tutmaz. Montaj açılınca stüdyo doğrudan bütün montajı açar; alt parçalar seçilir, boyanır (ileride malzeme atanır). Stüdyoda bir alt bileşen tek başına açılabilir (izole), ileri/geri gezinme kolay: yol çubuğu (montaj › alt montaj › parça) ve tarayıcının geri tuşu (düğüm yolu URL'de).
 - Faz 5 kapsamına eklendi (kullanıcı, 25 Kasım): montajdan tek parçayı tarayıcıda STL olarak indirme (indirme yetkisiyle); 3MF de çok parçalı açılır ve aynı klasör görünümünü alır. 3MF dışa aktarma sonraki adım.
 
+**D23. Faz 5 tasarım kararları (26 Kasım 2026).** `11-viewer-design.md` §10.
+- A1: "Görüntüleyebilir / Yorum yapabilir" düzeyi ve bu düzeydeki link **tüm formatlarda** 3B önizleme açar. STEP/IGES/3MF'de GLB türevi açılır, kaynak indirilemez. STL/OBJ/PLY'de önizleme kaynakla aynı veridir; kullanıcı bunu kabul etti. Paylaşım penceresi bunu dürüstçe söyler. 09 §3.3'teki "görüntüleme düzeyine 3B yok" kuralının yerine geçer.
+- A2: Yeni sürümde önceki sahnenin renk/adları **onayla** uygulanır (bant + tek düğme).
+- A3: Klasör görünümünde parça küçük resimleri istemcide anlık çizilir; yavaşsa atlas (5c'de ölçülür).
+- A4: Tek parçalı dosya "Parçalar" görünümü göstermez, doğrudan görüntüleyici açılır.
+
 ## Açık sorular
 
 | # | Soru | Notlar |
