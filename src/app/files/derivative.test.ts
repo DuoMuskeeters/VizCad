@@ -31,6 +31,20 @@ describe('uploadDerivative', () => {
   })
 })
 
+describe('uploadDerivative over the GLB cap', () => {
+  it('start answering FileTooLarge records too_large for that version and uploads nothing', async () => {
+    const calls: Array<[string, RequestInit | undefined]> = []
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init])
+      if (url.endsWith('/start')) return json(413, { ok: false, error: 'FileTooLarge' })
+      return json(200, { ok: true, data: { state: 'too_large' } })
+    }) as unknown as typeof fetch
+    expect(await uploadDerivative({ fileId: 'f', version: 4, glb: new ArrayBuffer(64), stats, converter: 'x', fetcher })).toBe('failed')
+    expect(calls.map(([url]) => url)).toEqual(['/api/files/f/derivative/start', '/api/files/f/derivative/failed'])
+    expect(JSON.parse(String(calls[1]![1]?.body))).toEqual({ version: 4, code: 'too_large' })
+  })
+})
+
 describe('reportDerivativeFailure', () => {
   it('records codes about the file, never network or a cancel', async () => {
     const fetcher = vi.fn(async () => json(200, { ok: true, data: { state: 'failed' } })) as unknown as typeof fetch

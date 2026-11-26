@@ -52,7 +52,13 @@ export const uploadDerivative = async (input: DerivativeUpload): Promise<Derivat
   const fetcher = input.fetcher ?? ((...args: Parameters<Fetch>) => fetch(...args))
   try {
     const started = await postJson(fetcher, `${base(input.fileId)}/start`, { version: input.version, size: input.glb.byteLength })
-    if (!started.ok) return (await errorOf(started)) === 'VersionChanged' ? 'version_changed' : 'error'
+    if (!started.ok) {
+      const error = await errorOf(started)
+      if (error === 'VersionChanged') return 'version_changed'
+      // The GLB is over the plan's cap (a multiple of the source, docs/11 §2.6): recorded as too_large, like a source over maxConvertBytes.
+      if (error === 'FileTooLarge') return reportDerivativeFailure({ fileId: input.fileId, version: input.version, code: 'too_large', fetcher })
+      return 'error'
+    }
     const ticket = await dataOf<{ sessionId: string; url: string; headers: Record<string, string> }>(started)
     const put = await fetcher(ticket.url, { method: 'PUT', headers: ticket.headers, body: input.glb })
     const etag = put.headers.get('etag')
