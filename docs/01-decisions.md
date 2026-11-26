@@ -108,6 +108,8 @@ Bu dosya projenin tek doğru kaynağıdır. Bir karar değişirse burada güncel
 - A3: Klasör görünümünde parça küçük resimleri istemcide anlık çizilir; yavaşsa atlas (5c'de ölçülür).
 - A4: Tek parçalı dosya "Parçalar" görünümü göstermez, doğrudan görüntüleyici açılır.
 
+**D24. Faz 5c/5d ve Faz 6 onayları (26 Kasım 2026).** Kullanıcı `03-design.md` §4.2 B1–B8 ve `12-cms-seo-design.md` §13 K1–K14 önerilerini onayladı (K5 açık: `staging.viz-cad.com` ve temizleme token'ı bekleniyor). Ek koşul: karmaşık özellik telefonda sınırlanır ya da basitleştirilir; D14'ün "mobilde tam çalışır" kuralına istisnalar `11-viewer-design.md` §4.4'te.
+
 ## Açık sorular
 
 | # | Soru | Notlar |

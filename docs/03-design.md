@@ -248,7 +248,7 @@ Gri tel kafes yerleşimi tartışmak için fazla soyut bulundu ("modern, sade" b
 - Organizasyon ekranları (D17 modeline göre): `04-projeler.html` (liste, workspace menüsü, yeni proje, boş), `05-proje.html` (dosyalar, erişim + düzey menüsü, kişi ekle, aktivite, misafirin gördüğü), `06-ekip.html` (üyeler, misafirler, bekleyen davetler, üye davet + koltuk uyarısı, kişisel workspace). Kenar menü `_shell.js`'ten ortak; `01-dosyalar.html` "Tüm dosyalar" oldu.
 - Bu ekranlarda verilen ve onay bekleyen kararlar: kişisel workspace'e üye eklenmez (ekip için firma workspace'i açılır, dosyalar taşınabilir; misafir ve link kişiselde de var) · koltuk yetmezse davet gönderilemez, yorumcu önerilir · misafirde "Düzenleyebilir" devre dışı ve nedeni yazılı · aktivite kaydı CSV olarak indirilebilir.
 
-### 4.2 Faz 5c/5d tel kafesleri (onay bekliyor)
+### 4.2 Faz 5c/5d tel kafesleri (onaylandı, 26 Kasım 2026)
 
 `design/mockups/v2/12-stüdyo.html` (5d: kesit, ölçü, ekran görüntüsü, yorum pini, mobil alt sayfa, dokunma) ve `13-montaj.html` (5c: Parçalar klasör görünümü, `?node=`, yol çubuğu, ağaç, seçim, izole, sahne hazırlama, sahne çakışması, yeni sürüm eşleme, STL parça indirme, salt okunur). Parametresiz açılınca pano: her durum 1280 ve 390, açık ve koyu yan yana. Tek durum `?durum=<ad>&tema=acik|koyu`. Model `_model.js` ile çizilir (seçim, izole, kesit ve parça küçük resimleri aynı montajdan). Görüntüler `docs/img/faz5-tel-kafes/` (`node design/mockups/v2/_shoot2.cjs <sayfa> <klasör>`; 320 px'te yatay taşma ve 44 px altı dokunma hedefi denetimi).
 
@@ -262,18 +262,18 @@ Tel kafeslerde verilen kararlar:
 - Sahne hazırlama modunda sağ panel sekmeler yerine tek "Görünümü düzenle" paneli olur (ad, 12 renk + kod, yüzey Mat/Saten/Metal, görünür, kayıtlı görünümler); üstte mod bandı ve "Kaydedildi" göstergesi.
 - Yetkisiz eylem gizlenmez: STL ve "Görünümü düzenle" devre dışı + neden.
 
-Açık sorular (kullanıcı kararı):
+Kararlar: kullanıcı 26 Kasım 2026'da B1–B8'in tümünde öneriyi onayladı (D24). Ek koşul: telefonu düşün; karmaşıklaşan özellik telefonda sınırlanır, daha basit bir modül olarak sunulur. Özellik başına telefon kapsamı `11-viewer-design.md` §4.4'te; yukarıdaki maddeler ve tel kafeslerin mobil durumları onunla çelişirse §4.4 geçerlidir.
 
-| # | Soru | Öneri |
-|---|---|---|
-| B1 | Stüdyo uygulama kabuğunun (sol menü) dışında tam genişlik mi açılsın? 5a dosya sayfası şu an kabuk içinde. | **Evet, tam genişlik.** Ağaç + tuval + panel kabukla 1280'de tuvale 380 px bırakıyor. |
-| B2 | Düzenleme modu dışında ağaçtaki göz düğmesi ve izole herkes için mi kaydedilsin, yalnız benim ekranımda mı kalsın? | **Yalnız benim ekranım.** Kalıcı gizleme düzenleme modunda yapılır, sahne kaydına yazılır. |
-| B3 | Eski sürümde bırakılan pinler yeni sürümde ne olsun? | **Listede kalır, tuvalde gösterilmez** ("Pin Sürüm 3'te bırakıldı"). Ad-yolu eşlemesiyle taşımak sonraki adım. |
-| B4 | Ölçüler kaydedilsin mi? | **Hayır** (sayfa kapanınca silinir); ekran görüntüsüne eklenebilir. Gerekirse kayıtlı görünüme sonra eklenir. |
-| B5 | Mobil alt araç çubuğu: Parçalar · Kesit · Ölçü · Yorum · Görüntü · Daha (Sığdır, Görünümler, Tel kafes "Daha"da; çift dokunma sığdırır). | **Onayla.** |
-| B6 | Parça menüsünde "Bu parçanın linkini kopyala" (`?node=`) olsun mu? Link yalnız dosyaya erişimi olana çalışır; paylaşım yine dosyanın tamamı. | **Evet.** |
-| B7 | STL indirmede varsayılan konum: montajdaki yerinde mi, kendi merkezinde mi? | **Montajdaki yerinde.** |
-| B8 | Ekran görüntüsü varsayılanı: 2 kat, tuval arka planı, pinler ve ölçüler dahil. | **Onayla.** |
+| # | Soru | Öneri | Karar |
+|---|---|---|---|
+| B1 | Stüdyo uygulama kabuğunun (sol menü) dışında tam genişlik mi açılsın? 5a dosya sayfası şu an kabuk içinde. | **Evet, tam genişlik.** Ağaç + tuval + panel kabukla 1280'de tuvale 380 px bırakıyor. | **Onaylandı (2026-11-26):** Evet, tam genişlik. |
+| B2 | Düzenleme modu dışında ağaçtaki göz düğmesi ve izole herkes için mi kaydedilsin, yalnız benim ekranımda mı kalsın? | **Yalnız benim ekranım.** Kalıcı gizleme düzenleme modunda yapılır, sahne kaydına yazılır. | **Onaylandı (2026-11-26):** Yalnız benim ekranım. |
+| B3 | Eski sürümde bırakılan pinler yeni sürümde ne olsun? | **Listede kalır, tuvalde gösterilmez** ("Pin Sürüm 3'te bırakıldı"). Ad-yolu eşlemesiyle taşımak sonraki adım. | **Onaylandı (2026-11-26):** Listede kalır, tuvalde gösterilmez. |
+| B4 | Ölçüler kaydedilsin mi? | **Hayır** (sayfa kapanınca silinir); ekran görüntüsüne eklenebilir. Gerekirse kayıtlı görünüme sonra eklenir. | **Onaylandı (2026-11-26):** Hayır, kaydedilmez. |
+| B5 | Mobil alt araç çubuğu: Parçalar · Kesit · Ölçü · Yorum · Görüntü · Daha (Sığdır, Görünümler, Tel kafes "Daha"da; çift dokunma sığdırır). | **Onayla.** | **Onaylandı (2026-11-26):** Onaylandı; telefon kapsamıyla birlikte (11 §4.4). |
+| B6 | Parça menüsünde "Bu parçanın linkini kopyala" (`?node=`) olsun mu? Link yalnız dosyaya erişimi olana çalışır; paylaşım yine dosyanın tamamı. | **Evet.** | **Onaylandı (2026-11-26):** Evet. |
+| B7 | STL indirmede varsayılan konum: montajdaki yerinde mi, kendi merkezinde mi? | **Montajdaki yerinde.** | **Onaylandı (2026-11-26):** Montajdaki yerinde. |
+| B8 | Ekran görüntüsü varsayılanı: 2 kat, tuval arka planı, pinler ve ölçüler dahil. | **Onayla.** | **Onaylandı (2026-11-26):** Onaylandı. |
 
 ## 5. Token'lar
 

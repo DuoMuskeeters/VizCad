@@ -216,6 +216,28 @@ Masaüstü üç sütun: sol ağaç (onay kutulu görünürlük, arama, izole), o
 
 `file_comments.anchor` `0015`'e nullable sütun olarak eklenir. Yorum programı (`comments.ts`) anchor'ı `Schema` ile doğrular (sayılar sonlu, yol ≤ 256 karakter).
 
+### 4.4 Mobil kapsam (kullanıcı kararı 2026-11-26)
+
+Koşul: telefonu düşün; karmaşıklaşan özellik telefonda sınırlanır, basit ve anlaşılır bir modül olarak sunulur. 5c/5d için bu tablo, §4.2–4.3'ün ve tel kafeslerin mobil anlatımının önüne geçer. "Tam": masaüstüyle aynı iş, dokunmaya uygun yerleşim. "Basit": daha az seçenek. "Yalnız masaüstü": telefonda "Masaüstünde açın" ipucu.
+
+| Özellik | Masaüstü | Telefon | Neden |
+|---|---|---|---|
+| Görüntüleme (döndür, yakınlaştır, sığdır, standart görünüm, tel kafes) | tam | tam | Telefonun asıl işi modele bakmak |
+| Parçalar klasör görünümü ve ağaç | tam | basit: aramalı düz liste, alt montaja girerek ilerlenir; parça küçük resmi ve çok düzeyli ağaç yok | Dar ekranda girintili ağaç ve ızgara okunmuyor |
+| Parça seçme ve izole | tam | tam | Tek dokunuş yeter |
+| Göster/gizle (yalnız benim ekranım, B2) | tam | tam | Kayıt yazmaz, geri alması kolay |
+| Yol çubuğu, `?node=` linkleri, parça linkini kopyalama (B6) | tam | tam | Paylaşılan link çoğunlukla telefonda açılır |
+| Kayıtlı görünümler | tam (kaydet + uygula) | basit: yalnız uygula | Kaydetme sahne hazırlamanın parçası |
+| Kesit | tam: eksen, kaydırıcı, düzlem tutamağı | basit: tek eksen hazır seçimi (X/Y/Z) + kaydırıcı; düzlemde tutamak yok | Tuvaldeki tutamak döndürme hareketiyle çakışır |
+| Ölçü | tam | basit: büyüteçli iki nokta ölçümü, mm/inç | Atölyede hızlı ölçü telefonda gerekli; büyüteç parmağın kapattığı noktayı gösterir. Ölçü kaydedilmez (B4) |
+| Ekran görüntüsü (B8) | tam | tam: "Paylaş ya da kaydet" | Telefonun paylaşım sayfası işi kolaylaştırır |
+| Yorum pini (B3) | tam | tam | Sahada geri bildirim en çok telefondan gelir |
+| Sahne hazırlama (ad, renk, yüzey, kalıcı gizleme, görünüm kaydetme) ve sahne çakışması | tam | yalnız masaüstü; kayıtlı sahne telefonda uygulanmış görünür | Çok alanlı düzenleme paneli dar ekrana sığmıyor |
+| Yeni sürümde renk eşleme bandı | tam | yalnız masaüstü | Eşlemeyi onaylamak sahneyi yazar ve sonucu incelemek gerekir |
+| Tek parçayı STL indirme (B7) | tam | yalnız masaüstü | CAD dosyası masaüstünde kullanılır |
+
+Telefon alt araç çubuğu (B5): **Parçalar · Kesit · Ölçü · Yorum · Görüntü · Daha**. "Daha": Sığdır, Görünümler (yalnız uygula), Tel kafes; çift dokunma sığdırır. "Görünümü düzenle" ve "STL indir" araç çubuğunda yer almaz; menüde devre dışı ve "Masaüstünde açın" ipucuyla görünür. Yetkisi olmayan kullanıcıda neden olarak yetki yazılır.
+
 ## 5. Yetki ve "yalnızca görüntüleme"
 
 | Düzey | Küçük resim | 3B (türev) | 3B (ham, STL/OBJ/PLY) | İndir | STL parça dışa aktarma | Sahne yazma |

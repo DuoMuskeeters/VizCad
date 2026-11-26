@@ -547,23 +547,23 @@ Sıra: 6a → 6b → 6c ve 6d paralel → 6e → 6f. 6f, 07'deki "Landing tasar�
 
 **Cutover adımları (Faz 9 listesine eklenir):** `0016` production'a (yedek kapısıyla, onaylı) → yazımlar dondurulmuşken `materializeLegacyTranslations` (kopyada prova, rapor kullanıcıya; yayındaki yazı sayısı = `en` satırı sayısı kapısı) → yazar slug'ları → production `CF_ZONE_ID`/`CF_PURGE_TOKEN` ve `CONTACT_RECIPIENT` → yasal metinlerin yayını → Search Console'da sitemap → `public/robots.txt`'nin kalktığının doğrulanması.
 
-## 13. Açık sorular (kullanıcı kararı)
+## 13. Kullanıcı kararları (26 Kasım 2026)
 
-Her birinde önerilen varsayılan var. Cevap gelmezse varsayılanla ilerlenir; K5 ve K10 ise kullanıcının bir işlem yapmasını gerektirir. K5 6a'nın kabul kapısıdır.
+Kullanıcı 26 Kasım 2026'da K1–K14'ün önerilen varsayılanlarını onayladı (D24). **K5 açık kalır:** `staging.viz-cad.com` kurulumu ve temizleme token'ı kullanıcının işlemini bekliyor; 6a'nın kabul kapısıdır.
 
-| # | Soru | Önerilen varsayılan |
-|---|---|---|
-| K1 | URL yapısı: İngilizce öneksiz, diğer diller `/tr/...`, rota adları her dilde İngilizce, yalnız yazı slug'ı dile özgü. | **Evet.** Canlı blog URL'leri değişmez. |
-| K2 | Ziyaretçiyi tarayıcı diline göre otomatik yönlendirelim mi? | **Hayır.** Yalnız dil seçici. Yönlendirme önbelleği böler ve tarayıcıları yanıltır. |
-| K3 | Bir yazının başka bir dilde yayını için önce İngilizcesi yayında olsun mu? | **Evet.** Yedek dil hep var olur, eski Worker'a geri dönüş bozulmaz. |
-| K4 | Adminden değiştirilebilen metinler yalnız genel sayfalarınki mi (landing, fiyat, SSS, iletişim, blog arayüzü, üst çubuk/alt bilgi)? | **Evet.** Uygulama içi metinler kodda kalır. Yoksa her uygulama açılışında metin indirmek gerekir. |
-| K5 | Önbelleği staging'de denemek için `staging.viz-cad.com` alan adı ve viz-cad.com zone'unda önbellek temizleyebilen bir token. Token'ı Cloudflare host ile sınırlamıyor: staging'deki token canlı sitenin önbelleğini de (tamamını) temizleyebilir; bunu yalnız koddaki host denetimi engeller. | **Evet** (§10.1). İkisi de senin onayın ya da işlemin. **6a'nın kabul kapısı:** cevap gelmeden 6a kapanmaz ve 6c başlamaz. |
-| K6 | Önbellekte olmayan sayfanın çizimi Free plandaki 10 ms CPU sınırını aşarsa? | **Önce sadeleştirme** (§7.5). Ölçüm yine aşarsa Workers Paid (aylık 5 $) sana ayrıca sorulur. |
-| K7 | Yazı görüntülenme sayacı. | **Cloudflare Web Analytics** (çerezsiz, çerez bandı gerekmez). Eski sayaç dondurulur, adminde görünür. |
-| K8 | Blogdaki bülten kutusu (EmailJS ile e-posta topluyordu). | **Kaldır.** Gönderim altyapısı ve çift onay yok. Gerekirse sonra iletişim kalıbıyla. |
-| K9 | Kapak görseli olmayan yazının paylaşım görseli. | **Admin tarayıcısında şablondan otomatik kart** (logo + başlık). Sunucuda üretim yok. |
-| K10 | Yasal metinleri kim yazacak, veri sorumlusu kim (şirket adı, adres, iletişim)? | **Taslakları ben gerçek veri akışından hazırlarım**, "hukuki inceleme gerekli" işaretiyle. Şirket bilgisi (Q9) gelene kadar gizlilik ve KVKK yayınlanmaz. Yayından önce bir hukukçuya göstermeni öneririm. |
-| K11 | Yapay zekâ tarayıcıları (ChatGPT, Claude, Perplexity, Google AI) pazarlama ve bloga erişsin mi? | **Evet**, uygulama kapalı. `llms.txt` ile aynı amaç: yapay zekâ cevaplarında görünmek. Cloudflare'in "AI botlarını engelle" ayarı açıksa kapatmak için onayın gerekir. |
-| K12 | Eski `/ModelSnap` sayfası nereye yönlensin? | **Ana sayfaya 301.** Stüdyo Çıktı sekmesi taşınmadı (D15). |
-| K13 | Yazarlar bir kullanıcı hesabına bağlı kalsın mı? | **Evet.** Legacy tablo bunu zorunlu kılıyor, gerçek kişi yazar E-E-A-T için de doğru (D5). "VizCad Ekibi" gibi hesapsız yazar olmaz. |
-| K14 | D9 "dil başına blog sayfaları sonraya" diyor. Faz 6'da açalım mı? (Önerilen D9 güncellemesi: "Dil başına blog sayfaları Faz 6'da hazır gelir, bir dil ilk çevirisi yayınlanınca açılır.") | **Hayır, D9 kalsın.** 6b yalnız `en` blog sayfalarını yayınlar; şema, editör ve temizleme 5 dile hazırdır. Bir dili açmak `blogLocales` listesine ekleme ve testlerdir, ayrı küçük bir PR. `01-decisions.md` senin kararınla değişir. |
+| # | Soru | Önerilen varsayılan | Durum |
+|---|---|---|---|
+| K1 | URL yapısı: İngilizce öneksiz, diğer diller `/tr/...`, rota adları her dilde İngilizce, yalnız yazı slug'ı dile özgü. | **Evet.** Canlı blog URL'leri değişmez. | **Onaylandı (2026-11-26).** |
+| K2 | Ziyaretçiyi tarayıcı diline göre otomatik yönlendirelim mi? | **Hayır.** Yalnız dil seçici. Yönlendirme önbelleği böler ve tarayıcıları yanıltır. | **Onaylandı (2026-11-26).** |
+| K3 | Bir yazının başka bir dilde yayını için önce İngilizcesi yayında olsun mu? | **Evet.** Yedek dil hep var olur, eski Worker'a geri dönüş bozulmaz. | **Onaylandı (2026-11-26).** |
+| K4 | Adminden değiştirilebilen metinler yalnız genel sayfalarınki mi (landing, fiyat, SSS, iletişim, blog arayüzü, üst çubuk/alt bilgi)? | **Evet.** Uygulama içi metinler kodda kalır. Yoksa her uygulama açılışında metin indirmek gerekir. | **Onaylandı (2026-11-26).** |
+| K5 | Önbelleği staging'de denemek için `staging.viz-cad.com` alan adı ve viz-cad.com zone'unda önbellek temizleyebilen bir token. Token'ı Cloudflare host ile sınırlamıyor: staging'deki token canlı sitenin önbelleğini de (tamamını) temizleyebilir; bunu yalnız koddaki host denetimi engeller. | **Evet** (§10.1). İkisi de senin onayın ya da işlemin. **6a'nın kabul kapısı:** cevap gelmeden 6a kapanmaz ve 6c başlamaz. | **Açık** (2026-11-26): varsayılan onaylı, kurulum ve token bekleniyor. |
+| K6 | Önbellekte olmayan sayfanın çizimi Free plandaki 10 ms CPU sınırını aşarsa? | **Önce sadeleştirme** (§7.5). Ölçüm yine aşarsa Workers Paid (aylık 5 $) sana ayrıca sorulur. | **Onaylandı (2026-11-26).** |
+| K7 | Yazı görüntülenme sayacı. | **Cloudflare Web Analytics** (çerezsiz, çerez bandı gerekmez). Eski sayaç dondurulur, adminde görünür. | **Onaylandı (2026-11-26).** |
+| K8 | Blogdaki bülten kutusu (EmailJS ile e-posta topluyordu). | **Kaldır.** Gönderim altyapısı ve çift onay yok. Gerekirse sonra iletişim kalıbıyla. | **Onaylandı (2026-11-26).** |
+| K9 | Kapak görseli olmayan yazının paylaşım görseli. | **Admin tarayıcısında şablondan otomatik kart** (logo + başlık). Sunucuda üretim yok. | **Onaylandı (2026-11-26).** |
+| K10 | Yasal metinleri kim yazacak, veri sorumlusu kim (şirket adı, adres, iletişim)? | **Taslakları ben gerçek veri akışından hazırlarım**, "hukuki inceleme gerekli" işaretiyle. Şirket bilgisi (Q9) gelene kadar gizlilik ve KVKK yayınlanmaz. Yayından önce bir hukukçuya göstermeni öneririm. | **Onaylandı (2026-11-26).** Yasal metinler taslak olarak hazırlanır ve hukuki inceleme için işaretlenir. |
+| K11 | Yapay zekâ tarayıcıları (ChatGPT, Claude, Perplexity, Google AI) pazarlama ve bloga erişsin mi? | **Evet**, uygulama kapalı. `llms.txt` ile aynı amaç: yapay zekâ cevaplarında görünmek. Cloudflare'in "AI botlarını engelle" ayarı açıksa kapatmak için onayın gerekir. | **Onaylandı (2026-11-26).** |
+| K12 | Eski `/ModelSnap` sayfası nereye yönlensin? | **Ana sayfaya 301.** Stüdyo Çıktı sekmesi taşınmadı (D15). | **Onaylandı (2026-11-26).** |
+| K13 | Yazarlar bir kullanıcı hesabına bağlı kalsın mı? | **Evet.** Legacy tablo bunu zorunlu kılıyor, gerçek kişi yazar E-E-A-T için de doğru (D5). "VizCad Ekibi" gibi hesapsız yazar olmaz. | **Onaylandı (2026-11-26).** |
+| K14 | D9 "dil başına blog sayfaları sonraya" diyor. Faz 6'da açalım mı? (Önerilen D9 güncellemesi: "Dil başına blog sayfaları Faz 6'da hazır gelir, bir dil ilk çevirisi yayınlanınca açılır.") | **Hayır, D9 kalsın.** 6b yalnız `en` blog sayfalarını yayınlar; şema, editör ve temizleme 5 dile hazırdır. Bir dili açmak `blogLocales` listesine ekleme ve testlerdir, ayrı küçük bir PR. `01-decisions.md` senin kararınla değişir. | **Onaylandı (2026-11-26).** |
