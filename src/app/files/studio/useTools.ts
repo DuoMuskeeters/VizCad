@@ -171,6 +171,9 @@ export const useTools = (
       const live = tools ?? (await api.current?.tools()) ?? null
       if (live === null) return
       if (tools === null) setLive({ key: modelKey, tools: live })
+      // Tools that loaded just now have not taken the scope yet (its effect runs after the next render): the cut is read
+      // against the isolated part's range, not the whole model's.
+      live.section.setScope(scope)
       live.camera.set(view.camera)
       const cut = view.section === undefined ? null : sectionFromPlane(view.section, live.section.range)
       setSection((current) => (cut === null ? null : { hatch: current?.hatch ?? true, ...cut }))

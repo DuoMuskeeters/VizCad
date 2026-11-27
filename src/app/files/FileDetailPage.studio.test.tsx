@@ -610,6 +610,31 @@ describe('saved views (docs/11 §3.1)', () => {
     expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: { node: '0.1' } })
   })
 
+  it('a view with a part alone and a cut, applied before the tools are in: the cut is read against the part’s range', async () => {
+    const tools = fakeTools()
+    // The part spans x 80–100, the whole model 0–100: the scope must be on the tools before the range is read.
+    let scope: string | null = null
+    tools.section.setScope.mockImplementation((next: string | null) => {
+      scope = next
+    })
+    tools.section.range.mockImplementation(() => (scope === '0.2' ? { min: 80, max: 100 } : { min: 0, max: 100 }))
+    let arrive: (value: unknown) => void = () => {}
+    seen.tools = new Promise((resolve) => {
+      arrive = resolve
+    })
+    router.search = { node: '0.2' }
+    const view = { ...saved, hidden: [], isolated: '0.2', section: { normal: [-1, 0, 0], constant: 90 } }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [view] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    // The tools chunk comes in late, after the click.
+    await act(async () => arrive(tools))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    // 90 within 80–100 is halfway; read against 0–100 it would be 0.9 (drawn at 98 on the part).
+    await waitFor(() => expect(tools.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x', position: 0.5 })))
+  })
+
   it('on a phone: apply only (no save form), also from the More menu', async () => {
     narrow()
     const tools = fakeTools()
