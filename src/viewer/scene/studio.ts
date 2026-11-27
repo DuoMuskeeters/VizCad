@@ -104,6 +104,8 @@ export type Studio = {
   readonly pick: (raycaster: Raycaster) => string | null
   /** The nearest visible surface under the ray and its node (measure, pins). */
   readonly hit: (raycaster: Raycaster) => { readonly path: string; readonly hit: Intersection<Mesh> } | null
+  /** Every hit on a drawn mesh, nearest first, the section plane ignored (the tools tell a cut face from a far wall). */
+  readonly hits: (raycaster: Raycaster) => ReadonlyArray<{ readonly path: string; readonly hit: Intersection<Mesh> }>
   readonly boundsOf: (path: string) => Box3 | null
   /** The file's own colour of a node (its first mesh's material, before any look), `#rrggbb`. */
   readonly colorOf: (path: string) => string | null
@@ -158,17 +160,16 @@ export const createStudio = (model: Object3D): Studio => {
 
   // Only meshes that are drawn: hidden ones and the edge lines (children of meshes, not in `meshes`) are not tested. A
   // section plane (renderer clipping) cuts the ray too: hits on the clipped side do not count.
-  const hitOf = (raycaster: Raycaster) => {
+  const hitsOf = (raycaster: Raycaster) => {
     const shown: Mesh[] = []
     for (const mesh of meshes.keys()) {
       let visible = true
       for (let at: Object3D | null = mesh; at !== null && visible; at = at.parent) visible = at.visible
       if (visible) shown.push(mesh)
     }
-    const cut = clip
-    const hit = raycaster.intersectObjects<Mesh>(shown, false).find((h) => cut.every((plane) => plane.distanceToPoint(h.point) >= 0))
-    return hit === undefined ? null : { path: meshes.get(hit.object)!, hit }
+    return raycaster.intersectObjects<Mesh>(shown, false).map((hit) => ({ path: meshes.get(hit.object)!, hit }))
   }
+  const hitOf = (raycaster: Raycaster) => hitsOf(raycaster).find(({ hit }) => clip.every((plane) => plane.distanceToPoint(hit.point) >= 0)) ?? null
 
   return {
     outline,
@@ -189,6 +190,7 @@ export const createStudio = (model: Object3D): Studio => {
     },
     pick: (raycaster) => hitOf(raycaster)?.path ?? null,
     hit: (raycaster) => hitOf(raycaster),
+    hits: hitsOf,
     boundsOf: (path) => {
       const object = index.get(path)
       if (object === undefined) return null
