@@ -9,6 +9,7 @@
 import handler from '@tanstack/react-start/server-entry'
 import { type EdgeCacheBinding, marketingCacheKey, serveMarketing } from '#/server/services/EdgeCache'
 import { BUILD_ID } from '#/shared/buildId'
+import { withNoindex } from '#/server/edge/noindex'
 
 export { RateLimiter } from '#/server/durable/RateLimiter'
 
@@ -22,21 +23,25 @@ const siteUrlOf = (raw: string) => {
   return site.url
 }
 
+const serve = (request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> => {
+  const siteUrl = siteUrlOf(env.SITE_URL)
+  const key = siteUrl === null ? null : marketingCacheKey(request, siteUrl, BUILD_ID)
+  if (key === null) return Promise.resolve(handler.fetch(request))
+  return serveMarketing(request, key, {
+    cache: caches.default,
+    render: (sanitized) => Promise.resolve(handler.fetch(sanitized)),
+    waitUntil: (promise) => ctx.waitUntil(promise),
+    buildId: BUILD_ID,
+    now: () => Date.now(),
+    // A fixed label only (docs/12 §7.1: a cache failure is logged by tag and never breaks the page).
+    log: (label) => console.warn(label),
+  })
+}
+
 export default {
-  fetch: (request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> => {
-    const siteUrl = siteUrlOf(env.SITE_URL)
-    const key = siteUrl === null ? null : marketingCacheKey(request, siteUrl, BUILD_ID)
-    if (key === null) return Promise.resolve(handler.fetch(request))
-    return serveMarketing(request, key, {
-      cache: caches.default,
-      render: (sanitized) => Promise.resolve(handler.fetch(sanitized)),
-      waitUntil: (promise) => ctx.waitUntil(promise),
-      buildId: BUILD_ID,
-      now: () => Date.now(),
-      // A fixed label only (docs/12 §7.1: a cache failure is logged by tag and never breaks the page).
-      log: (label) => console.warn(label),
-    })
-  },
+  // Staging (any non-production APP_ENV) answers every request with X-Robots-Tag: noindex (docs/12 §6.5).
+  fetch: (request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> =>
+    serve(request, env, ctx).then((response) => withNoindex(env.APP_ENV, response)),
   scheduled: (controller: ScheduledController, env: Cloudflare.Env, ctx: ExecutionContext) => {
     // Loaded on demand: the server code (Effect, Drizzle, services) must not be evaluated on every request.
     ctx.waitUntil(import('#/server/http/entry.cron').then(({ handleScheduled }) => handleScheduled(controller.cron, env)))
