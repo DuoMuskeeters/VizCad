@@ -9,7 +9,7 @@ import { Textarea } from '#/components/ui/Input'
 import { InlineAlert, Notice } from '#/components/ui/Notice'
 import { Skeleton } from '#/components/ui/Skeleton'
 import { useToast } from '#/components/ui/Toast'
-import type { CommentPage, CommentPin, CommentView, FileActivityPage, VersionEntry } from '#/shared/fileViews'
+import type { CommentPage, CommentView, FileActivityPage, PendingPin, VersionEntry } from '#/shared/fileViews'
 import { useI18n, type I18nKey } from '#/i18n'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
@@ -83,11 +83,11 @@ export const useComments = (workspaceId: string, fileId: string) => {
   }, [load])
 
   const add = useCallback(
-    async (input: { content: string; parentId?: string; anchor?: CommentPin }) => {
+    async (input: { content: string; parentId?: string; anchor?: PendingPin }) => {
       const result = await call<CommentView>('addComment', {
         workspaceId, fileId, content: input.content,
         ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
-        ...(input.anchor === undefined ? {} : { anchor: { v: 1, path: input.anchor.path, point: input.anchor.point } }),
+        ...(input.anchor === undefined ? {} : { anchor: { v: 1, path: input.anchor.path, point: input.anchor.point, version: input.anchor.version } }),
       })
       if (result.ok) setItems((current) => [...(current ?? []), result.data])
       return result
@@ -124,8 +124,8 @@ export type CommentPins = {
   readonly onShow: (path: string) => void
   readonly active: string | null
   readonly onActivate: (comment: CommentView) => void
-  /** The pin of the comment being written. */
-  readonly pending: CommentPin | null
+  /** The pin of the comment being written, with the version it was placed on. */
+  readonly pending: PendingPin | null
   readonly pendingNumber: number
   readonly placing: boolean
   readonly onPlace: () => void
@@ -251,7 +251,8 @@ export const CommentsTab = ({ comments, can, pins }: { comments: Comments; can: 
     const anchor = replyTo === null && pending !== null ? pending : undefined
     const result = await add({ content, ...(replyTo === null ? {} : { parentId: replyTo.id }), ...(anchor === undefined ? {} : { anchor }) })
     setBusy(false)
-    if (!result.ok) return setError(t(failureKey(result)))
+    // The pin stays (and the text): a new version came while it was written, so it is placed again on that one.
+    if (!result.ok) return setError(anchor !== undefined && result.error === 'VersionChanged' ? t('comments.pin.versionChanged', { number: anchor.version }) : t(failureKey(result)))
     setText('')
     setReplyTo(null)
     if (anchor !== undefined) pins?.onClear()

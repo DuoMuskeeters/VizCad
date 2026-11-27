@@ -69,16 +69,28 @@ describe('comment pins in the Comments tab (B3)', () => {
   })
 
   it('writes a comment on the placed pin; a reply carries no pin', async () => {
-    const { props, add, user } = mount({ pending: { path: '0.2.0', point: [5, 6, 7] } })
+    const { props, add, user } = mount({ pending: { path: '0.2.0', point: [5, 6, 7], version: 4 } })
     expect(screen.getAllByText('Pump unit › Volute', { selector: 'span' })).toHaveLength(2)
     await user.type(screen.getByRole('textbox', { name: 'Write a comment' }), 'Torque value?')
     await user.click(screen.getByRole('button', { name: 'Comment' }))
-    expect(add).toHaveBeenCalledWith({ content: 'Torque value?', anchor: { path: '0.2.0', point: [5, 6, 7] } })
+    expect(add).toHaveBeenCalledWith({ content: 'Torque value?', anchor: { path: '0.2.0', point: [5, 6, 7], version: 4 } })
     expect(props.onClear).toHaveBeenCalled()
   })
 
+  it('a pin placed on a version that is no longer current: the pin and the text stay, and it says why', async () => {
+    const { props, add, user } = mount({ pending: { path: '0.2.0', point: [5, 6, 7], version: 3 } })
+    add.mockResolvedValueOnce({ ok: false, status: 409, error: 'VersionChanged' } as never)
+    const field = screen.getByRole('textbox', { name: 'Write a comment' })
+    await user.type(field, 'Torque value?')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    expect(add).toHaveBeenCalledWith(expect.objectContaining({ anchor: expect.objectContaining({ version: 3 }) }))
+    expect(await screen.findByText(/A new version of this file arrived after you placed the pin on version 3/)).toBeInTheDocument()
+    expect(props.onClear).not.toHaveBeenCalled()
+    expect(field).toHaveValue('Torque value?')
+  })
+
   it('the pin button starts placing; Remove the pin clears it', async () => {
-    const { props, user } = mount({ pending: { path: '0.2.0', point: [0, 0, 0] } })
+    const { props, user } = mount({ pending: { path: '0.2.0', point: [0, 0, 0], version: 4 } })
     await user.click(screen.getByRole('button', { name: 'Move pin' }))
     expect(props.onPlace).toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Remove the pin' }))

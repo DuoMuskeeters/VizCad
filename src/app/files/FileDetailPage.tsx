@@ -21,7 +21,7 @@ import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
 import { chainOf, findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
 import type { PinMark } from '#/viewer/tools/types'
-import type { CommentPin, CommentView } from '#/shared/fileViews'
+import type { CommentView, PendingPin } from '#/shared/fileViews'
 import { editNode, hiddenOf, looksOf, matchPrevious, namesOf, type SceneEdit } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
@@ -320,7 +320,7 @@ export const FileDetailPage = () => {
   const isolated = !partsView && node !== null && node !== '0' ? node : null
   // Comment pins (docs/11 §4.3, B3): the comments live here so the canvas can draw their pins.
   const comments = useComments(active.id, id)
-  const [pendingPin, setPendingPin] = useState<CommentPin | null>(null)
+  const [pendingPin, setPendingPin] = useState<PendingPin | null>(null)
   const [activeComment, setActiveComment] = useState<string | null>(null)
   const [showPins, setShowPins] = useState(true)
   const [pinsFor, setPinsFor] = useState(modelKey)
@@ -331,7 +331,7 @@ export const FileDetailPage = () => {
   }
   // Section, measure, screenshot (Faz 5d): per open model; the section's range fits the isolated part.
   const tools = useTools(api, modelKey, wide, isolated, (pin) => {
-    setPendingPin({ path: pin.path, point: pin.point })
+    setPendingPin({ path: pin.path, point: pin.point, version: shownFile?.currentVersion.number ?? 0 })
     setActiveComment(null)
     setTab('comments')
     setPanelOpen(true)

@@ -210,7 +210,7 @@ describe('addComment', () => {
     run(Effect.gen(function* () {
       yield* world
       yield* comments
-      const pin = { v: 1 as const, path: '0.2.1', point: [12.5, -3, 40] as const }
+      const pin = { v: 1 as const, path: '0.2.1', point: [12.5, -3, 40] as const, version: 3 }
       const made = yield* addComment(caller('eve'), { workspaceId: 'acme', fileId: 'f1', content: 'Torque here?', anchor: pin })
       assert.deepStrictEqual(made.anchor, { path: '0.2.1', point: [12.5, -3, 40] })
       assert.strictEqual(made.versionNumber, 3)
@@ -225,6 +225,48 @@ describe('addComment', () => {
       assert.isNull((yield* list('max')).items.find((c) => c.id === 'c7-member')?.anchor)
       yield* deleteComment(caller('eve'), { workspaceId: 'acme', commentId: made.id })
       assert.isNull((yield* list('eve')).items.find((c) => c.id === made.id)?.anchor)
+    })))
+
+  it.effect('a pin placed on v3 is refused once Bob uploaded v4: VersionChanged, nothing written', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const pin = { v: 1 as const, path: '0.2.1', point: [1, 2, 3] as const, version: 3 }
+      // Ada had v3 open and placed her pin; Bob's v4 landed before she sent it.
+      yield* Db.use((x) => x.use((d) => d.update(schema.files).set({ currentVersionNumber: 4 }).where(eq(schema.files.id, 'f1'))))
+      assert.strictEqual(yield* tag(addComment(caller('ada'), { workspaceId: 'acme', fileId: 'f1', content: 'Bolt here', anchor: pin })), 'VersionChanged')
+      assert.strictEqual((yield* rows('fileComments')).length, 0)
+      // The same pin on the version now open goes in, on v4; a comment without a pin never asks.
+      const made = yield* addComment(caller('ada'), { workspaceId: 'acme', fileId: 'f1', content: 'Bolt here', anchor: { ...pin, version: 4 } })
+      assert.strictEqual(made.versionNumber, 4)
+      assert.strictEqual(yield* tag(addComment(caller('ada'), { workspaceId: 'acme', fileId: 'f1', content: 'No pin' })), 'ok')
+    })))
+
+  it.effect('the batch itself refuses a pin when the version moves after the check', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      // The version moves between the program's check and its batch: the guard re-reads it.
+      const db = yield* Db
+      let reads = 0
+      const racing = Db.of({
+        use: (query) =>
+          db.use((d) =>
+            query(new Proxy(d, {
+              get: (target, key, receiver) =>
+                key === 'batch'
+                  ? async (statements: Parameters<typeof target.batch>[0]) => {
+                      reads++
+                      await target.update(schema.files).set({ currentVersionNumber: 4 }).where(eq(schema.files.id, 'f1'))
+                      return target.batch(statements)
+                    }
+                  : Reflect.get(target, key, receiver),
+            })),
+          ),
+      })
+      const pin = { v: 1 as const, path: '0.2.1', point: [1, 2, 3] as const, version: 3 }
+      const result = yield* tag(addComment(caller('ada'), { workspaceId: 'acme', fileId: 'f1', content: 'Bolt here', anchor: pin }).pipe(Effect.provideService(Db, racing)))
+      assert.strictEqual(reads, 1)
+      assert.strictEqual(result, 'VersionChanged')
+      assert.strictEqual((yield* rows('fileComments')).length, 0)
     })))
 
   it.effect('a trashed file takes no comments', () =>

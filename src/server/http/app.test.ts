@@ -271,11 +271,17 @@ describe('POST /api/app/<operation>', () => {
         { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '1.0', point: [0, 0, 0] } },
         { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0] } },
         { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0, 1e13] } },
-        { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0, 0], world: true } },
+        { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0, 0], world: true, version: 1 } },
+        // …and the version it was placed on.
+        { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0, 0] } },
+        { workspaceId: 'acme', fileId: 'f1', content: 'x', anchor: { v: 1, path: '0.1', point: [0, 0, 0], version: 0 } },
       ]) assert.strictEqual((yield* call(post('addComment', body, bob))).status, 400)
       assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: '   ' }, bob))).body.error, 'ValidationError')
-      const pinned = yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'pin', anchor: { v: 1, path: '0.1', point: [1, 2, 3] } }, bob))
+      const pinned = yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'pin', anchor: { v: 1, path: '0.1', point: [1, 2, 3], version: 1 } }, bob))
       assert.deepStrictEqual((pinned.body.data as { anchor: unknown }).anchor, { path: '0.1', point: [1, 2, 3] })
+      // A pin placed on a version that is no longer the current one: 409.
+      const stale = yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'pin', anchor: { v: 1, path: '0.1', point: [1, 2, 3], version: 2 } }, bob))
+      assert.deepStrictEqual([stale.status, stale.body.error], [409, 'VersionChanged'])
       assert.strictEqual((yield* call(post('addComment', { workspaceId: 'acme', fileId: 'f1', content: 'x', parentId: 'nope' }, bob))).body.error, 'CommentUnavailable')
       assert.strictEqual((yield* call(post('listComments', { workspaceId: 'acme', fileId: 'f1', limit: 101 }, bob))).status, 400)
       const denied = yield* call(post('deleteComment', { workspaceId: 'acme', commentId: comment.id }, ada))

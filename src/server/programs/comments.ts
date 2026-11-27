@@ -1,12 +1,12 @@
 import { and, asc, eq, gt, or, type SQL, sql } from 'drizzle-orm'
 import { Effect, Option, Schema } from 'effect'
 import * as schema from '../db/schema'
-import { CommentUnavailable, PermissionDenied, ValidationError } from '../errors'
+import { CommentUnavailable, PermissionDenied, ValidationError, VersionChanged } from '../errors'
 import { decidePermission } from '../permissions'
 import type { CommentPage, CommentView } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { decodeCursor, encodeCursor } from './activity'
-import { openFile } from './fileContext'
+import { currentVersionOf, openFile } from './fileContext'
 import { StoredAnchor, type CommentAnchor } from '../scene'
 import { activity, authorize, type Caller, guard, newUlid, runBatch, stillRole, toDate, toSeconds } from './shared'
 
@@ -99,10 +99,18 @@ export const listComments = Effect.fn('listComments')(function* (
  * permissions.ts with LINK_NO_COMMENTS before it gets here). `authorScopeAtWrite` is `guest` for a guest and `internal`
  * for every other role, and the batch guard re-reads the role, so a role change in between writes nothing. A reply must
  * point at a visible, undeleted top-level comment of the same file. The log row has the event only, never the text.
+ * A pin carries the version it was placed on: the comment lands on the current version, so a pin placed on another one
+ * (a new version uploaded or restored meanwhile) is refused with VersionChanged, checked first and again in the batch.
  */
 export const addComment = Effect.fn('addComment')(function* (
   caller: Caller,
-  input: { readonly workspaceId: string; readonly fileId: string; readonly content: string; readonly parentId?: string; readonly anchor?: CommentAnchor },
+  input: {
+    readonly workspaceId: string
+    readonly fileId: string
+    readonly content: string
+    readonly parentId?: string
+    readonly anchor?: CommentAnchor & { readonly version: number }
+  },
 ) {
   const content = input.content.trim()
   if (content === '' || content.length > MAX_COMMENT_LENGTH) return yield* new ValidationError({ message: 'invalid comment' })
@@ -111,6 +119,8 @@ export const addComment = Effect.fn('addComment')(function* (
   const anchor = input.anchor === undefined ? null : JSON.stringify({ v: 1, path: input.anchor.path, point: input.anchor.point })
   const { base, file, role, still } = yield* openFile(caller, input.workspaceId, input.fileId)
   yield* authorize({ ...base, action: { kind: 'comment' } })
+  const pinVersion = input.anchor?.version ?? null
+  if (pinVersion !== null && (yield* currentVersionOf(file)) !== pinVersion) return yield* new VersionChanged()
   const db = yield* Db
   const c = schema.fileComments
   const parentId = input.parentId ?? null
@@ -131,15 +141,27 @@ export const addComment = Effect.fn('addComment')(function* (
   const id = yield* newUlid
   const activityId = yield* newUlid
   const scope = role === 'guest' ? 'guest' : 'internal'
+  const current = sql`(SELECT COALESCE(f.currentVersionNumber, (SELECT count(*) FROM file_versions v WHERE v.fileId = f.id) + 1) FROM files f WHERE f.id = ${file.id})`
   yield* runBatch((d) => [
     guard(d, sql`${stillRole(input.workspaceId, caller.userId, [role])} AND ${still(false)}
-      AND (${parentId} IS NULL OR EXISTS (SELECT 1 FROM file_comments p WHERE p.id = ${parentId} AND p.fileId = ${file.id} AND p.parentId IS NULL AND p.deletedAt IS NULL))`),
+      AND (${parentId} IS NULL OR EXISTS (SELECT 1 FROM file_comments p WHERE p.id = ${parentId} AND p.fileId = ${file.id} AND p.parentId IS NULL AND p.deletedAt IS NULL))
+      AND (${pinVersion} IS NULL OR ${current} = ${pinVersion})`),
     // Columns in table order: id, fileId, userId, parentId, content, createdAt, updatedAt, authorScopeAtWrite, versionNumber, deletedAt, anchor.
     d.insert(c).select(sql`SELECT ${id}, f.id, ${caller.userId}, ${parentId}, ${content}, ${base.now}, ${base.now}, ${scope},
       COALESCE(f.currentVersionNumber, (SELECT count(*) FROM file_versions v WHERE v.fileId = f.id) + 1), NULL, ${anchor}
       FROM files f WHERE f.id = ${file.id}`),
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'file', targetId: file.id, action: 'comment.created', at: base.now }, activityId),
-  ])
+  ]).pipe(
+    // Nothing was written. A pin whose version is no longer the current one says so; anything else stays a conflict.
+    Effect.catchTag('WriteConflict', (conflict) =>
+      pinVersion === null
+        ? Effect.fail(conflict)
+        : openFile(caller, input.workspaceId, input.fileId).pipe(
+            Effect.flatMap((again) => currentVersionOf(again.file)),
+            Effect.flatMap((now) => Effect.fail(now === pinVersion ? conflict : new VersionChanged())),
+          ),
+    ),
+  )
   const row = (yield* db.use((d) =>
     d.select(commentColumns()).from(c).leftJoin(schema.user, eq(schema.user.id, c.userId)).where(eq(c.id, id)).limit(1),
   ))[0]

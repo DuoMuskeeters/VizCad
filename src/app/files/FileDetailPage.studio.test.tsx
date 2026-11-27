@@ -450,6 +450,31 @@ describe('scene prep (5c-2)', () => {
   })
 })
 
+describe('comment pins on the file page', () => {
+  it('a pin placed on the canvas is sent with the version open on the screen', async () => {
+    const tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() },
+      setLabels: vi.fn(),
+      screenshot: vi.fn(),
+      dispose: vi.fn(),
+    }
+    seen.tools = tools
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const { user, calls } = await open()
+    await user.click(screen.getByRole('tab', { name: /Comments/ }))
+    await user.click(await screen.findByRole('button', { name: 'Pin' }))
+    await waitFor(() => expect(tools.pins.start).toHaveBeenCalled())
+    const placed = tools.pins.start.mock.lastCall![0] as unknown as (pin: { path: string; point: [number, number, number] }) => void
+    act(() => placed({ path: '0.2.0', point: [1, 2, 3] }))
+    await user.type(screen.getByRole('textbox', { name: 'Write a comment' }), 'Check this bolt')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'addComment')?.body['anchor']).toEqual({ v: 1, path: '0.2.0', point: [1, 2, 3], version: 4 }))
+  })
+})
+
 describe('saved views (docs/11 §3.1)', () => {
   const camera = { position: [300, -300, 240] as const, target: [10, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 }
   const fakeTools = () => ({

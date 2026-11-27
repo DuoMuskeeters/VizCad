@@ -244,7 +244,11 @@ const operations: Readonly<Record<string, Operation>> = {
   listComments: op({ ...Workspace, fileId: Id, ...Page(100) }, (input, { caller }) =>
     listComments(caller, { workspaceId: input.workspaceId, fileId: input.fileId, limit: input.limit ?? 50, cursor: input.cursor ?? null })),
   addComment: op(
-    { ...Workspace, fileId: Id, content: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_COMMENT_LENGTH * 2)), parentId: Schema.optional(Id), anchor: Schema.optional(CommentAnchor) },
+    {
+      ...Workspace, fileId: Id, content: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_COMMENT_LENGTH * 2)), parentId: Schema.optional(Id),
+      // A pin and the version it was placed on (the one open on the screen).
+      anchor: Schema.optional(Schema.Struct({ ...CommentAnchor.fields, version: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1_000_000 })) })),
+    },
     (input, { caller }) => addComment(caller, {
       workspaceId: input.workspaceId, fileId: input.fileId, content: input.content,
       ...(input.parentId === undefined ? {} : { parentId: input.parentId }),

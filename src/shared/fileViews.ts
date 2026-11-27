@@ -144,6 +144,11 @@ export interface CommentPin {
   readonly point: readonly [number, number, number]
 }
 
+/** A pin being written: also the version it was placed on (the server refuses it once another version is current). */
+export interface PendingPin extends CommentPin {
+  readonly version: number
+}
+
 export interface CommentView {
   readonly id: string
   /** The top-level comment this replies to (one level only); null for a top-level comment. */
