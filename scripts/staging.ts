@@ -16,7 +16,7 @@ import { checkStagingConfig, STAGING } from './stagingGuard.ts'
 
 const childEnv = { ...process.env }
 delete childEnv['CLOUDFLARE_ENV']
-// Public Turnstile site key of the staging widget ("vizcad staging", host vizcad-rewrite…workers.dev); not a secret.
+// Public Turnstile site key of the staging widget ("vizcad staging", hosts staging.viz-cad.com and vizcad-rewrite…workers.dev); not a secret.
 childEnv['VITE_TURNSTILE_SITE_KEY'] ??= '0x4AAAAAAGRHCReriMa9b6dW'
 
 const run = (args: ReadonlyArray<string>) => {

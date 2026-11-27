@@ -41,7 +41,9 @@
 	"upload_source_maps": true,
 	"workers_dev": true,
 	"vars": {
-		"SITE_URL": "https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev",
+		"SITE_URL": "https://staging.viz-cad.com",
+		// The workers.dev address keeps working for scripts and old links (sign-in, uploads, Turnstile all allow both).
+		"TRUSTED_ORIGINS": "https://vizcad-rewrite.ferhatrudvanogullari6.workers.dev",
 		"EMAIL_FROM": "noreply@viz-cad.com",
 		"EMAIL_FROM_NAME": "VizCad",
 		"APP_ENV": "staging",
