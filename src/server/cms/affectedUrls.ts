@@ -33,8 +33,11 @@ interface PostContext {
   readonly post: PostSnapshot
   /** Other published posts (the program may prefilter; this keeps only those sharing a category or tag). */
   readonly candidates: ReadonlyArray<RelatedCandidate>
-  /** Number of blog list pages per locale (default 1). */
-  readonly blogPages: Partial<Record<Locale, number>>
+  /**
+   * Blog list pages per locale before and after the change (default 1 each). Every page up to the larger count is
+   * purged: an unpublish can shrink the list, and the page that disappears still sits in the cache.
+   */
+  readonly blogPages: Partial<Record<Locale, { readonly before: number; readonly after: number }>>
   /** The landing shows recent posts (set once 6f builds it). */
   readonly landingShowsRecentPosts: boolean
 }
@@ -91,7 +94,8 @@ const postLocalePaths = (
     const slug = candidate.slugs[locale]
     if (slug !== undefined && sharesTopic(candidate, categories, tags)) out.push(paths.post(locale, slug))
   }
-  const pages = Math.max(1, context.blogPages[locale] ?? 1)
+  const count = context.blogPages[locale]
+  const pages = Math.max(1, count?.before ?? 1, count?.after ?? 1)
   for (let page = 1; page <= pages; page++) out.push(paths.blogList(locale, page))
   out.push(paths.rss(locale))
   for (const authorSlug of authorSlugs) {
@@ -123,7 +127,10 @@ const changePaths = (change: ContentChange): { readonly paths: Array<string>; re
       const key = change.pageKey
       const locales = change.liveChanged ? LOCALES : [change.locale]
       const out = locales.map((locale) => paths.page(locale, key))
-      if (change.liveChanged) out.push(paths.sitemap(change.locale), paths.sitemapIndex())
+      // A live flip changes the page's hreflang alternates, which every locale's sitemap lists.
+      if (change.liveChanged) out.push(...LOCALES.map((locale) => paths.sitemap(locale)), paths.sitemapIndex())
+      // llms.txt links the landing (and the language home pages) with its description.
+      if (key === 'landing') out.push(paths.llms())
       return { paths: out, host: false }
     }
     case 'sharedTexts':
@@ -142,7 +149,8 @@ const changePaths = (change: ContentChange): { readonly paths: Array<string>; re
       return { paths: out, host: false }
     }
     case 'legal':
-      return { paths: [paths.legal(change.locale, change.legalKind), paths.sitemap(change.locale), paths.sitemapIndex()], host: false }
+      // llms.txt links the legal pages.
+      return { paths: [paths.legal(change.locale, change.legalKind), paths.sitemap(change.locale), paths.sitemapIndex(), paths.llms()], host: false }
   }
 }
 

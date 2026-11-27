@@ -405,12 +405,12 @@ Editörde dosya seçilir ya da yapıştırılır → istemci `createImageBitmap`
 
 | Değişiklik | Temizlenen URL'ler |
 |---|---|
-| Yazı çevirisi yayın/kaldırma (`L`) | Yazının **tüm** dillerdeki URL'leri (hreflang listeleri değişir) + eski slug; `L` dilinde kategori ya da etiket paylaşan yayındaki yazılar (ilgili yazılar listeleri bu yazıyı gösterebilir, başlığı ya da kapağı değişmiş olabilir); `L` blog listesinin tüm sayfaları; `L` RSS; yazarın tüm dillerdeki sayfası; yazının yayında olduğu **tüm** dillerin sitemap'i ve dizin (her dil sitemap'i yazının hreflang alternatiflerini listeler); `L = en` ise `/llms.txt`; landing "son yazılar" gösteriyorsa `L` landing'i |
+| Yazı çevirisi yayın/kaldırma (`L`) | Yazının **tüm** dillerdeki URL'leri (hreflang listeleri değişir) + eski slug; `L` dilinde kategori ya da etiket paylaşan yayındaki yazılar (ilgili yazılar listeleri bu yazıyı gösterebilir, başlığı ya da kapağı değişmiş olabilir); `L` blog listesinin tüm sayfaları (değişiklikten önceki ve sonraki sayfa sayısının büyüğüne kadar: kaldırma listeyi kısaltırsa düşen sayfa da önbellekte); `L` RSS; yazarın tüm dillerdeki sayfası; yazının yayında olduğu **tüm** dillerin sitemap'i ve dizin (her dil sitemap'i yazının hreflang alternatiflerini listeler); `L = en` ise `/llms.txt`; landing "son yazılar" gösteriyorsa `L` landing'i |
 | Arşiv/geri alma, yazı alanları (kapak, yazar, kategori, etiketler) | yukarıdakinin tüm diller için birleşimi; kategori ya da etiket değiştiyse hem eski hem yeni kategori/etiketi paylaşan yazılar |
-| Sayfa metinleri/SEO (`pageKey`, `L`) | o sayfanın `L` URL'si; sayfa `live` değiştiyse o sayfanın tüm dilleri (hreflang) + `L` sitemap'i |
+| Sayfa metinleri/SEO (`pageKey`, `L`) | o sayfanın `L` URL'si; sayfa `live` değiştiyse o sayfanın tüm dilleri (hreflang) + **tüm** dillerin sitemap'i ve dizin (her dil sitemap'i sayfanın hreflang alternatiflerini listeler); `pageKey = landing` ise `/llms.txt` |
 | `shared` metinler (üst çubuk, alt bilgi) | hostname temizliği (tek API çağrısı; URL listesi değil) |
 | Yazar | yazar sayfası (tüm diller) + yazarın yazıları (tüm diller) |
-| Yasal sürüm | o belgenin URL'si + `L` sitemap'i |
+| Yasal sürüm | o belgenin URL'si + `L` sitemap'i ve dizin + `/llms.txt` (yasal sayfaların bağlantıları, §6.6) |
 | Ayarlar (`organization.*`, `defaultOg`) | hostname temizliği |
 
 **Bütçe (Free plan).** Çağrı başına 50 alt istek ve 10 ms CPU. Cache API çağrıları (`match`, `put`, `delete`) da alt istek sayılır. URL temizliği API çağrısı başına en çok 100 URL alır. Hostname temizliği Free planda da var: dakikada 5 istek, 25'lik kova. Bu değerler 6a'da API yanıtlarıyla doğrulanır ve sonuç bu dokümana not edilir.
