@@ -187,7 +187,7 @@ export const filesEn = {
   'comments.pin.old': 'Pin left on version {number}; not shown on this version',
   'comments.pin.missing': 'The pinned part is not in this model',
   'comments.pin.showAll': 'Show pins on the model',
-  'comments.pin.versionChanged': 'A new version of this file arrived after you placed the pin on version {number}. Your text and pin are kept: open the current version and place the pin again.',
+  'comments.pin.versionChanged': 'A new version of this file arrived after you placed the pin on version {number}. Your text is kept and the current version is open now: place the pin again.',
 
   'activity.empty': 'No activity yet.',
   'activity.list': 'Activity',
@@ -497,7 +497,7 @@ export const filesTr: Record<keyof typeof filesEn, string> = {
   'comments.pin.old': 'Pin Sürüm {number} üzerinde bırakıldı; bu sürümde gösterilmez',
   'comments.pin.missing': 'Pinlenen parça bu modelde yok',
   'comments.pin.showAll': 'Pinleri tuvalde göster',
-  'comments.pin.versionChanged': 'Pini Sürüm {number} üzerine koyduktan sonra dosyanın yeni bir sürümü geldi. Metnin ve pinin duruyor: güncel sürümü açıp pini yeniden koy.',
+  'comments.pin.versionChanged': 'Pini Sürüm {number} üzerine koyduktan sonra dosyanın yeni bir sürümü geldi. Metnin duruyor ve güncel sürüm açıldı: pini yeniden koy.',
 
   'activity.empty': 'Henüz aktivite yok.',
   'activity.list': 'Aktivite',

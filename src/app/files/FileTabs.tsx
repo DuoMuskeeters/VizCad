@@ -149,6 +149,8 @@ export type CommentPins = {
   readonly placing: boolean
   readonly onPlace: () => void
   readonly onClear: () => void
+  /** A new version came while the comment was written: the page reads the file again (the old version's pin goes). */
+  readonly onVersionChanged: () => void
   readonly show: boolean
   readonly onShowChange: (show: boolean) => void
 }
@@ -270,8 +272,13 @@ export const CommentsTab = ({ comments, can, pins }: { comments: Comments; can: 
     const anchor = replyTo === null && pending !== null ? pending : undefined
     const result = await add({ content, ...(replyTo === null ? {} : { parentId: replyTo.id }), ...(anchor === undefined ? {} : { anchor }) })
     setBusy(false)
-    // The pin stays (and the text): a new version came while it was written, so it is placed again on that one.
-    if (!result.ok) return setError(anchor !== undefined && result.error === 'VersionChanged' ? t('comments.pin.versionChanged', { number: anchor.version }) : t(failureKey(result)))
+    // A new version came while it was written: the text stays, the page opens the current version (the pin of the old
+    // one goes with it) and the pin is placed again on that one.
+    if (!result.ok) {
+      const stale = anchor !== undefined && result.error === 'VersionChanged'
+      if (stale) pins?.onVersionChanged()
+      return setError(stale ? t('comments.pin.versionChanged', { number: anchor.version }) : t(failureKey(result)))
+    }
     setText('')
     setReplyTo(null)
     if (anchor !== undefined) pins?.onClear()

@@ -476,6 +476,42 @@ describe('comment pins on the file page', () => {
   })
 })
 
+describe('a new version while a pinned comment is written', () => {
+  it('the page opens the current version: the text stays, the old pin goes', async () => {
+    seen.tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    const tools = seen.tools as { pins: { start: ReturnType<typeof vi.fn> } }
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    let version = 4
+    const { user, calls } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer({ ...file, currentVersion: { number: version, uploadedBy: null } })
+      : op === 'addComment' ? new Response(JSON.stringify({ ok: false, error: 'VersionChanged' }), { status: 409, headers: { 'content-type': 'application/json' } })
+      : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await user.click(screen.getByRole('tab', { name: /Comments/ }))
+    await user.click(await screen.findByRole('button', { name: 'Pin' }))
+    await waitFor(() => expect(tools.pins.start).toHaveBeenCalled())
+    const placed = tools.pins.start.mock.lastCall![0] as (pin: { path: string; point: [number, number, number] }) => void
+    act(() => placed({ path: '0.2.0', point: [1, 2, 3] }))
+    expect(await screen.findByRole('button', { name: 'Remove the pin' })).toBeInTheDocument()
+    version = 5
+    await user.type(screen.getByRole('textbox', { name: 'Write a comment' }), 'Check this bolt')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    expect(await screen.findByText(/placed the pin on version 4/)).toBeInTheDocument()
+    await waitFor(() => expect(calls.filter((c) => c.operation === 'getFile')).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove the pin' })).not.toBeInTheDocument())
+    expect(screen.getByRole('textbox', { name: 'Write a comment' })).toHaveValue('Check this bolt')
+  })
+})
+
 describe('screenshot on a phone', () => {
   it('offers the pins once a sent comment has one', async () => {
     narrow()

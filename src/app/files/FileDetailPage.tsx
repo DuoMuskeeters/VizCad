@@ -787,6 +787,7 @@ export const FileDetailPage = () => {
         placing: tools.tool === 'pin',
         onPlace: () => tools.open('pin'),
         onClear: () => setPendingPin(null),
+        onVersionChanged: () => void load(),
         show: showPins,
         onShowChange: setShowPins,
       }

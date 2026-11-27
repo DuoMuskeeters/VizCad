@@ -38,6 +38,7 @@ const mount = (pins: Partial<CommentPins> = {}) => {
     placing: false,
     onPlace: vi.fn(),
     onClear: vi.fn(),
+    onVersionChanged: vi.fn(),
     show: true,
     onShowChange: vi.fn(),
     ...pins,
@@ -77,7 +78,7 @@ describe('comment pins in the Comments tab (B3)', () => {
     expect(props.onClear).toHaveBeenCalled()
   })
 
-  it('a pin placed on a version that is no longer current: the pin and the text stay, and it says why', async () => {
+  it('a pin placed on a version that is no longer current: the text stays, the page reads the file again, and it says why', async () => {
     const { props, add, user } = mount({ pending: { path: '0.2.0', point: [5, 6, 7], version: 3 } })
     add.mockResolvedValueOnce({ ok: false, status: 409, error: 'VersionChanged' } as never)
     const field = screen.getByRole('textbox', { name: 'Write a comment' })
@@ -86,6 +87,7 @@ describe('comment pins in the Comments tab (B3)', () => {
     expect(add).toHaveBeenCalledWith(expect.objectContaining({ anchor: expect.objectContaining({ version: 3 }) }))
     expect(await screen.findByText(/A new version of this file arrived after you placed the pin on version 3/)).toBeInTheDocument()
     expect(props.onClear).not.toHaveBeenCalled()
+    expect(props.onVersionChanged).toHaveBeenCalledTimes(1)
     expect(field).toHaveValue('Torque value?')
   })
 
