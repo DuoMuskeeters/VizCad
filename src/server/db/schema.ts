@@ -17,6 +17,10 @@ const migrationOutcomes = ["mapped", "ineligible", "quarantined"] as const;
 const uploadStatuses = ["pending", "completed", "expired", "rejected"] as const;
 export const derivativeStates = ["ready", "failed", "too_large"] as const;
 export const storageDeletionReasons = ["upload_rejected", "upload_expired", "upload_canceled", "purged", "trash_retention"] as const;
+export const cmsLocales = ["en", "tr", "de", "es", "fr"] as const;
+export const cmsAssetMimes = ["image/webp", "image/png", "image/jpeg", "image/gif", "image/avif"] as const;
+export const legalKinds = ["privacy", "terms", "cookies", "subprocessors", "kvkk"] as const;
+export const cachePurgeKinds = ["url", "host"] as const;
 export const securityEvents = ["sign_in_succeeded", "sign_in_failed", "password_reset_requested", "link_opened", "link_password_failed", "file_downloaded"] as const;
 
 const sqlValues = (values: readonly string[]) => sql.join(values.map((value) => sql.raw(`'${value}'`)), sql`, `);
@@ -349,7 +353,15 @@ export const posts = sqliteTable("posts", {
 
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
-});
+
+  // 0016 (docs/12 §1.4). All nullable, so legacy writes that name only the old columns keep working.
+  // NULL revision = 0 (optimistic lock on post-level fields). NULL coverAssetId: the legacy `coverImage` URL is used.
+  revision: integer("revision"),
+  coverAssetId: text("coverAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [
+  index("posts_status_published_idx").on(t.status, t.publishedAt),
+]);
 
 export type BlogPost = typeof posts.$inferSelect;
 export type NewBlogPost = typeof posts.$inferInsert;
@@ -368,7 +380,13 @@ export const authorProfiles = sqliteTable("author_profiles", {
   socialLinks: text("socialLinks", { mode: "json" }).$type<Record<string, string>>(), // JSON object for social links
   createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
-});
+  // 0016. NULL slug: no author page (the Person JSON-LD omits `url`); the column starts all NULL, so the unique index
+  // cannot clash with legacy data. NULL avatarAssetId: `avatarUrl`, else initials.
+  slug: text("slug"),
+  avatarAssetId: text("avatarAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+}, (t) => [
+  uniqueIndex("author_profiles_slug_uq").on(t.slug),
+]);
 
 export type AuthorProfile = typeof authorProfiles.$inferSelect;
 export type NewAuthorProfile = typeof authorProfiles.$inferInsert;
@@ -688,3 +706,215 @@ export const securityLog = sqliteTable("security_log", {
   check("security_log_event_check", sql`${t.event} IN (${sqlValues(securityEvents)})`),
   check("security_log_user_agent_check", sql`${t.userAgent} IS NULL OR length(${t.userAgent}) <= 256`),
 ]);
+
+// ============================================
+// CMS (Faz 6, docs/12 §1.3). Migration 0016_cms. Every timestamp is Unix seconds (`mode: "timestamp"`);
+// raw SQL binds go through `toUnixSeconds` (src/server/time.ts).
+// ============================================
+
+const localeCheck = (name: string, column: unknown) => check(name, sql`${column} IN (${sqlValues(cmsLocales)})`);
+
+/** Uploaded CMS images. R2 key `blog/a/{id}.{ext}` (the `blog/` prefix is protected from the deletion worker). */
+export const cmsAssets = sqliteTable("cms_assets", {
+  id: text("id").primaryKey(),
+  r2Key: text("r2Key").notNull().unique(),
+  mime: text("mime", { enum: cmsAssetMimes }).notNull(),
+  bytes: integer("bytes").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  sha256: text("sha256").notNull().unique(),
+  variants: text("variants", { mode: "json" }).$type<Record<string, string>>(),
+  alt: text("alt"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  createdByUserId: text("createdByUserId").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [
+  check("cms_assets_mime_check", sql`${t.mime} IN (${sqlValues(cmsAssetMimes)})`),
+  check("cms_assets_size_check", sql`${t.bytes} > 0 AND ${t.width} > 0 AND ${t.height} > 0`),
+]);
+
+/** The published translation of a post, one row per locale. SSR prints `contentHtml` only (never renders markdown). */
+export const postTranslations = sqliteTable("post_translations", {
+  postId: text("postId").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  slug: text("slug").notNull(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt").notNull(),
+  contentMd: text("contentMd").notNull(),
+  contentHtml: text("contentHtml").notNull(),
+  toc: text("toc", { mode: "json" }).$type<ReadonlyArray<{ depth: number; id: string; text: string }>>().notNull(),
+  readTimeMin: integer("readTimeMin").notNull(),
+  metaTitle: text("metaTitle"),
+  metaDescription: text("metaDescription"),
+  keywords: text("keywords", { mode: "json" }).$type<string[]>(),
+  coverAlt: text("coverAlt"),
+  ogAssetId: text("ogAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+  publishedAt: integer("publishedAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [
+  primaryKey({ columns: [t.postId, t.locale] }),
+  uniqueIndex("post_translations_locale_slug_uq").on(t.locale, t.slug),
+  index("post_translations_locale_published_idx").on(t.locale, sql`${t.publishedAt} DESC`),
+  localeCheck("post_translations_locale_check", t.locale),
+  check("post_translations_title_check", sql`length(${t.title}) <= 120 AND length(${t.excerpt}) <= 300`),
+]);
+
+/** Working copy of a translation. Publishing copies it to `post_translations` and deletes this row. */
+export const postDrafts = sqliteTable("post_drafts", {
+  postId: text("postId").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  slug: text("slug").notNull(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt").notNull(),
+  contentMd: text("contentMd").notNull(),
+  metaTitle: text("metaTitle"),
+  metaDescription: text("metaDescription"),
+  keywords: text("keywords", { mode: "json" }).$type<string[]>(),
+  coverAlt: text("coverAlt"),
+  ogAssetId: text("ogAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+  revision: integer("revision").notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [
+  primaryKey({ columns: [t.postId, t.locale] }),
+  localeCheck("post_drafts_locale_check", t.locale),
+  check("post_drafts_revision_check", sql`${t.revision} >= 0`),
+]);
+
+/** An old slug answers 301 to the post's current URL. */
+export const postSlugRedirects = sqliteTable("post_slug_redirects", {
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  slug: text("slug").notNull(),
+  postId: text("postId").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.locale, t.slug] }),
+  localeCheck("post_slug_redirects_locale_check", t.locale),
+]);
+
+/** Per-locale author fields. Without an `en` row the legacy `bio` and `role` are read. */
+export const authorTranslations = sqliteTable("author_translations", {
+  authorId: text("authorId").notNull().references(() => authorProfiles.id, { onDelete: "cascade" }),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  bio: text("bio"),
+  jobTitle: text("jobTitle"),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.authorId, t.locale] }),
+  localeCheck("author_translations_locale_check", t.locale),
+  check("author_translations_length_check", sql`(${t.bio} IS NULL OR length(${t.bio}) <= 600) AND (${t.jobTitle} IS NULL OR length(${t.jobTitle}) <= 80)`),
+]);
+
+/** Admin overrides of marketing texts. `value` is live, `draftValue` an unpublished change. Keys must exist in code. */
+export const siteTexts = sqliteTable("site_texts", {
+  key: text("key").notNull(),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  value: text("value"),
+  draftValue: text("draftValue"),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+  publishedAt: integer("publishedAt", { mode: "timestamp" }),
+}, (t) => [
+  primaryKey({ columns: [t.key, t.locale] }),
+  localeCheck("site_texts_locale_check", t.locale),
+]);
+
+/** Per-page, per-locale SEO. `live = 1`: the page is published (indexable) in that locale (docs/12 §6.2). */
+export const pageSeo = sqliteTable("page_seo", {
+  pageKey: text("pageKey").notNull(),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  title: text("title"),
+  description: text("description"),
+  ogAssetId: text("ogAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+  draftTitle: text("draftTitle"),
+  draftDescription: text("draftDescription"),
+  draftOgAssetId: text("draftOgAssetId").references(() => cmsAssets.id, { onDelete: "set null" }),
+  live: integer("live", { mode: "boolean" }).notNull().default(false),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+  publishedAt: integer("publishedAt", { mode: "timestamp" }),
+}, (t) => [
+  primaryKey({ columns: [t.pageKey, t.locale] }),
+  localeCheck("page_seo_locale_check", t.locale),
+]);
+
+/** Legal texts, versioned. A published row never changes (triggers in 0016); a new text is a new version. */
+export const legalDocuments = sqliteTable("legal_documents", {
+  id: text("id").primaryKey(),
+  kind: text("kind", { enum: legalKinds }).notNull(),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  version: integer("version").notNull(),
+  title: text("title").notNull(),
+  contentMd: text("contentMd").notNull(),
+  contentHtml: text("contentHtml").notNull(),
+  changeSummary: text("changeSummary"),
+  effectiveAt: integer("effectiveAt", { mode: "timestamp" }).notNull(),
+  publishedAt: integer("publishedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  createdByUserId: text("createdByUserId").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [
+  uniqueIndex("legal_documents_kind_locale_version_uq").on(t.kind, t.locale, t.version),
+  localeCheck("legal_documents_locale_check", t.locale),
+  check("legal_documents_kind_check", sql`${t.kind} IN (${sqlValues(legalKinds)})`),
+  check("legal_documents_version_check", sql`${t.version} >= 1`),
+]);
+
+/** Which legal version a user accepted at sign-up (docs/12 §8.3). */
+export const legalAcceptances = sqliteTable("legal_acceptances", {
+  userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: legalKinds }).notNull(),
+  version: integer("version").notNull(),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  acceptedAt: integer("acceptedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.userId, t.kind, t.version] }),
+  localeCheck("legal_acceptances_locale_check", t.locale),
+  check("legal_acceptances_kind_check", sql`${t.kind} IN (${sqlValues(legalKinds)})`),
+]);
+
+/**
+ * Edge cache purge queue (docs/12 §7.4, the `storage_deletions` pattern). `url` rows hold an absolute URL on the site
+ * host (without the `?v=` build suffix, added at purge time); `host` rows the site hostname. A target may sit twice:
+ * now and 60 s later (the late-put race), hence the unique key includes `notBefore`.
+ */
+export const cachePurges = sqliteTable("cache_purges", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind", { enum: cachePurgeKinds }).notNull(),
+  target: text("target").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  notBefore: integer("notBefore", { mode: "timestamp" }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("lastError"),
+}, (t) => [
+  uniqueIndex("cache_purges_target_uq").on(t.kind, t.target, t.notBefore),
+  index("cache_purges_not_before_idx").on(t.notBefore),
+  check("cache_purges_kind_check", sql`${t.kind} IN (${sqlValues(cachePurgeKinds)})`),
+  check("cache_purges_attempts_check", sql`${t.attempts} >= 0`),
+]);
+
+/** Contact form messages. No IP or user agent. Deleted after 365 days. */
+export const contactMessages = sqliteTable("contact_messages", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  company: text("company"),
+  message: text("message").notNull(),
+  locale: text("locale", { enum: cmsLocales }).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  emailedAt: integer("emailedAt", { mode: "timestamp" }),
+  emailAttempts: integer("emailAttempts").notNull().default(0),
+}, (t) => [
+  index("contact_messages_created_idx").on(t.createdAt),
+  localeCheck("contact_messages_locale_check", t.locale),
+  check("contact_messages_length_check", sql`length(${t.name}) <= 80 AND (${t.company} IS NULL OR length(${t.company}) <= 120) AND length(${t.message}) <= 4000`),
+  check("contact_messages_attempts_check", sql`${t.emailAttempts} >= 0`),
+]);
+
+/** Typed site settings (keys in code, values decoded with Schema). */
+export const siteSettings = sqliteTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+});

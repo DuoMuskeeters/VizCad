@@ -3,6 +3,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
+import { spawnSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -22,9 +23,17 @@ const dropDeployRedirect: Plugin = {
   },
 }
 
-export default defineConfig({
+// Edge cache key space of this build (docs/12 §7.1, src/shared/buildId.ts): git short SHA + build time (base36).
+// `vite dev` keeps the `dev` fallback so a dev server restart does not matter.
+const gitSha = () => {
+  const git = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' })
+  return git.status === 0 ? git.stdout.trim() : 'nogit'
+}
+
+export default defineConfig(({ command }) => ({
   define: {
     'import.meta.env.VIZCAD_PRODUCTION': JSON.stringify(production),
+    ...(command === 'build' ? { 'import.meta.env.VIZCAD_BUILD_ID': JSON.stringify(`${gitSha()}.${Date.now().toString(36)}`) } : {}),
   },
   resolve: { tsconfigPaths: true },
   // ES module Workers can split: the viewer's parse Worker loads the occt-import-js glue (and its WASM) only for STEP/IGES.
@@ -55,4 +64,4 @@ export default defineConfig({
     viteReact(),
     dropDeployRedirect,
   ],
-})
+}))
