@@ -245,6 +245,12 @@ export const FileDetailPage = () => {
     setState({ status: 'loading' })
     void load()
   }, [load])
+  // A reload while the page is in use (a pin met a newer version): a failure keeps the page and what is typed in it.
+  const refresh = useCallback(async () => {
+    const result = await call<AnyFileView>('getFile', { workspaceId: active.id, fileId: id })
+    if (result.ok) setState({ status: 'ready', file: result.data })
+    else if (result.error === 'Unauthenticated') expire()
+  }, [call, expire, active.id, id])
 
   // The viewer rendered a thumbnail for a file without one (lazy path, docs/11 §9 5a): store it, then show it. The
   // endpoint stores on whatever is current when it lands, so a thumbnail of a version that is no longer current (or
@@ -787,7 +793,7 @@ export const FileDetailPage = () => {
         placing: tools.tool === 'pin',
         onPlace: () => tools.open('pin'),
         onClear: () => setPendingPin(null),
-        onVersionChanged: () => void load(),
+        onVersionChanged: () => void refresh(),
         show: showPins,
         onShowChange: setShowPins,
       }

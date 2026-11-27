@@ -10,10 +10,11 @@ const comment = (id: string) => ({ id, parentId: null, author: { displayName: 'A
 
 const Probe = () => {
   const [fileId, setFileId] = useState('f1')
-  const { items } = useComments('w1', fileId)
+  const { items, add } = useComments('w1', fileId)
   return (
     <>
       <button type="button" onClick={() => setFileId('f2')}>other file</button>
+      <button type="button" onClick={() => void add({ content: 'new' })}>post</button>
       <p data-testid="ids">{items === null ? 'loading' : items.map((item) => item.id).join(',')}</p>
     </>
   )
@@ -52,5 +53,23 @@ describe('useComments', () => {
     await waitFor(() => expect(screen.getByTestId('ids')).toHaveTextContent(/^a1$/))
     await act(async () => second(answer({ items: [comment('a2')], nextCursor: null })))
     await waitFor(() => expect(screen.getByTestId('ids')).toHaveTextContent(/^a1,a2$/))
+  })
+
+  it('a comment posted while later pages load is not shown twice when its page comes', async () => {
+    let second: (response: Response) => void = () => {}
+    const { user } = renderApp(<Probe />, 'admin', (operation, body) => {
+      if (operation === 'addComment') return answer(comment('new'))
+      if (operation !== 'listComments') return undefined
+      if (body['cursor'] === 'p2') return new Promise<Response>((resolve) => {
+        second = resolve
+      })
+      return answer({ items: [comment('a1')], nextCursor: 'p2' })
+    })
+    await waitFor(() => expect(screen.getByTestId('ids')).toHaveTextContent(/^a1$/))
+    await user.click(screen.getByRole('button', { name: 'post' }))
+    await waitFor(() => expect(screen.getByTestId('ids')).toHaveTextContent(/^a1,new$/))
+    // Server order is oldest first: the new comment comes again at the end of the last page.
+    await act(async () => second(answer({ items: [comment('a2'), comment('new')], nextCursor: null })))
+    await waitFor(() => expect(screen.getByTestId('ids')).toHaveTextContent(/^a1,a2,new$/))
   })
 })

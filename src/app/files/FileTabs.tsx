@@ -90,7 +90,9 @@ export const useComments = (workspaceId: string, fileId: string) => {
         const got = result.data.items
         const fresh = after === null && page === 0
         setFailed(false)
-        setItems((current) => (fresh || current === null ? got : [...current, ...got]))
+        // A comment posted while later pages load is held already; the page brings it again in server order.
+        const gotIds = new Set(got.map((c) => c.id))
+        setItems((current) => (fresh || current === null ? got : [...current.filter((c) => !gotIds.has(c.id)), ...got]))
         next = result.data.nextCursor
         if (next === null) break
       }

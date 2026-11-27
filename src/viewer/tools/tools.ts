@@ -325,16 +325,17 @@ export const createTools = (host: ToolHost): ToolsApi => {
     const found = studio.hit(ray)
     const t = section === null ? null : ray.ray.distanceToPlane(plane)
     if (t !== null && (found === null || found.hit.distance > t)) {
-      // Counted per mesh (each one its own solid: the ray may pass through one and end inside another), and a ray through
-      // an edge or a corner that triangles share hits each of them at the same distance: that is one crossing.
+      // Counted per part (each one its own solid: the ray may pass through one and end inside another; a GLB part with
+      // several materials is several meshes under one path, still one solid), and a ray through an edge or a corner
+      // that triangles share hits each of them at the same distance: that is one crossing.
       const same = box === null ? 0 : box.getSize(new Vector3()).length() * 1e-7
-      const inside = new Map<Mesh, { count: number; path: string; last: number }>()
+      const inside = new Map<string, { count: number; path: string; last: number }>()
       for (const at of studio.hits(ray)) {
         if (at.hit.distance >= t) break
         if (kept(at.hit.point)) continue
-        const seen = inside.get(at.hit.object)
+        const seen = inside.get(at.path)
         if (seen !== undefined && at.hit.distance - seen.last <= same) continue
-        inside.set(at.hit.object, { count: (seen?.count ?? 0) + 1, path: at.path, last: at.hit.distance })
+        inside.set(at.path, { count: (seen?.count ?? 0) + 1, path: at.path, last: at.hit.distance })
       }
       for (const { count, path } of inside.values()) if (count % 2 === 1) return { path, point: ray.ray.at(t, new Vector3()), hit: null }
     }

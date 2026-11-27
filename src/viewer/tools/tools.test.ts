@@ -94,6 +94,17 @@ const box10 = (): ParsedModel => {
   return model([{ name: 'Box', color: null, position: new Float32Array(p), normal: null, index: new Uint32Array(index), vertexColor: null, groups: [] }])
 }
 
+/** box10 split in two meshes: the x = +5 face, and the rest (the test gives them one path, as a GLB part's primitives). */
+const box10TwoPrimitives = (): ParsedModel => {
+  const p: number[] = []
+  for (const x of [-5, 5]) for (const y of [-5, 5]) for (const z of [-5, 5]) p.push(x, y, z)
+  const quads = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]
+  const tri = (qs: number[][]) => new Uint32Array(qs.flatMap(([a, b, c, d]) => [a!, b!, c!, a!, c!, d!]))
+  const prim = (name: string, qs: number[][]) => ({ name, color: null, position: new Float32Array(p), normal: null, index: tri(qs), vertexColor: null, groups: [] })
+  const meshes = [prim('Box', [quads[1]!]), prim('Box', quads.filter((_, i) => i !== 1))]
+  return { meshes, tree: normaliseTree({ name: 'Box', meshes: [0, 1], children: [] }, meshes), up: 'z' }
+}
+
 /** A 2D context that records what is drawn (jsdom has none). */
 const recorder = () => {
   const log: Array<[string, unknown[]]> = []
@@ -135,12 +146,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const setup = (parsed: ParsedModel = model()) => {
+const setup = (parsed: ParsedModel = model(), prepare?: (root: Object3D) => void) => {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const onPick = vi.fn()
   const scene = createScene(container, 'label', { onPick })
   const root = buildModel(parsed)
+  prepare?.(root)
   scene.setModel(root, stats)
   const host = scene.host()
   const canvas = host.canvas
@@ -307,6 +319,28 @@ describe('measure', () => {
     tap(...at(2, 2, 5))
     const point = measured().pending!.point
     expect(point[2]).toBeCloseTo(0, 5)
+    scene.dispose()
+  })
+
+  it('a ray that crosses one part through two of its primitives, all on the cut-away side, lands nowhere (not on the plane in the air)', () => {
+    // In a GLB a part's primitives share its path (they have none of their own): give the second one the first's.
+    const { tools, tap, at, measured, scene, host } = setup(box10TwoPrimitives(), (root) => {
+      const meshes: Object3D[] = []
+      root.traverse((object) => {
+        if ((object as { isMesh?: boolean }).isMesh === true) meshes.push(object)
+      })
+      meshes[1]!.userData['vizcadPath'] = meshes[0]!.userData['vizcadPath']
+    })
+    // From the +x side, slanting down: it enters at x = 5 (z ≈ 3.75) and leaves at x = −5 (z ≈ 2.25), both above the
+    // cut at z = 0, then reaches the plane at x = −20, beyond the box.
+    host.camera.position.set(60, 0, 12)
+    host.camera.up.set(0, 0, 1)
+    host.camera.lookAt(-20, 0, 0)
+    host.camera.updateMatrixWorld()
+    tools.section.set({ axis: 'z', position: 0.5, flipped: false, hatch: true, handle: false })
+    tools.measure.start('mouse', false)
+    tap(...at(-20, 0, 0))
+    expect(measured().pending ?? null).toBeNull()
     scene.dispose()
   })
 
