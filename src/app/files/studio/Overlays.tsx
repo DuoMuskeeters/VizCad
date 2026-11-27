@@ -14,7 +14,7 @@ const tool = cx(
   fastTransition,
 )
 
-const CanvasTool = ({ label, onClick, children, showLabel = false, pressed }: { label: string; onClick: () => void; children: ReactNode; showLabel?: boolean; pressed?: boolean }) => (
+export const CanvasTool = ({ label, onClick, children, showLabel = false, pressed }: { label: string; onClick: () => void; children: ReactNode; showLabel?: boolean; pressed?: boolean }) => (
   <Tooltip content={label}>
     <button type="button" onClick={onClick} aria-label={showLabel ? undefined : label} aria-pressed={pressed} className={tool}>
       {children}

@@ -51,6 +51,7 @@ export type SceneHandle = {
   readonly thumbnail: (path: string, width: number, height: number) => Promise<Blob | null>
   /** The meshes of a node for an STL export (B7): the node's object, world transforms applied by the exporter. */
   readonly objectAt: (path: string) => Object3D | null
+  readonly colorOf: (path: string) => string | null
   /** Draw calls, geometries and textures still alive (dispose check, docs/11 §6). */
   readonly memory: () => { readonly geometries: number; readonly textures: number }
   readonly dispose: () => void
@@ -317,6 +318,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
       return [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]
     },
     objectAt: (path) => studio?.objectAt(path) ?? null,
+    colorOf: (path) => studio?.colorOf(path) ?? null,
     thumbnail: (path, width, height) =>
       new Promise((resolve) => {
         const target = studio?.objectAt(path)

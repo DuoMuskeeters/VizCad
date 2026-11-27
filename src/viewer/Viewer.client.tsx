@@ -34,6 +34,8 @@ export type ViewerApi = {
   /** World size of a node in model units (mm unless the file says otherwise). */
   readonly sizeOf: (path: string) => readonly [number, number, number] | null
   readonly triangles: (path: string) => Promise<number>
+  /** A node's colour in the file (before the scene record), `#rrggbb`. */
+  readonly colorOf: (path: string) => string | null
   /** Binary STL of a node (B7): in its place in the assembly, or centred on the origin. */
   readonly exportStl: (path: string, centered: boolean, name: string) => Promise<Blob | null>
 }
@@ -438,6 +440,7 @@ const Viewer = ({
     api.current = {
       thumbnail: (path, width, height) => scene.current?.thumbnail(path, width, height) ?? Promise.resolve(null),
       sizeOf: (path) => scene.current?.sizeOf(path) ?? null,
+      colorOf: (path) => scene.current?.colorOf(path) ?? null,
       triangles: async (path) => {
         const object = scene.current?.objectAt(path)
         if (!object) return 0

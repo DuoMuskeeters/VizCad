@@ -13,10 +13,22 @@ vi.mock('@tanstack/react-router', async () => {
   return { ...routerMock, useSearch: () => router.search, useNavigate: () => router.navigate }
 })
 
-const seen = vi.hoisted(() => ({ props: [] as ViewerProps[] }))
+const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][] }))
 vi.mock('#/viewer/Viewer.client', () => ({
   default: (props: ViewerProps) => {
     seen.props.push(props)
+    if (props.studio) {
+      props.studio.api.current = {
+        thumbnail: async () => null,
+        sizeOf: () => [420, 248, 372],
+        colorOf: () => '#888888',
+        triangles: async () => 48210,
+        exportStl: async (...args: unknown[]) => {
+          seen.stl.push(args)
+          return new Blob(['solid'])
+        },
+      }
+    }
     return (
       <section aria-label="3D view" hidden={props.hidden}>
         {props.overlay}
@@ -45,8 +57,8 @@ const file = {
 const answer = (data: unknown) => new Response(JSON.stringify({ ok: true, data }), { status: 200, headers: { 'content-type': 'application/json' } })
 
 const last = () => seen.props.at(-1)!
-const open = async () => {
-  const rendered = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(file) : undefined))
+const open = async (data: typeof file = file) => {
+  const rendered = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(data) : undefined))
   await screen.findByRole('region', { name: '3D view', hidden: true })
   act(() => {
     last().studio!.onReady?.(true)
@@ -55,7 +67,29 @@ const open = async () => {
   return rendered
 }
 
+type Answer = { scene: unknown; previous: unknown; canEdit: boolean; maxViews: number }
+const server = vi.hoisted(() => ({ answer: null as unknown, writes: [] as unknown[], writeStatus: 200, reads: 0 }))
+const stubScene = (answer: Answer) => {
+  server.answer = answer
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (!url.endsWith('/scene')) return new Response('{}', { status: 404 })
+    if (init?.method === 'POST') {
+      server.writes.push(JSON.parse(String(init.body)))
+      return server.writeStatus === 200
+        ? new Response(JSON.stringify({ ok: true, data: { revision: server.writes.length, updatedAt: 1 } }), { status: 200 })
+        : new Response(JSON.stringify({ ok: false, error: 'SceneConflict' }), { status: 409 })
+    }
+    server.reads++
+    return new Response(JSON.stringify({ ok: true, data: server.answer }), { status: 200 })
+  }))
+}
+
 beforeEach(() => {
+  vi.unstubAllGlobals()
+  server.writes = []
+  server.writeStatus = 200
+  server.reads = 0
+  seen.stl = []
   seen.props = []
   router.search = {}
   router.navigate.mockReset()
@@ -129,5 +163,89 @@ describe('assembly studio on the file page', () => {
     })
     expect(screen.queryByRole('tree')).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'View' })).not.toBeInTheDocument()
+  })
+})
+
+describe('scene prep (5c-2)', () => {
+  const editable: Answer = { scene: null, previous: null, canEdit: true, maxViews: 20 }
+
+  it('an editor colours a part; the change applies at once and is saved after a pause, with its name path', async () => {
+    stubScene(editable)
+    const { user } = await open()
+    await user.click(within(screen.getByRole('tree', { name: 'Parts tree' })).getByText('Motor'))
+    await waitFor(() => expect(server.reads).toBe(1))
+    await user.click(screen.getByRole('button', { name: 'Edit appearance' }))
+    expect(screen.getByText('You are editing the appearance.')).toBeInTheDocument()
+    const panel = screen.getByRole('region', { name: 'Edit appearance' })
+    await user.click(within(panel).getByRole('button', { name: 'Red' }))
+    expect(last().studio!.view.looks.get('0.1')).toEqual({ color: '#b23a2e', finish: undefined })
+    await waitFor(() => expect(server.writes).toHaveLength(1), { timeout: 3000 })
+    expect(server.writes[0]).toEqual({ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#b23a2e', at: 'Pump group/Motor' } }, views: [] } })
+    await waitFor(() => expect(within(panel).getByText('Saved')).toBeInTheDocument())
+    // Hidden for everyone: the visible switch writes the record.
+    await user.click(within(panel).getByRole('switch', { name: 'Visible' }))
+    expect(last().studio!.view.hidden.has('0.1')).toBe(true)
+    await waitFor(() => expect(server.writes).toHaveLength(2), { timeout: 3000 })
+    expect(server.writes[1]).toMatchObject({ revision: 1, body: { nodes: { '0.1': { color: '#b23a2e', hidden: true } } } })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('region', { name: 'Edit appearance' })).not.toBeInTheDocument()
+  }, 10_000)
+
+  it('a stale revision stops saving and offers a reload of the current record', async () => {
+    stubScene(editable)
+    server.writeStatus = 409
+    const { user } = await open()
+    await user.click(within(screen.getByRole('tree', { name: 'Parts tree' })).getByText('Motor'))
+    await user.click(screen.getByRole('button', { name: 'Edit appearance' }))
+    await user.click(within(screen.getByRole('region', { name: 'Edit appearance' })).getByRole('button', { name: 'Blue' }))
+    const alert = await screen.findByRole('alert', {}, { timeout: 3000 })
+    expect(alert).toHaveTextContent('Someone else changed this appearance.')
+    server.answer = { ...editable, scene: { revision: 7, body: { v: 1, nodes: { '0.0': { color: '#ffffff' } }, views: [] }, updatedAt: 1, updatedBy: 'Zeynep' } }
+    await user.click(within(alert).getByRole('button', { name: 'Reload' }))
+    await waitFor(() => expect(last().studio!.view.looks.get('0.0')).toEqual({ color: '#ffffff', finish: undefined }))
+    expect(last().studio!.view.looks.has('0.1')).toBe(false)
+  }, 10_000)
+
+  it('a new version offers the previous colours by name path: apply writes the matched entries', async () => {
+    stubScene({
+      ...editable,
+      previous: { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Pump group/Motor' }, '0.5': { color: '#000000', at: 'Pump group/Gone' } }, views: [] } },
+    })
+    const { user } = await open()
+    const banner = await screen.findByText('Apply the colours and names of version 3?')
+    expect(banner.parentElement).toHaveTextContent('1 parts matched, 1 did not.')
+    await user.click(screen.getByRole('button', { name: 'Unmatched' }))
+    expect(screen.getByRole('region', { name: 'Parts that did not match' })).toHaveTextContent('Pump group › Gone')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() => expect(server.writes).toEqual([{ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Pump group/Motor' } }, views: [] } }]))
+    await waitFor(() => expect(screen.queryByText('Apply the colours and names of version 3?')).not.toBeInTheDocument())
+  })
+
+  it('a reader sees the record applied (names, colours, hidden) and cannot edit; their eye overrides only their screen', async () => {
+    stubScene({ scene: { revision: 2, body: { v: 1, nodes: { '0.1': { name: 'Electric motor', color: '#3f7d4e' }, '0.0': { hidden: true } }, views: [] }, updatedAt: 1, updatedBy: 'Ada' }, previous: null, canEdit: false, maxViews: 20 })
+    const { user } = await open({ ...file, can: { ...file.can, edit: false } })
+    const tree = screen.getByRole('tree', { name: 'Parts tree' })
+    expect(await within(tree).findByText('Electric motor')).toBeInTheDocument()
+    expect(last().studio!.view.hidden.has('0.0')).toBe(true)
+    await user.click(within(tree).getByRole('button', { name: 'Show Frame' }))
+    expect(last().studio!.view.hidden.has('0.0')).toBe(false)
+    expect(server.writes).toEqual([])
+    await user.click(within(tree).getByText('Electric motor'))
+    const edit = screen.getByRole('button', { name: 'Edit appearance' })
+    expect(edit).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('Only people who can edit the file change its appearance.')).toBeInTheDocument()
+  })
+
+  it('downloads a part as STL in its place by default, centred on request (B7)', async () => {
+    stubScene(editable)
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} }))
+    const { user } = await open()
+    await user.click(within(screen.getByRole('tree', { name: 'Parts tree' })).getByText('Pump unit'))
+    await user.click(screen.getAllByRole('button', { name: 'Download as STL' })[0]!)
+    const dialog = await screen.findByRole('dialog', { name: 'Download the part as STL' })
+    expect(await within(dialog).findByText('48,210')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('radio', { name: /Centred on the origin/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Download STL' }))
+    await waitFor(() => expect(seen.stl).toEqual([['0.2', true, 'Pump unit']]))
   })
 })
