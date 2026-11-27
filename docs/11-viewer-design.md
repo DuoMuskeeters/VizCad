@@ -557,3 +557,33 @@ Branch `rewrite-faz5d`, 27 Kasım 2026. Görev iki parçaya bölündü (görevde
 3. **Kesit tutamağı tuvale çizilir**, DOM düğmesi değil (satır içi stil yasağı); klavyeyle kesit kaydırıcıdan ayarlanır.
 4. **"Görünüme kaydet"** düğmesi kayıtlı görünümler arayüzüyle 5d-2'de gelir.
 5. **Masaüstü "Fare ve klavye" kartı ve kısayollar** (F, 0–4) eklenmedi; Escape kartı kapatır.
+
+### 5d-2 · Yapılanlar
+
+- **Migration `0018_comment_anchor`** (tek nullable `ADD COLUMN`: `file_comments.anchor text CHECK(anchor IS NULL OR length(anchor) <= 1024)`; `check-migrations` geçiyor). Test `migration0018.test.ts`: eski yorumlar aynen (`anchor` NULL), legacy'nin sütunu anmayan yazımı çalışıyor, uzunluk sınırı. Staging'e **uygulanmadı** (uzak D1 komutu yok): `pnpm db:migrate:staging` ile 0017 ve 0018 birlikte.
+- **Yorum pini (§4.3, B3).** `anchor` = `{ v: 1, path, point }`: düğüm yolu ve noktanın o düğümün kendi koordinatlarında yeri (kök dönüşü ne olursa olsun parçada kalır). Sürüm, yorumun zaten tuttuğu `versionNumber`. `addComment` `anchor`'ı `Schema` ile doğrular (`server/scene.ts` `CommentAnchor`: yol kuralı §1.3, sonlu sayılar ±1e12, fazla alan 400); yanıta pin olmaz (`ValidationError`); silinen yorum pinini göstermez; okunamayan kayıt "pin yok". `listComments` `anchor`'ı döndürür, misafir görünürlüğü yorumla aynı.
+  - Tuvalde: pinler araç chunk'ındaki 2B katmanda numaralı daire; gizli ya da kesitle kesilen parçadaki pin soluk. Pine basmak yorumunu seçer (Yorumlar sekmesi açılır, yorum görünür olur); seçme yerine geçer. Ekran görüntüsünde pinler B8 gereği varsayılan dahil, kartta "Yorum pinlerini ekle".
+  - Yerleştirme: araç çubuğunda "Yorum pini" (telefonda "Yorum", B5 sırası) ya da yorum alanındaki "Pin" → modelde bir tık/dokunuş → Yorumlar sekmesi, yorum alanının üstünde pin çipi (numara + parça yolu, kaldır), "Pini taşı". Yalnız `comment` yetkisiyle ve açık modelde.
+  - Listede: bu sürümün pini numara + parça yolu (basınca pin vurgulanır ve parça seçilir); gizli parçada "· gizli · Göster" (gösterir, gerekirse yalıtımdan çıkar); başka sürümde bırakılan pin listede kalır, çizilmez: "Pin Sürüm N üzerinde bırakıldı; bu sürümde gösterilmez". "Pinleri tuvalde göster" anahtarı.
+  - Yorumlar sayfanın durumuna taşındı (`useComments`): sekme listeler, tuval aynı listeden pin çizer.
+- **Kayıtlı görünümler** (§3.1, §4.4): Ayrıntılar sekmesinde "Kayıtlı görünümler" (görünüş bölümünün altında). Herkes uygular: kamera (araç chunk'ı `camera.set`), görünümün gizli parçaları yalnız bu ekranda (B2, `viewHidden`), kesit (düzlemden ayara geri, `sectionFromPlane`); yalıtım varsa çıkılır. Masaüstünde düzenleme yetkilisi kaydeder (ad, boşsa "Görünüm N") ve siler; kesit kartında "Görünüme kaydet". Kayıt anındaki kamera, ekranda gizli parçalar ve kesit düzlemi yazılır; `savedViewsPerScene` sınırında düğme devre dışı + neden. Telefon: yalnız uygula (liste ve "Daha" menüsü).
+- **Paylaşılan sayfa: `GET /s/{token}/scene`** (`getLinkScene`, `http/share.ts`, rota `src/routes/s/$token/scene.ts`): linkin gösterdiği modelin kaydı; `preview` kuralı (parola kanıtı, süre, iptal) `model` ile aynı; yazma yok, önceki modelin kaydı yok, `updatedBy` her zaman `null`, kayıt erişimi denetim kaydına girmez (dosyanın baytı değil). Sorgu dizgisi 400, başka site 403, bağlantı başlıkları (`no-referrer`, `no-store`). Sayfa renkleri ve kalıcı gizlemeleri uygular, kayıtlı görünümleri listeler (yalnız uygula).
+- **5c'den kalan: sayfadan tamamen çıkınca kaybolan değişiklik.** `useScene`'e `onLost` geri çağırması: sayfanın üstündeki toast sağlayıcısına (`__root` `UiProvider`) gider; sayfa kapandıktan sonra düşen kayıt da bildirilir. Sayfadaki sayaç tabanlı bildirim kaldırıldı (çift bildirim olmasın), `lost` sayacı test için duruyor.
+- **Testler:** `comments.test.ts` (pin yazma/okuma, yanıtta pin yok, bozuk kayıt, silinen yorum), `app.test.ts` (anchor sınırları 400), `shareLinks.test.ts` + `share.test.ts` (`/s/{token}/scene`: yazar adı yok, iptal, parola, başlıklar, denetim yok), `tools.test.ts` (pin yerel koordinatı, pine basınca seçim, ölçünün `stop`'u başkasının tıklamasını almıyor), `math.test.ts` (düzlem ↔ ayar), `CommentsTab.pins.test.tsx`, `FileDetailPage.studio.test.tsx` (görünüm uygula/kaydet, telefonda yalnız uygula), `SharePage.test.tsx` (kayıt uygulanıyor, görünüm uygulanıyor, kaydetme yok), `useScene.test.ts` (sayfa kapandıktan sonra bildirim), `state.test.ts` (`viewHidden`).
+- **Ölçüm:** görüntüleyici **158,1 KB** gzip (değişmedi), araç chunk'ı 5,2 KB.
+- **Ekran görüntüleri** `design/ui-shots/tools/` `pins-*`, `views-*` (390 ve 1280, açık/koyu); denetimde sorun yok.
+
+### 5d-2 · Sapmalar
+
+1. **Pin yerel koordinatta**, normal saklanmıyor (şema `{ v, path, point }`); pin daire olarak çizildiği için normal gerekmedi.
+2. **Pin yanıtta yok:** yanıt, başladığı yorumun pinine aittir.
+3. **Kayıtlı görünüm kaydetmek düzenleme modu istemez:** masaüstünde düzenleme yetkisi yeter (aynı uç, aynı revizyon kuralı); tel kafesteki "Görünümü düzenle" paneli içindeki liste yerine Ayrıntılar sekmesinde tek yer.
+4. **Telefonda pinden sonra odak 400 ms gecikmeli:** dokunmanın tıklaması sayfa kaydıktan sonra yeni öğeye düşüyordu (Playwright'ta Ölçü düğmesine); gecikme bunu önler.
+5. **Pin taşımak** ayrı bir sürükleme değil: "Pini taşı" yeni nokta seçtirir.
+
+### Açık kalanlar (5d)
+
+- **Gerçek telefon ölçümü** (§6 ve §9 5d kabulü): iOS Safari ve orta sınıf Android'de 15 MB GLB ilk model < 3 s, 60 sn'de çökme yok, seçme < 5 ms (BVH'sız), büyüteçli ölçü, Web Share ile görüntü, çift dokunma. Bu kullanıcı tarafından yapılmalı; yerelde yalnız Chromium + CDP dokunma olayları denendi.
+- **Staging:** `0017` ve `0018` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-tools.cjs` ile tekrar.
+- Lighthouse paylaşılan sayfa (§9 5d kabulü) staging'de ölçülmeli.
+- Delik merkezine yapışma, dosya birimini STEP'ten okuma, masaüstü kısayol kartı (5d-1 sapmaları).
