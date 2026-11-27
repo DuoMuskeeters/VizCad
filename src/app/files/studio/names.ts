@@ -1,4 +1,5 @@
 /** Shown names and counts of assembly nodes (plain functions; the tree, folder view and panel share them). */
+import type { I18nKey } from '#/i18n'
 import { chainOf, findNode, type OutlineNode } from '#/viewer/tree/outline'
 
 export type Namer = (node: OutlineNode) => string
@@ -45,3 +46,11 @@ export const formatSize = (size: readonly [number, number, number], locale: stri
   }
   return `${size.map(one).join(' × ')} mm`
 }
+
+type Translate = (key: I18nKey, params?: Record<string, string | number>) => string
+/** Keys with a singular variant (`<key>One`, "1 part"). */
+export type CountedKey = { [K in I18nKey]: `${K}One` extends I18nKey ? K : never }[I18nKey]
+
+/** `t(key)` with `{count}` in the locale's digits, the `One` text for exactly one. */
+export const counted = (t: Translate, locale: string, key: CountedKey, count: number, params: Record<string, string | number> = {}) =>
+  t(count === 1 ? (`${key}One` as I18nKey) : key, { ...params, count: count.toLocaleString(locale) })

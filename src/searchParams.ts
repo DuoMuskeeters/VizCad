@@ -12,7 +12,7 @@ const RAW = ['node'] as const
 const unquote = (value: string) => (value.length >= 2 && value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value)
 
 export const parseSearch = (search: string): Record<string, unknown> => {
-  const out = defaultParseSearch(search)
+  const out: Record<string, unknown> = { ...defaultParseSearch(search) }
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   for (const key of RAW) {
     const raw = params.get(key)

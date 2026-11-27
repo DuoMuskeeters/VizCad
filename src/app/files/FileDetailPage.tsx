@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
 import { Box, ChevronLeft, Download, FileQuestion, LayoutGrid, ListTree, Loader2, PanelLeft, PanelRight, Share2, X } from 'lucide-react'
@@ -18,7 +18,7 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, outlineShape, soleChain, type OutlineNode } from '#/viewer/tree/outline'
+import { findNode, isNodePath, levelOf, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
 import { reportDerivativeFailure, uploadDerivative } from './derivative'
@@ -35,9 +35,11 @@ import { uploadThumbnail } from './thumbnail'
 import { abilitiesOf, contentUrl, isFullView, modelUrl, thumbnailUrl, type AnyFileView } from './types'
 import { type UploadItem, UploadPill, useUploads } from './UploadProvider'
 import { FolderView } from './studio/FolderView'
-import { baseName, formatSize, makeNamer, pathNames } from './studio/names'
+import { baseName, counted, formatSize, makeNamer, pathNames } from './studio/names'
 import { PathBar, SelectionBar } from './studio/Overlays'
 import { PartsList } from './studio/PartsList'
+import { initialStudio, studioReducer } from './studio/state'
+import { createThumbnailStore } from './studio/thumbnails'
 import { TreePanel } from './studio/TreePanel'
 import { useWide } from './studio/useWide'
 
@@ -107,7 +109,7 @@ const Details = ({ file, outline }: { file: AnyFileView; outline: OutlineNode | 
       {outline !== null && shape !== null ? (
         <>
           <Row label={t('studio.details.content')}>{t('studio.details.contentValue', { count: number(outline.parts) })}</Row>
-          <Row label={t('studio.details.levels')}>{t('studio.details.levelsValue', { assemblies: number(shape.assemblies), depth: number(shape.depth) })}</Row>
+          <Row label={t('studio.details.levels')}>{counted(t, locale, 'studio.details.levelsValue', shape.depth, { assemblies: counted(t, locale, 'studio.assemblies', shape.assemblies) })}</Row>
         </>
       ) : null}
       <Row label={t('file.details.version')}>
@@ -140,12 +142,29 @@ const Details = ({ file, outline }: { file: AnyFileView; outline: OutlineNode | 
   )
 }
 
-/** The page frame (B1): full width, outside the app's menu, with the studio's own top bar. */
-const Frame = ({ bar, children }: { bar: ReactNode; children: ReactNode }) => (
-  <div className="flex min-h-dvh flex-col app:h-dvh">
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-bg px-1.5 app:h-15 app:gap-2 app:px-4">{bar}</header>
+/**
+ * The page frame (B1): full width, outside the app's menu, with the studio's own top bar and a skip link to `#main`
+ * (every state has its `<main>`). `sub` is a second bar row for what does not fit next to the title below 360 px.
+ */
+const Frame = ({ bar, sub, children }: { bar: ReactNode; sub?: ReactNode; children: ReactNode }) => {
+  const { t } = useI18n()
+  return (
+    <div className="flex min-h-dvh flex-col app:h-dvh">
+      <a href="#main" className="sr-only z-50 rounded-md bg-bg px-3 py-2 font-medium text-text focus:not-sr-only focus:fixed focus:left-2 focus:top-2">
+        {t('app.nav.skip')}
+      </a>
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-bg px-1.5 app:h-15 app:gap-2 app:px-4">{bar}</header>
+      {sub ? <div className="flex shrink-0 justify-center border-b border-line bg-bg px-1.5 py-1 min-[360px]:hidden">{sub}</div> : null}
+      {children}
+    </div>
+  )
+}
+
+/** `<main>` of the states without a file (loading, missing, error). */
+const PlainMain = ({ children }: { children: ReactNode }) => (
+  <main id="main" tabIndex={-1} className="min-w-0 outline-none">
     {children}
-  </div>
+  </main>
 )
 
 const BackLink = ({ file }: { file: AnyFileView | null }) => {
@@ -194,16 +213,13 @@ export const FileDetailPage = () => {
   const [versionKey, setVersionKey] = useState(0)
   const phone = useMemo(() => isPhone(readDeviceHints()), [])
 
-  // The studio: the open model's outline and what this screen does with it (never saved, B2).
-  const [outline, setOutline] = useState<OutlineNode | null>(null)
-  const [modelReady, setModelReady] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set())
+  // The studio: the open model's outline and what this screen does with it (never saved, B2), in one reducer.
+  const [studioState, dispatch] = useReducer(studioReducer, null, initialStudio)
+  const { outline, ready: modelReady, selected, hidden, sheet } = studioState
   const [treeOpen, setTreeOpen] = useState(true)
   const [panelOpen, setPanelOpen] = useState(true)
-  const [sheet, setSheet] = useState<{ level: string } | null>(null)
   const api = useRef<ViewerApi | null>(null)
-  const thumbnails = useRef(new Map<string, string>())
+  const [thumbnails] = useState(createThumbnailStore)
 
   const load = useCallback(async () => {
     const result = await call<AnyFileView>('getFile', { workspaceId: active.id, fileId: id })
@@ -272,30 +288,38 @@ export const FileDetailPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploads.finished])
 
-  // Another model (a new version, another file): the studio starts over and the old thumbnails are freed.
-  const modelKey = state.status === 'ready' ? `${state.file.id}:${state.file.currentVersion.number}` : null
-  useEffect(() => {
-    setOutline(null)
-    setSelected(null)
-    setHidden(new Set())
-    setSheet(null)
-    const cache = thumbnails.current
-    return () => {
-      cache.forEach((url) => URL.revokeObjectURL(url))
-      cache.clear()
-    }
-  }, [modelKey])
+  // Another model (a new version, another file) or Preparing (no viewer, so no model): the studio starts over at once
+  // (during render, so no frame shows the old tree) and the old thumbnails are freed.
+  const shownFile = state.status === 'ready' ? state.file : null
+  const shownFormat = shownFile === null ? null : formatOfExtension(shownFile.extension)
+  const preparingModel = shownFile !== null && shownFormat !== null && isConvertFormat(shownFormat) && shownFile.model.kind !== 'derivative' && (preparingHere || held === shownFile.id)
+  const modelKey = shownFile === null ? null : `${shownFile.id}:${shownFile.currentVersion.number}${preparingModel ? ':preparing' : ''}`
+  if (studioState.key !== modelKey) dispatch({ type: 'reset', key: modelKey })
+  useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
 
   const nodeParam = search.node
   const node = outline !== null && nodeParam !== undefined && findNode(outline, nodeParam) !== null ? nodeParam : null
   const stale = outline !== null && nodeParam !== undefined && node === null
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
+  // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank).
+  useEffect(() => {
+    if (isolated !== null) dispatch({ type: 'unhide', path: isolated })
+  }, [isolated])
   const view = useMemo<StudioView>(() => ({ selected, isolated, hidden, looks: new Map() }), [selected, isolated, hidden])
   const studio = useMemo(
-    () => ({ view, api, onOutline: setOutline, onPick: setSelected, onReady: setModelReady }),
+    () => ({
+      view,
+      api,
+      onOutline: (next: OutlineNode | null) => dispatch({ type: 'outline', outline: next }),
+      onPick: (path: string | null) => dispatch({ type: 'select', path }),
+      onReady: (ready: boolean) => dispatch({ type: 'ready', ready }),
+    }),
     [view],
   )
+  const setSelected = useCallback((path: string | null) => dispatch({ type: 'select', path }), [])
+  const setSheet = useCallback((next: { level: string } | null) => dispatch({ type: 'sheet', sheet: next }), [])
+  const showAll = useCallback(() => dispatch({ type: 'showAll' }), [])
 
   const go = useCallback(
     (next: { node?: string | null; view?: 'parts' | null }) => {
@@ -313,14 +337,7 @@ export const FileDetailPage = () => {
     },
     [navigate, id, search],
   )
-  const toggleHidden = useCallback((path: string) => {
-    setHidden((current) => {
-      const next = new Set(current)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
-  }, [])
+  const toggleHidden = useCallback((path: string) => dispatch({ type: 'toggleHidden', path }), [])
   const copyLink = useCallback(
     (path: string) => {
       const url = `${window.location.origin}/app/files/${encodeURIComponent(id)}?node=${path}`
@@ -344,20 +361,23 @@ export const FileDetailPage = () => {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [sheet])
+  }, [sheet, setSheet])
 
   if (state.status === 'loading')
     return (
       <Frame bar={<BackLink file={null} />}>
-        <div role="status" aria-busy="true" aria-label={t('file.loading')} className="grid gap-4 p-4 app:grid-cols-[minmax(0,1fr)_360px] app:p-6">
-          <Skeleton className="aspect-4/3 w-full" />
-          <Skeleton className="h-80 w-full" />
-        </div>
+        <PlainMain>
+          <div role="status" aria-busy="true" aria-label={t('file.loading')} className="grid gap-4 p-4 app:grid-cols-[minmax(0,1fr)_360px] app:p-6">
+            <Skeleton className="aspect-4/3 w-full" />
+            <Skeleton className="h-80 w-full" />
+          </div>
+        </PlainMain>
       </Frame>
     )
   if (state.status === 'missing')
     return (
       <Frame bar={<BackLink file={null} />}>
+        <PlainMain>
         <div className="px-4 py-10">
           <EmptyState
             icon={<FileQuestion />}
@@ -370,16 +390,19 @@ export const FileDetailPage = () => {
             }
           />
         </div>
+        </PlainMain>
       </Frame>
     )
   if (state.status === 'error')
     return (
       <Frame bar={<BackLink file={null} />}>
-        <div className="px-4 py-10">
-          <InlineAlert title={t('file.error.title')} action={<Button onClick={() => void load()}>{t('common.retry')}</Button>}>
-            {t('files.error.lead')}
-          </InlineAlert>
-        </div>
+        <PlainMain>
+          <div className="px-4 py-10">
+            <InlineAlert title={t('file.error.title')} action={<Button onClick={() => void load()}>{t('common.retry')}</Button>}>
+              {t('files.error.lead')}
+            </InlineAlert>
+          </div>
+        </PlainMain>
       </Frame>
     )
 
@@ -403,7 +426,7 @@ export const FileDetailPage = () => {
     : format !== null && deferOpen(format, phone) ? 'phone'
     : 'auto'
 
-  const preparing = converts && model.kind !== 'derivative' && (preparingHere || held === loaded.id)
+  const preparing = preparingModel
   const hasViewer = !preparing && model.kind !== 'none' && format !== null
   // An assembly (A4: more than one part) gets the tree and the Parts view; before the model is open the stored count decides.
   const parts = outline?.parts ?? derivative?.parts ?? 0
@@ -441,8 +464,8 @@ export const FileDetailPage = () => {
     },
   }
 
-  const viewSwitch = assembly ? (
-    <nav aria-label={t('studio.view.label')} className="flex shrink-0 rounded-lg bg-hover p-0.5">
+  const viewSwitch = (where: 'bar' | 'row') => (
+    <nav aria-label={t('studio.view.label')} className={cx('flex shrink-0 rounded-lg bg-hover p-0.5', where === 'bar' && 'max-[359px]:hidden')}>
       {(
         [
           ['model', false, <Box key="i" aria-hidden className="size-4" />, t('studio.view.model')],
@@ -461,11 +484,12 @@ export const FileDetailPage = () => {
           )}
         >
           {icon}
-          <span className="sr-only app:not-sr-only">{label}</span>
+          {/* The second row (below 360 px) has room for the words. */}
+          <span className={where === 'row' ? undefined : 'sr-only app:not-sr-only'}>{label}</span>
         </button>
       ))}
     </nav>
-  ) : null
+  )
 
   const bar = (
     <>
@@ -482,7 +506,7 @@ export const FileDetailPage = () => {
           <p className="truncate text-sm text-text-2">{subtitle}</p>
         )}
       </div>
-      {viewSwitch}
+      {assembly ? viewSwitch('bar') : null}
       <div className="flex shrink-0 items-center gap-1 app:gap-2">
         <UploadPill />
         {wide ? (
@@ -550,7 +574,7 @@ export const FileDetailPage = () => {
         <FolderView
           outline={outline}
           nameOf={nameOf}
-          level={node ?? soleChain(outline).path}
+          level={levelOf(outline, node)}
           wide={wide}
           selected={selected}
           hidden={hidden}
@@ -562,8 +586,9 @@ export const FileDetailPage = () => {
           }}
           onCopyLink={copyLink}
           onToggleHidden={toggleHidden}
+          onShowAll={showAll}
           thumbnail={drawThumbnail}
-          thumbnails={thumbnails.current}
+          thumbnails={thumbnails}
         />
       ) : null}
       <Suspense fallback={<ViewerFallback src={thumbnail} fill={wide} />}>
@@ -596,7 +621,7 @@ export const FileDetailPage = () => {
           hidden={showFolder}
           toolbarStart={
             assembly && !wide ? (
-              <Button variant="ghost" aria-pressed={sheet !== null} onClick={() => setSheet((open) => (open === null && outline !== null ? { level: isolated ?? soleChain(outline).path } : null))} className="aria-pressed:bg-accent-soft aria-pressed:text-accent" {...(studioReady ? {} : { disabledReason: t('viewer.tool.notReady') })}>
+              <Button variant="ghost" aria-pressed={sheet !== null} onClick={() => setSheet(sheet === null && outline !== null ? { level: levelOf(outline, isolated) } : null)} className="aria-pressed:bg-accent-soft aria-pressed:text-accent" {...(studioReady ? {} : { disabledReason: t('viewer.tool.notReady') })}>
                 <ListTree aria-hidden className="size-4.5" />
                 {t('studio.view.parts')}
               </Button>
@@ -627,7 +652,7 @@ export const FileDetailPage = () => {
         </span>
         <div className="min-w-0">
           <p className="break-words text-md font-semibold">{nameOf(selectedNode)}</p>
-          <p className="text-sm text-text-2">{selectedNode.children.length > 0 ? t('studio.kind.assembly', { count: number(selectedNode.parts) }) : t('studio.kind.part')}</p>
+          <p className="text-sm text-text-2">{selectedNode.children.length > 0 ? counted(t, locale, 'studio.kind.assembly', selectedNode.parts) : t('studio.kind.part')}</p>
         </div>
       </div>
       <dl className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 text-base">
@@ -708,7 +733,7 @@ export const FileDetailPage = () => {
   const showPanel = !wide || panelOpen
 
   return (
-    <Frame bar={bar}>
+    <Frame bar={bar} sub={assembly && !wide ? viewSwitch('row') : undefined}>
       <div
         className={cx(
           'flex-1 app:grid app:min-h-0',
@@ -727,7 +752,7 @@ export const FileDetailPage = () => {
             hidden={hidden}
             onSelect={setSelected}
             onToggleHidden={toggleHidden}
-            onShowAll={() => setHidden(new Set())}
+            onShowAll={showAll}
             onClose={() => setTreeOpen(false)}
           />
         ) : null}
@@ -756,6 +781,7 @@ export const FileDetailPage = () => {
               hidden={hidden}
               onActivate={(picked) => setSelected(picked.path)}
               onToggleHidden={toggleHidden}
+              onShowAll={showAll}
             />
           </div>
         </section>

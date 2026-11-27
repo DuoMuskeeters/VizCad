@@ -3,15 +3,16 @@
  * "Assembly · N parts" band, a search of this level and a grid (part thumbnails drawn one by one from the open model,
  * A3) or list. Phone: the same path and band over the flat parts list (§4.4). `?node=` is the level.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Box, Boxes, ChevronRight, Ellipsis, Folder, LayoutGrid, Link2, List, Loader2, MousePointer2, Package, Search, SearchX } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
 import { cx, fastTransition } from '#/components/ui/cx'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '#/components/ui/Menu'
 import { useI18n } from '#/i18n'
-import { findNode, isAssembly, searchOutline, type OutlineNode } from '#/viewer/tree/outline'
-import { pathNames, type Namer } from './names'
+import { findNode, isAssembly, levelOf, searchOutline, type OutlineNode } from '#/viewer/tree/outline'
+import { counted, pathNames, type Namer } from './names'
 import { PartsList } from './PartsList'
+import { useThumbnail, useThumbnailsDone, type ThumbnailStore } from './thumbnails'
 
 /** Thumbnails are drawn at 2× the card's CSS size, 4:3. */
 const THUMB_W = 392
@@ -20,34 +21,65 @@ const THUMB_H = 294
 export type ThumbnailSource = (path: string, width: number, height: number) => Promise<Blob | null>
 
 /**
- * Draws the thumbnails of `paths` one at a time (A3: in the browser, on demand) into `cache` (path → object URL, owned
- * by the page, freed with the model). Stops as soon as `paths` changes or the view closes; returns how many are done.
+ * Draws the thumbnails of `paths` one at a time (A3: in the browser, on demand) into `store` (owned by the page, freed
+ * with the model). A node without an image (no geometry, a failed draw) is stored as `null`, so it never spins. Stops
+ * as soon as `paths` changes or the view closes; starts over when the store is cleared (new colours).
  */
-const useThumbnails = (paths: readonly string[], draw: ThumbnailSource, cache: Map<string, string>) => {
-  const [, setTick] = useState(0)
+const useThumbnails = (paths: readonly string[], draw: ThumbnailSource, store: ThumbnailStore) => {
   const key = paths.join(',')
+  // Changes when the store is cleared (every entry gone): the loop must run again.
+  const empty = useSyncExternalStore(store.subscribe, () => paths.every((path) => store.get(path) === undefined), () => true)
   useEffect(() => {
     let stopped = false
     void (async () => {
       for (const path of paths) {
         if (stopped) return
-        if (cache.has(path)) continue
+        if (store.get(path) !== undefined) continue
         // One frame between drawings keeps the page responsive on a 455-part level.
         await new Promise((resolve) => requestAnimationFrame(resolve))
         if (stopped) return
         const blob = await draw(path, THUMB_W, THUMB_H).catch(() => null)
         if (stopped) return
-        if (blob !== null && !cache.has(path)) cache.set(path, URL.createObjectURL(blob))
-        setTick((n) => n + 1)
+        store.set(path, blob)
       }
     })()
     return () => {
       stopped = true
     }
-    // `key` stands for `paths`.
+    // `key` stands for `paths`; `empty` restarts the loop after a clear.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, draw, cache])
-  return paths.filter((path) => cache.has(path)).length
+  }, [key, draw, store, empty])
+}
+
+/** One card's image: re-renders alone when its thumbnail lands. */
+const Thumb = ({ store, path, className, label }: { store: ThumbnailStore; path: string; className: string; label: boolean }) => {
+  const { t } = useI18n()
+  const url = useThumbnail(store, path)
+  return (
+    <span className={cx('relative grid place-items-center overflow-hidden bg-canvas', className)}>
+      {url ? (
+        <img src={url} alt="" className="size-full object-contain" />
+      ) : url === null ? (
+        <Box aria-hidden className="size-6 text-canvas-text/60" />
+      ) : (
+        <span className="grid justify-items-center gap-1.5 text-sm text-canvas-text/80">
+          <Loader2 aria-hidden className="size-5 text-brand motion-safe:animate-spin" />
+          {label ? t('studio.folder.drawing') : null}
+        </span>
+      )}
+    </span>
+  )
+}
+
+const Progress = ({ store, paths }: { store: ThumbnailStore; paths: readonly string[] }) => {
+  const { t, locale } = useI18n()
+  const done = useThumbnailsDone(store, paths)
+  if (done >= paths.length) return null
+  return (
+    <p role="status" className="flex items-center gap-2 text-sm text-text-2">
+      {t('studio.folder.progress', { done: done.toLocaleString(locale), total: paths.length.toLocaleString(locale) })}
+    </p>
+  )
 }
 
 export type FolderViewProps = {
@@ -65,7 +97,9 @@ export type FolderViewProps = {
   readonly onCopyLink: (path: string) => void
   readonly onToggleHidden: (path: string) => void
   readonly thumbnail: ThumbnailSource
-  readonly thumbnails: Map<string, string>
+  readonly thumbnails: ThumbnailStore
+  /** Shows every hidden part again (phone list). */
+  readonly onShowAll?: (() => void) | undefined
   /** More items for a part's menu (STL, 5c-2). */
   readonly menuExtra?: ((node: OutlineNode) => ReactNode) | undefined
 }
@@ -73,9 +107,9 @@ export type FolderViewProps = {
 export const FolderView = (props: FolderViewProps) => {
   const { outline, nameOf, level, wide, onLevel, onOpen3d } = props
   const { t, locale } = useI18n()
-  const at = findNode(outline, level) ?? outline
+  // A part as the level (a pasted part link) opens its parent: a part has no level of its own.
+  const at = findNode(outline, levelOf(outline, level)) ?? outline
   const crumbs = pathNames(outline, at.path, nameOf)
-  const number = (n: number) => n.toLocaleString(locale)
   const assemblies = at.children.filter(isAssembly).length
   const root = at.path === '0'
 
@@ -103,8 +137,10 @@ export const FolderView = (props: FolderViewProps) => {
           {root ? <Package aria-hidden className="size-5" /> : <Boxes aria-hidden className="size-5" />}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold leading-snug">{root ? t('studio.kind.root', { count: number(at.parts) }) : t('studio.kind.assembly', { count: number(at.parts) })}</h1>
-          <p className="text-base text-text-2">{t('studio.band.lead', { assemblies: number(assemblies), parts: number(at.children.length - assemblies) })}</p>
+          <h1 className="text-lg font-semibold leading-snug">{root ? counted(t, locale, 'studio.kind.root', at.parts) : counted(t, locale, 'studio.kind.assembly', at.parts)}</h1>
+          <p className="text-base text-text-2">
+            {t('studio.band.lead', { assemblies: counted(t, locale, 'studio.assemblies', assemblies), parts: counted(t, locale, 'studio.parts', at.children.length - assemblies) })}
+          </p>
         </div>
         <Button onClick={() => onOpen3d(at.path)} className="w-full app:w-auto">
           <Box aria-hidden className="size-4.5" />
@@ -124,6 +160,7 @@ export const FolderView = (props: FolderViewProps) => {
           hidden={props.hidden}
           onActivate={(node) => props.onShowInAssembly(node.path)}
           onToggleHidden={props.onToggleHidden}
+          onShowAll={props.onShowAll}
           enterOnTap
           showLevel={false}
         />
@@ -141,9 +178,8 @@ const WideLevel = ({ outline, nameOf, at, onLevel, onOpen3d, onShowInAssembly, o
   const found = useMemo(() => (query.trim() === '' ? null : searchOutline(outline, query, nameOf, 200, at)), [outline, query, nameOf, at])
   const items = found === null ? at.children : found.hits.map((hit) => hit.node)
   const paths = useMemo(() => items.map((node) => node.path), [items])
-  const done = useThumbnails(paths, thumbnail, thumbnails)
-  const number = (n: number) => n.toLocaleString(locale)
-  const meta = (node: OutlineNode) => (isAssembly(node) ? t('studio.kind.assembly', { count: number(node.parts) }) : t('studio.kind.part'))
+  useThumbnails(paths, thumbnail, thumbnails)
+  const meta = (node: OutlineNode) => (isAssembly(node) ? counted(t, locale, 'studio.kind.assembly', node.parts) : t('studio.kind.part'))
   const activate = (node: OutlineNode) => (isAssembly(node) ? (setQuery(''), onLevel(node.path)) : onShowInAssembly(node.path))
 
   const menu = (node: OutlineNode, name: string) => (
@@ -169,21 +205,7 @@ const WideLevel = ({ outline, nameOf, at, onLevel, onOpen3d, onShowInAssembly, o
     </Menu>
   )
 
-  const thumb = (node: OutlineNode, className: string, label: boolean) => {
-    const url = thumbnails.get(node.path)
-    return (
-      <span className={cx('relative grid place-items-center overflow-hidden bg-canvas', className)}>
-        {url ? (
-          <img src={url} alt="" className="size-full object-contain" />
-        ) : (
-          <span className="grid justify-items-center gap-1.5 text-sm text-canvas-text/80">
-            <Loader2 aria-hidden className="size-5 text-brand motion-safe:animate-spin" />
-            {label ? t('studio.folder.drawing') : null}
-          </span>
-        )}
-      </span>
-    )
-  }
+  const thumb = (node: OutlineNode, className: string, label: boolean) => <Thumb store={thumbnails} path={node.path} className={className} label={label} />
 
   return (
     <>
@@ -199,11 +221,7 @@ const WideLevel = ({ outline, nameOf, at, onLevel, onOpen3d, onShowInAssembly, o
             className="h-11 w-full rounded-md border border-line-strong bg-bg pl-9 pr-3 text-lg placeholder:text-text-3 app:h-9.5 app:text-base"
           />
         </label>
-        {done < paths.length ? (
-          <p role="status" className="flex items-center gap-2 text-sm text-text-2">
-            {t('studio.folder.progress', { done: number(done), total: number(paths.length) })}
-          </p>
-        ) : null}
+        <Progress store={thumbnails} paths={paths} />
         <div role="group" aria-label={t('studio.folder.layout')} className="ml-auto inline-flex rounded-md bg-hover p-0.5">
           {(['grid', 'list'] as const).map((value) => (
             <button
@@ -238,7 +256,7 @@ const WideLevel = ({ outline, nameOf, at, onLevel, onOpen3d, onShowInAssembly, o
                   {isAssembly(node) ? (
                     <span className="absolute left-2 top-2 inline-flex h-6 items-center gap-1.5 rounded-full bg-canvas/85 px-2 text-sm font-medium text-canvas-text">
                       <Folder aria-hidden className="size-3.5" />
-                      {t('studio.parts', { count: number(node.parts) })}
+                      {counted(t, locale, 'studio.parts', node.parts)}
                     </span>
                   ) : null}
                 </button>
@@ -266,7 +284,7 @@ const WideLevel = ({ outline, nameOf, at, onLevel, onOpen3d, onShowInAssembly, o
                 </button>
                 <span className="text-base text-text-2">{isAssembly(node) ? t('studio.folder.kindAssembly') : t('studio.folder.kindPart')}</span>
                 <span className="flex items-center gap-3">
-                  <span className="w-24 text-base tabular-nums text-text-2">{isAssembly(node) ? t('studio.parts', { count: number(node.parts) }) : ''}</span>
+                  <span className="w-24 text-base tabular-nums text-text-2">{isAssembly(node) ? counted(t, locale, 'studio.parts', node.parts) : ''}</span>
                   {menu(node, name)}
                 </span>
               </li>
