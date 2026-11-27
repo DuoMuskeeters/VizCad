@@ -13,11 +13,16 @@ const numberFormat = (locale: string, digits: number) => {
   }
   return format
 }
+/** A value that rounds to zero is shown as 0, never "-0". */
+const formatted = (value: number, locale: string, digits: number) => {
+  const step = 10 ** -digits / 2
+  return numberFormat(locale, digits).format(Math.abs(value) < step ? 0 : value)
+}
 
 /** "1.000,0 mm" / "39.37 in": one decimal in millimetres, two in inches. */
 export const formatLength = (mm: number, unit: LengthUnit, locale: string) =>
-  unit === 'mm' ? `${numberFormat(locale, 1).format(mm)} mm` : `${numberFormat(locale, 2).format(mm / MM_PER_INCH)} in`
+  unit === 'mm' ? `${formatted(mm, locale, 1)} mm` : `${formatted(mm / MM_PER_INCH, locale, 2)} in`
 
 /** A place along an axis (the section): whole millimetres, or inches with one decimal. */
 export const formatPlace = (mm: number, unit: LengthUnit, locale: string) =>
-  unit === 'mm' ? `${numberFormat(locale, 0).format(mm)} mm` : `${numberFormat(locale, 1).format(mm / MM_PER_INCH)} in`
+  unit === 'mm' ? `${formatted(mm, locale, 0)} mm` : `${formatted(mm / MM_PER_INCH, locale, 1)} in`

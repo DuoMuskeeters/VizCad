@@ -4,7 +4,7 @@
  * (Parts · Section · Measure · Screenshot · More), cards open as a sheet at the bottom in the app's theme. Plain React,
  * no three.js: the viewer chunk stays as it is.
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Axis3d, Bookmark, BookmarkPlus, Camera, Check, MapPin, Cuboid, Download, Ellipsis, Eraser, FileDown, FlipHorizontal2, Focus, Grid3x3, ListTree, Move, Paintbrush, Pointer, Rotate3d, Ruler,
   ScissorsLineDashed, Share, Trash2, X, ZoomIn,
@@ -13,6 +13,7 @@ import { Button, IconButton } from '#/components/ui/Button'
 import { cx, fastTransition } from '#/components/ui/cx'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '#/components/ui/Menu'
 import { useToast } from '#/components/ui/Toast'
+import { Tooltip } from '#/components/ui/Tooltip'
 import { useI18n, type I18nKey } from '#/i18n'
 import type { ViewName } from '#/viewer/scene/fit'
 import type { Axis, Measurement, ScreenshotOptions, Snap } from '#/viewer/tools/types'
@@ -43,16 +44,44 @@ const saveBlob = (blob: Blob, fileName: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** Phone (B8): the share sheet with the image when the browser can share files, else a download. */
+/**
+ * Phone (B8): the share sheet with the image when the browser can share files, else a download. A share that fails
+ * (not allowed, no share target) downloads instead; only a dismissed sheet (AbortError) ends there.
+ */
 const shareOrSave = async (blob: Blob, fileName: string) => {
   const file = new File([blob], fileName, { type: 'image/png' })
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean }
   if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
-    // A dismissed share sheet is not an error.
-    await nav.share({ files: [file], title: fileName }).catch(() => undefined)
-    return
+    const done = await nav.share({ files: [file], title: fileName }).then(
+      () => true,
+      (error: unknown) => error instanceof Error && error.name === 'AbortError',
+    )
+    if (done) return
   }
   saveBlob(blob, fileName)
+}
+
+/**
+ * A phone toolbar cell. Not ready: it stays focusable and a tap shows why (touch has no hover), as `Button` does.
+ */
+const Cell = ({ className, pressed, reason, onClick, children }: { className: string; pressed: boolean; reason: string | undefined; onClick: () => void; children: ReactNode }) => {
+  const [tip, setTip] = useState(false)
+  const button = (
+    <button
+      type="button"
+      className={className}
+      aria-pressed={pressed}
+      onClick={() => (reason === undefined ? onClick() : setTip(true))}
+      {...(reason === undefined ? {} : { 'aria-disabled': true, 'aria-description': reason })}
+    >
+      {children}
+    </button>
+  )
+  return reason === undefined ? button : (
+    <Tooltip content={reason} open={tip} onOpenChange={setTip}>
+      {button}
+    </Tooltip>
+  )
 }
 
 export type ToolbarProps = {
@@ -133,24 +162,20 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly, pins 
     'aria-pressed:bg-accent-soft aria-pressed:text-accent aria-disabled:opacity-55',
     fastTransition,
   )
-  const blocked = (reason: string | undefined, act: () => void) => () => {
-    if (reason === undefined) act()
-  }
-  const reasonOf = (reason?: string) => (reason === undefined ? {} : { 'aria-disabled': true, title: reason })
   const notReadyReason = controls.ready ? undefined : t('viewer.tool.notReady')
   return (
     <div role="toolbar" aria-label={t('tools.toolbar')} className="flex items-stretch gap-0.5 pb-1">
       {parts ? (
-        <button type="button" className={cell} aria-pressed={parts.open} onClick={blocked(parts.disabledReason, parts.onToggle)} {...reasonOf(parts.disabledReason)}>
+        <Cell className={cell} pressed={parts.open} reason={parts.disabledReason} onClick={parts.onToggle}>
           <ListTree aria-hidden className="size-5" />
           <span className="max-w-full truncate">{t('studio.view.parts')}</span>
-        </button>
+        </Cell>
       ) : null}
       {names.map((name) => (
-        <button key={name} type="button" className={cell} aria-pressed={isOn(name)} onClick={blocked(notReadyReason, () => tools.open(name))} {...reasonOf(notReadyReason)}>
+        <Cell key={name} className={cell} pressed={isOn(name)} reason={notReadyReason} onClick={() => tools.open(name)}>
           <span aria-hidden className="[&>svg]:size-5">{toolIcon[name]}</span>
           <span className="max-w-full truncate">{name === 'shot' ? t('tools.shot.short') : name === 'pin' ? t('tools.pin.short') : t(toolKey[name])}</span>
-        </button>
+        </Cell>
       ))}
       <Menu>
         <MenuTrigger asChild>
@@ -364,6 +389,7 @@ const MeasureBody = ({ tools, wide, dark, nameOf }: { tools: StudioTools; wide: 
             </IconButton>
           ) : null}
         </div>
+        <p className="text-sm text-text-3">{t('tools.measure.unitNote')}</p>
       </div>
     )
   }
@@ -458,20 +484,40 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false, o
   const { t } = useI18n()
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
+  const card = useRef<HTMLElement>(null)
   const name = tools.tool
+  // Desktop: the canvas area under the section card, so its handle keeps clear of it (the card follows its content).
+  const { setCovered } = tools
+  const covers = wide && name === 'section'
+  useLayoutEffect(() => {
+    const element = card.current
+    if (!covers || element === null) return
+    const report = () => setCovered({ left: element.offsetLeft, top: element.offsetTop, right: element.offsetLeft + element.offsetWidth, bottom: element.offsetTop + element.offsetHeight })
+    report()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(report)
+    observer?.observe(element)
+    const parent = element.offsetParent
+    if (parent !== null) observer?.observe(parent)
+    return () => {
+      observer?.disconnect()
+      setCovered(null)
+    }
+  }, [covers, below, setCovered])
   if (name === null || name === 'pin') return null
   const dark = wide
   const title = t(toolKey[name])
+  const failed = () => toast({ title: t('tools.shot.failed'), tone: 'danger' })
   const take = () => {
     setBusy(true)
     void tools
       .screenshot(tools.shot)
       .then(async (blob) => {
-        if (blob === null) return toast({ title: t('tools.shot.failed'), tone: 'danger' })
+        if (blob === null) return failed()
         const png = `${fileName.replace(/\.[^.]+$/, '') || 'model'}.png`
         if (wide) saveBlob(blob, png)
         else await shareOrSave(blob, png)
       })
+      .catch(failed)
       .finally(() => setBusy(false))
   }
   const footer =
@@ -514,10 +560,15 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false, o
     )
   return (
     <section
+      ref={card}
       aria-label={title}
       className={cx(
         wide
-          ? cx('absolute left-3 z-10 grid max-h-[calc(100%-24px)] w-72 grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto rounded-xl border border-white/10 bg-canvas/95 p-3.5 text-canvas-text shadow-pop', below ? 'top-16' : 'top-3')
+          ? cx(
+              'absolute left-3 z-10 grid w-72 max-w-[calc(100%-24px)] grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto rounded-xl border border-white/10 bg-canvas/95 p-3.5 text-canvas-text shadow-pop',
+              // Under the selection bar (top 64 px), the card ends 12 px above the canvas's bottom all the same.
+              below ? 'top-16 max-h-[calc(100%-76px)]' : 'top-3 max-h-[calc(100%-24px)]',
+            )
           : 'fixed inset-x-0 bottom-0 z-30 grid max-h-[58dvh] grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto rounded-t-xl border-t border-line bg-bg px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-pop',
       )}
     >
@@ -533,8 +584,21 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false, o
           <X aria-hidden className="size-4.5" />
         </button>
       </header>
-      {name === 'section' ? <SectionBody tools={tools} wide={wide} dark={dark} /> : name === 'measure' ? <MeasureBody tools={tools} wide={wide} dark={dark} nameOf={nameOf} /> : <ShotBody tools={tools} dark={dark} pins={pins} />}
-      {footer ? <footer className="flex flex-wrap gap-2">{footer}</footer> : null}
+      {tools.failed ? (
+        <div role="alert" className="grid gap-3">
+          <p className={cx('text-base', dark ? 'opacity-90' : 'text-text-2')}>{t('tools.loadFailed')}</p>
+          <div>
+            <CardButton dark={dark} onClick={tools.retry}>
+              {t('tools.retry')}
+            </CardButton>
+          </div>
+        </div>
+      ) : (
+        <>
+          {name === 'section' ? <SectionBody tools={tools} wide={wide} dark={dark} /> : name === 'measure' ? <MeasureBody tools={tools} wide={wide} dark={dark} nameOf={nameOf} /> : <ShotBody tools={tools} dark={dark} pins={pins} />}
+          {footer ? <footer className="flex flex-wrap gap-2">{footer}</footer> : null}
+        </>
+      )}
     </section>
   )
 }

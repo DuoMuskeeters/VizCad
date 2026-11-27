@@ -19,6 +19,8 @@ export type SectionSettings = {
   readonly handle: boolean
 }
 
+export type CoveredRect = { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
+
 /** The model's extent along an axis, in model units (mm). */
 export type SectionRange = { readonly min: number; readonly max: number }
 
@@ -84,6 +86,10 @@ export type ToolsApi = {
     readonly range: (axis: Axis) => SectionRange | null
     /** The handle was dragged to a new position (0–1). */
     readonly onDrag: (listener: (position: number) => void) => () => void
+    /** The part the range fits (the isolated one), null for the whole model. */
+    readonly setScope: (path: string | null) => void
+    /** The canvas area under the open card (CSS px from the canvas's top left): the handle keeps out of it. */
+    readonly setCovered: (rect: CoveredRect | null) => void
   }
   readonly measure: {
     readonly start: (mode: MeasureMode, single: boolean) => void

@@ -223,7 +223,13 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     if (lost) return
     renderer.clear()
     renderer.render(scene, camera)
-    if (withGizmo && canvas.clientWidth >= GIZMO_MIN_WIDTH) gizmo.render(renderer)
+    if (withGizmo && canvas.clientWidth >= GIZMO_MIN_WIDTH) {
+      // Clipping planes are the renderer's, not the scene's: a section plane would cut the axes gizmo too.
+      const planes = renderer.clippingPlanes
+      renderer.clippingPlanes = []
+      gizmo.render(renderer)
+      renderer.clippingPlanes = planes
+    }
   }
 
   const loop = () => {

@@ -29,7 +29,7 @@ import {
 import type { ToolHost } from '../scene/createScene'
 import { worldBox } from '../scene/fit'
 import { AXIS_INDEX, distanceOf, dragPosition, EDGE_SNAP_PX, sectionAt, sectionPlane, shotRatio, snapOnTriangle, VERTEX_SNAP_PX, type Screen } from './math'
-import type { Axis, CameraState, MeasureMode, MeasurePoint, MeasureState, Measurement, PinMark, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
+import type { Axis, CameraState, CoveredRect, MeasureMode, MeasurePoint, MeasureState, Measurement, PinMark, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
 
 const ACCENT = '#22c3e0'
 const MUTED = '#9aa4b2'
@@ -43,6 +43,10 @@ const LOUPE_RADIUS = 56
 const LOUPE_ZOOM = 2.5
 const LOUPE_LIFT = 92
 const HANDLE_RADIUS = 22
+/** The handle's tag sits this far above it. */
+const HANDLE_TAG = 40
+/** Two faces meeting at more than this angle make an edge (as the viewer's edge lines, `EdgesGeometry(…, 30)`). */
+const EDGE_COS = Math.cos((30 * Math.PI) / 180)
 
 const vec = (v: Vector3): Vec3 => [v.x, v.y, v.z]
 
@@ -73,6 +77,49 @@ const hatchTexture = () => {
 
 const fontFamily = () => getComputedStyle(document.body).fontFamily || 'sans-serif'
 
+type Surface = { readonly path: string; readonly point: Vector3; readonly hit: Intersection<Mesh> | null }
+
+/**
+ * Whether the side `from`–`to` of a hit triangle is an edge of the shape: no other triangle shares it (an open border, or
+ * a hard edge with its own vertices) or the one that does meets it at more than 30°. A face's diagonal is not an edge.
+ * Positions are compared, not indices, so split vertices along a hard edge still find their neighbour.
+ */
+const edgeCache = new Map<string, boolean>()
+const isEdge = (mesh: Mesh, face: number, a: number, b: number) => {
+  const key = `${mesh.geometry.uuid}:${face}:${Math.min(a, b)}:${Math.max(a, b)}`
+  const known = edgeCache.get(key)
+  if (known !== undefined) return known
+  const position = mesh.geometry.getAttribute('position')
+  const index = mesh.geometry.getIndex()
+  const vertex = (triangle: number, corner: number) => (index === null ? triangle * 3 + corner : index.getX(triangle * 3 + corner))
+  const pa = new Vector3().fromBufferAttribute(position, a)
+  const pb = new Vector3().fromBufferAttribute(position, b)
+  const tolerance = (pa.distanceTo(pb) * 1e-6) ** 2
+  const corners = [new Vector3(), new Vector3(), new Vector3()] as const
+  const normalOf = (out: Vector3, triangle: number) => {
+    corners.forEach((c, i) => c.fromBufferAttribute(position, vertex(triangle, i)))
+    return out.subVectors(corners[2], corners[1]).cross(new Vector3().subVectors(corners[0], corners[1])).normalize()
+  }
+  const own = normalOf(new Vector3(), face)
+  const other = new Vector3()
+  const count = (index === null ? position.count : index.count) / 3
+  let edge = true
+  for (let triangle = 0; triangle < count; triangle++) {
+    if (triangle === face) continue
+    let shared = 0
+    for (let i = 0; i < 3; i++) {
+      corners[i]!.fromBufferAttribute(position, vertex(triangle, i))
+      if (corners[i]!.distanceToSquared(pa) <= tolerance || corners[i]!.distanceToSquared(pb) <= tolerance) shared++
+    }
+    if (shared < 2) continue
+    edge = normalOf(other, triangle).dot(own) < EDGE_COS
+    break
+  }
+  if (edgeCache.size > 512) edgeCache.clear()
+  edgeCache.set(key, edge)
+  return edge
+}
+
 export const createTools = (host: ToolHost): ToolsApi => {
   const { renderer, scene, camera, canvas, container, controls } = host
   let labels: ToolLabels = {
@@ -99,6 +146,14 @@ export const createTools = (host: ToolHost): ToolsApi => {
   // ---------------------------------------------------------------- section
   let section: SectionSettings | null = null
   let box: Box3 | null = null
+  let scope: string | null = null
+  let covered: CoveredRect | null = null
+  /** The range fits the isolated part when one is (the page says which), else the whole model. */
+  const fitBox = () => {
+    const model = host.model()
+    if (model === null) return null
+    return (scope === null ? null : host.studio()?.boundsOf(scope)) ?? worldBox(model)
+  }
   const plane = new Plane()
   const dragListeners = new Set<(position: number) => void>()
   const backFaces = new MeshBasicMaterial({
@@ -172,14 +227,39 @@ export const createTools = (host: ToolHost): ToolsApi => {
     const i = AXIS_INDEX[axis]
     return { min: box.min.getComponent(i), max: box.max.getComponent(i) }
   }
-  /** Where the handle sits: the box centre, moved onto the plane. */
-  const handlePoint = () => {
+  /** The box centre, moved onto the plane (the cap's centre). */
+  const planeCenter = () => {
     if (section === null || box === null) return null
     const range = rangeOf(section.axis)
     if (range === null) return null
     const point = box.getCenter(new Vector3())
     point.setComponent(AXIS_INDEX[section.axis], sectionAt(range, section.position))
     return point
+  }
+  const handleRay = new Raycaster()
+  /**
+   * Where the handle sits: the plane's centre, unless the open card covers it; then the point of the plane under the
+   * middle of the free canvas beside (or under) the card. Always on the plane, so a drag moves it along the axis.
+   */
+  const handlePoint = () => {
+    const center = planeCenter()
+    if (center === null || covered === null || box === null) return center
+    const s = toScreen(center)
+    const margin = HANDLE_RADIUS + 8
+    if (s === null || s[0] < covered.left - margin || s[0] > covered.right + margin || s[1] < covered.top - margin || s[1] > covered.bottom + margin + HANDLE_TAG) return center
+    const width = canvas.clientWidth
+    const height = canvas.clientHeight
+    const target: Screen | null =
+      width - covered.right >= margin * 2
+        ? [covered.right + (width - covered.right) / 2, Math.max(margin + HANDLE_TAG, Math.min(height - margin, s[1]))]
+        : height - covered.bottom >= margin * 2 + HANDLE_TAG
+          ? [Math.max(margin, Math.min(width - margin, s[0])), covered.bottom + (height - covered.bottom + HANDLE_TAG) / 2]
+          : null
+    const rect = canvas.getBoundingClientRect()
+    if (target === null || !host.aim(handleRay, rect.left + target[0], rect.top + target[1])) return center
+    const point = handleRay.ray.intersectPlane(plane, new Vector3())
+    // A plane seen nearly edge-on meets that ray far away: then the handle stays at the centre.
+    return point !== null && box.distanceToPoint(point) <= box.getSize(new Vector3()).length() ? point : center
   }
   const applySection = () => {
     const studio = host.studio()
@@ -200,7 +280,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
     studio?.setClip([plane])
     // The cap: a square on the plane, a hair to the kept side so the plane does not clip it, big enough for any view.
     const size = box.getSize(new Vector3()).length() * 2 || 1
-    const center = handlePoint()!
+    const center = planeCenter()!
     cap.position.copy(center).addScaledVector(plane.normal, size * 1e-5)
     cap.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), plane.normal)
     cap.scale.set(size, size, 1)
@@ -222,7 +302,8 @@ export const createTools = (host: ToolHost): ToolsApi => {
   let mode: MeasureMode | null = null
   let single = false
   let hover: MeasurePoint | null = null
-  let aiming: { x: number; y: number; point: MeasurePoint | null } | null = null
+  /** The finger aiming under the magnifier (its pointer id): other fingers neither move nor place the point. */
+  let aiming: { id: number; x: number; y: number; point: MeasurePoint | null } | null = null
   const measureListeners = new Set<(state: MeasureState) => void>()
   const emit = () => {
     const state: MeasureState = { list: measures, pending }
@@ -230,28 +311,67 @@ export const createTools = (host: ToolHost): ToolsApi => {
   }
   const raycaster = new Raycaster()
 
+  /** Not cut away by the section plane (a hair of tolerance for points on it). */
+  const kept = (point: Vector3) => section === null || box === null || plane.distanceToPoint(point) >= -box.getSize(new Vector3()).length() * 1e-6
+  /**
+   * The visible surface under the ray. Where the ray reaches the section plane inside a cut solid (an odd number of
+   * cut-away hits before the plane), what shows there is the cap: the point is on the plane. The cap itself cannot be
+   * hit, and the parts' double-sided faces would give the inside of the far wall.
+   */
+  const surfaceAt = (ray: Raycaster): Surface | null => {
+    const studio = host.studio()
+    if (studio === null) return null
+    const found = studio.hit(ray)
+    const t = section === null ? null : ray.ray.distanceToPlane(plane)
+    if (t !== null && (found === null || found.hit.distance > t)) {
+      let inside = 0
+      let path: string | null = null
+      for (const at of studio.hits(ray)) {
+        if (at.hit.distance >= t) break
+        if (!kept(at.hit.point)) {
+          inside++
+          path = at.path
+        }
+      }
+      if (inside % 2 === 1 && path !== null) return { path, point: ray.ray.at(t, new Vector3()), hit: null }
+    }
+    return found === null ? null : { path: found.path, point: found.hit.point, hit: found.hit }
+  }
   /** The point under the pointer with its snap (a vertex or an edge of the hit triangle, else the surface). */
   const pointAt = (clientX: number, clientY: number, finger: boolean): MeasurePoint | null => {
-    const studio = host.studio()
-    if (studio === null || !host.aim(raycaster, clientX, clientY)) return null
-    const found = studio.hit(raycaster)
-    if (found === null) return null
-    return snapped(found.hit, found.path, clientX, clientY, finger)
+    if (!host.aim(raycaster, clientX, clientY)) return null
+    const found = surfaceAt(raycaster)
+    return found === null ? null : snapped(found, raycaster, clientX, clientY, finger)
   }
-  const snapped = (hit: Intersection<Mesh>, path: string, clientX: number, clientY: number, finger: boolean): MeasurePoint => {
-    const surface: MeasurePoint = { point: vec(hit.point), path, snap: 'surface' }
-    const face = hit.face
-    const position = hit.object.geometry.getAttribute('position')
-    if (!face || position === undefined) return surface
-    const corners = [face.a, face.b, face.c].map((i) => new Vector3().fromBufferAttribute(position, i).applyMatrix4(hit.object.matrixWorld))
+  const snapped = (found: Surface, ray: Raycaster, clientX: number, clientY: number, finger: boolean): MeasurePoint => {
+    const { hit, path } = found
+    const surface: MeasurePoint = { point: vec(found.point), path, snap: 'surface' }
+    const face = hit?.face
+    const position = hit?.object.geometry.getAttribute('position')
+    if (!hit || !face || position === undefined) return surface
+    const ids = [face.a, face.b, face.c] as const
+    const corners = ids.map((i) => new Vector3().fromBufferAttribute(position, i).applyMatrix4(hit.object.matrixWorld))
     const rect = canvas.getBoundingClientRect()
     const onScreen = corners.map((c) => toScreen(c, rect.width, rect.height))
     if (onScreen.some((s) => s === null)) return surface
     const pointer: Screen = [clientX - rect.left, clientY - rect.top]
     const scale = finger ? 1.6 : 1
-    const snap = snapOnTriangle(pointer, onScreen as [Screen, Screen, Screen], VERTEX_SNAP_PX * scale, EDGE_SNAP_PX * scale)
+    // On an edge, the point of the edge nearest the ray (in 3D: a screen-space share is not one along a slanted edge).
+    const onEdge = (from: 0 | 1 | 2, to: 0 | 1 | 2) => {
+      const out = new Vector3()
+      ray.ray.distanceSqToSegment(corners[from]!, corners[to]!, undefined, out)
+      return out
+    }
+    const snap = snapOnTriangle(
+      pointer,
+      onScreen as [Screen, Screen, Screen],
+      VERTEX_SNAP_PX * scale,
+      EDGE_SNAP_PX * scale,
+      (corner) => kept(corners[corner]!),
+      (from, to) => kept(onEdge(from, to)) && isEdge(hit.object, hit.faceIndex ?? -1, ids[from], ids[to]),
+    )
     if (snap.snap === 'vertex') return { point: vec(corners[snap.corner]!), path, snap: 'vertex' }
-    if (snap.snap === 'edge') return { point: vec(corners[snap.from]!.clone().lerp(corners[snap.to]!, snap.t)), path, snap: 'edge' }
+    if (snap.snap === 'edge') return { point: vec(onEdge(snap.from, snap.to)), path, snap: 'edge' }
     return surface
   }
   const place = (point: MeasurePoint) => {
@@ -288,7 +408,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
         hold = null
         // Aiming: the orbit stops until the finger lifts; the magnifier shows what the finger covers.
         controls.enabled = false
-        aiming = { x, y, point: pointAt(x, y, true) }
+        aiming = { id, x, y, point: pointAt(x, y, true) }
         host.redraw()
       }, HOLD_MS),
     }
@@ -301,8 +421,10 @@ export const createTools = (host: ToolHost): ToolsApi => {
     if (drag !== null) return moveHandle(event)
     if (hold !== null && event.pointerId === hold.id && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > 8) cancelHold()
     if (aiming !== null) {
-      aiming = { x: event.clientX, y: event.clientY, point: pointAt(event.clientX, event.clientY, true) }
-      host.redraw()
+      if (event.pointerId === aiming.id) {
+        aiming = { id: aiming.id, x: event.clientX, y: event.clientY, point: pointAt(event.clientX, event.clientY, true) }
+        host.redraw()
+      }
       return
     }
     if (mode === 'mouse' && event.pointerType !== 'touch' && event.buttons === 0) {
@@ -317,14 +439,23 @@ export const createTools = (host: ToolHost): ToolsApi => {
   }
   const onUp = (event: PointerEvent) => {
     if (drag !== null) return endHandle(event)
-    cancelHold()
-    if (aiming === null) return
+    if (hold?.id === event.pointerId) cancelHold()
+    if (aiming === null || aiming.id !== event.pointerId) return
     const point = aiming.point
     aiming = null
     justAimed = true
     controls.enabled = true
     if (point !== null) place(point)
     else host.redraw()
+  }
+  // A cancelled press (the browser took the gesture, a call came in) places nothing.
+  const onCancel = (event: PointerEvent) => {
+    if (drag !== null) return endHandle(event)
+    if (hold?.id === event.pointerId) cancelHold()
+    if (aiming === null || aiming.id !== event.pointerId) return
+    aiming = null
+    controls.enabled = true
+    host.redraw()
   }
   const onLeave = () => {
     if (hover === null) return
@@ -334,7 +465,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
   canvas.addEventListener('pointerdown', onDown, { capture: true })
   canvas.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp, { capture: true })
-  window.addEventListener('pointercancel', onUp, { capture: true })
+  window.addEventListener('pointercancel', onCancel, { capture: true })
   canvas.addEventListener('pointerleave', onLeave)
 
   // ---------------------------------------------------------------- section handle (desktop)
@@ -585,11 +716,17 @@ export const createTools = (host: ToolHost): ToolsApi => {
     ctx.strokeStyle = PAPER
     ctx.lineWidth = 1.5
     ctx.stroke()
-    if (aiming.point !== null && aiming.point.snap !== 'surface') {
-      ctx.beginPath()
-      ctx.arc(cx, cy, 7, 0, Math.PI * 2)
-      ctx.strokeStyle = ACCENT
-      ctx.stroke()
+    // The snap is where the point goes, not under the finger: its offset from the finger, enlarged as the loupe is.
+    const snap = aiming.point !== null && aiming.point.snap !== 'surface' ? toScreen(aiming.point.point) : null
+    if (snap !== null) {
+      const rx = cx + (snap[0] - x) * LOUPE_ZOOM
+      const ry = cy + (snap[1] - y) * LOUPE_ZOOM
+      if (Math.hypot(rx - cx, ry - cy) <= LOUPE_RADIUS - 7) {
+        ctx.beginPath()
+        ctx.arc(rx, ry, 7, 0, Math.PI * 2)
+        ctx.strokeStyle = ACCENT
+        ctx.stroke()
+      }
     }
     ctx.restore()
   }
@@ -611,8 +748,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
   const offFrame = host.onFrame(drawOverlay)
 
   const offModel = host.onModel(() => {
-    const model = host.model()
-    box = model === null ? null : worldBox(model)
+    box = fitBox()
     measures = []
     pending = null
     hover = null
@@ -620,22 +756,17 @@ export const createTools = (host: ToolHost): ToolsApi => {
     buildStencils()
     applySection()
   })
-  {
-    const model = host.model()
-    box = model === null ? null : worldBox(model)
-    buildStencils()
-  }
+  box = fitBox()
+  buildStencils()
 
   const clickHandler = (ray: Raycaster, event: PointerEvent) => {
     if (justAimed) {
       justAimed = false
       return
     }
-    const studio = host.studio()
-    if (studio === null) return
-    const found = studio.hit(ray)
+    const found = surfaceAt(ray)
     if (found === null) return
-    place(snapped(found.hit, found.path, event.clientX, event.clientY, event.pointerType === 'touch'))
+    place(snapped(found, ray, event.clientX, event.clientY, event.pointerType === 'touch'))
   }
 
   return {
@@ -648,6 +779,16 @@ export const createTools = (host: ToolHost): ToolsApi => {
       onDrag: (listener) => {
         dragListeners.add(listener)
         return () => dragListeners.delete(listener)
+      },
+      setScope: (path) => {
+        if (path === scope) return
+        scope = path
+        box = fitBox()
+        applySection()
+      },
+      setCovered: (rect) => {
+        covered = rect
+        host.redraw()
       },
     },
     measure: {
@@ -770,8 +911,19 @@ export const createTools = (host: ToolHost): ToolsApi => {
         // Draw the screen again now, so no empty frame shows.
         host.drawNow(true)
         drawOverlay()
-        if (ctx === null) return resolve(null)
-        out.toBlob((blob) => resolve(blob), 'image/png')
+        // The capture canvas holds up to 4096² pixels: let it go as soon as the PNG is out.
+        const release = () => {
+          out.width = 0
+          out.height = 0
+        }
+        if (ctx === null) {
+          release()
+          return resolve(null)
+        }
+        out.toBlob((blob) => {
+          release()
+          resolve(blob)
+        }, 'image/png')
       }),
     dispose: () => {
       offFrame()
@@ -783,7 +935,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
       canvas.removeEventListener('pointerdown', onDown, { capture: true })
       canvas.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp, { capture: true })
-      window.removeEventListener('pointercancel', onUp, { capture: true })
+      window.removeEventListener('pointercancel', onCancel, { capture: true })
       canvas.removeEventListener('pointerleave', onLeave)
       canvas.classList.remove('cursor-ew-resize!')
       scene.onBeforeRender = previousBefore

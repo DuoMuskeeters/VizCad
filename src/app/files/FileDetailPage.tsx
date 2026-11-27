@@ -313,7 +313,11 @@ export const FileDetailPage = () => {
   const preparingModel = shownFile !== null && shownFormat !== null && isConvertFormat(shownFormat) && shownFile.model.kind !== 'derivative' && (preparingHere || held === shownFile.id)
   const modelKey = shownFile === null ? null : `${shownFile.id}:${shownFile.currentVersion.number}${preparingModel ? ':preparing' : ''}`
   if (studioState.key !== modelKey) dispatch({ type: 'reset', key: modelKey })
-  // Section, measure, screenshot (Faz 5d): per open model.
+  const nodeParam = search.node
+  const node = outline !== null && nodeParam !== undefined && findNode(outline, nodeParam) !== null ? nodeParam : null
+  const stale = outline !== null && nodeParam !== undefined && node === null
+  const partsView = search.view === 'parts'
+  const isolated = !partsView && node !== null && node !== '0' ? node : null
   // Comment pins (docs/11 §4.3, B3): the comments live here so the canvas can draw their pins.
   const comments = useComments(active.id, id)
   const [pendingPin, setPendingPin] = useState<CommentPin | null>(null)
@@ -325,7 +329,8 @@ export const FileDetailPage = () => {
     setPendingPin(null)
     setActiveComment(null)
   }
-  const tools = useTools(api, modelKey, wide, (pin) => {
+  // Section, measure, screenshot (Faz 5d): per open model; the section's range fits the isolated part.
+  const tools = useTools(api, modelKey, wide, isolated, (pin) => {
     setPendingPin({ path: pin.path, point: pin.point })
     setActiveComment(null)
     setTab('comments')
@@ -371,12 +376,6 @@ export const FileDetailPage = () => {
     [liveTools],
   )
   useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
-
-  const nodeParam = search.node
-  const node = outline !== null && nodeParam !== undefined && findNode(outline, nodeParam) !== null ? nodeParam : null
-  const stale = outline !== null && nodeParam !== undefined && node === null
-  const partsView = search.view === 'parts'
-  const isolated = !partsView && node !== null && node !== '0' ? node : null
   // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
   // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
   const scene = useScene(

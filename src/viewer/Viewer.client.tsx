@@ -41,7 +41,7 @@ export type ViewerApi = {
   readonly colorOf: (path: string) => string | null
   /** Binary STL of a node (B7): in its place in the assembly, or centred on the origin. */
   readonly exportStl: (path: string, centered: boolean, name: string) => Promise<Blob | null>
-  /** The section, measure and screenshot tools (Faz 5d): a lazy chunk, loaded on first use; null without a scene. */
+  /** The section, measure and screenshot tools (Faz 5d): a lazy chunk, loaded on first use; null without a scene. Rejects when the chunk does not load (tried again on the next call). */
   readonly tools: () => Promise<ToolsApi | null>
 }
 
@@ -489,7 +489,11 @@ const Viewer = ({
               entry.live = module.createTools(handle.host())
               return entry.live
             },
-            () => null,
+            (error: unknown) => {
+              // Not kept: the next tool opened tries the chunk again.
+              if (tools.current === entry) tools.current = null
+              throw error
+            },
           )
           tools.current = entry
         }

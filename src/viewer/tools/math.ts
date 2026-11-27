@@ -2,7 +2,7 @@
  * The tools' arithmetic without three.js objects (tested on its own): where a measure point snaps on screen, the
  * section plane for a setting, the handle drag along the axis, the screenshot size.
  */
-import type { Axis, SectionRange, SectionSettings, Snap, Vec3 } from './types'
+import type { Axis, SectionRange, SectionSettings, Vec3 } from './types'
 
 export type Screen = readonly [number, number]
 
@@ -27,12 +27,16 @@ export const snapOnTriangle = (
   corners: readonly [Screen, Screen, Screen],
   vertexPx = VERTEX_SNAP_PX,
   edgePx = EDGE_SNAP_PX,
+  /** A corner that may be taken (not cut away by a section). */
+  cornerOk: (corner: 0 | 1 | 2) => boolean = () => true,
+  /** An edge that may be taken: a real edge of the shape (not a face's diagonal), its point not cut away. */
+  edgeOk: (from: 0 | 1 | 2, to: 0 | 1 | 2) => boolean = () => true,
 ): { snap: 'vertex'; corner: 0 | 1 | 2 } | { snap: 'edge'; from: 0 | 1 | 2; to: 0 | 1 | 2; t: number } | { snap: 'surface' } => {
   let best = -1
   let bestD = Infinity
   corners.forEach((c, i) => {
     const d = Math.hypot(c[0] - pointer[0], c[1] - pointer[1])
-    if (d < bestD) {
+    if (d < bestD && cornerOk(i as 0 | 1 | 2)) {
       bestD = d
       best = i
     }
@@ -41,7 +45,7 @@ export const snapOnTriangle = (
   let edge: { from: 0 | 1 | 2; to: 0 | 1 | 2; t: number; d: number } | null = null
   for (const [from, to] of [[0, 1], [1, 2], [2, 0]] as const) {
     const at = closestOnSegment(pointer, corners[from], corners[to])
-    if (at.d <= edgePx && (edge === null || at.d < edge.d)) edge = { from, to, t: at.t, d: at.d }
+    if (at.d <= edgePx && (edge === null || at.d < edge.d) && edgeOk(from, to)) edge = { from, to, t: at.t, d: at.d }
   }
   return edge === null ? { snap: 'surface' } : { snap: 'edge', from: edge.from, to: edge.to, t: edge.t }
 }
@@ -102,5 +106,3 @@ export const shotRatio = (width: number, height: number, screenRatio: number, sc
 }
 
 export const distanceOf = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])
-
-export const snapKinds: readonly Snap[] = ['vertex', 'edge', 'surface']

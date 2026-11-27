@@ -9,7 +9,7 @@ import { useI18n } from '#/i18n'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import type { SceneView } from '#/shared/scene'
 import { sectionFromPlane, sectionPlane } from '#/viewer/tools/math'
-import { SCREENSHOT_DEFAULTS, type MeasureState, type ScreenshotOptions, type SectionSettings, type ToolsApi, type Vec3 } from '#/viewer/tools/types'
+import { SCREENSHOT_DEFAULTS, type CoveredRect, type MeasureState, type ScreenshotOptions, type SectionSettings, type ToolsApi, type Vec3 } from '#/viewer/tools/types'
 import { formatLength, formatPlace, type LengthUnit } from './units'
 
 /** `pin`: the next click on the model places a comment pin (no card; the Comments tab writes the comment). */
@@ -19,10 +19,15 @@ const NO_MEASURES: MeasureState = { list: [], pending: null }
 
 export type StudioTools = ReturnType<typeof useTools>
 
+/** The section as the page keeps it; the canvas handle follows the screen and the open card, not the setting. */
+export type SectionState = Omit<SectionSettings, 'handle'>
+
 export const useTools = (
   api: RefObject<ViewerApi | null>,
   modelKey: string | null,
   wide: boolean,
+  /** The isolated part's path (the section's range fits it), null for the whole model. */
+  scope: string | null = null,
   /** A pin was placed on the model (tool `pin`). */
   onPin?: (pin: { readonly path: string; readonly point: Vec3 }) => void,
 ) => {
@@ -30,7 +35,12 @@ export const useTools = (
   pinSink.current = onPin
   const { t, locale } = useI18n()
   const [tool, setTool] = useState<ToolName | null>(null)
-  const [section, setSection] = useState<SectionSettings | null>(null)
+  const [section, setSection] = useState<SectionState | null>(null)
+  const [covered, setCovered] = useState<CoveredRect | null>(null)
+  // The tools chunk did not load (offline, a new deploy): the card says so and offers to try again.
+  const [failed, setFailed] = useState(false)
+  // Bumped once the tools took a new scope, so the card reads the new range.
+  const [, setScoped] = useState(0)
   const [unit, setUnit] = useState<LengthUnit>('mm')
   const [measure, setMeasure] = useState<MeasureState>(NO_MEASURES)
   const [shot, setShot] = useState<ScreenshotOptions>(SCREENSHOT_DEFAULTS)
@@ -45,26 +55,46 @@ export const useTools = (
   }
   const tools = live !== null && live.key === modelKey ? live.tools : null
 
-  const load = useCallback(() => {
+  const load = useCallback((): Promise<ToolsApi | null> => {
     const wanted = modelKey
-    void api.current?.tools().then((loaded) => {
-      if (loaded !== null) setLive((current) => (current?.tools === loaded && current.key === wanted ? current : { key: wanted, tools: loaded }))
-    })
+    const loading = api.current?.tools()
+    if (loading === undefined) return Promise.resolve(null)
+    setFailed(false)
+    return loading.then(
+      (loaded) => {
+        if (loaded !== null) setLive((current) => (current?.tools === loaded && current.key === wanted ? current : { key: wanted, tools: loaded }))
+        return loaded
+      },
+      () => {
+        setFailed(true)
+        return null
+      },
+    )
   }, [api, modelKey])
 
   const open = useCallback(
     (name: ToolName | null) => {
       setTool((current) => (current === name ? null : name))
       if (name === null) return
-      if (name === 'section') setSection((current) => current ?? { axis: 'x', position: 0.5, flipped: false, hatch: true, handle: wide })
-      load()
+      if (name === 'section') setSection((current) => current ?? { axis: 'x', position: 0.5, flipped: false, hatch: true })
+      void load()
     },
-    [load, wide],
+    [load],
   )
 
   useEffect(() => {
-    tools?.section.set(section === null ? null : { ...section, handle: wide && section.handle })
-  }, [tools, section, wide])
+    if (tools === null) return
+    tools.section.setScope(scope)
+    setScoped((n) => n + 1)
+  }, [tools, scope])
+  // The handle only on a desktop, and only while the section's card is open (closed, nothing says it is there).
+  const handle = wide && tool === 'section'
+  useEffect(() => {
+    tools?.section.set(section === null ? null : { ...section, handle })
+  }, [tools, section, handle])
+  useEffect(() => {
+    tools?.section.setCovered(covered)
+  }, [tools, covered])
   const pinning = tool === 'pin'
   useEffect(() => {
     if (tools === null) return
@@ -119,12 +149,16 @@ export const useTools = (
     shot,
     setShot,
     tools,
+    failed,
+    retry: () => void load(),
+    setCovered,
     /** Loads the tools chunk without opening a card (pins are drawn as soon as there are any). */
     ensure: load,
     range: (axis: SectionSettings['axis']) => tools?.section.range(axis) ?? null,
     removeMeasure: (id: number) => tools?.measure.remove(id),
     clearMeasures: () => tools?.measure.clear(),
-    screenshot: (options: ScreenshotOptions) => tools?.screenshot(options) ?? Promise.resolve(null),
+    // A tap before the chunk is in waits for it rather than failing.
+    screenshot: (options: ScreenshotOptions): Promise<Blob | null> => (tools !== null ? Promise.resolve(tools) : load()).then((ready) => ready?.screenshot(options) ?? null),
     /** The camera and the cut as they are now, for a saved view (docs/11 §3.1); null before the tools have loaded. */
     snapshot: async (): Promise<Pick<SceneView, 'camera' | 'section'> | null> => {
       const live = tools ?? (await api.current?.tools()) ?? null
@@ -139,7 +173,7 @@ export const useTools = (
       if (tools === null) setLive({ key: modelKey, tools: live })
       live.camera.set(view.camera)
       const cut = view.section === undefined ? null : sectionFromPlane(view.section, live.section.range)
-      setSection((current) => (cut === null ? null : { hatch: current?.hatch ?? true, handle: wide, ...cut }))
+      setSection((current) => (cut === null ? null : { hatch: current?.hatch ?? true, ...cut }))
     },
   }
 }

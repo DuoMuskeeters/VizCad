@@ -14,6 +14,13 @@ describe('snapOnTriangle', () => {
     if (edge.snap === 'edge') expect(edge.t).toBeCloseTo(0.5)
     expect(snapOnTriangle([30, 30], tri)).toEqual({ snap: 'surface' })
   })
+  it('skips a corner or an edge it may not take (cut away, a face diagonal)', () => {
+    // Corner 0 is cut away: the pointer next to it gets the edge instead.
+    expect(snapOnTriangle([4, 3], tri, 10, 6, (corner) => corner !== 0)).toMatchObject({ snap: 'edge', from: 0, to: 1 })
+    // That edge is a diagonal: the surface point.
+    expect(snapOnTriangle([4, 3], tri, 10, 6, (corner) => corner !== 0, () => false)).toEqual({ snap: 'surface' })
+    expect(snapOnTriangle([50, 4], tri, 10, 6, undefined, (from, to) => !(from === 0 && to === 1))).toEqual({ snap: 'surface' })
+  })
   it('uses the given radii (a finger gets more)', () => {
     expect(snapOnTriangle([14, 0], tri).snap).toBe('edge')
     expect(snapOnTriangle([14, 0], tri, 16, 8)).toEqual({ snap: 'vertex', corner: 0 })
