@@ -278,6 +278,25 @@ describe('scene prep (5c-2)', () => {
     expect(last().studio!.view.hidden.has('0.1')).toBe(true)
   })
 
+  it('a ?node= part hidden by a record that arrives after the tree is shown again', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    stubScene({ ...editable, scene: { revision: 2, body: { v: 1, nodes: { '0.2': { hidden: true } }, views: [] }, updatedAt: 1, updatedBy: null } })
+    const answered = vi.mocked(fetch).getMockImplementation()!
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      await gate
+      return answered(url, init)
+    }))
+    router.search = { node: '0.2' }
+    await open()
+    await waitFor(() => expect(last().studio!.view.isolated).toBe('0.2'))
+    expect(server.reads).toBe(0)
+    await act(async () => release())
+    await waitFor(() => expect(server.reads).toBe(1))
+    await waitFor(() => expect(last().studio!.view.hidden.has('0.2')).toBe(false))
+    expect(last().studio!.view.isolated).toBe('0.2')
+  })
+
   it('a stale revision stops saving and offers a reload of the current record', async () => {
     stubScene(editable)
     server.writeStatus = 409
