@@ -153,6 +153,7 @@ export const studioEn = {
   'studio.stl.cancel': 'Cancel',
   'studio.stl.failed': 'The STL could not be written.',
   'studio.stl.noPermission': 'STL needs download permission.',
+  'studio.stl.tooLarge': 'This part is too large to write as STL in the browser (over {size}).',
   'studio.stl.desktop': 'Open on a computer to download parts as STL.',
 } as const
 
@@ -310,5 +311,6 @@ export const studioTr: Record<keyof typeof studioEn, string> = {
   'studio.stl.cancel': 'Vazgeç',
   'studio.stl.failed': 'STL yazılamadı.',
   'studio.stl.noPermission': 'STL için indirme izni gerekir.',
+  'studio.stl.tooLarge': 'Bu parça tarayıcıda STL olarak yazılamayacak kadar büyük ({size} üstü).',
   'studio.stl.desktop': 'Parçaları STL olarak indirmek için masaüstünde açın.',
 }

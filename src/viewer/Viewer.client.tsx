@@ -451,7 +451,8 @@ const Viewer = ({
         if (!object) return null
         const module = await loadStlModule().catch(() => null)
         if (module === null || scene.current?.objectAt(path) !== object) return null
-        return new Blob([module.writeStl(object, { centered, name: partName })], { type: 'model/stl' })
+        const pieces = module.writeStl(object, { centered, name: partName })
+        return pieces === null ? null : new Blob(pieces, { type: 'model/stl' })
       },
     }
     return () => {

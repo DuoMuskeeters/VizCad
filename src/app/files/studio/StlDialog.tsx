@@ -8,10 +8,8 @@ import { Button } from '#/components/ui/Button'
 import { Dialog, DialogContent, DialogFooter } from '#/components/ui/Dialog'
 import { RadioCard, RadioCardGroup } from '#/components/ui/RadioCard'
 import { useI18n } from '#/i18n'
+import { STL_MAX_BYTES, stlBytes } from '#/shared/stl'
 import { formatBytes } from '../format'
-
-/** 84 bytes of header and count, then 50 per triangle (binary STL). */
-const stlBytes = (triangles: number) => 84 + 50 * triangles
 
 export type StlSource = {
   readonly triangles: (path: string) => Promise<number>
@@ -46,6 +44,7 @@ export const StlDialog = ({ path, name, where, source, onClose, onFailed }: {
   const [triangles, setTriangles] = useState<number | null>(null)
   const [position, setPosition] = useState<'place' | 'center'>('place')
   const [busy, setBusy] = useState(false)
+  const tooLarge = triangles !== null && stlBytes(triangles) > STL_MAX_BYTES
   useEffect(() => {
     let live = true
     void source.triangles(path).then((n) => {
@@ -68,14 +67,22 @@ export const StlDialog = ({ path, name, where, source, onClose, onFailed }: {
             <Button
               variant="primary"
               loading={busy}
+              {...(tooLarge ? { disabledReason: t('studio.stl.tooLarge', { size: formatBytes(STL_MAX_BYTES, locale) }) } : {})}
               onClick={() => {
                 setBusy(true)
-                void source.write(path, position === 'center', name).then((blob) => {
-                  setBusy(false)
-                  if (blob === null) return onFailed()
-                  saveBlob(blob, stlName(name))
-                  onClose()
-                })
+                // A failed write (out of memory, the model gone) never leaves the button spinning.
+                void source.write(path, position === 'center', name).then(
+                  (blob) => {
+                    setBusy(false)
+                    if (blob === null) return onFailed()
+                    saveBlob(blob, stlName(name))
+                    onClose()
+                  },
+                  () => {
+                    setBusy(false)
+                    onFailed()
+                  },
+                )
               }}
             >
               <Download aria-hidden className="size-4.5" />
