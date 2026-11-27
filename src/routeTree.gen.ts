@@ -15,8 +15,10 @@ import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -29,6 +31,7 @@ import { Route as DevCmsProbeRouteImport } from './routes/dev/cms-probe'
 import { Route as GuestInviteTokenRouteImport } from './routes/guest-invite.$token'
 import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as SharedTokenRouteImport } from './routes/shared/$token'
+import { Route as SitemapsChar123localeChar125DotxmlRouteImport } from './routes/sitemaps/{$locale}[.]xml'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCmsSplatRouteImport } from './routes/api/cms/$'
@@ -79,6 +82,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -87,6 +95,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
@@ -149,6 +162,12 @@ const SharedTokenRoute = SharedTokenRouteImport.update({
   path: '/shared/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapsChar123localeChar125DotxmlRoute =
+  SitemapsChar123localeChar125DotxmlRouteImport.update({
+    id: '/sitemaps/{$locale}.xml',
+    path: '/sitemaps/{$locale}.xml',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAppSplatRoute = ApiAppSplatRouteImport.update({
   id: '/api/app/$',
   path: '/api/app/$',
@@ -253,8 +272,10 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
@@ -266,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -293,8 +315,10 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
@@ -306,6 +330,7 @@ export interface FileRoutesByTo {
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -335,8 +360,10 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
@@ -348,6 +375,7 @@ export interface FileRoutesById {
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
+  '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -378,8 +406,10 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/onboarding'
     | '/reset-password'
+    | '/robots.txt'
     | '/sign-in'
     | '/sign-up'
+    | '/sitemap.xml'
     | '/verify-email'
     | '/api/health'
     | '/app/activity'
@@ -391,6 +421,7 @@ export interface FileRouteTypes {
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
+    | '/sitemaps/{$locale}.xml'
     | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
@@ -418,8 +449,10 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/onboarding'
     | '/reset-password'
+    | '/robots.txt'
     | '/sign-in'
     | '/sign-up'
+    | '/sitemap.xml'
     | '/verify-email'
     | '/api/health'
     | '/app/activity'
@@ -431,6 +464,7 @@ export interface FileRouteTypes {
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
+    | '/sitemaps/{$locale}.xml'
     | '/app'
     | '/api/app/$'
     | '/api/auth/$'
@@ -459,8 +493,10 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/onboarding'
     | '/reset-password'
+    | '/robots.txt'
     | '/sign-in'
     | '/sign-up'
+    | '/sitemap.xml'
     | '/verify-email'
     | '/api/health'
     | '/app/activity'
@@ -472,6 +508,7 @@ export interface FileRouteTypes {
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
+    | '/sitemaps/{$locale}.xml'
     | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
@@ -501,14 +538,17 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiHealthRoute: typeof ApiHealthRoute
   DevCmsProbeRoute: typeof DevCmsProbeRoute
   GuestInviteTokenRoute: typeof GuestInviteTokenRoute
   InviteIdRoute: typeof InviteIdRoute
   SharedTokenRoute: typeof SharedTokenRoute
+  SitemapsChar123localeChar125DotxmlRoute: typeof SitemapsChar123localeChar125DotxmlRoute
   ApiAppSplatRoute: typeof ApiAppSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCmsSplatRoute: typeof ApiCmsSplatRoute
@@ -571,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -583,6 +630,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify-email': {
@@ -667,6 +721,13 @@ declare module '@tanstack/react-router' {
       path: '/shared/$token'
       fullPath: '/shared/$token'
       preLoaderRoute: typeof SharedTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemaps/{$locale}.xml': {
+      id: '/sitemaps/{$locale}.xml'
+      path: '/sitemaps/{$locale}.xml'
+      fullPath: '/sitemaps/{$locale}.xml'
+      preLoaderRoute: typeof SitemapsChar123localeChar125DotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/app/$': {
@@ -838,14 +899,18 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiHealthRoute: ApiHealthRoute,
   DevCmsProbeRoute: DevCmsProbeRoute,
   GuestInviteTokenRoute: GuestInviteTokenRoute,
   InviteIdRoute: InviteIdRoute,
   SharedTokenRoute: SharedTokenRoute,
+  SitemapsChar123localeChar125DotxmlRoute:
+    SitemapsChar123localeChar125DotxmlRoute,
   ApiAppSplatRoute: ApiAppSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCmsSplatRoute: ApiCmsSplatRoute,

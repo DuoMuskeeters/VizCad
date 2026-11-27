@@ -189,6 +189,15 @@ describe('AppConfig: identity settings', () => {
     }),
   )
 
+  it.effect('appEnv: production and staging from APP_ENV, development when unset; anything else is refused', () =>
+    Effect.gen(function* () {
+      assert.strictEqual((yield* decodeEnv({ ...base, APP_ENV: 'production' })).appEnv, 'production')
+      assert.strictEqual((yield* decodeEnv({ ...base, APP_ENV: 'staging' })).appEnv, 'staging')
+      assert.strictEqual((yield* decodeEnv(base)).appEnv, 'development')
+      assert.strictEqual((yield* failure({ ...base, APP_ENV: 'Production' }))._tag, 'ConfigError')
+    }),
+  )
+
   it.effect('email allowlist: staging always restricts, production never does', () =>
     Effect.gen(function* () {
       const staging = yield* decodeEnv({ ...base, APP_ENV: 'staging', EMAIL_ALLOWLIST: 'Ada@Example.com, @team.test' })

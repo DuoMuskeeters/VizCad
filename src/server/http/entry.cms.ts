@@ -4,6 +4,7 @@ import { cmsProbe, type ProbeData } from '../programs/cms/probe'
 import { liveLayers } from '../services/live'
 import { cmsResponse } from './cms'
 import { requestMeta } from './respond'
+import { type SeoFile, seoFileResponse } from './seoFiles'
 
 export type ProbeResult = { readonly ok: true; readonly data: ProbeData } | { readonly ok: false }
 
@@ -30,3 +31,7 @@ export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Respon
     cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache), requestMeta(request)),
   )
 }
+
+/** robots.txt and sitemaps (http/seoFiles.ts): config only, no D1 in 6a. */
+export const handleSeoFile = (request: Request, env: Cloudflare.Env, file: SeoFile): Promise<Response> =>
+  Effect.runPromise(seoFileResponse(file, liveLayers(env).config, requestMeta(request)))
