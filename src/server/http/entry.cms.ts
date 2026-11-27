@@ -1,7 +1,9 @@
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import type { Locale } from '#/i18n/locales'
 import { cmsProbe, type ProbeData } from '../programs/cms/probe'
 import { liveLayers } from '../services/live'
+import { cmsResponse } from './cms'
+import { requestMeta } from './respond'
 
 export type ProbeResult = { readonly ok: true; readonly data: ProbeData } | { readonly ok: false }
 
@@ -20,3 +22,11 @@ export const loadCmsProbe = (env: Cloudflare.Env, locale: Locale): Promise<Probe
       Effect.provide(liveLayers(env).db),
     ),
   )
+
+/** `/api/cms/*`: admin CMS API (http/cms.ts). Only the layers its operations read are built. */
+export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Response> => {
+  const live = liveLayers(env)
+  return Effect.runPromise(
+    cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache), requestMeta(request)),
+  )
+}

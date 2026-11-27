@@ -31,6 +31,7 @@ import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as SharedTokenRouteImport } from './routes/shared/$token'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCmsSplatRouteImport } from './routes/api/cms/$'
 import { Route as ApiSSplatRouteImport } from './routes/api/s/$'
 import { Route as AppFilesIdRouteImport } from './routes/app.files.$id'
 import { Route as AppProjectsIndexRouteImport } from './routes/app.projects.index'
@@ -158,6 +159,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCmsSplatRoute = ApiCmsSplatRouteImport.update({
+  id: '/api/cms/$',
+  path: '/api/cms/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSSplatRoute = ApiSSplatRouteImport.update({
   id: '/api/s/$',
   path: '/api/s/$',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
   '/app/projects/$id': typeof AppProjectsIdRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
   '/app/projects/$id': typeof AppProjectsIdRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cms/$': typeof ApiCmsSplatRoute
   '/api/s/$': typeof ApiSSplatRoute
   '/app/files/$id': typeof AppFilesIdRoute
   '/app/projects/$id': typeof AppProjectsIdRoute
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
+    | '/api/cms/$'
     | '/api/s/$'
     | '/app/files/$id'
     | '/app/projects/$id'
@@ -424,6 +434,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/app/$'
     | '/api/auth/$'
+    | '/api/cms/$'
     | '/api/s/$'
     | '/app/files/$id'
     | '/app/projects/$id'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/app/$'
     | '/api/auth/$'
+    | '/api/cms/$'
     | '/api/s/$'
     | '/app/files/$id'
     | '/app/projects/$id'
@@ -499,6 +511,7 @@ export interface RootRouteChildren {
   SharedTokenRoute: typeof SharedTokenRoute
   ApiAppSplatRoute: typeof ApiAppSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCmsSplatRoute: typeof ApiCmsSplatRoute
   ApiSSplatRoute: typeof ApiSSplatRoute
   DevUiShellRoute: typeof DevUiShellRoute
   STokenContentRoute: typeof STokenContentRoute
@@ -670,6 +683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cms/$': {
+      id: '/api/cms/$'
+      path: '/api/cms/$'
+      fullPath: '/api/cms/$'
+      preLoaderRoute: typeof ApiCmsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/s/$': {
       id: '/api/s/$'
       path: '/api/s/$'
@@ -828,6 +848,7 @@ const rootRouteChildren: RootRouteChildren = {
   SharedTokenRoute: SharedTokenRoute,
   ApiAppSplatRoute: ApiAppSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCmsSplatRoute: ApiCmsSplatRoute,
   ApiSSplatRoute: ApiSSplatRoute,
   DevUiShellRoute: DevUiShellRoute,
   STokenContentRoute: STokenContentRoute,
