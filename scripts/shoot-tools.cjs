@@ -66,6 +66,34 @@ const screens = [
     },
   },
   {
+    name: 'pins',
+    setup: async (page, phone) => {
+      const place = async (fx, fy, text) => {
+        // The page scrolls to the comment field after a pin: back to the canvas first.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const box = await canvasBox(page);
+        await toolbar(page).getByRole('button', { name: phone ? 'Yorum' : 'Yorum pini' }).click();
+        await page.waitForTimeout(300);
+        if (phone) await page.touchscreen.tap(box.x + box.width * fx, box.y + box.height * fy);
+        else await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+        await page.waitForTimeout(400);
+        await page.getByRole('textbox', { name: 'Yorum yaz' }).fill(text);
+        await page.getByRole('button', { name: 'Yorum yaz', exact: true }).click();
+        await page.waitForTimeout(400);
+      };
+      await place(0.42, 0.45, 'Fan kanalının vidası burada mı?');
+      await place(0.62, 0.58, 'Ray ucu için kapak gerekli.');
+      // A third pin, being written.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const box = await canvasBox(page);
+      await toolbar(page).getByRole('button', { name: phone ? 'Yorum' : 'Yorum pini' }).click();
+      await page.waitForTimeout(300);
+      if (phone) await page.touchscreen.tap(box.x + box.width * 0.47, box.y + box.height * 0.6);
+      else await page.mouse.click(box.x + box.width * 0.47, box.y + box.height * 0.6);
+      await page.waitForTimeout(500);
+    },
+  },
+  {
     name: 'more',
     phoneOnly: true,
     setup: async (page) => {
@@ -102,7 +130,7 @@ const viewports = [
         const file = path.join(outDir, `${screen.name}-${vp.tag}-${theme === 'light' ? 'acik' : 'koyu'}.png`);
         await page.screenshot({ path: file });
         if (vp.phone) {
-          const small = await page.evaluate(() => [...document.querySelectorAll('[role=toolbar][aria-label="Stüdyo araçları"] button, section[aria-label] button, [role=menu] [role^=menuitem]')]
+          const small = await page.evaluate(() => [...document.querySelectorAll('[role=toolbar][aria-label="Stüdyo araçları"] button, section[aria-label] button:not([role=switch]), [role=menu] [role^=menuitem]')]
             .filter((b) => b.offsetParent !== null)
             .map((b) => { const r = b.getBoundingClientRect(); return { label: b.getAttribute('aria-label') || b.textContent.trim(), w: r.width, h: r.height }; })
             .filter((b) => b.h < 44 || b.w < 44));

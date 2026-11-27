@@ -212,6 +212,33 @@ describe('measure', () => {
   })
 })
 
+describe('pins', () => {
+  it('a click in pin mode gives the node and the point in its own coordinates; a press on a drawn pin selects it', () => {
+    const { tools, tap, at, onPick, host, scene } = setup()
+    const placed: Array<{ path: string; point: readonly number[] }> = []
+    tools.pins.start((pin) => placed.push(pin))
+    tap(...at(0.4, 0.3, 0.3))
+    expect(onPick).not.toHaveBeenCalled()
+    expect(placed).toHaveLength(1)
+    const pin = placed[0]!
+    const node = host.studio()!.objectAt(pin.path)!
+    const world = node.localToWorld(new Vector3(...(pin.point as [number, number, number])))
+    expect(world.x + world.y + world.z).toBeCloseTo(1, 4)
+    tools.pins.stop()
+    // Stopping the measure tool later must not take the click from someone else.
+    tools.measure.stop()
+    const selected: string[] = []
+    tools.pins.onSelect((id) => selected.push(id))
+    tools.pins.set([{ id: 'c1', label: '1', path: pin.path, point: pin.point as [number, number, number], active: false }])
+    tap(...at(world.x, world.y, world.z))
+    expect(selected).toEqual(['c1'])
+    // Away from the pin, a click picks as before.
+    tap(...at(0.85, 0.1, 0.05))
+    expect(onPick).toHaveBeenCalledTimes(1)
+    scene.dispose()
+  })
+})
+
 describe('touch on the canvas', () => {
   it('a double tap fits instead of picking twice', () => {
     const { tap, at, onPick, scene } = setup()

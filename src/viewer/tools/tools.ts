@@ -29,7 +29,7 @@ import {
 import type { ToolHost } from '../scene/createScene'
 import { worldBox } from '../scene/fit'
 import { AXIS_INDEX, distanceOf, dragPosition, EDGE_SNAP_PX, sectionAt, sectionPlane, shotRatio, snapOnTriangle, VERTEX_SNAP_PX, type Screen } from './math'
-import type { Axis, MeasureMode, MeasurePoint, MeasureState, Measurement, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
+import type { Axis, MeasureMode, MeasurePoint, MeasureState, Measurement, PinMark, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
 
 const ACCENT = '#22c3e0'
 const MUTED = '#9aa4b2'
@@ -245,7 +245,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
     if (!face || position === undefined) return surface
     const corners = [face.a, face.b, face.c].map((i) => new Vector3().fromBufferAttribute(position, i).applyMatrix4(hit.object.matrixWorld))
     const rect = canvas.getBoundingClientRect()
-    const onScreen = corners.map((c) => toScreen(c))
+    const onScreen = corners.map((c) => toScreen(c, rect.width, rect.height))
     if (onScreen.some((s) => s === null)) return surface
     const pointer: Screen = [clientX - rect.left, clientY - rect.top]
     const scale = finger ? 1.6 : 1
@@ -273,6 +273,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
   let hoverFrame = 0
   const onDown = (event: PointerEvent) => {
     justAimed = false
+    if (event.isPrimary && event.button === 0 && pickPin(event)) return
     if (section?.handle && event.button === 0 && grabHandle(event)) return
     if (mode !== 'touch' || event.pointerType !== 'touch' || !event.isPrimary) {
       if (hold !== null) cancelHold()
@@ -340,9 +341,9 @@ export const createTools = (host: ToolHost): ToolsApi => {
   let drag: { id: number; x: number; y: number; position: number } | null = null
   const overHandle = (event: PointerEvent) => {
     const at = handlePoint()
-    const screen = at === null ? null : toScreen(at)
-    if (screen === null) return false
     const rect = canvas.getBoundingClientRect()
+    const screen = at === null ? null : toScreen(at, rect.width, rect.height)
+    if (screen === null) return false
     return Math.hypot(event.clientX - rect.left - screen[0], event.clientY - rect.top - screen[1]) <= HANDLE_RADIUS
   }
   const grabHandle = (event: PointerEvent) => {
@@ -375,8 +376,50 @@ export const createTools = (host: ToolHost): ToolsApi => {
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
   }
 
+  // ---------------------------------------------------------------- comment pins (docs/11 §4.3, B3)
+  let pins: readonly PinMark[] = []
+  let placing: ((pin: { path: string; point: Vec3 }) => void) | null = null
+  const pinListeners = new Set<(id: string) => void>()
+  const PIN_RADIUS = 11
+  /** A pin's place in the world and whether its part is drawn (a pin on a hidden or cut-away part is faded). */
+  const pinAt = (pin: PinMark): { world: Vector3; shown: boolean } | null => {
+    const object = host.studio()?.objectAt(pin.path)
+    if (!object) return null
+    object.updateWorldMatrix(true, false)
+    const world = object.localToWorld(new Vector3(pin.point[0], pin.point[1], pin.point[2]))
+    const cut = section !== null && plane.distanceToPoint(world) < 0
+    return { world, shown: shownInScene(object) && !cut }
+  }
+  /** A press on a drawn pin selects its comment and nothing else (no orbit, no pick). */
+  const pickPin = (event: PointerEvent) => {
+    if (pins.length === 0 || pinListeners.size === 0) return false
+    const rect = canvas.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    const reach = PIN_RADIUS + (event.pointerType === 'touch' ? 10 : 3)
+    for (const pin of [...pins].reverse()) {
+      if (pin.id === '') continue
+      const at = pinAt(pin)
+      const s = at === null ? null : toScreen(at.world, rect.width, rect.height)
+      if (s === null || Math.hypot(s[0] - x, s[1] - y) > reach) continue
+      event.stopImmediatePropagation()
+      pinListeners.forEach((listener) => listener(pin.id))
+      return true
+    }
+    return false
+  }
+  let clickOwner: 'measure' | 'pin' | null = null
+  const pinClick = (ray: Raycaster) => {
+    const studio = host.studio()
+    const found = studio?.hit(ray) ?? null
+    const object = found === null ? null : studio!.objectAt(found.path)
+    if (found === null || !object) return
+    const local = object.worldToLocal(found.hit.point.clone())
+    placing?.({ path: found.path, point: vec(local) })
+  }
+
   // ---------------------------------------------------------------- drawing
-  const drawMarks = (ctx: CanvasRenderingContext2D, width: number, height: number, scale: number, withMeasures: boolean, live: boolean) => {
+  const drawMarks = (ctx: CanvasRenderingContext2D, width: number, height: number, scale: number, withMeasures: boolean, live: boolean, withPins = true) => {
     const font = fontFamily()
     const project = (p: Vec3) => toScreen(p, width / scale, height / scale)
     const dot = (s: Screen, color: string, r = 5) => {
@@ -430,6 +473,30 @@ export const createTools = (host: ToolHost): ToolsApi => {
         if (a !== null) dot(a, ACCENT)
       }
     }
+    if (withPins)
+      for (const pin of pins) {
+        const at = pinAt(pin)
+        const s = at === null ? null : project(vec(at.world))
+        if (at === null || s === null) continue
+        const r = pin.active ? PIN_RADIUS + 2 : PIN_RADIUS
+        ctx.globalAlpha = at.shown ? 1 : 0.45
+        ctx.beginPath()
+        ctx.arc(s[0], s[1], r, 0, Math.PI * 2)
+        ctx.fillStyle = pin.id === '' ? INK : ACCENT
+        ctx.fill()
+        ctx.lineWidth = pin.active || pin.id === '' ? 2.5 : 1.5
+        ctx.strokeStyle = pin.id === '' ? ACCENT : pin.active ? PAPER : INK
+        if (pin.id === '') ctx.setLineDash([3, 2])
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = pin.id === '' ? ACCENT : INK
+        ctx.font = `700 ${pin.label.length > 2 ? 10 : 12}px ${font}`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(pin.label, s[0], s[1] + 0.5)
+        ctx.textAlign = 'start'
+        ctx.globalAlpha = 1
+      }
     if (live) {
       // Snap mark under the mouse: a ring on a vertex, a square on an edge.
       if (hover !== null && mode === 'mouse') {
@@ -587,6 +654,8 @@ export const createTools = (host: ToolHost): ToolsApi => {
       start: (next, one) => {
         mode = next
         single = one
+        placing = null
+        clickOwner = 'measure'
         host.setClick(clickHandler)
         host.redraw()
       },
@@ -597,7 +666,10 @@ export const createTools = (host: ToolHost): ToolsApi => {
         aiming = null
         controls.enabled = true
         cancelHold()
-        host.setClick(null)
+        if (clickOwner === 'measure') {
+          clickOwner = null
+          host.setClick(null)
+        }
         emit()
         host.redraw()
       },
@@ -616,6 +688,31 @@ export const createTools = (host: ToolHost): ToolsApi => {
         measureListeners.add(listener)
         listener({ list: measures, pending })
         return () => measureListeners.delete(listener)
+      },
+    },
+    pins: {
+      set: (next) => {
+        pins = next
+        host.redraw()
+      },
+      start: (onPlace) => {
+        mode = null
+        hover = null
+        placing = onPlace
+        clickOwner = 'pin'
+        host.setClick(pinClick)
+        host.redraw()
+      },
+      stop: () => {
+        placing = null
+        if (clickOwner === 'pin') {
+          clickOwner = null
+          host.setClick(null)
+        }
+      },
+      onSelect: (listener) => {
+        pinListeners.add(listener)
+        return () => pinListeners.delete(listener)
       },
     },
     setLabels: (next) => {
@@ -645,7 +742,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
         const ctx = out.getContext('2d')
         if (ctx !== null) {
           ctx.drawImage(renderer.domElement, 0, 0)
-          drawMarks(ctx, out.width, out.height, ratio, options.measures, false)
+          drawMarks(ctx, out.width, out.height, ratio, options.measures, false, options.pins)
         }
         renderer.setClearColor(clear, alpha)
         renderer.setPixelRatio(screenRatio)
@@ -685,6 +782,9 @@ export const createTools = (host: ToolHost): ToolsApi => {
       hatch.dispose()
       overlay.remove()
       measureListeners.clear()
+      pinListeners.clear()
+      pins = []
+      placing = null
       dragListeners.clear()
       host.redraw()
     },

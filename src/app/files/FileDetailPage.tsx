@@ -19,7 +19,9 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { chainOf, findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import type { PinMark } from '#/viewer/tools/types'
+import type { CommentPin, CommentView } from '#/shared/fileViews'
 import { editNode, hiddenOf, looksOf, matchPrevious, namesOf, type SceneEdit } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
@@ -29,7 +31,7 @@ import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
 import { MoveDialog, RenameDialog } from './FileDialogs'
 import { FileMenu } from './FileMenu'
-import { ActivityTab, CommentsTab, VersionsTab } from './FileTabs'
+import { ActivityTab, CommentsTab, useComments, VersionsTab, type CommentPins } from './FileTabs'
 import { startDownload } from './download'
 import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
@@ -47,7 +49,7 @@ import { useWide } from './studio/useWide'
 import { useScene } from './studio/useScene'
 import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar } from './studio/SceneEdit'
 import { StlDialog } from './studio/StlDialog'
-import { desktopOnlyIcons, GestureHints, MeasureHint, StudioToolbar, ToolCard } from './studio/Tools'
+import { desktopOnlyIcons, GestureHints, StudioToolbar, ToolCard, ToolHint } from './studio/Tools'
 import { useTools } from './studio/useTools'
 import { EMPTY_SCENE } from '#/shared/scene'
 
@@ -310,7 +312,62 @@ export const FileDetailPage = () => {
   const modelKey = shownFile === null ? null : `${shownFile.id}:${shownFile.currentVersion.number}${preparingModel ? ':preparing' : ''}`
   if (studioState.key !== modelKey) dispatch({ type: 'reset', key: modelKey })
   // Section, measure, screenshot (Faz 5d): per open model.
-  const tools = useTools(api, modelKey, wide)
+  // Comment pins (docs/11 §4.3, B3): the comments live here so the canvas can draw their pins.
+  const comments = useComments(active.id, id)
+  const [pendingPin, setPendingPin] = useState<CommentPin | null>(null)
+  const [activeComment, setActiveComment] = useState<string | null>(null)
+  const [showPins, setShowPins] = useState(true)
+  const [pinsFor, setPinsFor] = useState(modelKey)
+  if (pinsFor !== modelKey) {
+    setPinsFor(modelKey)
+    setPendingPin(null)
+    setActiveComment(null)
+  }
+  const tools = useTools(api, modelKey, wide, (pin) => {
+    setPendingPin({ path: pin.path, point: pin.point })
+    setActiveComment(null)
+    setTab('comments')
+    setPanelOpen(true)
+  })
+  const shownVersion = shownFile?.currentVersion.number ?? 0
+  const pinsOpen = modelReady && outline !== null
+  // Pins of this version on parts this model has, numbered in comment order; the one being written comes last.
+  const pinNumbers = useMemo(() => {
+    const numbers = new Map<string, number>()
+    if (outline === null) return numbers
+    for (const comment of comments.items ?? [])
+      if (comment.parentId === null && !comment.deleted && comment.anchor !== null && comment.versionNumber === shownVersion && findNode(outline, comment.anchor.path) !== null)
+        numbers.set(comment.id, numbers.size + 1)
+    return numbers
+  }, [comments.items, outline, shownVersion])
+  const marks = useMemo<PinMark[]>(() => {
+    const out: PinMark[] = []
+    if (showPins)
+      for (const comment of comments.items ?? []) {
+        const number = pinNumbers.get(comment.id)
+        if (number !== undefined && comment.anchor !== null) out.push({ id: comment.id, label: String(number), path: comment.anchor.path, point: comment.anchor.point, active: comment.id === activeComment })
+      }
+    if (pendingPin !== null) out.push({ id: '', label: String(pinNumbers.size + 1), path: pendingPin.path, point: pendingPin.point, active: true })
+    return out
+  }, [comments.items, pinNumbers, showPins, pendingPin, activeComment])
+  const wantPins = pinsOpen && marks.length > 0
+  const ensureTools = tools.ensure
+  useEffect(() => {
+    if (wantPins) ensureTools()
+  }, [wantPins, ensureTools])
+  const liveTools = tools.tools
+  useEffect(() => {
+    liveTools?.pins.set(pinsOpen ? marks : [])
+  }, [liveTools, marks, pinsOpen])
+  useEffect(
+    () =>
+      liveTools?.pins.onSelect((commentId) => {
+        setActiveComment(commentId)
+        setTab('comments')
+        setPanelOpen(true)
+      }),
+    [liveTools],
+  )
   useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
 
   const nodeParam = search.node
@@ -654,6 +711,31 @@ export const FileDetailPage = () => {
     </Button>
   )
   const steps = outline !== null && isolated !== null ? pathNames(outline, isolated, nameOf) : []
+  const pinHidden = (path: string) => chainOf(path).some((step) => hidden.has(step)) || (isolated !== null && !isUnder(path, isolated))
+  const commentPins: CommentPins | undefined = modelOpen
+    ? {
+        version: loaded.currentVersion.number,
+        numberOf: (comment: CommentView) => pinNumbers.get(comment.id) ?? null,
+        where: (path: string) => (outline === null || findNode(outline, path) === null ? null : pathNames(outline, path, nameOf).map((step) => step.name).join(' › ')),
+        hidden: pinHidden,
+        onShow: (path: string) => {
+          for (const step of chainOf(path)) if (hidden.has(step)) dispatch({ type: 'toggleHidden', path: step, hiddenNow: true })
+          if (isolated !== null && !isUnder(path, isolated)) go({ node: null })
+        },
+        active: activeComment,
+        onActivate: (comment: CommentView) => {
+          setActiveComment(comment.id)
+          if (comment.anchor !== null) setSelected(comment.anchor.path)
+        },
+        pending: pendingPin,
+        pendingNumber: pinNumbers.size + 1,
+        placing: tools.tool === 'pin',
+        onPlace: () => tools.open('pin'),
+        onClear: () => setPendingPin(null),
+        show: showPins,
+        onShowChange: setShowPins,
+      }
+    : undefined
   const endName = (path: string | null) => (outline === null || path === null ? '' : nameOf(findNode(outline, path) ?? outline))
   const overlay = modelOpen ? (
     <>
@@ -675,9 +757,9 @@ export const FileDetailPage = () => {
           }
         />
       ) : null}
-      {isolated !== null && tools.tool !== 'measure' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
-      {wide ? <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} /> : <GestureHints />}
-      {tools.tool === 'measure' ? <MeasureHint wide={wide} /> : null}
+      {isolated !== null && tools.tool !== 'measure' && tools.tool !== 'pin' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
+      {wide ? <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={marks.length > 0} /> : <GestureHints />}
+      {tools.tool === 'measure' || tools.tool === 'pin' ? <ToolHint wide={wide} tool={tools.tool} /> : null}
     </>
   ) : null
 
@@ -751,6 +833,7 @@ export const FileDetailPage = () => {
               controls={controls}
               wide={wide}
               tools={tools}
+              pins={can.comment && modelOpen}
               parts={
                 assembly && !wide
                   ? {
@@ -908,7 +991,7 @@ export const FileDetailPage = () => {
             ) : null}
           </TabsContent>
           <TabsContent value="comments">
-            <CommentsTab workspaceId={active.id} fileId={loaded.id} can={can} />
+            <CommentsTab comments={comments} can={can} pins={commentPins} />
           </TabsContent>
           <TabsContent value="activity">
             <ActivityTab workspaceId={active.id} fileId={loaded.id} can={can} />

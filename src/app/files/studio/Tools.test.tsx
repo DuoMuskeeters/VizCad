@@ -35,6 +35,7 @@ const fakeTools = () => {
         return () => {}
       }),
     },
+    pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
     setLabels: vi.fn(),
     screenshot: vi.fn(async () => new Blob(['png'], { type: 'image/png' })),
     dispose: vi.fn(),

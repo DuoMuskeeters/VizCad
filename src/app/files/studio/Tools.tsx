@@ -6,7 +6,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  Axis3d, Camera, Check, Cuboid, Download, Ellipsis, Eraser, FileDown, FlipHorizontal2, Focus, Grid3x3, ListTree, Move, Paintbrush, Pointer, Rotate3d, Ruler,
+  Axis3d, Camera, Check, MapPin, Cuboid, Download, Ellipsis, Eraser, FileDown, FlipHorizontal2, Focus, Grid3x3, ListTree, Move, Paintbrush, Pointer, Rotate3d, Ruler,
   ScissorsLineDashed, Share, Trash2, X, ZoomIn,
 } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
@@ -22,11 +22,12 @@ import type { StudioTools, ToolName } from './useTools'
 
 const VIEWS: readonly ViewName[] = ['iso', 'front', 'top', 'right']
 const viewKey: Record<ViewName, I18nKey> = { iso: 'viewer.view.iso', front: 'viewer.view.front', top: 'viewer.view.top', right: 'viewer.view.right' }
-const toolKey: Record<ToolName, I18nKey> = { section: 'tools.section', measure: 'tools.measure', shot: 'tools.shot' }
+const toolKey: Record<ToolName, I18nKey> = { section: 'tools.section', measure: 'tools.measure', shot: 'tools.shot', pin: 'tools.pin' }
 const toolIcon: Record<ToolName, ReactNode> = {
   section: <ScissorsLineDashed aria-hidden className="size-4.5" />,
   measure: <Ruler aria-hidden className="size-4.5" />,
   shot: <Camera aria-hidden className="size-4.5" />,
+  pin: <MapPin aria-hidden className="size-4.5" />,
 }
 const pressed = 'aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent'
 
@@ -62,10 +63,13 @@ export type ToolbarProps = {
   readonly parts?: { readonly open: boolean; readonly onToggle: () => void; readonly disabledReason?: string | undefined } | undefined
   /** Desktop-only work, shown disabled in the phone's More menu with the reason (§4.4). */
   readonly desktopOnly?: ReadonlyArray<{ readonly key: string; readonly label: string; readonly icon: ReactNode; readonly reason: string }> | undefined
+  /** Comment pins (B3): shown when the person can comment on an open model. */
+  readonly pins?: boolean | undefined
 }
 
 /** The studio toolbar. A tool's button is pressed while its card is open, or (section) while the cut is on. */
-export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly }: ToolbarProps) => {
+export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly, pins = false }: ToolbarProps) => {
+  const names: readonly ToolName[] = pins ? ['section', 'measure', 'pin', 'shot'] : ['section', 'measure', 'shot']
   const { t, locale } = useI18n()
   const notReady = controls.ready ? {} : { disabledReason: t('viewer.tool.notReady') }
   const isOn = (name: ToolName) => tools.tool === name || (name === 'section' && tools.section !== null)
@@ -73,7 +77,7 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly }: Too
 
   if (wide)
     return (
-      <div role="toolbar" aria-label={t('tools.toolbar')} className="flex flex-wrap items-center gap-1 px-2 pb-1 app:px-3">
+      <div role="toolbar" aria-label={t('tools.toolbar')} className="@container flex flex-wrap items-center gap-1 px-2 pb-1 app:px-3">
         <Menu>
           <MenuTrigger asChild>
             <IconButton label={t('tools.views')} {...notReady}>
@@ -104,10 +108,11 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly }: Too
           <Cuboid aria-hidden className="size-4.5" />
         </IconButton>
         <span aria-hidden className="mx-1 h-6 w-px bg-line" />
-        {(['section', 'measure', 'shot'] as const).map((name) => (
-          <Button key={name} variant="ghost" aria-pressed={isOn(name)} className={cx('px-2.5', pressed)} onClick={() => tools.open(name)} {...notReady}>
+        {names.map((name) => (
+          // Words next to the icons only where the canvas is wide enough for one row (tree and panel open: icons only).
+          <Button key={name} variant="ghost" aria-pressed={isOn(name)} aria-label={t(toolKey[name])} title={t(toolKey[name])} className={cx('px-2.5', pressed)} onClick={() => tools.open(name)} {...notReady}>
             {toolIcon[name]}
-            {t(toolKey[name])}
+            <span aria-hidden className="hidden @min-[52rem]:inline">{t(toolKey[name])}</span>
           </Button>
         ))}
         {controls.stats ? (
@@ -139,10 +144,10 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly }: Too
           <span className="max-w-full truncate">{t('studio.view.parts')}</span>
         </button>
       ) : null}
-      {(['section', 'measure', 'shot'] as const).map((name) => (
+      {names.map((name) => (
         <button key={name} type="button" className={cell} aria-pressed={isOn(name)} onClick={blocked(notReadyReason, () => tools.open(name))} {...reasonOf(notReadyReason)}>
           <span aria-hidden className="[&>svg]:size-5">{toolIcon[name]}</span>
-          <span className="max-w-full truncate">{name === 'shot' ? t('tools.shot.short') : t(toolKey[name])}</span>
+          <span className="max-w-full truncate">{name === 'shot' ? t('tools.shot.short') : name === 'pin' ? t('tools.pin.short') : t(toolKey[name])}</span>
         </button>
       ))}
       <Menu>
@@ -391,7 +396,7 @@ const MeasureBody = ({ tools, wide, dark, nameOf }: { tools: StudioTools; wide: 
   )
 }
 
-const ShotBody = ({ tools, dark }: { tools: StudioTools; dark: boolean }) => {
+const ShotBody = ({ tools, dark, pins }: { tools: StudioTools; dark: boolean; pins: boolean }) => {
   const { t } = useI18n()
   const shot = tools.shot
   const set = (patch: Partial<ScreenshotOptions>) => tools.setShot({ ...shot, ...patch })
@@ -415,6 +420,7 @@ const ShotBody = ({ tools, dark }: { tools: StudioTools; dark: boolean }) => {
         options={[{ value: 'screen', label: t('tools.shot.screen') }, { value: 'double', label: t('tools.shot.double') }]}
         onChange={(size) => set({ scale: size === 'double' ? 2 : 1 })}
       />
+      {pins ? <Toggle dark={dark} label={t('tools.shot.pins')} on={shot.pins} onChange={(on) => set({ pins: on })} /> : null}
       {tools.measure.list.length > 0 ? <Toggle dark={dark} label={t('tools.shot.measures')} on={shot.measures} onChange={(measures) => set({ measures })} /> : null}
       <p className={cx('text-sm', dark ? 'opacity-75' : 'text-text-3')}>{t('tools.shot.note')}</p>
     </div>
@@ -425,19 +431,21 @@ const ShotBody = ({ tools, dark }: { tools: StudioTools; dark: boolean }) => {
  * The open tool's card. `wide`: floats on the canvas (rendered in the viewer's overlay); else a sheet at the bottom of
  * the screen over the page (rendered by the page).
  */
-export const ToolCard = ({ tools, wide, fileName, nameOf, below }: {
+export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false }: {
   tools: StudioTools
   wide: boolean
   fileName: string
   nameOf: (path: string | null) => string
   /** Desktop: the selection bar takes the top of the canvas; the card sits under it. */
   below?: boolean
+  /** Pins are drawn: the screenshot offers to leave them out. */
+  pins?: boolean
 }) => {
   const { t } = useI18n()
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const name = tools.tool
-  if (name === null) return null
+  if (name === null || name === 'pin') return null
   const dark = wide
   const title = t(toolKey[name])
   const take = () => {
@@ -505,19 +513,20 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below }: {
           <X aria-hidden className="size-4.5" />
         </button>
       </header>
-      {name === 'section' ? <SectionBody tools={tools} wide={wide} dark={dark} /> : name === 'measure' ? <MeasureBody tools={tools} wide={wide} dark={dark} nameOf={nameOf} /> : <ShotBody tools={tools} dark={dark} />}
+      {name === 'section' ? <SectionBody tools={tools} wide={wide} dark={dark} /> : name === 'measure' ? <MeasureBody tools={tools} wide={wide} dark={dark} nameOf={nameOf} /> : <ShotBody tools={tools} dark={dark} pins={pins} />}
       {footer ? <footer className="flex flex-wrap gap-2">{footer}</footer> : null}
     </section>
   )
 }
 
-/** The hint pill while measuring (wireframe 12): what the next step is. Canvas family, at the bottom of the canvas. */
-export const MeasureHint = ({ wide }: { wide: boolean }) => {
+/** The hint pill while measuring or placing a pin (wireframe 12): what the next step is. Canvas family, bottom of the canvas. */
+export const ToolHint = ({ wide, tool }: { wide: boolean; tool: 'measure' | 'pin' }) => {
   const { t } = useI18n()
   return (
-    <p className="pointer-events-none absolute inset-x-2 bottom-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-2 rounded-full border border-white/10 bg-canvas/92 px-3 py-1.5 text-sm text-canvas-text app:bottom-3">
-      <Ruler aria-hidden className="size-4 shrink-0 text-brand" />
-      {wide ? t('tools.measure.hintMouse') : t('tools.measure.hintTouch')}
+    <p role="status" className="pointer-events-none absolute inset-x-2 bottom-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-2 rounded-full border border-white/10 bg-canvas/92 px-3 py-1.5 text-sm text-canvas-text app:bottom-3">
+      {tool === 'measure' ? <Ruler aria-hidden className="size-4 shrink-0 text-brand" /> : <MapPin aria-hidden className="size-4 shrink-0 text-brand" />}
+      {tool === 'measure' ? (wide ? t('tools.measure.hintMouse') : t('tools.measure.hintTouch')) : wide ? t('tools.pin.hintMouse') : t('tools.pin.hintTouch')}
+      {wide ? <kbd className="rounded border border-white/20 px-1.5 text-xs">Esc</kbd> : null}
     </p>
   )
 }

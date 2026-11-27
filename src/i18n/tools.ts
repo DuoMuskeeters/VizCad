@@ -39,6 +39,11 @@ export const toolsEn = {
   'tools.measure.hintMouse': 'Choose a point · snaps to corners and edges',
   'tools.measure.hintTouch': 'Hold, slide and lift',
 
+  'tools.pin': 'Comment pin',
+  'tools.pin.short': 'Comment',
+  'tools.pin.hintMouse': 'Click a point on the model to comment on it',
+  'tools.pin.hintTouch': 'Tap a point to comment on it',
+  'tools.shot.pins': 'Include comment pins',
   'tools.shot': 'Screenshot',
   'tools.shot.short': 'Image',
   'tools.shot.background': 'Background',
@@ -106,6 +111,11 @@ export const toolsTr: Record<keyof typeof toolsEn, string> = {
   'tools.measure.hintMouse': 'Nokta seç · köşe ve kenara yapışır',
   'tools.measure.hintTouch': 'Basılı tut, kaydır ve bırak',
 
+  'tools.pin': 'Yorum pini',
+  'tools.pin.short': 'Yorum',
+  'tools.pin.hintMouse': 'Yorum için modelde bir noktaya tıkla',
+  'tools.pin.hintTouch': 'Yorum için bir noktaya dokun',
+  'tools.shot.pins': 'Yorum pinlerini ekle',
   'tools.shot': 'Ekran görüntüsü',
   'tools.shot.short': 'Görüntü',
   'tools.shot.background': 'Arka plan',
