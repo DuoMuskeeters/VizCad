@@ -271,7 +271,7 @@ describe('scene prep (5c-2)', () => {
     const banner = await screen.findByText('Apply the colours and names of version 3?')
     expect(banner.parentElement).toHaveTextContent('1 parts matched, 1 did not.')
     await user.click(screen.getByRole('button', { name: 'Unmatched' }))
-    expect(screen.getByRole('region', { name: 'Parts that did not match' })).toHaveTextContent('Pump group › Gone')
+    expect(screen.getByRole('region', { name: 'Parts that did not match' })).toHaveTextContent('Gone')
     await user.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(server.writes).toEqual([{ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Motor' } }, views: [] } }]))
     await waitFor(() => expect(screen.queryByText('Apply the colours and names of version 3?')).not.toBeInTheDocument())
