@@ -121,7 +121,7 @@ export const useScene = (fileId: string, version: number, model: string, enabled
     // The page's save state: a size refusal stays shown over saving and saved until the next accepted change; an
     // error replaces it, so Retry shows for the change that did not save.
     const show = (next: SaveStatus) => {
-      if (session.live && (!session.tooLarge || next === 'error')) setStatus(next)
+      if (session.live) setStatus(session.tooLarge && next !== 'error' ? 'tooLarge' : next)
     }
     session.inFlight = true
     session.dirty = false
@@ -236,7 +236,8 @@ export const useScene = (fileId: string, version: number, model: string, enabled
       // Over the limits: shown, never sent (the server would refuse it and every later change with it).
       if (overLimits(next)) {
         session.tooLarge = true
-        setStatus('tooLarge')
+        // A change that already failed keeps its Retry: the refusal does not hide it.
+        setStatus(session.failed && session.dirty ? 'error' : 'tooLarge')
         return
       }
       session.tooLarge = false

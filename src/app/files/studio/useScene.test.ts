@@ -253,6 +253,8 @@ describe('useScene', () => {
     await waitFor(() => expect(writes).toEqual([{ version: 4, revision: 0, body: body('#b2b2b2') }, { version: 4, revision: 0, body: body('#b2b2b2') }]))
     await act(async () => answers.shift()!(true))
     await waitFor(() => expect(result.current.answer?.scene?.revision).toBe(2))
+    // The retried change saved; the refused one is still not applied, so the refusal shows again (not a stale error).
+    await waitFor(() => expect(result.current.status).toBe('tooLarge'))
   })
 
   it('on a model left behind, a newer change waiting behind a failed request is tried once before it is dropped', async () => {
