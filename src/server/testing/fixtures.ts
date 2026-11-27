@@ -128,6 +128,7 @@ const tables = {
   fileComments: schema.fileComments,
   uploadSessions: schema.uploadSessions,
   derivativeSessions: schema.derivativeSessions,
+  fileScenes: schema.fileScenes,
   storageDeletions: schema.storageDeletions,
   securityLog: schema.securityLog,
 } as const

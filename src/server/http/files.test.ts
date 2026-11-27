@@ -305,3 +305,34 @@ describe('POST /api/files/{id}/derivative/*', () => {
     })),
   )
 })
+
+describe('/api/files/{id}/scene', () => {
+  const post = (body: unknown, headers: Record<string, string> = {}) =>
+    new Request(`${ORIGIN}/api/files/f1/scene`, {
+      method: 'POST', body: JSON.stringify(body),
+      headers: { cookie: 'session=tok-bob', origin: ORIGIN, 'sec-fetch-site': 'same-origin', 'content-type': 'application/json', ...headers },
+    })
+  const scene = { v: 1, nodes: { '0.1': { color: '#b23a2e', at: 'Pump/Motor' } }, views: [] }
+
+  it.effect('GET reads (same-origin only), POST writes with CSRF and the body schema; a stale revision is 409', () =>
+    run(Effect.gen(function* () {
+      yield* seedDerivative('f1', 'acme', glb())
+      const empty = yield* call(get('/api/files/f1/scene'))
+      assert.deepStrictEqual([empty.status, JSON.parse(empty.text).data], [200, { scene: null, previous: null, canEdit: false, maxViews: 20 }])
+      assert.strictEqual((yield* call(get('/api/files/f1/scene', { 'sec-fetch-site': 'cross-site' }))).status, 403)
+      const written = yield* call(post({ version: 1, revision: 0, body: scene }))
+      assert.deepStrictEqual([written.status, JSON.parse(written.text).data], [200, { revision: 1, updatedAt: T0 }])
+      const read = JSON.parse((yield* call(get('/api/files/f1/scene'))).text).data
+      assert.deepStrictEqual([read.scene.revision, read.scene.body], [1, scene])
+      const stale = yield* call(post({ version: 1, revision: 0, body: scene }))
+      assert.deepStrictEqual([stale.status, errorOf(stale.text).error], [409, 'SceneConflict'])
+      assert.strictEqual((yield* call(post({ version: 1, revision: 1, body: scene }, { origin: 'https://evil.test' }))).status, 403)
+      assert.strictEqual((yield* call(post({ version: 1, revision: 1, body: scene }, { cookie: 'session=tok-max' }))).status, 403, 'a member without edit')
+      for (const bad of [{ version: 1, revision: 1 }, { version: 1, revision: -1, body: scene }, { version: 1, revision: 1, body: { ...scene, v: 2 } }, { version: 1, revision: 1, body: scene, extra: 1 }]) {
+        assert.strictEqual((yield* call(post(bad))).status, 400, JSON.stringify(bad))
+      }
+      assert.strictEqual((yield* call(post({ version: 2, revision: 1, body: scene }))).status, 409, 'VersionChanged')
+      assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/scene`, { method: 'PUT', headers: { cookie: 'session=tok-bob' } }))).status, 404)
+    })),
+  )
+})

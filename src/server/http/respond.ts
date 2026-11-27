@@ -55,6 +55,7 @@ export const STATUS: Record<AppError['_tag'], number> = {
   LinkPasswordInvalid: 401,
   CommentUnavailable: 404,
   VersionChanged: 409,
+  SceneConflict: 409,
   InvalidDerivative: 422,
 }
 

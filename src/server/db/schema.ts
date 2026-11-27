@@ -652,6 +652,33 @@ export const derivativeSessions = sqliteTable("derivative_sessions", {
 ]);
 
 /**
+ * Scene records (docs/11 §3, Faz 5c): a sparse JSON body of names, colours, finishes, hidden nodes and saved views for
+ * one model of a file. `modelR2Key` is the object whose node paths the body refers to: the GLB derivative, or for
+ * STL/OBJ/PLY the source itself. A new version (or a rebuilt GLB) has another key, so its scene starts empty and the
+ * old row is only a matching source (§3.3). Rows go with the file (cascade); no R2 object of their own.
+ */
+export const fileScenes = sqliteTable("file_scenes", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspaceId").notNull(),
+  fileId: text("fileId").notNull(),
+  modelR2Key: text("modelR2Key").notNull(),
+  revision: integer("revision").notNull(),
+  body: text("body").notNull(),
+  updatedByUserId: text("updatedByUserId").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+}, (t) => [
+  uniqueIndex("file_scenes_file_model_uq").on(t.fileId, t.modelR2Key),
+  index("file_scenes_file_updated_idx").on(t.fileId, t.updatedAt),
+  foreignKey({
+    name: "file_scenes_file_fk",
+    columns: [t.workspaceId, t.fileId],
+    foreignColumns: [files.workspaceId, files.id],
+  }).onDelete("cascade"),
+  check("file_scenes_revision_check", sql`${t.revision} >= 1`),
+  check("file_scenes_body_check", sql`length(${t.body}) <= 131072`),
+]);
+
+/**
  * R2 keys waiting to be deleted (docs/09 §5.3). The row is written in the same D1 batch that drops the last
  * reference, so the order is always D1 first, R2 second; the worker never deletes a key D1 still references.
  */

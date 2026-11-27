@@ -195,6 +195,9 @@ export class VersionChanged extends Data.TaggedError('VersionChanged')<{}> {}
 /** The uploaded GLB failed the header check (magic, version 2, length, first chunk JSON), docs/11 §2.3. */
 export class InvalidDerivative extends Data.TaggedError('InvalidDerivative')<{}> {}
 
+/** The scene record moved on since the caller read it (another editor saved), docs/11 §3.1: reload, then apply again. */
+export class SceneConflict extends Data.TaggedError('SceneConflict')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -238,6 +241,7 @@ export type AppError =
   | UploadMismatch
   | VersionTypeMismatch
   | VersionUnavailable
+  | SceneConflict
   | PreviewUnavailable
   | ContentIntegrity
   | InvalidThumbnail
