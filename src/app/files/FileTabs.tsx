@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CornerDownRight, Download, History, MapPin, MapPinOff, Trash2, Upload, X } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
@@ -71,13 +71,14 @@ export const useComments = (workspaceId: string, fileId: string) => {
   const [failed, setFailed] = useState(false)
 
   // From the start: every page (up to COMMENT_PAGES of them), so the canvas draws every pin and numbers them in comment
-  // order; past that, "Load more" goes on from where it stopped. A page that fails later keeps what came.
+  // order; past that, "Load more" goes on from where it stopped. The first page shows at once and the others are added
+  // as they come; "Load more" only once the run is over (so it never reads a page twice). A page that fails later keeps
+  // what came.
   const live = useRef(0)
   const load = useCallback(
     async (after: string | null) => {
       const run = after === null ? ++live.current : live.current
       let next = after
-      const got: CommentView[] = []
       for (let page = 0; page < (after === null ? COMMENT_PAGES : 1); page++) {
         const result = await call<CommentPage>('listComments', { workspaceId, fileId, limit: COMMENT_PAGE, ...(next === null ? {} : { cursor: next }) })
         // Another file (or a fresh start) meanwhile: this run's pages are not this list's.
@@ -86,18 +87,20 @@ export const useComments = (workspaceId: string, fileId: string) => {
           if (page > 0) break
           return after === null ? setFailed(true) : undefined
         }
-        got.push(...result.data.items)
+        const got = result.data.items
+        const fresh = after === null && page === 0
+        setFailed(false)
+        setItems((current) => (fresh || current === null ? got : [...current, ...got]))
         next = result.data.nextCursor
         if (next === null) break
       }
-      setFailed(false)
-      setItems((current) => (after === null || current === null ? got : [...current, ...got]))
       setCursor(next)
     },
     [call, workspaceId, fileId],
   )
   useEffect(() => {
     setItems(null)
+    setCursor(null)
     void load(null)
   }, [load])
 
@@ -284,10 +287,23 @@ export const CommentsTab = ({ comments, can, pins }: { comments: Comments; can: 
     if (anchor !== undefined) pins?.onClear()
   }
 
+  // The top-level comments and each one's replies, grouped once (not one pass over the list per comment).
+  const { top, replies } = useMemo(() => {
+    const top: CommentView[] = []
+    const replies = new Map<string, CommentView[]>()
+    for (const item of items ?? []) {
+      if (item.parentId === null) top.push(item)
+      else {
+        const list = replies.get(item.parentId)
+        if (list === undefined) replies.set(item.parentId, [item])
+        else list.push(item)
+      }
+    }
+    return { top, replies }
+  }, [items])
+
   if (failed) return <TabError onRetry={() => void load(null)} />
   if (items === null) return <TabSkeleton />
-  const top = items.filter((item) => item.parentId === null)
-  const repliesOf = (id: string) => items.filter((item) => item.parentId === id)
   const anyPin = top.some((item) => item.anchor !== null && !item.deleted)
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -307,7 +323,7 @@ export const CommentsTab = ({ comments, can, pins }: { comments: Comments; can: 
                 onDelete={() => void remove(comment)}
                 {...(can.comment && !comment.deleted ? { onReply: () => setReplyTo(comment) } : {})}
               />
-              {repliesOf(comment.id).map((reply) => (
+              {(replies.get(comment.id) ?? []).map((reply) => (
                 <CommentItem key={reply.id} comment={reply} reply onDelete={() => void remove(reply)} />
               ))}
             </li>
