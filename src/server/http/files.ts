@@ -4,6 +4,9 @@ import { MAX_THUMBNAIL_BYTES } from '../deliveryHttp'
 import { DerivativeStats, derivativeFailureCodes } from '../derivative'
 import { type Delivery, deliverContent, deliverModel, deliverThumbnail, putThumbnail } from '../programs/delivery'
 import { completeDerivative, failDerivative, startDerivative } from '../programs/derivatives'
+import { getScene, putScene } from '../programs/scenes'
+import { SceneBody } from '../scene'
+import { SCENE_MAX_BODY } from '../../shared/scene'
 import { AppConfig } from '../services/AppConfig'
 import type { Auth } from '../services/Auth'
 import type { Db } from '../services/Db'
@@ -17,8 +20,8 @@ import { readCaller } from './session'
 
 export type FilesServices = Db | Auth | AppConfig | Storage | RateLimit | Entitlements
 
-/** `/api/files/{fileId}/content|model|thumbnail` and `/api/files/{fileId}/derivative/start|complete|failed`. */
-const PATH = /^\/api\/files\/([^/]+)\/(content|model|thumbnail|derivative\/start|derivative\/complete|derivative\/failed)$/
+/** `/api/files/{fileId}/content|model|thumbnail|scene` and `/api/files/{fileId}/derivative/start|complete|failed`. */
+const PATH = /^\/api\/files\/([^/]+)\/(content|model|thumbnail|scene|derivative\/start|derivative\/complete|derivative\/failed)$/
 
 const VersionNumber = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1_000_000 }))
 const Bytes = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }))
@@ -30,6 +33,9 @@ const derivativeBodies = {
   'derivative/complete': Schema.Struct({ sessionId: Id, etag: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128)), stats: DerivativeStats }),
   'derivative/failed': Schema.Struct({ version: VersionNumber, code: Schema.Literals(derivativeFailureCodes) }),
 } as const
+
+/** `POST …/scene` (docs/11 §3.1 says PUT; the CSRF boundary takes POST only): the version the editor has open, the revision the change was made on (0: none yet). */
+const SceneWrite = Schema.Struct({ version: VersionNumber, revision: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000_000_000 })), body: SceneBody })
 
 const decodeBody = <S extends Schema.Top & { readonly DecodingServices: never }>(schema: S, body: unknown) =>
   Schema.decodeUnknownEffect(schema)(body, { onExcessProperty: 'error' }).pipe(Effect.mapError(() => new ValidationError({ message: 'invalid request body' })))
@@ -85,6 +91,20 @@ export const filesProgram = (request: Request) =>
       if (kind === 'derivative/start') return sealed(yield* startDerivative(caller, { fileId, ...(yield* decodeBody(derivativeBodies[kind], body)) }))
       if (kind === 'derivative/complete') return sealed(yield* completeDerivative(caller, { fileId, ...(yield* decodeBody(derivativeBodies[kind], body)) }))
       return sealed(yield* failDerivative(caller, { fileId, ...(yield* decodeBody(derivativeBodies[kind], body)) }))
+    }
+    if (kind === 'scene') {
+      if (request.method === 'POST') {
+        yield* checkMutationRequest(request, trustedOrigins)
+        const { caller } = yield* readCaller(request)
+        // The stored limit counts characters (UTF-16 units); on the wire one unit is up to 3 UTF-8 bytes (an astral
+        // character: 2 units, 4 bytes). The program checks the characters; the envelope adds a little.
+        const body = yield* decodeBody(SceneWrite, yield* readBody(request, SCENE_MAX_BODY * 3 + 1024))
+        return sealed(yield* putScene(caller, { fileId, ...body }))
+      }
+      if (request.method !== 'GET') return yield* new ResourceUnavailable()
+      yield* checkReadRequest(request, trustedOrigins)
+      const { caller } = yield* readCaller(request)
+      return sealed(yield* getScene(caller, { fileId }))
     }
     yield* checkReadRequest(request, trustedOrigins)
     const { caller } = yield* readCaller(request)

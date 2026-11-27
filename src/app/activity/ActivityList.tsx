@@ -53,7 +53,7 @@ const KNOWN = new Set([
   'file.restored', 'file.purged', 'file.access_granted', 'file.access_revoked', 'link.created', 'link.updated', 'link.revoked', 'link.copied', 'link.opened',
   'link.password_failed', 'comment.created', 'comment.deleted', 'guest.joined', 'guest.invite_canceled', 'member.joined', 'member.removed', 'member.role_changed',
   'member.invite_canceled', 'project.created', 'project.updated', 'project.archived', 'project.access_granted', 'project.access_revoked',
-  'project.access_mode_team', 'project.access_mode_restricted', 'workspace.created', 'workspace.ownership_transferred',
+  'project.access_mode_team', 'project.access_mode_restricted', 'workspace.created', 'workspace.ownership_transferred', 'scene.updated',
 ])
 
 const eventKey = (action: string): I18nKey => (KNOWN.has(action) ? (`activity.event.${action}` as I18nKey) : 'activity.event.other')

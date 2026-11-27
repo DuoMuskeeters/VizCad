@@ -51,6 +51,7 @@ export type SceneHandle = {
   readonly thumbnail: (path: string, width: number, height: number) => Promise<Blob | null>
   /** The meshes of a node for an STL export (B7): the node's object, world transforms applied by the exporter. */
   readonly objectAt: (path: string) => Object3D | null
+  readonly colorOf: (path: string) => string | null
   /** Draw calls, geometries and textures still alive (dispose check, docs/11 §6). */
   readonly memory: () => { readonly geometries: number; readonly textures: number }
   readonly dispose: () => void
@@ -309,8 +310,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     focus: (path) => {
       focusPath = path
       // The canvas may have just been shown or resized (leaving the Parts view, the tree toggled) in the same commit;
-      // the ResizeObserver reports that only later, so measure now and fit with the new aspect.
-      resize()
+      // the ResizeObserver reports that only later, so measure now and fit with the new aspect. A hidden canvas (the
+      // Parts view) measures 0 × 0: it keeps its last aspect, and the observer resizes it once it shows.
+      if (container.clientWidth > 0 && container.clientHeight > 0) resize()
       const direction = camera.position.clone().sub(controls.target)
       place(direction.lengthSq() > 0 ? direction : viewDirection('iso'))
     },
@@ -321,6 +323,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
       return [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]
     },
     objectAt: (path) => studio?.objectAt(path) ?? null,
+    colorOf: (path) => studio?.colorOf(path) ?? null,
     thumbnail: (path, width, height) =>
       new Promise((resolve) => {
         const target = studio?.objectAt(path)

@@ -55,6 +55,8 @@ export interface WorkspaceLimits {
   readonly derivativeBytesPerSourceByte: number
   /** A small source's GLB may always be this large (a few-KB STEP of a curved part still tessellates to some triangles). */
   readonly derivativeMinBytes: number
+  /** Saved views in one scene record (docs/11 §2.6, §3.1). */
+  readonly savedViewsPerScene: number
 }
 
 /**
@@ -106,6 +108,7 @@ export const defaultPlan: WorkspaceLimits = {
   // Measured GLB/source ratios: STEP 0.3–0.5, 3MF up to 2.5 (docs/11 Faz 5b notes); 4 leaves room, 2 MB covers tiny files.
   derivativeBytesPerSourceByte: 4,
   derivativeMinBytes: 2 * MB,
+  savedViewsPerScene: 20,
 }
 
 /** Every workspace gets `limits`. Tests override single fields with `fixed({ ...defaultPlan, seats: 2 })`. */

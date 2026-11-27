@@ -31,6 +31,8 @@ beforeEach(() => {
   seen.props = []
   posts.length = 0
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    // The scene record is read for every 3D model (docs/11 §3); these tests count the writes.
+    if (url.endsWith('/scene')) return new Response(JSON.stringify({ ok: true, data: { scene: null, previous: null, canEdit: false, maxViews: 20 } }), { status: 200 })
     posts.push(url)
     return new Response('{"ok":true}', { status: 200 })
   }))
@@ -103,6 +105,7 @@ describe('file page viewer', () => {
   it('lazy path: edit + download converts the source and stores its GLB for the version shown', async () => {
     const calls: Array<{ url: string; body: unknown }> = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/scene')) return new Response(JSON.stringify({ ok: true, data: { scene: null, previous: null, canEdit: false, maxViews: 20 } }), { status: 200 })
       calls.push({ url, body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body })
       if (url.endsWith('/derivative/start')) return answer({ sessionId: 's1', url: 'https://r2.test/put', headers: { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' } })
       if (url === 'https://r2.test/put') return new Response(null, { status: 200, headers: { etag: '"e1"' } })

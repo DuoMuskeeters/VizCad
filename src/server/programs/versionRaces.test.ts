@@ -8,12 +8,13 @@ import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { TestClock } from 'effect/testing'
 import * as schema from '../db/schema'
-import { type Database, Db } from '../services/Db'
+import { Db } from '../services/Db'
 import { defaultPlan } from '../services/Entitlements'
 import { MemoryStorageControl, Storage } from '../services/Storage'
 import { glb } from '../testing/glb'
 import { png } from '../testing/images'
 import { caller, programLayer, rows, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
+import { beforeFirstBatch } from '../testing/races'
 import { putThumbnail } from './delivery'
 import { completeDerivative, startDerivative } from './derivatives'
 import { drainStorageDeletions } from './storageCleanup'
@@ -26,30 +27,6 @@ const run = <A, E, R>(body: Effect.Effect<A, E, R>) =>
 const STEP = 'ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n'
 const STATS = { converter: 'test', triangles: 1, nodes: 1, parts: 1, bbox: { min: [0, 0, 0] as const, max: [1, 1, 1] as const } }
 const fileRow = Db.use((db) => db.use((d) => d.select().from(schema.files).where(eq(schema.files.id, 'f1')).get()))
-
-/**
- * A Db whose first `batch` first runs `interfere` to the end (against the real Db): the other request lands exactly
- * between the call's reads and its write.
- */
-const beforeFirstBatch = <E, R>(interfere: Effect.Effect<unknown, E, R>) =>
-  Effect.gen(function* () {
-    const real = yield* Db
-    const context = yield* Effect.context<R | Db>()
-    let fired = false
-    const hook = (d: Database): Database =>
-      new Proxy(d, {
-        get: (target, prop, receiver) => {
-          if (prop !== 'batch' || fired) return Reflect.get(target, prop, receiver)
-          const batch: Database['batch'] = async (statements) => {
-            fired = true
-            await Effect.runPromise(interfere.pipe(Effect.provide(context)))
-            return target.batch(statements)
-          }
-          return batch
-        },
-      })
-    return Db.of({ use: (query) => real.use((d) => query(hook(d))) })
-  })
 
 /** start → browser PUT of a GLB for version `version`; completing it is left to the test. */
 const pendingDerivative = (bytes: Uint8Array, version: number) =>

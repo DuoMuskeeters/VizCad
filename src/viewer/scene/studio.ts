@@ -101,6 +101,8 @@ export type Studio = {
   /** The part under the ray (a visible mesh), as the path of its node. */
   readonly pick: (raycaster: Raycaster) => string | null
   readonly boundsOf: (path: string) => Box3 | null
+  /** The file's own colour of a node (its first mesh's material, before any look), `#rrggbb`. */
+  readonly colorOf: (path: string) => string | null
   readonly dispose: () => void
 }
 
@@ -180,6 +182,15 @@ export const createStudio = (model: Object3D): Studio => {
       object.updateWorldMatrix(true, true)
       const box = new Box3().setFromObject(object)
       return box.isEmpty() ? null : box
+    },
+    colorOf: (path) => {
+      for (const [mesh, at] of meshes) {
+        if (!isUnder(at, path)) continue
+        const original = base.get(mesh)
+        const first = (Array.isArray(original) ? original[0] : original) as Partial<MeshStandardMaterial> | undefined
+        if (first?.color instanceof Color) return `#${first.color.getHexString()}`
+      }
+      return null
     },
     dispose: () => {
       for (const [mesh, original] of base) mesh.material = original

@@ -4,14 +4,14 @@ import { PayloadTooLarge, ValidationError } from '../errors'
 const MAX_BODY_BYTES = 16 * 1024
 
 /**
- * Reads the JSON body of a clone (the SDK still gets the original), with a hard size cap: a declared
+ * Reads the JSON body of a clone (the SDK still gets the original), with a hard size cap (16 KiB unless given): a declared
  * content-length over the cap is refused outright, and without one (chunked) the stream is cut as soon as
  * it passes the cap, so an oversized body is never buffered.
  */
-export const readBody = (request: Request) =>
+export const readBody = (request: Request, maxBytes: number = MAX_BODY_BYTES) =>
   Effect.gen(function* () {
     const declared = Number(request.headers.get('content-length') ?? '0')
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return yield* new PayloadTooLarge()
+    if (Number.isFinite(declared) && declared > maxBytes) return yield* new PayloadTooLarge()
     const stream = request.clone().body
     const text = yield* Effect.tryPromise({
       try: async () => {
@@ -23,7 +23,7 @@ export const readBody = (request: Request) =>
           const { done, value } = await reader.read()
           if (done) break
           size += value.byteLength
-          if (size > MAX_BODY_BYTES) {
+          if (size > maxBytes) {
             void reader.cancel().catch(() => undefined)
             return null
           }

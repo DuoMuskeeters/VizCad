@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  soleChain, chainOf, countNodes, findNode, fold, levelOf, isNodePath, isUnder, namePaths, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
+  soleChain, chainOf, countNodes, findNode, fold, levelOf, isNodePath, isUnder, namePaths, nameSteps, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
 } from './outline'
 
 const part = (path: string, name: string): OutlineNode => ({ path, name, parts: 1, drawn: true, children: [] })
@@ -58,13 +58,26 @@ describe('outline', () => {
     expect(searchOutline(pump, 'kw', (n) => (n.path === '0.1' ? 'Elektrik motoru' : n.name)).hits).toEqual([])
   })
 
-  it('gives stable name paths, numbering same-named siblings and escaping slashes', () => {
+  it('gives stable name paths without the root, numbering same-named siblings with their group size and escaping', () => {
     const names = namePaths(pump)
-    expect(names.get('0')).toBe('Pompa grubu')
-    expect(names.get('0.1.1')).toBe('Pompa grubu/Motor 7,5 kW/Vida M3 [1]')
-    expect(names.get('0.1.2')).toBe('Pompa grubu/Motor 7,5 kW/Vida M3 [2]')
-    expect(names.get('0.2.1.0')).toBe('Pompa grubu/Pompa ünitesi/Çark/Kanat\\/1')
+    expect(names.get('0')).toBe('')
+    expect(names.get('0.1')).toBe('Motor 7,5 kW')
+    expect(names.get('0.1.1')).toBe('Motor 7,5 kW/Vida M3 [1/2]')
+    expect(names.get('0.1.2')).toBe('Motor 7,5 kW/Vida M3 [2/2]')
+    expect(names.get('0.2.1.0')).toBe('Pompa ünitesi/Çark/Kanat\\/1')
     expect(new Set(names.values()).size).toBe(names.size)
+    // A name that looks like a group number is escaped, so it cannot collide with one.
+    const tricky = asm('0', 'A', [part('0.0', 'Pin [1/2]'), part('0.1', 'Pin'), part('0.2', 'Pin')])
+    expect([...namePaths(tricky).values()]).toEqual(['', 'Pin \\[1\\/2\\]', 'Pin [1/2]', 'Pin [2/2]'])
+    expect(nameSteps('Pompa ünitesi/Çark/Kanat\\/1')).toEqual(['Pompa ünitesi', 'Çark', 'Kanat/1'])
+    expect(nameSteps('Motor/Vida M3 [2/3]')).toEqual(['Motor', 'Vida M3 [2/3]'])
+    expect(nameSteps('Pin \\[1\\/2\\]')).toEqual(['Pin [1/2]'])
+    expect(nameSteps('')).toEqual([])
+  })
+
+  it('gives the same name paths whatever the root is called (file name of an STL, a renamed upload)', () => {
+    const renamed = { ...pump, name: 'pump-v2' }
+    expect([...namePaths(renamed)]).toEqual([...namePaths(pump)])
   })
 
   it('folds Turkish letters for search, whatever the runtime locale', () => {

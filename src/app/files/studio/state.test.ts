@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { initialStudio, studioReducer } from './state'
+import { hiddenOn, initialStudio, studioReducer } from './state'
 import { createThumbnailStore } from './thumbnails'
 
 const outline = { path: '0', name: 'A', parts: 2, drawn: false, children: [] }
@@ -10,19 +10,29 @@ describe('studio state', () => {
     state = studioReducer(state, { type: 'outline', outline })
     state = studioReducer(state, { type: 'ready', ready: true })
     state = studioReducer(state, { type: 'select', path: '0.1' })
-    state = studioReducer(state, { type: 'toggleHidden', path: '0.0' })
+    state = studioReducer(state, { type: 'toggleHidden', path: '0.0', hiddenNow: false })
+    state = studioReducer(state, { type: 'editing', editing: true })
+    state = studioReducer(state, { type: 'stl', path: '0.1' })
+    state = studioReducer(state, { type: 'dismissMatch' })
     state = studioReducer(state, { type: 'sheet', sheet: { level: '0' } })
     expect(studioReducer(state, { type: 'reset', key: 'f1:4' })).toBe(state)
     expect(studioReducer(state, { type: 'reset', key: 'f1:4:preparing' })).toEqual(initialStudio('f1:4:preparing'))
   })
 
-  it('toggles, unhides and shows all', () => {
-    let state = studioReducer(initialStudio(null), { type: 'toggleHidden', path: '0.1' })
-    state = studioReducer(state, { type: 'toggleHidden', path: '0.2' })
-    expect([...studioReducer(state, { type: 'unhide', path: '0.1' }).hidden]).toEqual(['0.2'])
-    expect(studioReducer(state, { type: 'showAll' }).hidden.size).toBe(0)
-    const none = initialStudio(null)
-    expect(studioReducer(none, { type: 'unhide', path: '0.1' })).toBe(none)
+  it('hides and shows on this screen over the scene record, and shows all', () => {
+    const scene = new Set(['0.1'])
+    let state = initialStudio(null)
+    // The record hides 0.1: showing it here is a local show; hiding 0.2 is a local hide.
+    state = studioReducer(state, { type: 'toggleHidden', path: '0.1', hiddenNow: true })
+    state = studioReducer(state, { type: 'toggleHidden', path: '0.2', hiddenNow: false })
+    expect([...hiddenOn(state, scene)]).toEqual(['0.2'])
+    // Hidden again: the local show is undone, the record decides.
+    state = studioReducer(state, { type: 'toggleHidden', path: '0.1', hiddenNow: false })
+    expect([...hiddenOn(state, scene)].sort()).toEqual(['0.1', '0.2'])
+    state = studioReducer(state, { type: 'showAll', sceneHidden: scene })
+    expect(hiddenOn(state, scene).size).toBe(0)
+    state = studioReducer(state, { type: 'forget', path: '0.1' })
+    expect([...hiddenOn(state, scene)]).toEqual(['0.1'])
   })
 })
 

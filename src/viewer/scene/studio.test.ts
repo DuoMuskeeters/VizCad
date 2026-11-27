@@ -107,6 +107,7 @@ describe('studio', () => {
     expect(studio.pick(ray)).toBeNull()
     expect(studio.boundsOf('0.1.1')?.min.x).toBeCloseTo(2.5)
     expect(studio.boundsOf('0.9')).toBeNull()
+    expect(studio.colorOf('0.1.0')).toBe('#888888')
   })
 
   it('draws an isolated node even when it was hidden', () => {

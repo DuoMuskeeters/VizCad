@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
-import { Box, ChevronLeft, Download, FileQuestion, LayoutGrid, ListTree, Loader2, PanelLeft, PanelRight, Share2, X } from 'lucide-react'
+import { Box, ChevronLeft, Download, FileDown, FileQuestion, LayoutGrid, ListTree, Loader2, Paintbrush, PanelLeft, PanelRight, Share2, X } from 'lucide-react'
+import { MenuItem } from '#/components/ui/Menu'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
 import { Button, IconButton } from '#/components/ui/Button'
@@ -18,7 +19,8 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, levelOf, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { editNode, hiddenOf, looksOf, matchPrevious, namesOf, type SceneEdit } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
 import { reportDerivativeFailure, uploadDerivative } from './derivative'
@@ -36,12 +38,16 @@ import { abilitiesOf, contentUrl, isFullView, modelUrl, thumbnailUrl, type AnyFi
 import { type UploadItem, UploadPill, useUploads } from './UploadProvider'
 import { FolderView } from './studio/FolderView'
 import { baseName, counted, formatSize, makeNamer, pathNames } from './studio/names'
-import { PathBar, SelectionBar } from './studio/Overlays'
+import { CanvasTool, PathBar, SelectionBar } from './studio/Overlays'
 import { PartsList } from './studio/PartsList'
-import { initialStudio, studioReducer } from './studio/state'
+import { hiddenOn, initialStudio, studioReducer } from './studio/state'
 import { createThumbnailStore } from './studio/thumbnails'
 import { TreePanel } from './studio/TreePanel'
 import { useWide } from './studio/useWide'
+import { useScene } from './studio/useScene'
+import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar } from './studio/SceneEdit'
+import { StlDialog } from './studio/StlDialog'
+import { EMPTY_SCENE } from '#/shared/scene'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
 const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
@@ -213,9 +219,10 @@ export const FileDetailPage = () => {
   const [versionKey, setVersionKey] = useState(0)
   const phone = useMemo(() => isPhone(readDeviceHints()), [])
 
-  // The studio: the open model's outline and what this screen does with it (never saved, B2), in one reducer.
+  // The studio: the open model's outline and what this screen does with it (B2: my hide/show is never saved), in one
+  // reducer.
   const [studioState, dispatch] = useReducer(studioReducer, null, initialStudio)
-  const { outline, ready: modelReady, selected, hidden, sheet } = studioState
+  const { outline, ready: modelReady, selected, sheet, editing, stlPath, matchDismissed } = studioState
   const [treeOpen, setTreeOpen] = useState(true)
   const [panelOpen, setPanelOpen] = useState(true)
   const api = useRef<ViewerApi | null>(null)
@@ -248,13 +255,18 @@ export const FileDetailPage = () => {
   }, [])
 
   // The viewer converted the source and wrote its GLB (docs/11 §2.5 lazy path): store it in the background, unless the
-  // version moved on meanwhile (the server refuses that too). The page keeps showing the model it has; the next open
-  // reads the GLB.
+  // version moved on meanwhile (the server refuses that too). The page keeps showing the model it has (`file.model`
+  // stays, so the viewer does not reopen); the scene record is read again, since a model with a stored GLB may now be
+  // edited (and offer an earlier version's colours). `sceneReload` is set once the scene hook has run.
+  const sceneReload = useRef<() => void>(() => {})
   const saveDerivative = useCallback((fileId: string, version: number, extension: string, glb: ArrayBuffer, stats: Stats) => {
     const format = formatOfExtension(extension)
     const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
-    if (format === null || pending || shown.current.file?.id !== fileId || shown.current.file.currentVersion.number !== version) return
-    void uploadDerivative({ fileId, version, glb, stats, converter: converterOf(format) })
+    const still = () => shown.current.file?.id === fileId && shown.current.file.currentVersion.number === version
+    if (format === null || pending || !still()) return
+    void uploadDerivative({ fileId, version, glb, stats, converter: converterOf(format) }).then((result) => {
+      if (result === 'ready' && still()) sceneReload.current()
+    })
   }, [])
   const recordFailure = useCallback((fileId: string, version: number, code: ErrorCode) => {
     void reportDerivativeFailure({ fileId, version, code })
@@ -302,11 +314,42 @@ export const FileDetailPage = () => {
   const stale = outline !== null && nodeParam !== undefined && node === null
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
-  // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank).
+  // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
+  // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
+  const scene = useScene(
+    id,
+    shownFile?.currentVersion.number ?? 0,
+    shownFile === null ? '' : `${shownFile.model.kind}:${shownFile.model.bytes ?? 0}`,
+    shownFile !== null && shownFile.model.kind !== 'none' && !preparingModel,
+  )
+  sceneReload.current = scene.reload
+  // A save of a model left behind failed: said once per lost change.
+  const sceneLost = scene.lost
+  const toldLost = useRef(0)
   useEffect(() => {
-    if (isolated !== null) dispatch({ type: 'unhide', path: isolated })
-  }, [isolated])
-  const view = useMemo<StudioView>(() => ({ selected, isolated, hidden, looks: new Map() }), [selected, isolated, hidden])
+    if (sceneLost <= toldLost.current) return
+    toldLost.current = sceneLost
+    toast({ title: t('studio.save.lost'), tone: 'danger' })
+  }, [sceneLost, toast, t])
+  const sceneHidden = useMemo(() => hiddenOf(scene.body), [scene.body])
+  const looks = useMemo(() => looksOf(scene.body), [scene.body])
+  const renamed = useMemo(() => namesOf(scene.body), [scene.body])
+  // Folder thumbnails show the record's colours: drawn again after a change.
+  useEffect(() => thumbnails.clear(), [looks, thumbnails])
+  const { localHidden, localShown } = studioState
+  const hidden = useMemo(() => hiddenOn({ localHidden, localShown }, sceneHidden), [localHidden, localShown, sceneHidden])
+  // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank). Only when the
+  // isolation starts: hiding the isolated node leaves the isolation (`toggleHidden`), and in between it must stay hidden.
+  const isolatedHidden = isolated !== null && hidden.has(isolated)
+  const unhidFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (unhidFor.current === isolated) return
+    unhidFor.current = isolated
+    if (isolated !== null && isolatedHidden) dispatch({ type: 'toggleHidden', path: isolated, hiddenNow: true })
+  }, [isolated, isolatedHidden])
+  // In scene prep the selection is not tinted: the editor must see the colour being chosen.
+  const tinted = editing ? null : selected
+  const view = useMemo<StudioView>(() => ({ selected: tinted, isolated, hidden, looks }), [tinted, isolated, hidden, looks])
   const studio = useMemo(
     () => ({
       view,
@@ -319,7 +362,6 @@ export const FileDetailPage = () => {
   )
   const setSelected = useCallback((path: string | null) => dispatch({ type: 'select', path }), [])
   const setSheet = useCallback((next: { level: string } | null) => dispatch({ type: 'sheet', sheet: next }), [])
-  const showAll = useCallback(() => dispatch({ type: 'showAll' }), [])
 
   const go = useCallback(
     (next: { node?: string | null; view?: 'parts' | null }) => {
@@ -337,7 +379,22 @@ export const FileDetailPage = () => {
     },
     [navigate, id, search],
   )
-  const toggleHidden = useCallback((path: string) => dispatch({ type: 'toggleHidden', path }), [])
+  // Hiding the isolated node (or one above it) would change nothing on the canvas (the isolated node always draws):
+  // it leaves the isolation, so the hide shows.
+  const leaveIsolationFor = useCallback((path: string) => {
+    if (isolated !== null && isUnder(isolated, path)) go({ node: null })
+  }, [isolated, go])
+  const toggleHidden = useCallback(
+    (path: string) => {
+      const hiding = !hidden.has(path)
+      dispatch({ type: 'toggleHidden', path, hiddenNow: !hiding })
+      if (hiding) leaveIsolationFor(path)
+    },
+    [hidden, leaveIsolationFor],
+  )
+  const showAll = useCallback(() => dispatch({ type: 'showAll', sceneHidden }), [sceneHidden])
+  const setStlPath = useCallback((path: string | null) => dispatch({ type: 'stl', path }), [])
+  const setEditing = useCallback((on: boolean) => dispatch({ type: 'editing', editing: on }), [])
   const copyLink = useCallback(
     (path: string) => {
       const url = `${window.location.origin}/app/files/${encodeURIComponent(id)}?node=${path}`
@@ -348,10 +405,31 @@ export const FileDetailPage = () => {
     },
     [id, toast, t],
   )
+  const stlSource = useMemo(
+    () => ({
+      triangles: (path: string) => api.current?.triangles(path) ?? Promise.resolve(0),
+      write: (path: string, centered: boolean, name: string) => api.current?.exportStl(path, centered, name) ?? Promise.resolve(null),
+    }),
+    [],
+  )
   const drawThumbnail = useCallback((path: string, width: number, height: number) => api.current?.thumbnail(path, width, height) ?? Promise.resolve(null), [])
 
   const file = state.status === 'ready' ? state.file : null
-  const nameOf = useMemo(() => makeNamer(baseName(file?.name ?? ''), t('studio.unnamed')), [file?.name, t])
+  const nameOf = useMemo(() => makeNamer(baseName(file?.name ?? ''), t('studio.unnamed'), renamed), [file?.name, t, renamed])
+  const names = useMemo(() => (outline === null ? null : namePaths(outline)), [outline])
+  // §3.3: an earlier model's record, carried over by name path, offered to an editor on a desktop.
+  const match = useMemo(
+    () => (outline !== null && scene.answer?.previous && scene.answer.scene === null && scene.answer.canEdit ? matchPrevious(scene.answer.previous.body, outline) : null),
+    [outline, scene.answer],
+  )
+  const editNodeLook = useCallback(
+    (path: string, edit: SceneEdit) => {
+      if (edit.hidden !== undefined) dispatch({ type: 'forget', path })
+      scene.change(editNode(scene.body, path, edit, names?.get(path)))
+      if (edit.hidden === true) leaveIsolationFor(path)
+    },
+    [scene, names, leaveIsolationFor],
+  )
 
   // The phone sheet closes with Escape.
   useEffect(() => {
@@ -541,8 +619,22 @@ export const FileDetailPage = () => {
     </>
   )
 
+  // Selection, scene prep and STL work on any open model (a single part too); the tree and Parts view need an assembly.
+  const modelOpen = hasViewer && modelReady && outline !== null
+  const editReason = !wide ? t('studio.edit.desktop') : !can.edit ? t('studio.edit.noPermission') : scene.answer?.canEdit ? null : t('studio.edit.notReady')
+  const stlReason = !wide ? t('studio.stl.desktop') : !can.download ? t('studio.stl.noPermission') : null
+  // The earlier colours are offered first: editing would replace the record they would be applied to.
+  const offering = match !== null && wide && !matchDismissed && modelOpen
+  const isEditing = editing && editReason === null && modelOpen && !offering
+  const blocked = scene.status === 'conflict' || scene.status === 'version'
+  const stlButton = (path: string) => (
+    <Button onClick={() => setStlPath(path)} {...(stlReason === null ? {} : { disabledReason: stlReason })}>
+      <FileDown aria-hidden className="size-4.5" />
+      {t('studio.stl.open')}
+    </Button>
+  )
   const steps = outline !== null && isolated !== null ? pathNames(outline, isolated, nameOf) : []
-  const overlay = studioReady ? (
+  const overlay = modelOpen ? (
     <>
       {selectedNode !== null ? (
         <SelectionBar
@@ -553,6 +645,13 @@ export const FileDetailPage = () => {
           onIsolate={() => go({ node: selectedNode.path })}
           onToggleHidden={() => toggleHidden(selectedNode.path)}
           onClear={() => setSelected(null)}
+          extra={
+            stlReason === null ? (
+              <CanvasTool label={t('studio.stl.open')} onClick={() => setStlPath(selectedNode.path)}>
+                <FileDown aria-hidden className="size-4.5" />
+              </CanvasTool>
+            ) : null
+          }
         />
       ) : null}
       {isolated !== null ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
@@ -589,6 +688,11 @@ export const FileDetailPage = () => {
           onShowAll={showAll}
           thumbnail={drawThumbnail}
           thumbnails={thumbnails}
+          menuExtra={(item) => (
+            <MenuItem icon={<FileDown />} onSelect={() => setStlPath(item.path)} {...(stlReason === null ? {} : { disabledReason: stlReason })}>
+              {t('studio.stl.open')}
+            </MenuItem>
+          )}
         />
       ) : null}
       <Suspense fallback={<ViewerFallback src={thumbnail} fill={wide} />}>
@@ -658,6 +762,20 @@ export const FileDetailPage = () => {
       <dl className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 text-base">
         <dt className="text-text-3">{t('studio.sel.path')}</dt>
         <dd className="min-w-0 break-words">{outline === null ? '' : pathNames(outline, selectedNode.path, nameOf).map((step) => step.name).join(' › ')}</dd>
+        <dt className="text-text-3">{t('studio.sel.color')}</dt>
+        <dd className="flex min-w-0 items-center gap-2">
+          {(() => {
+            const own = looks.get(selectedNode.path)?.color
+            return own ? (
+              <>
+                <Chip color={own} className="size-4" />
+                {t('studio.sel.fromScene', { color: own.toUpperCase() })}
+              </>
+            ) : (
+              t('studio.sel.fromFile')
+            )
+          })()}
+        </dd>
         {(() => {
           const size = api.current?.sizeOf(selectedNode.path)
           return size ? (
@@ -677,11 +795,54 @@ export const FileDetailPage = () => {
         <Button onClick={() => toggleHidden(selectedNode.path)} aria-pressed={hidden.has(selectedNode.path)}>
           {hidden.has(selectedNode.path) ? t('studio.show') : t('studio.hide')}
         </Button>
+        {stlButton(selectedNode.path)}
         <Button variant="ghost" onClick={() => copyLink(selectedNode.path)}>
           {t('studio.copyLink')}
         </Button>
       </div>
       <p className="text-sm text-text-2">{isolated !== null ? t('studio.backHint') : t('studio.local')}</p>
+    </section>
+  ) : null
+
+  // The appearance: everyone sees the record applied; an editor on a desktop opens scene prep from here (docs/11 §4.2).
+  const appearance = modelOpen && !showFolder ? (
+    <section className="mb-5 grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-base font-semibold">{t('studio.view.label')}</h3>
+        <Button variant={editReason === null ? 'secondary' : 'ghost'} onClick={() => setEditing(true)} {...(editReason === null && !blocked && !offering ? {} : { disabledReason: editReason ?? (blocked ? t('studio.conflict.title') : t('studio.edit.answerMatch')) })}>
+          <Paintbrush aria-hidden className="size-4.5" />
+          {t('studio.edit.open')}
+        </Button>
+      </div>
+      <p className="text-sm text-text-2">{editReason !== null && !wide ? editReason : t('studio.local')}</p>
+    </section>
+  ) : null
+
+  const editPanel = isEditing ? (
+    <section aria-label={t('studio.edit.title')} className="grid gap-5">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold">{t('studio.edit.title')}</h2>
+        <span className="ml-auto">
+          <SaveState status={scene.status} />
+        </span>
+      </div>
+      {selectedNode === null ? (
+        <p className="text-base text-text-2">{t('studio.edit.pick')}</p>
+      ) : (
+        <>
+          <div className="min-w-0">
+            <p className="break-words text-md font-semibold">{nameOf(selectedNode)}</p>
+            <p className="text-sm text-text-2">{outline === null ? '' : pathNames(outline, selectedNode.path, nameOf).map((step) => step.name).join(' › ')}</p>
+          </div>
+          <NodeEditor
+            node={selectedNode}
+            entry={scene.body.nodes[selectedNode.path]}
+            fileColor={api.current?.colorOf(selectedNode.path) ?? null}
+            onEdit={(edit) => editNodeLook(selectedNode.path, edit)}
+          />
+        </>
+      )}
+      <p className="text-sm text-text-3">{t('studio.edit.views')}</p>
     </section>
   ) : null
 
@@ -698,6 +859,7 @@ export const FileDetailPage = () => {
           <TabsContent value="details">
             {stale ? <p className="mb-4 rounded-md bg-warn-soft px-3 py-2 text-base text-warn-text">{t('studio.stale')}</p> : null}
             {selectionCard}
+            {appearance}
             <Details file={loaded} outline={studioReady ? outline : null} />
             {showFolder ? (
               <div className="mt-5 grid gap-1.5">
@@ -729,11 +891,36 @@ export const FileDetailPage = () => {
     </section>
   )
 
+  const bars = (
+    <>
+      {scene.status === 'conflict' || scene.status === 'version' ? (
+        <ConflictBar kind={scene.status} onReload={() => (scene.status === 'version' ? window.location.reload() : scene.reload())} />
+      ) : isEditing ? (
+        <EditBar status={scene.status} onDone={() => setEditing(false)} />
+      ) : offering ? (
+        <MatchBar
+          version={scene.answer?.previous?.versionNumber ?? null}
+          matched={match!.matched}
+          unmatched={match!.unmatched}
+          busy={scene.status === 'saving'}
+          onApply={() => scene.change(match!.body, true)}
+          onIgnore={() => {
+            dispatch({ type: 'dismissMatch' })
+            scene.change(EMPTY_SCENE, true)
+          }}
+        />
+      ) : scene.status === 'error' || scene.status === 'tooLarge' ? (
+        <UnsavedBar status={scene.status} onRetry={scene.retry} />
+      ) : null}
+    </>
+  )
+
   const showTree = studioReady && wide && treeOpen && !showFolder && outline !== null
-  const showPanel = !wide || panelOpen
+  const showPanel = !wide || panelOpen || isEditing
 
   return (
     <Frame bar={bar} sub={assembly && !wide ? viewSwitch('row') : undefined}>
+      {bars}
       <div
         className={cx(
           'flex-1 app:grid app:min-h-0',
@@ -759,7 +946,7 @@ export const FileDetailPage = () => {
         <main id="main" tabIndex={-1} className={cx('min-w-0 outline-none', wide ? 'h-full min-h-0' : 'px-3 pt-3', !hasViewer && !preparing && 'overflow-y-auto')}>
           {mainArea}
         </main>
-        {showPanel ? <aside className="min-w-0 px-4 pb-26 pt-4 app:h-full app:overflow-y-auto app:border-l app:border-line app:px-5 app:pb-8">{panel}</aside> : null}
+        {showPanel ? <aside className="min-w-0 px-4 pb-26 pt-4 app:h-full app:overflow-y-auto app:border-l app:border-line app:px-5 app:pb-8">{editPanel ?? panel}</aside> : null}
       </div>
 
       {sheet !== null && outline !== null && !wide ? (
@@ -810,6 +997,16 @@ export const FileDetailPage = () => {
             setMoving(false)
             void load()
           }}
+        />
+      ) : null}
+      {stlPath !== null && outline !== null && stlReason === null ? (
+        <StlDialog
+          path={stlPath}
+          name={nameOf(findNode(outline, stlPath) ?? outline)}
+          where={pathNames(outline, stlPath, nameOf).map((step) => step.name).join(' › ')}
+          source={stlSource}
+          onClose={() => setStlPath(null)}
+          onFailed={() => toast({ title: t('studio.stl.failed'), tone: 'danger' })}
         />
       ) : null}
       {sharing && can.share ? <ShareDialog file={loaded} workspaceId={active.id} onClose={() => setSharing(false)} /> : null}

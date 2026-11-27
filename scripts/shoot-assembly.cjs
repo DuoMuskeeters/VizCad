@@ -12,20 +12,27 @@ const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
 const glbDir = process.env.GLB_DIR || '/tmp/vizcad-glb';
 const glb = process.env.GLB || 'Stealthburner_455parca.step.glb';
 
+/** `GET …/scene` answers `sceneAnswer` (per screen); `POST` saves and returns the next revision. */
+let sceneAnswer = { scene: null, previous: null, canEdit: true, maxViews: 20 };
 const routes = async (page) => {
   await page.route('**/api/files/*/model*', async (route) => {
     const body = fs.readFileSync(path.join(glbDir, glb));
     await route.fulfill({ body, headers: { 'content-type': 'model/gltf-binary', 'content-length': String(body.length) } }).catch(() => {});
   });
   await page.route('**/api/files/*/thumbnail*', (route) => route.fulfill({ status: 404 }));
-  await page.route('**/api/files/*/scene*', (route) => route.fulfill({ json: { ok: true, data: { scene: null, previous: null } } }));
+  let revision = 0;
+  await page.route('**/api/files/*/scene*', (route) => route.request().method() === 'POST'
+    ? route.fulfill({ json: { ok: true, data: { revision: ++revision, updatedAt: 1 } } })
+    : route.fulfill({ json: { ok: true, data: sceneAnswer } }));
 };
 const ready = (page) => page.waitForFunction(() => { const c = document.querySelector('canvas[role=img]'); return c && !c.parentElement.classList.contains('invisible'); }, null, { timeout: 90000 }).then(() => page.waitForTimeout(800));
 /** The first sub-assembly under the root, read from the tree or the parts list. */
 const firstAssembly = (page) => page.evaluate(() => {
-  const row = [...document.querySelectorAll('[role=treeitem][aria-expanded]')].find((r) => r.getAttribute('data-path') !== '0');
+  const rows = [...document.querySelectorAll('[role=treeitem][aria-expanded]')];
+  const row = rows.find((r) => r.getAttribute('aria-level') === '3') ?? rows.find((r) => r.getAttribute('data-path') !== '0');
   return row?.getAttribute('data-path') ?? '0.0';
 });
+const SB = 'Stealthburner_455parca.step/SBr2_CW2.5_Assembly';
 
 const screens = [
   {
@@ -70,6 +77,57 @@ const screens = [
       await page.waitForTimeout(900);
     },
   },
+  {
+    // Scene prep: a sub-assembly coloured and its name changed, the panel edits it (desktop; the phone sees the result).
+    name: 'edit',
+    url: '/app/files/f2?fixture=admin',
+    desktopOnly: true,
+    scene: { scene: { revision: 3, body: { v: 1, nodes: { '0.0.3': { color: '#b23a2e', finish: 'satin', name: 'Hotend kafası', at: `${SB}/CW2.5_Assembly` }, '0.0.1': { color: '#3f6ea8', at: `${SB}/X-Carriage_and_Rail` } }, views: [] }, updatedAt: 1, updatedBy: 'Ada' }, previous: null, canEdit: true, maxViews: 20 },
+    setup: async (page) => {
+      await ready(page);
+      await page.locator('[data-path="0.0.3"] [data-row-main]').click();
+      await page.getByRole('button', { name: 'Görünümü düzenle' }).click();
+      await page.waitForTimeout(800);
+    },
+  },
+  {
+    // A new version: the previous version's colours offered by name path (§3.3).
+    name: 'match',
+    url: '/app/files/f2?fixture=admin',
+    desktopOnly: true,
+    scene: { scene: null, previous: { versionNumber: 3, body: { v: 1, nodes: {
+      a: { color: '#b23a2e', at: `${SB}/CW2.5_Assembly` }, b: { color: '#3f6ea8', at: `${SB}/X-Carriage_and_Rail` }, c: { color: '#c9a227', at: `${SB}/Eski braket` },
+    }, views: [] } }, canEdit: true, maxViews: 20 },
+    setup: async (page) => { await ready(page); await page.getByRole('button', { name: 'Eşleşmeyenler' }).click(); await page.waitForTimeout(300); },
+  },
+  {
+    name: 'stl',
+    url: '/app/files/f2?fixture=admin',
+    desktopOnly: true,
+    setup: async (page) => {
+      await ready(page);
+      const path0 = await firstAssembly(page);
+      await page.locator(`[data-path="${path0}"] [data-row-main]`).click();
+      await page.getByRole('button', { name: 'STL olarak indir' }).last().click();
+      await page.getByRole('dialog').waitFor();
+      await page.waitForTimeout(600);
+    },
+  },
+  {
+    // The phone sees the saved appearance (colours, names) and cannot edit it (§4.4).
+    name: 'phone-scene',
+    url: '/app/files/f2?fixture=admin',
+    phoneOnly: true,
+    scene: { scene: { revision: 3, body: { v: 1, nodes: { '0.0.3': { color: '#b23a2e', name: 'Hotend kafası' }, '0.0.1': { color: '#3f6ea8' } }, views: [] }, updatedAt: 1, updatedBy: 'Ada' }, previous: null, canEdit: true, maxViews: 20 },
+    setup: async (page) => {
+      await ready(page);
+      await page.getByRole('button', { name: 'Parçalar', exact: true }).last().click();
+      await page.locator('section[aria-label="Parça ağacı"] li button').first().click();
+      await page.getByRole('button', { name: 'Parçaları kapat' }).click();
+      await page.getByRole('button', { name: 'Görünümü düzenle' }).scrollIntoViewIfNeeded();
+      await page.waitForTimeout(400);
+    },
+  },
 ];
 
 const viewports = [
@@ -84,6 +142,8 @@ const viewports = [
   for (const s of screens) {
     if (only && !s.name.includes(only)) continue;
     for (const vp of viewports) {
+      if ((s.desktopOnly && vp.phone) || (s.phoneOnly && !vp.phone)) continue;
+      sceneAnswer = s.scene ?? { scene: null, previous: null, canEdit: true, maxViews: 20 };
       for (const theme of ['light', 'dark']) {
         const context = await browser.newContext({ ...vp.ctx, colorScheme: theme, locale: 'tr-TR' });
         // A desktop-class device at 390 px too: the phone rule would otherwise hold back nothing here (GLB), but keep it explicit.

@@ -461,3 +461,62 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 - **Erişim ve dokunma:** her durumda atlama linki ve `<main>`; 900 px üstü dokunmatikte ağaç satırları 44 px; "Tümünü göster" izoleyken ve telefonda (sayfa ve Parçalar listesi) de var; 360 px altında 3B/Parçalar seçici ikinci satırda (320 px + yükleme hapı: başlık 88 px, taşma yok); Sürümler sekmesi `grid-cols-1` ile 320 px'te yana kaymaz.
 - **Arama** Türkçe harfleri katlar (ı→i, ş→s, ğ→g, ç→c, ö→o, ü→u; çalışma ortamının diline bağlı değil). **Metinler:** tekil biçimler (`…One`, "1 part", "1 sub-assembly"), kullanılmayan üç anahtar silindi.
 - **Ölçüm:** görüntüleyici chunk'ı **158,5 KB** gzip (bütçe 160).
+
+### 5c-2 · Yapılanlar
+
+- **Migration `0017_scenes`** (yalnız `CREATE TABLE` + `CREATE INDEX`; `check-migrations` geçiyor; 6a `0016_cms` aldığı için 0017): `file_scenes` (`id`, `workspaceId` + `fileId` → `files(workspaceId, id)` bileşik FK **CASCADE**, `modelR2Key`, `revision ≥ 1`, `body` ≤ 131.072 karakter CHECK, `updatedByUserId` SET NULL, `updatedAt`; `UNIQUE(fileId, modelR2Key)`, `(fileId, updatedAt)` dizini). Test: `migration0017.test.ts` (eski satırlar aynen, kısıtlar, dosya silinince kayıt gider). Staging'e **uygulanmadı** (bu iş uzak D1 komutu içermiyordu): `pnpm db:migrate:staging` ile uygulanmalı.
+- **Gövde şeması** (`server/scene.ts`, sınırlar `shared/scene.ts`): `v: 1`, `nodes` (yol anahtarı §1.3 kuralıyla, ≤ 2000 giriş; `name` 1–200, `color` küçük harf `#rrggbb`, `finish` matte/satin/metal, `hidden: true`, `at` ad yolu ≤ 1024), `views` (kamera vektörleri sonlu, fov 1–179, ≤ `Entitlements.savedViewsPerScene` = 20). HTTP'de fazla alan 400.
+- **Programlar** (`programs/scenes.ts`): `getScene` (`preview`; bu modelin kaydı; kayıt yoksa ve kişi `edit` ise dosyanın başka modeline ait en yeni kayıt + sürüm numarası, §3.3), `putScene` (`edit`; açık sürüm numarası tutmazsa `VersionChanged`; `revision` 0 = ilk yazım, eskiyse `SceneConflict` 409 ve hiçbir şey yazılmaz; tek batch: rol + dosya yerinde + aynı model (kaynak ve GLB anahtarı) + revizyon guard'ı, yazım, artık hiçbir satırın tutmadığı modellerin kayıtlarının budanması, `scene.updated` aktivitesi dosya başına 10 dakikada en çok bir). Uç: `GET/POST /api/files/{id}/scene` (`http/files.ts`, POST CSRF + Schema, gövde sınırı 129 KiB). Testler `scenes.test.ts` (7) ve `files.test.ts`'e uç senaryosu.
+- **İstemci mantığı** (`viewer/tree/scene.ts`, saf): kayıttan görünüşler, gizliler, adlar; seyrek düzenleme (boşalan giriş silinir, her girişe `at` yazılır); ad yolu eşleme (`matchPrevious`). Test `scene.test.ts`.
+- **Uygulama:** kayıt her 3B modelde okunur ve herkes için uygulanır (adlar ağaçta ve klasör görünümünde, renk ve yüzey modelde, kalıcı gizliler). B2: kişinin gözü kaydın gizlediğini yalnız kendi ekranında gösterebilir ("Tümünü göster" de); hiçbir şey yazılmaz.
+- **Sahne hazırlama** (masaüstü, `edit` + modelin anahtarı var): sağ panelde "Görünüm · Görünümü düzenle" → üstte mod bandı ("Görünümü düzenliyorsun…", kayıt durumu, Bitti), sağ panel sekmeler yerine düzenleme paneli: Ad (dosyadaki adı altında), 12 renk + kod alanı + "Dosyadaki renge dön", Yüzey Mat/Saten/Metal, Görünür anahtarı (kalıcı gizleme). Değişiklik hemen uygulanır, son değişiklikten 1,5 s sonra kaydedilir, aynı anda tek istek; yolda değişiklik gelirse arkasından gider. Düzenleme sırasında seçim vurgusu kapalı (seçilen renk görünsün). `SceneConflict`: kaydetme durur, uyarı bandı "Başkası bu görünümü değiştirdi…" + "Yeniden yükle" (güncel kayıt okunur, kaydedilmemiş değişiklik atılır). `VersionChanged`: "Bu dosyanın yeni sürümü geldi" + "Sayfayı yenile".
+- **Yeni sürümde eşleme bandı** (masaüstü, `edit`): "Önceki sürümün (Sürüm N) renk ve adları uygulansın mı? X parça eşleşti, Y eşleşmedi…" + Eşleşmeyenler (liste) + Yoksay + Uygula. Uygula eşleşen girişleri yeni modelin kaydı olarak yazar; Yoksay boş kayıt yazar (bant bir daha sorulmaz).
+- **STL parça indirme (B7):** seçim çubuğunda, seçim kartında ve klasör kartı menüsünde. Pencere: üçgen sayısı, tahmini boyut, birim (mm), Konum "Montajdaki yerinde" (varsayılan) / "Kendi merkezinde", dürüst not, İndir. Yazıcı `scene/stl.ts` ayrı tembel chunk (1,3 KB), ikili STL, Z-yukarı dosya eksenleri; gizli alt parçalar dahil. Yalnız `download` ve masaüstü; aksi halde devre dışı + neden.
+- **Telefon (§4.4):** kayıt uygulanmış görünür; "Görünümü düzenle" ve "STL olarak indir" devre dışı, neden yazılı ("…masaüstünde açın"); eşleme bandı yok.
+- Ölçüm: görüntüleyici chunk'ı **157 KB** gzip (bütçe 160). Testler: `pnpm check` 98 dosya. Ekran görüntüleri `design/ui-shots/assembly/` `edit`, `match`, `stl` (1280, açık/koyu), `phone-scene` (390).
+
+### 5c-2 · Sapmalar
+
+1. **Yazma ucu `POST`**, `PUT` değil: CSRF sınırı (`checkMutationRequest`) yalnız POST kabul ediyor; ayrı bir PUT yolu açmak yerine aynı sınır kullanıldı.
+2. **`derivativeR2Key` yerine `modelR2Key`:** STL/OBJ/PLY'nin türevi yok; kayıt `model` ucunun sunduğu nesneye bağlanır (STEP/IGES/3MF'de GLB, diğerlerinde kaynak). GLB'si olmayan STEP'in (yerinde çevrilen) kaydı yok; GLB saklanınca düzenlenebilir.
+3. **Girişlerde `at` (ad yolu):** eşleme eski modelin GLB'sini indirmeden yapılabilsin diye her giriş yazıldığı anki ad yolunu taşır. `at`'si olmayan giriş eşleşmemiş sayılır. Kayıtlı görünümler eşlemede taşınmaz.
+4. **`409` gövdesinde güncel kayıt yok:** `respond.ts` hata gövdesine veri koymuyor; istemci "Yeniden yükle"de `GET` ile okur.
+5. **Kayıt budaması:** dosya kalıcı silinince satırlar CASCADE ile gider. Yeniden üretilen GLB'nin eski kaydı (hiçbir satır o anahtarı tutmuyor) ilk yeni yazımda silinir; eski sürümün kaydı, anlık görüntüsü durdukça eşleme kaynağı olarak kalır.
+6. **Ağaçta yerinde ad değiştirme yok:** ad, panelin Ad alanından değişir (tel kafesteki ağaç içi alan yerine; tek giriş yolu).
+7. **Kayıtlı görünümler arayüzü 5d'de:** şema ve sınır hazır; kaydetme/uygulama kesit aracıyla birlikte gelir (panelde not var).
+
+### 5c-2 · İnceleme düzeltmeleri (PR #28)
+
+- **Migration `0017_scenes`:** 6a `0016_cms`'i aldı; `rewrite`'ın günlüğü ve 0016 anlık görüntüsü korundu, `0017_scenes` yeniden üretildi (`prevId` CMS anlık görüntüsüne bağlı, SQL aynı). Test `migration0017.test.ts`.
+- **Ad yolu kökü içermez** (kök `''`): yeni sürüm başka adlı bir dosyadan yüklense de, STL/OBJ/PLY kökü dosya adını taşısa da eşleşir. Aynı adlı kardeşler grup boyutunu taşır (`Vida M3 [2/3]`): sayı değişirse eşleşmez. `/`, köşeli parantez ve ters bölü kaçışlı; eşleşmeyenler listesi `nameSteps` ile okunur adımlar gösterir.
+- **Alanlar:** odaklanıp değiştirmeden bırakılan Ad ya da renk kodu alanı kaydetmez (renk kodu dosyanın kendi rengiyle açılır; bulanıklaşma artık onu sahne rengine çevirmez).
+- **`useScene` model başına oturum:** revizyon, son gövde, kirli, yolda ve durdu bilgisi model başına bir nesnede. Geride kalan oturum (yeni sürüm, GLB saklandı, yeniden okuma) kendi kuyruğunu bitirir; sonuçları (geç çakışma ve sürüm cevabı dahil) sayfanın durumuna ulaşmaz. Hazırlanıyor'da okunmaz; `model.kind` ya da model boyutu değişince yeniden okunur.
+- **Ayrılırken:** bekleyen, yolda ya da hatalı değişiklikte `beforeunload` uyarısı; `pagehide`'da bekleyen değişiklik `fetch keepalive` ile gönderilir (toplam ≤ 64 KiB). Bitti'den sonra kaydedilemeyen değişiklik bir uyarı bandında kalır, "Yeniden dene" ile.
+- **Sınırlar istemcide:** 2000 girişi ya da 128 Ki karakteri aşan gövde gönderilmez, açık bir iletiyle reddedilir. Sunucunun istek sınırı UTF-8 bayt sayar (`SCENE_MAX_BODY × 3 + 1 KiB`); karakter sınırı programda.
+- **Önceki renkler teklifi** cevaplanmadan "Görünümü düzenle" kapalı (gerekçe metniyle).
+- **STL:** aynalı örnekte (negatif determinant) köşeler yer değiştirir, yüzler dışa bakar; dosya ~5 MB parçalarla `Blob` olarak yazılır, 1 GiB üstü reddedilir; yazma hatası düğmeyi dönerken bırakmaz. Eksen notu düzeltildi (Y-yukarı kaynak Z-yukarı çıkar).
+- **Sunucu:** misafir `updatedBy` görmez; yazma sırasında çöpe atma ya da rol kaybı kendi hatasını verir (çakışma değil); düzenlemeye hâlâ izin veren rol değişikliğinde yazma bir kez yinelenir. Etkinlikte `scene.updated` etiketleri (genel liste ve dosya sekmesi).
+- **Klasör küçük resimleri** renk/görünüş değişince yeniden çizilir. 5c-1'in durum indirgeyicisi sahne dönemi durumunu da tutar: benim gizle/göster'im, düzenleme, STL, teklif.
+- **Testler:** `SceneEdit.test.tsx` (odak + bulanıklık kaydetmez), `StlDialog.test.tsx`, `useScene.test.ts` (kayıt sırasında model değişimi, Hazırlanıyor, sınır, ayrılma uyarısı, keepalive), `scenes.test.ts` (misafir gizliliği, çöpteki dosyayı okuma/yazma, sürüm geri yükleme, okuma ile toplu yazma arasına düşen kayıt, rol kaybı, rol yükselmesi, çöpe atma), `files.test.ts` (UTF-8 istek sınırı), ad yolu ve eşleme testleri. Yarış yardımcısı `server/testing/races.ts`'e taşındı.
+- **Ölçüm:** görüntüleyici chunk'ı **158,6 KB** gzip; STL yazıcısı ayrı 0,8 KB.
+
+### 5c-2 · İkinci kontrol düzeltmeleri (PR #28)
+
+- **Yerinde çeviri bitince** (`uploadDerivative` → `ready`, aynı dosya ve sürüm hâlâ açıksa) sahne kaydı yeniden okunur (`scene.reload`); `file.model` değişmez, görüntüleyici yeniden açılmaz. "Görünümü düzenle" ve önceki renkler bandı sayfa yenilenmeden gelir.
+- **Uzun ad yolu:** `SCENE_NAME_PATH_MAX`'ı aşan `at` yazılmaz (giriş eşlenemez ama gövde reddedilmez, sonraki kayıtlar da).
+- **Yalıtılmış düğümü gizlemek** (ya da üstündeki bir düğümü; seçim çubuğu, ağaç gözü, telefon listesi, düzenleme panelindeki Görünür anahtarı) yalıtımdan çıkar (`?node=` silinir); gizleme görünür olur. Gizli düğümü yalıtınca otomatik gösterme yalnız `isolated` değişince çalışır; düzenlemede yerel "gösterilen" istisnası eklenmez. (5c-1 hatası da.)
+- **`pagehide`** bekleyen değişikliği `flush(session, keepalive)` ile gönderir: bfcache'ten dönüşte cevap revizyonu ve durumu günceller, hata görünür.
+- **Geride kalan modelin kaydı hata verirse** oturum düşer, `beforeunload` artık uyarmaz, sayfa bir kez bildirim gösterir (`studio.save.lost`, `scene.lost` sayacı).
+- **"Çok büyük" iletisi** önceki bir kaydın "Kaydedildi"si ile silinmez; kabul edilen ilk değişikliğe kadar kalır.
+- **Odak** gizli tuvalde (`clientWidth`/`clientHeight` 0) `resize()` çağırmaz; tuval görünür olunca ResizeObserver ölçer. (5c-1.)
+- **Eşleme bandı** tekil/çoğul: "1 part matched" / "1 parça eşleşti".
+- **Testler:** yerinde çeviriden sonra yeniden okuma (sayfa), uzun ad yolu, yalıtılmış düğümü gizleme (iki yol), pagehide cevabı ve hatası, geride kalan modelin hatası, "çok büyük"ün kalması, gizli tuvalde odak; açıklar: uygulamanın gerçek `getRouter`'ı ile `parseSearch`/`stringifySearch` (`src/router.test.ts`), yalnız sol tuşla seçme, görüntüsüz küçük resim (dönmez) ve yeni renklerle yeniden çizim, geç gelen okuma (`!session.live`), düzenlerken gelen teklif (`!offering`), `scene.updated` etiketleri, STL yazıcısının kendi sınırı. Her biri düzeltme geri alınınca kırılıyor (elle denendi).
+- **Ölçüm:** görüntüleyici chunk'ı **158,64 KB** gzip (≤ 160).
+
+### Açık kalanlar
+
+- **Staging kabulü** (455 parçalı montajda klasör gezinme + renk kaydı + yeni sürümde eşleme) yapılmadı: `0017` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-assembly.cjs` ile tekrar.
+- **Paylaşılan link sayfası** sahne kaydını henüz uygulamıyor (`/s/{token}/scene` ucu yok); misafir ve üye dosya sayfasında uygulanmış görür. 5d'de paylaşılan sayfa araçlarıyla birlikte eklenmeli.
+- **CPU ölçümü (§3.1):** 2000 girişlik gövdenin Schema doğrulaması staging'de ölçülmedi.
+- **A3 ölçümü:** parça küçük resmi yerelde (M serisi, GPU) Stealthburner'ın 4 alt montajında kare başına bir çizimle anlık; 455 parçalık tek düzeyde ve orta sınıf cihazda ölçülmedi. Yavaş kalırsa atlas (A3) ya da yalnız görünür kartlar.
+- Seçme BVH'sız (5c-1 sapması 1); §6 "< 5 ms" ölçümü 5d'de.
