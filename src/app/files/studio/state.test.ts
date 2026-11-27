@@ -57,3 +57,10 @@ describe('thumbnail store', () => {
     revoke.mockRestore()
   })
 })
+
+describe('viewHidden', () => {
+  it('makes the screen hide exactly the view’s parts, over the record', () => {
+    const state = studioReducer(initialStudio('k'), { type: 'viewHidden', hidden: new Set(['0.1', '0.3']), sceneHidden: new Set(['0.2', '0.3']) })
+    expect([...hiddenOn(state, new Set(['0.2', '0.3']))].sort()).toEqual(['0.1', '0.3'])
+  })
+})

@@ -29,7 +29,7 @@ import {
 import type { ToolHost } from '../scene/createScene'
 import { worldBox } from '../scene/fit'
 import { AXIS_INDEX, distanceOf, dragPosition, EDGE_SNAP_PX, sectionAt, sectionPlane, shotRatio, snapOnTriangle, VERTEX_SNAP_PX, type Screen } from './math'
-import type { Axis, MeasureMode, MeasurePoint, MeasureState, Measurement, PinMark, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
+import type { Axis, CameraState, MeasureMode, MeasurePoint, MeasureState, Measurement, PinMark, ScreenshotOptions, SectionSettings, ToolLabels, ToolsApi, Vec3 } from './types'
 
 const ACCENT = '#22c3e0'
 const MUTED = '#9aa4b2'
@@ -713,6 +713,24 @@ export const createTools = (host: ToolHost): ToolsApi => {
       onSelect: (listener) => {
         pinListeners.add(listener)
         return () => pinListeners.delete(listener)
+      },
+    },
+    camera: {
+      get: (): CameraState => ({ position: vec(camera.position), target: vec(controls.target), up: vec(camera.up), fov: camera.fov }),
+      set: (next) => {
+        camera.up.set(next.up[0], next.up[1], next.up[2])
+        camera.position.set(next.position[0], next.position[1], next.position[2])
+        controls.target.set(next.target[0], next.target[1], next.target[2])
+        camera.fov = next.fov
+        // Near and far as a fit would set them for this distance (fit.ts), so a far view is not clipped.
+        const distance = camera.position.distanceTo(controls.target)
+        const radius = box === null || box.isEmpty() ? distance : box.getSize(new Vector3()).length() / 2
+        camera.near = Math.max(distance / 1000, radius / 1e4)
+        camera.far = Math.max(camera.far, distance + radius * 2)
+        camera.lookAt(controls.target)
+        camera.updateProjectionMatrix()
+        controls.update()
+        host.redraw()
       },
     },
     setLabels: (next) => {

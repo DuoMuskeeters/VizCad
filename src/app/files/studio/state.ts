@@ -31,6 +31,8 @@ export type StudioAction =
   | { readonly type: 'toggleHidden'; readonly path: string; readonly hiddenNow: boolean }
   /** Shows everything: mine cleared, every node the record hides shown. */
   | { readonly type: 'showAll'; readonly sceneHidden: ReadonlySet<string> }
+  /** A saved view's hidden parts, on this screen only (B2): mine become exactly these over the record's. */
+  | { readonly type: 'viewHidden'; readonly hidden: ReadonlySet<string>; readonly sceneHidden: ReadonlySet<string> }
   /** The record now decides this node (scene prep changed its visibility). */
   | { readonly type: 'forget'; readonly path: string }
   | { readonly type: 'editing'; readonly editing: boolean }
@@ -75,6 +77,12 @@ export const studioReducer = (state: StudioState, action: StudioAction): StudioS
     }
     case 'showAll':
       return { ...state, localHidden: NONE, localShown: action.sceneHidden.size === 0 ? NONE : new Set(action.sceneHidden) }
+    case 'viewHidden':
+      return {
+        ...state,
+        localHidden: new Set([...action.hidden].filter((path) => !action.sceneHidden.has(path))),
+        localShown: new Set([...action.sceneHidden].filter((path) => !action.hidden.has(path))),
+      }
     case 'forget':
       return { ...state, localHidden: without(state.localHidden, action.path), localShown: without(state.localShown, action.path) }
     case 'editing':

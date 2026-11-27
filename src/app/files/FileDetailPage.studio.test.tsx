@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-router', async () => {
   return { ...routerMock, useSearch: () => router.search, useNavigate: () => router.navigate }
 })
 
-const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][], thumbs: [] as string[] }))
+const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][], thumbs: [] as string[], tools: null as unknown }))
 vi.mock('#/viewer/Viewer.client', () => ({
   default: (props: ViewerProps) => {
     seen.props.push(props)
@@ -31,7 +31,7 @@ vi.mock('#/viewer/Viewer.client', () => ({
           seen.stl.push(args)
           return new Blob(['solid'])
         },
-        tools: async () => null,
+        tools: async () => seen.tools as never,
       }
     }
     return (
@@ -100,6 +100,7 @@ beforeEach(() => {
   seen.stl = []
   seen.thumbs = []
   seen.props = []
+  seen.tools = null
   router.search = {}
   router.navigate.mockReset()
   vi.unstubAllGlobals()
@@ -446,5 +447,50 @@ describe('scene prep (5c-2)', () => {
     await user.click(within(dialog).getByRole('radio', { name: /Centred on the origin/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Download STL' }))
     await waitFor(() => expect(seen.stl).toEqual([['0.2', true, 'Pump unit']]))
+  })
+})
+
+describe('saved views (docs/11 §3.1)', () => {
+  const camera = { position: [300, -300, 240] as const, target: [10, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 }
+  const fakeTools = () => ({
+    section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}) },
+    measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+    pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+    camera: { get: vi.fn(() => camera), set: vi.fn() },
+    setLabels: vi.fn(),
+    screenshot: vi.fn(),
+    dispose: vi.fn(),
+  })
+  const saved = { id: 'v1', name: 'Pump side', camera: { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], fov: 40 }, hidden: ['0.1'], section: { normal: [-1, 0, 0], constant: 25 } }
+
+  it('applies a saved view (camera, cut, hidden on this screen) and saves the current one on a desktop', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    expect([...last().studio!.view.hidden]).toEqual(['0.1'])
+    await waitFor(() => expect(tools.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x', position: 0.25, flipped: false })))
+    await user.type(within(views).getByRole('textbox', { name: 'View name' }), 'Top')
+    await user.click(within(views).getByRole('button', { name: 'Save view' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    const body = (server.writes[0] as { body: { views: Array<{ name: string; camera: unknown; hidden?: string[]; section?: unknown }> } }).body
+    expect(body.views.map((v) => v.name)).toEqual(['Pump side', 'Top'])
+    expect(body.views[1]).toMatchObject({ camera, hidden: ['0.1'], section: { normal: [-1, 0, 0], constant: 25 } })
+  })
+
+  it('on a phone: apply only (no save form), also from the More menu', async () => {
+    narrow()
+    const tools = fakeTools()
+    seen.tools = tools
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    expect(within(views).queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('toolbar', { name: 'Studio tools' })).getByRole('button', { name: 'More tools' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Pump side' }))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
   })
 })

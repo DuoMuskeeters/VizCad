@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useI18n } from '#/i18n'
 import type { ViewerApi } from '#/viewer/Viewer.client'
+import type { SceneView } from '#/shared/scene'
+import { sectionFromPlane, sectionPlane } from '#/viewer/tools/math'
 import { SCREENSHOT_DEFAULTS, type MeasureState, type ScreenshotOptions, type SectionSettings, type ToolsApi, type Vec3 } from '#/viewer/tools/types'
 import { formatLength, formatPlace, type LengthUnit } from './units'
 
@@ -123,5 +125,21 @@ export const useTools = (
     removeMeasure: (id: number) => tools?.measure.remove(id),
     clearMeasures: () => tools?.measure.clear(),
     screenshot: (options: ScreenshotOptions) => tools?.screenshot(options) ?? Promise.resolve(null),
+    /** The camera and the cut as they are now, for a saved view (docs/11 §3.1); null before the tools have loaded. */
+    snapshot: async (): Promise<Pick<SceneView, 'camera' | 'section'> | null> => {
+      const live = tools ?? (await api.current?.tools()) ?? null
+      if (live === null) return null
+      const range = section === null ? null : live.section.range(section.axis)
+      return { camera: live.camera.get(), ...(section !== null && range !== null ? { section: sectionPlane(section, range) } : {}) }
+    },
+    /** A saved view: its camera, and its cut (or none). The hidden parts are the page's (B2: this screen only). */
+    applyView: async (view: SceneView) => {
+      const live = tools ?? (await api.current?.tools()) ?? null
+      if (live === null) return
+      if (tools === null) setLive({ key: modelKey, tools: live })
+      live.camera.set(view.camera)
+      const cut = view.section === undefined ? null : sectionFromPlane(view.section, live.section.range)
+      setSection((current) => (cut === null ? null : { hatch: current?.hatch ?? true, handle: wide, ...cut }))
+    },
   }
 }

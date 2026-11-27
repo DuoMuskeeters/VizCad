@@ -6,7 +6,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  Axis3d, Camera, Check, MapPin, Cuboid, Download, Ellipsis, Eraser, FileDown, FlipHorizontal2, Focus, Grid3x3, ListTree, Move, Paintbrush, Pointer, Rotate3d, Ruler,
+  Axis3d, Bookmark, BookmarkPlus, Camera, Check, MapPin, Cuboid, Download, Ellipsis, Eraser, FileDown, FlipHorizontal2, Focus, Grid3x3, ListTree, Move, Paintbrush, Pointer, Rotate3d, Ruler,
   ScissorsLineDashed, Share, Trash2, X, ZoomIn,
 } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
@@ -65,10 +65,12 @@ export type ToolbarProps = {
   readonly desktopOnly?: ReadonlyArray<{ readonly key: string; readonly label: string; readonly icon: ReactNode; readonly reason: string }> | undefined
   /** Comment pins (B3): shown when the person can comment on an open model. */
   readonly pins?: boolean | undefined
+  /** Saved views to apply from the phone's More menu (§4.4: apply only). */
+  readonly savedViews?: ReadonlyArray<{ readonly id: string; readonly name: string; readonly onApply: () => void }> | undefined
 }
 
 /** The studio toolbar. A tool's button is pressed while its card is open, or (section) while the cut is on. */
-export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly, pins = false }: ToolbarProps) => {
+export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly, pins = false, savedViews }: ToolbarProps) => {
   const names: readonly ToolName[] = pins ? ['section', 'measure', 'pin', 'shot'] : ['section', 'measure', 'shot']
   const { t, locale } = useI18n()
   const notReady = controls.ready ? {} : { disabledReason: t('viewer.tool.notReady') }
@@ -167,6 +169,16 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly, pins 
               {t(viewKey[view])}
             </MenuItem>
           ))}
+          {savedViews && savedViews.length > 0 ? (
+            <>
+              <MenuLabel>{t('views.title')}</MenuLabel>
+              {savedViews.map((view) => (
+                <MenuItem key={view.id} icon={<Bookmark />} onSelect={view.onApply}>
+                  {view.name}
+                </MenuItem>
+              ))}
+            </>
+          ) : null}
           <MenuSeparator />
           <MenuItem
             icon={controls.wireframe ? <Check /> : <Grid3x3 />}
@@ -431,7 +443,7 @@ const ShotBody = ({ tools, dark, pins }: { tools: StudioTools; dark: boolean; pi
  * The open tool's card. `wide`: floats on the canvas (rendered in the viewer's overlay); else a sheet at the bottom of
  * the screen over the page (rendered by the page).
  */
-export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false }: {
+export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false, onSaveView }: {
   tools: StudioTools
   wide: boolean
   fileName: string
@@ -440,6 +452,8 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false }:
   below?: boolean
   /** Pins are drawn: the screenshot offers to leave them out. */
   pins?: boolean
+  /** Desktop editor: the section card saves the current view with its cut. */
+  onSaveView?: (() => void) | undefined
 }) => {
   const { t } = useI18n()
   const { toast } = useToast()
@@ -467,6 +481,12 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below, pins = false }:
           <CardButton dark={dark} onClick={() => tools.section !== null && tools.setSection({ ...tools.section, flipped: !tools.section.flipped })}>
             <FlipHorizontal2 aria-hidden />
             {t('tools.section.flip')}
+          </CardButton>
+        ) : null}
+        {onSaveView ? (
+          <CardButton dark={dark} onClick={onSaveView}>
+            <BookmarkPlus aria-hidden />
+            {t('tools.section.saveView')}
           </CardButton>
         ) : null}
         <CardButton

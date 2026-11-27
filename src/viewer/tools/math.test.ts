@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { distanceOf, dragPosition, sectionAt, sectionPlane, shotRatio, snapOnTriangle, type Screen } from './math'
+import { distanceOf, dragPosition, sectionAt, sectionFromPlane, sectionPlane, shotRatio, snapOnTriangle, type Screen } from './math'
 
 const tri: [Screen, Screen, Screen] = [[0, 0], [100, 0], [0, 100]]
 
@@ -36,6 +36,15 @@ describe('section', () => {
     expect(distance(0, keepHigh)).toBeLessThan(0)
     expect(distance(100, keepHigh)).toBeGreaterThan(0)
     expect(sectionPlane({ axis: 'z', position: 0, flipped: false }, range).normal).toEqual([0, 0, -1])
+  })
+  it('a stored plane reads back as the setting it came from', () => {
+    for (const setting of [
+      { axis: 'x', position: 0.25, flipped: false },
+      { axis: 'y', position: 0.8, flipped: true },
+      { axis: 'z', position: 0, flipped: true },
+    ] as const)
+      expect(sectionFromPlane(sectionPlane(setting, range), () => range)).toEqual(setting)
+    expect(sectionFromPlane({ normal: [0, 0, 0], constant: 1 }, () => range)).toBeNull()
   })
   it('drags along the axis as drawn on screen', () => {
     // One model unit = 2 px to the right: 40 px right is 20 units = 0.1 of a 200-unit range.

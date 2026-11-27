@@ -64,6 +64,9 @@ export type ToolLabels = {
   readonly plane: (axis: Axis, mm: number) => string
 }
 
+/** A saved view's camera (docs/11 §3.1 `views[].camera`). */
+export type CameraState = { readonly position: Vec3; readonly target: Vec3; readonly up: Vec3; readonly fov: number }
+
 /** A comment pin on the canvas: the node and the point in its own coordinates; `id` '' is the pin being written. */
 export type PinMark = {
   readonly id: string
@@ -98,6 +101,11 @@ export type ToolsApi = {
     readonly stop: () => void
     /** A press on a drawn pin. */
     readonly onSelect: (listener: (id: string) => void) => () => void
+  }
+  readonly camera: {
+    readonly get: () => CameraState
+    /** Moves the camera there at once (a saved view). */
+    readonly set: (camera: CameraState) => void
   }
   readonly setLabels: (labels: ToolLabels) => void
   readonly screenshot: (options: ScreenshotOptions) => Promise<Blob | null>

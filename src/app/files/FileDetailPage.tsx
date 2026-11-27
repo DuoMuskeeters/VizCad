@@ -51,6 +51,8 @@ import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar
 import { StlDialog } from './studio/StlDialog'
 import { desktopOnlyIcons, GestureHints, StudioToolbar, ToolCard, ToolHint } from './studio/Tools'
 import { useTools } from './studio/useTools'
+import { SavedViews } from './studio/SavedViews'
+import type { SceneView } from '#/shared/scene'
 import { EMPTY_SCENE } from '#/shared/scene'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
@@ -706,6 +708,42 @@ export const FileDetailPage = () => {
     </Button>
   )
   const steps = outline !== null && isolated !== null ? pathNames(outline, isolated, nameOf) : []
+  // Saved views (docs/11 §3.1): applied by everyone who sees the model, saved on a desktop by an editor.
+  const views = scene.body.views
+  const maxViews = scene.answer?.maxViews ?? 20
+  const viewReason = !wide ? t('views.saveDesktop')
+    : !can.edit ? t('views.noPermission')
+    : !scene.answer?.canEdit ? t('studio.edit.notReady')
+    : blocked ? t('studio.conflict.title')
+    : offering ? t('studio.edit.answerMatch')
+    : views.length >= maxViews ? t('views.limit', { count: maxViews })
+    : null
+  const saveView = (name: string) => {
+    void tools.snapshot().then((shot) => {
+      if (shot === null) return
+      const view: SceneView = {
+        id: crypto.randomUUID(),
+        name,
+        camera: shot.camera,
+        ...(hidden.size > 0 ? { hidden: [...hidden] } : {}),
+        ...(shot.section === undefined ? {} : { section: shot.section }),
+      }
+      scene.change({ ...scene.body, views: [...scene.body.views, view] }, true)
+    })
+  }
+  const applyView = (view: SceneView) => {
+    void tools.applyView(view)
+    dispatch({ type: 'viewHidden', hidden: new Set(view.hidden ?? []), sceneHidden })
+    // A view hides what it hid: an isolation that would hide the rest is left.
+    if (isolated !== null) go({ node: null })
+  }
+  const savedViews = modelOpen && !showFolder ? (
+    <SavedViews
+      views={views}
+      onApply={applyView}
+      saving={wide && can.edit ? { reason: viewReason, onSave: saveView, onDelete: (viewId) => scene.change({ ...scene.body, views: views.filter((v) => v.id !== viewId) }, true) } : undefined}
+    />
+  ) : null
   const pinHidden = (path: string) => chainOf(path).some((step) => hidden.has(step)) || (isolated !== null && !isUnder(path, isolated))
   const commentPins: CommentPins | undefined = modelOpen
     ? {
@@ -753,7 +791,11 @@ export const FileDetailPage = () => {
         />
       ) : null}
       {isolated !== null && tools.tool !== 'measure' && tools.tool !== 'pin' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
-      {wide ? <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={marks.length > 0} /> : <GestureHints />}
+      {wide ? (
+        <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={marks.length > 0} onSaveView={viewReason === null ? () => saveView(t('views.default', { number: views.length + 1 })) : undefined} />
+      ) : (
+        <GestureHints />
+      )}
       {tools.tool === 'measure' || tools.tool === 'pin' ? <ToolHint wide={wide} tool={tools.tool} /> : null}
     </>
   ) : null
@@ -829,6 +871,7 @@ export const FileDetailPage = () => {
               wide={wide}
               tools={tools}
               pins={can.comment && modelOpen}
+              savedViews={modelOpen ? views.map((view) => ({ id: view.id, name: view.name, onApply: () => applyView(view) })) : undefined}
               parts={
                 assembly && !wide
                   ? {
@@ -959,7 +1002,6 @@ export const FileDetailPage = () => {
           />
         </>
       )}
-      <p className="text-sm text-text-3">{t('studio.edit.views')}</p>
     </section>
   ) : null
 
@@ -977,6 +1019,7 @@ export const FileDetailPage = () => {
             {stale ? <p className="mb-4 rounded-md bg-warn-soft px-3 py-2 text-base text-warn-text">{t('studio.stale')}</p> : null}
             {selectionCard}
             {appearance}
+            {savedViews}
             <Details file={loaded} outline={studioReady ? outline : null} />
             {showFolder ? (
               <div className="mt-5 grid gap-1.5">
