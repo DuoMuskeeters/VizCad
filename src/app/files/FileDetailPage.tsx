@@ -315,7 +315,9 @@ export const FileDetailPage = () => {
     () => new Set([...[...sceneHidden].filter((path) => !localShown.has(path)), ...localHidden]),
     [sceneHidden, localHidden, localShown],
   )
-  const view = useMemo<StudioView>(() => ({ selected, isolated, hidden, looks }), [selected, isolated, hidden, looks])
+  // In scene prep the selection is not tinted: the editor must see the colour being chosen.
+  const tinted = editing ? null : selected
+  const view = useMemo<StudioView>(() => ({ selected: tinted, isolated, hidden, looks }), [tinted, isolated, hidden, looks])
   const studio = useMemo(
     () => ({ view, api, onOutline: setOutline, onPick: setSelected, onReady: setModelReady }),
     [view],
@@ -769,7 +771,7 @@ export const FileDetailPage = () => {
           {t('studio.edit.open')}
         </Button>
       </div>
-      <p className="text-sm text-text-2">{t('studio.local')}</p>
+      <p className="text-sm text-text-2">{editReason !== null && !wide ? editReason : t('studio.local')}</p>
     </section>
   ) : null
 
