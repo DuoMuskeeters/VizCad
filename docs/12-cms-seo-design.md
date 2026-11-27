@@ -644,3 +644,13 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
   2. robots.txt ve sitemap'ler artık bütün env'i çözüyor. İlgisiz bir yapılandırma hatası bu dosyaları 500 yapıyor, Google 5xx robots'u "hiçbir şeyi tarama" diye okuyor. Ya bu dosyalar için yalnız `SITE_URL` ve `APP_ENV` çözülecek, ya da geçişte env doğrulanacak.
   3. Yeni sitemap bugün yalnız `/`'yi listeliyor. Canlıdaki `/faq`, `/contact`, `/modelsnap`, `/blog` ve yazılar 6b/6d/6f gelmeden geçiş yapılmamalı.
 - **Sonraki iş:** route gölgeleme testi bugün elle yazılmış bir liste. Router'ın route listesinden üretilmesi 6b'ye kaldı.
+
+### 6a staging kabulü · ilk tur (27 Kasım 2026, 955ab05, staging.viz-cad.com)
+- **Çalışanlar:**
+  - **Önbellek:** `/tr` ikinci istekte `x-vizcad-cache: hit` dönüyor; sorgu metni (`?utm_source=x`) aynı kayda gidiyor.
+  - **Tarayıcıya giden başlık:** `cache-control: public, max-age=0, must-revalidate` ve `x-robots-tag: noindex, nofollow`.
+  - **Yönlendirmeler:** `/en/faq` → `/faq` 301; `/en//evil.com` aynı alanda kalıyor (`/evil.com`).
+  - **Dosyalar:** `robots.txt` = `Disallow: /`; `sitemap.xml` 200 dönüyor.
+  - **Varlıklar:** Sayfadaki bütün `/assets/*` adresleri deploydan sonra 200 dönüyor ve CSS'te `X-Robots-Tag` var.
+- **Bulgu:** Önbellekten gelen sayfada `ETag` başlığı yok, `If-None-Match` ile 304 dönmüyor (tam 200 geliyor). `edgeCopy` zayıf ETag yazıyor ama bu ETag hit cevabına ulaşmıyor. Muhtemel sebep: Cloudflare, Cache API ya da sıkıştırma katmanında zayıf ETag'i atıyor. Doğruluğu bozmuyor; sadece tarayıcı yeniden doğrulamasını pahalı kılıyor. 6b başında incelenecek. Seçenek: ETag'i ayrı bir başlıkta taşımak ya da `Last-Modified` + `If-Modified-Since` kullanmak.
+- **Bekleyenler:** Gerçek temizleme, alan adı temizleme ve hız sınırları, CPU süresi (`wrangler tail`) için staging'de platform admini bir oturum gerekiyor. Bunun için staging test hesabının `role='admin'` yapılması lazım; kullanıcı onayını bekliyor. Deploy sonrası ilk isteğin miss olduğu bir sonraki deployda ayrıca ölçülecek.
