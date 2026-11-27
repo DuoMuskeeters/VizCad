@@ -5,9 +5,12 @@ import {
   type EdgeCacheBinding,
   etagMatches,
   isCacheable,
+  isNotModified,
   makeEtag,
+  makeLastModified,
   marketingCacheKey,
   NO_STORE_HEADER,
+  notModifiedSince,
   sanitizeForSsr,
   serveMarketing,
 } from './EdgeCache'
@@ -132,6 +135,34 @@ describe('ETag', () => {
   })
 })
 
+describe('Last-Modified', () => {
+  it('is the put time in whole seconds, as an HTTP date', () => {
+    expect(makeLastModified(Date.UTC(2026, 10, 28, 9, 30, 15, 999))).toBe('Sat, 28 Nov 2026 09:30:15 GMT')
+  })
+
+  it('If-Modified-Since at or after Last-Modified is not modified; earlier, invalid or absent is', () => {
+    const lm = 'Sat, 28 Nov 2026 09:30:15 GMT'
+    expect(notModifiedSince(lm, lm)).toBe(true)
+    expect(notModifiedSince('Sat, 28 Nov 2026 09:30:16 GMT', lm)).toBe(true)
+    expect(notModifiedSince('Sat, 28 Nov 2026 09:30:14 GMT', lm)).toBe(false)
+    expect(notModifiedSince('yesterday', lm)).toBe(false)
+    expect(notModifiedSince(null, lm)).toBe(false)
+  })
+
+  it('If-None-Match decides when present (RFC 9110 §13.2.2); If-Modified-Since only without it', () => {
+    const stored = new Headers({ etag: 'W/"b.1"', 'last-modified': 'Sat, 28 Nov 2026 09:30:15 GMT' })
+    const req = (headers: Record<string, string>) => new Request('https://viz-cad.com/', { headers })
+    const fresh = 'Sat, 28 Nov 2026 10:00:00 GMT'
+    expect(isNotModified(req({ 'if-none-match': 'W/"b.1"' }), stored)).toBe(true)
+    // A stale ETag with a fresh date is still a 200: the tag wins.
+    expect(isNotModified(req({ 'if-none-match': 'W/"b.0"', 'if-modified-since': fresh }), stored)).toBe(false)
+    expect(isNotModified(req({ 'if-modified-since': fresh }), stored)).toBe(true)
+    expect(isNotModified(req({}), stored)).toBe(false)
+    // A copy without a date (stored by an older build) never answers 304 to a date.
+    expect(isNotModified(req({ 'if-modified-since': fresh }), new Headers({ etag: 'W/"b.1"' }))).toBe(false)
+  })
+})
+
 describe('serveMarketing', () => {
   it('miss renders and stores; the next request is a hit; edge and browser headers differ', async () => {
     const { serve, cache, app } = setup()
@@ -143,12 +174,15 @@ describe('serveMarketing', () => {
     const stored = cache.store.get('https://viz-cad.com/pricing?v=abc1234.mf2k')
     expect(stored?.headers.get('cache-control')).toBe(EDGE_CACHE_CONTROL)
     expect(stored?.headers.get('etag')).toBe(first.headers.get('etag'))
+    expect(stored?.headers.get('last-modified')).toBe(makeLastModified(1_800_000_000_000))
+    expect(first.headers.get('last-modified')).toBe(stored?.headers.get('last-modified'))
     expect(stored?.headers.has('x-vizcad-cache')).toBe(false)
 
     const second = await serve(get('/pricing'))
     expect(second.headers.get('x-vizcad-cache')).toBe('hit')
     expect(second.headers.get('cache-control')).toBe(BROWSER_CACHE_CONTROL)
     expect(second.headers.get('etag')).toBe(first.headers.get('etag'))
+    expect(second.headers.get('last-modified')).toBe(first.headers.get('last-modified'))
     expect(await second.text()).toBe('<h1>/pricing</h1>')
     expect(app.seen).toHaveLength(1)
   })
@@ -161,6 +195,36 @@ describe('serveMarketing', () => {
     expect(revalidated.headers.get('etag')).toBe(etag)
     expect(await revalidated.text()).toBe('')
     expect((await serve(get('/faq', { 'if-none-match': 'W/"stale"' }))).status).toBe(200)
+  })
+
+  it('without an ETag (Cloudflare drops it from HTML), If-Modified-Since from the hit answers 304', async () => {
+    const { serve } = setup()
+    const first = await serve(get('/blog'))
+    const lastModified = first.headers.get('last-modified') ?? ''
+    expect(lastModified).not.toBe('')
+    const revalidated = await serve(get('/blog', { 'if-modified-since': lastModified }))
+    expect(revalidated.status).toBe(304)
+    expect(revalidated.headers.get('x-vizcad-cache')).toBe('hit')
+    expect(revalidated.headers.get('cache-control')).toBe(BROWSER_CACHE_CONTROL)
+    expect(revalidated.headers.get('last-modified')).toBe(lastModified)
+    expect(revalidated.headers.has('content-type')).toBe(false)
+    expect(await revalidated.text()).toBe('')
+    // A HEAD revalidation is a 304 too; an older date gets the full page.
+    expect((await serve(new Request('https://viz-cad.com/blog', { method: 'HEAD', headers: { 'if-modified-since': lastModified } }))).status).toBe(304)
+    const older = await serve(get('/blog', { 'if-modified-since': 'Thu, 01 Jan 2026 00:00:00 GMT' }))
+    expect(older.status).toBe(200)
+    expect(await older.text()).toBe('<h1>/blog</h1>')
+  })
+
+  it('a miss never answers 304: a purge and re-render in the same second must not confirm the old page', async () => {
+    const { serve, cache } = setup()
+    const before = await serve(get('/blog'))
+    cache.store.clear()
+    // Same second as `before` (the test clock moves 1 ms per call), so only the miss rule keeps this a 200.
+    const afterPurge = await serve(get('/blog', { 'if-modified-since': before.headers.get('last-modified') ?? '', 'if-none-match': '*' }))
+    expect(afterPurge.headers.get('x-vizcad-cache')).toBe('miss')
+    expect(afterPurge.status).toBe(200)
+    expect(await afterPurge.text()).toBe('<h1>/blog</h1>')
   })
 
   it('poisoning: a cookie and query on the first request never reach the render or the shared key', async () => {
