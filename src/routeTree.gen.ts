@@ -28,7 +28,7 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSharedRouteImport } from './routes/app.shared'
 import { Route as AppTeamRouteImport } from './routes/app.team'
 import { Route as AppTrashRouteImport } from './routes/app.trash'
-import { Route as DevCmsProbeRouteImport } from './routes/dev/cms-probe'
+import { Route as AuthorUserIdRouteImport } from './routes/author/$userId'
 import { Route as GuestInviteTokenRouteImport } from './routes/guest-invite.$token'
 import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as SharedTokenRouteImport } from './routes/shared/$token'
@@ -156,9 +156,9 @@ const AppTrashRoute = AppTrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => AppRoute,
 } as any)
-const DevCmsProbeRoute = DevCmsProbeRouteImport.update({
-  id: '/dev/cms-probe',
-  path: '/dev/cms-probe',
+const AuthorUserIdRoute = AuthorUserIdRouteImport.update({
+  id: '/author/$userId',
+  path: '/author/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GuestInviteTokenRoute = GuestInviteTokenRouteImport.update({
@@ -339,7 +339,7 @@ export interface FileRoutesByFullPath {
   '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
   '/app/trash': typeof AppTrashRoute
-  '/dev/cms-probe': typeof DevCmsProbeRoute
+  '/author/$userId': typeof AuthorUserIdRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -389,7 +389,7 @@ export interface FileRoutesByTo {
   '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
   '/app/trash': typeof AppTrashRoute
-  '/dev/cms-probe': typeof DevCmsProbeRoute
+  '/author/$userId': typeof AuthorUserIdRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -442,7 +442,7 @@ export interface FileRoutesById {
   '/app/shared': typeof AppSharedRoute
   '/app/team': typeof AppTeamRoute
   '/app/trash': typeof AppTrashRoute
-  '/dev/cms-probe': typeof DevCmsProbeRoute
+  '/author/$userId': typeof AuthorUserIdRoute
   '/guest-invite/$token': typeof GuestInviteTokenRoute
   '/invite/$id': typeof InviteIdRoute
   '/shared/$token': typeof SharedTokenRoute
@@ -496,7 +496,7 @@ export interface FileRouteTypes {
     | '/app/shared'
     | '/app/team'
     | '/app/trash'
-    | '/dev/cms-probe'
+    | '/author/$userId'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -546,7 +546,7 @@ export interface FileRouteTypes {
     | '/app/shared'
     | '/app/team'
     | '/app/trash'
-    | '/dev/cms-probe'
+    | '/author/$userId'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -598,7 +598,7 @@ export interface FileRouteTypes {
     | '/app/shared'
     | '/app/team'
     | '/app/trash'
-    | '/dev/cms-probe'
+    | '/author/$userId'
     | '/guest-invite/$token'
     | '/invite/$id'
     | '/shared/$token'
@@ -646,7 +646,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiHealthRoute: typeof ApiHealthRoute
-  DevCmsProbeRoute: typeof DevCmsProbeRoute
+  AuthorUserIdRoute: typeof AuthorUserIdRoute
   GuestInviteTokenRoute: typeof GuestInviteTokenRoute
   InviteIdRoute: typeof InviteIdRoute
   SharedTokenRoute: typeof SharedTokenRoute
@@ -805,11 +805,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTrashRouteImport
       parentRoute: typeof AppRoute
     }
-    '/dev/cms-probe': {
-      id: '/dev/cms-probe'
-      path: '/dev/cms-probe'
-      fullPath: '/dev/cms-probe'
-      preLoaderRoute: typeof DevCmsProbeRouteImport
+    '/author/$userId': {
+      id: '/author/$userId'
+      path: '/author/$userId'
+      fullPath: '/author/$userId'
+      preLoaderRoute: typeof AuthorUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/guest-invite/$token': {
@@ -1091,7 +1091,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiHealthRoute: ApiHealthRoute,
-  DevCmsProbeRoute: DevCmsProbeRoute,
+  AuthorUserIdRoute: AuthorUserIdRoute,
   GuestInviteTokenRoute: GuestInviteTokenRoute,
   InviteIdRoute: InviteIdRoute,
   SharedTokenRoute: SharedTokenRoute,

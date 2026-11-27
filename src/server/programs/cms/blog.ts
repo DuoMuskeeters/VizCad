@@ -346,3 +346,20 @@ export const sitemapPosts = Effect.fn('sitemapPosts')(function* (locales: Readon
   )
   return rows.map((r): SitemapPost => ({ ...r, updatedAt: toUnixSeconds(r.updatedAt) }))
 })
+
+/**
+ * `/author/{userId}` (the dead link in legacy JSON-LD, docs/12 §6.9): the author's page when they have a slug and a
+ * public `en` post, else the blog. One query. The user id never appears in the answer, only the slug.
+ */
+export const legacyAuthorPath = Effect.fn('legacyAuthorPath')(function* (userId: string) {
+  const db = yield* Db
+  const rows = yield* db.use((d) =>
+    d
+      .select({ slug: a.slug })
+      .from(a)
+      .where(and(eq(a.userId, userId), sql`${a.slug} IS NOT NULL`, sql`EXISTS (SELECT 1 FROM ${schema.posts} AS q JOIN ${schema.postTranslations} AS x ON x."postId" = q."id" WHERE q."authorId" = ${a.userId} AND q."status" = 'published' AND x."locale" = 'en' AND x."readTimeMin" > 0)`))
+      .limit(1),
+  )
+  const slug = rows[0]?.slug
+  return slug === undefined || slug === null ? paths.blogList('en') : paths.author('en', slug)
+})

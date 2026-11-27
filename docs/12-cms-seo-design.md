@@ -632,7 +632,7 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 2. **Deploy sonrası ilk istek ıska.** Deploy'dan önce `h /` → `hit`. `pnpm deploy:staging`. Sonra `h /` → `miss` (yeni `BUILD_ID` anahtarı), ikinci `h /` → `hit`. Varlıklar: `curl -s $S/ | grep -o '/assets/[^"]*' | sort -u | while read a; do curl -s -o /dev/null -w "%{http_code} $a\n" "$S$a"; done` (hepsi 200).
 3. **Kuyruk üzerinden gerçek temizleme.** `h /tr` iki kez (`hit`) → `cms purgeUrls "{\"urls\":[\"$S/tr\"]}"` (beklenen `"purge":{"done":1,"failed":0,"dropped":0,"queued":1,"calls":1}`) → `h /tr` (`miss`) → `cms listPurges` (yalnız +60 s satırı) → 60 s bekle → `cms drainPurges` (`done:1, queued:0`) → `cms listPurges` (`total:0`). Yabancı host reddi: `cms purgeUrls '{"urls":["https://viz-cad.com/"]}'` (400 `ValidationError`, API çağrısı yok). 100 URL sınırı: `U=$(for i in $(seq 2 101); do printf '"%s/blog/page/%d",' "$S" $i; done); cms purgeUrls "{\"urls\":[${U%,}]}"` (beklenen `done:100, calls:1`; API'nin 100 URL'yi tek çağrıda kabul ettiğini gösterir; sonra 60 s ve `cms drainPurges`).
 4. **Hostname temizleme.** `h /` ve `h /tr` (`hit`) → `cms purgeHost` (beklenen `"hostname":"staging.viz-cad.com"`, `done:1, calls:1`) → `h /` ve `h /tr` (ikisi de `miss`). Hız sınırı: `for i in 1 2 3 4 5 6; do cms purgeHost; done` (dakikada 5; 429 gelirse yanıtta `failed:1`, `cms listPurges` satırında `lastError: "rate-limited"`, `notBefore` +60 s). Sonuçlar (100 URL, hostname dakikada 5 / kova 25) buraya not edilir.
-5. **Iska `cpuTime`.** Bir terminalde: `pnpm wrangler tail vizcad-rewrite --format json | jq -c 'select(.event.request.url? // "" | test("/dev/cms-probe|staging\\.viz-cad\\.com/(tr)?$")) | {url: .event.request.url, cpu: .cpuTime, wall: .wallTime, outcome}'`. Diğerinde 10 kez: `cms purgeUrls "{\"urls\":[\"$S/dev/cms-probe\",\"$S/\"]}" >/dev/null; h /dev/cms-probe; h /` (her tur önce temizler, sonra `miss` ister). İzolatın ilk isteği (modül değerlendirmesi) ayrı yazılır; medyan ve en yüksek `cpu` §7.5'teki ≤ 8 ms ıska ve ≤ 2 ms isabet bütçesiyle karşılaştırılır (isabet için `h /` bir kez daha).
+5. **Iska `cpuTime`.** (6b-2'den sonra `/dev/cms-probe` yok; ölçüm gerçek yazı sayfasıyla, §7.5'in 6b satırı.) Bir terminalde: `pnpm wrangler tail vizcad-rewrite --format json | jq -c 'select(.event.request.url? // "" | test("/blog/step-vs-iges|staging\\.viz-cad\\.com/(tr)?$")) | {url: .event.request.url, cpu: .cpuTime, wall: .wallTime, outcome}'`. Diğerinde 10 kez: `cms purgeUrls "{\"urls\":[\"$S/blog/step-vs-iges\",\"$S/\"]}" >/dev/null; h /blog/step-vs-iges; h /` (her tur önce temizler, sonra `miss` ister). İzolatın ilk isteği (modül değerlendirmesi) ayrı yazılır; medyan ve en yüksek `cpu` §7.5'teki ≤ 8 ms ıska ve ≤ 2 ms isabet bütçesiyle karşılaştırılır (isabet için `h /` bir kez daha). Yazı sayfası 6b-1'deki örnek veriden gelir (6b notları, staging adımları).
 6. **Zone AI bot ayarları (salt okunur).** Cloudflare panosu → viz-cad.com → Security → Bots: "Block AI bots" ve "Manage your robots.txt" durumu not edilir; açıksa değişiklik kullanıcı onayıyla (K11).
 
 ### 6a-2 · İnceleme düzeltmeleri ve geçiş öncesi açıklar (PR #32)
@@ -763,5 +763,32 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 - Staging ölçümleri: ıska `cpuTime`, Lighthouse performans ve Rich Results.
 - `renderMarkdown` CPU kapısı ölçümü (§7.5 madde 1) admin uçlarıyla 6c'de; Worker içinde ilk kez orada çalışacak.
 - Blog görselleri Cloudflare önbelleğinde değil.
-- 6b-2: uygulama yönlendirmeleri (`/dashboard`, `/file/{id}`, `/login`, `/signup`, `/ModelSnap`, `/author/{userId}`), router'dan üretilen rota gölgeleme testi, `/dev/cms-probe`'un kaldırılması.
+- 6b-2 ayrı PR'da (aşağıda).
+
+### 6b-2 (PR: `rewrite-faz6b-2`, 6b-1'in üstünde)
+
+- **Uygulama ve giriş yönlendirmeleri** (`server/edge/legacyRedirect.ts`, Effect'siz, `src/server.ts`'te `localeRedirect`'ten sonra, önbellekten ve router'dan önce):
+  - `/dashboard` → `/app`, `/file/{id}` → `/app/files/{id}`, `/login` → `/sign-in`, `/signup` → `/sign-up`. 301, `private, no-store`, pazarlama önbelleğine girmez.
+  - `/ModelSnap` ve `/modelsnap` → `/` (K12). 301, `public, max-age=86400`.
+  - Sorgu her zaman atılır (`/signup?invite=x` → `/sign-up`). Sondaki `/` kabul edilir.
+  - `/file/{id}` yalnız tek parçalı `[A-Za-z0-9_-]{1,64}` kimlik alır. `/file/a/b`, `/file/` ve `.` içeren kimlik router'a gider ve 404 olur.
+  - Yalnız GET ve HEAD.
+- **`/author/{userId}`** (`routes/author/$userId.ts`, `http/legacyAuthor.ts`, `legacyAuthorPath`): D1 gerektiği için rota.
+  - Yazarın slug'ı ve yayında bir `en` yazısı varsa `/authors/{slug}`, yoksa `/blog`. 301, `private, no-store` (slug değişebilir).
+  - Kullanıcı kimliği yanıtta hiç görünmez.
+- **Rota gölgeleme testi router'dan üretiliyor** (`src/routes.test.ts`, 6a-2'den devir).
+  - `routesById`'deki her yaprak rota için yolundan örnek bir URL üretilir: `$page` → `2`, `{$locale}` → `en`, splat → iki parça, diğer parametreler `x1`.
+  - Her URL kendi rotasına çözülmeli. `{-$locale}` rotaları `/tr` önekiyle de çözülmeli, diğer rotalar önekle 404 olmalı.
+  - Yeni rota bu dosya değişmeden kapsanır; en az 45 rota şartı listenin boş kalmasını engeller.
+  - Elle yazılmış uygulama/API listesi kalktı. Dil öneki, blog ve legacy durumları için açık testler duruyor.
+  - Mutasyon denemesi: `parseLocaleParam` `app` ve `sign-in`'i dil saysa bile test geçiyor. TanStack statik rotaları isteğe bağlı parametreden önce sıralıyor, yani önek bu rotaları gölgeleyemiyor. Asıl koruma bu sıralama; test, her rotanın hâlâ kendine çözüldüğünü denetliyor.
+- **`/dev/cms-probe` kaldırıldı** (rota, `programs/cms/probe.ts` ve testi, `entry.cms.loadCmsProbe`, `CMS_PROBE_PATH` ve önbellek yolu listesindeki yeri).
+  - 6a kabulünün 5. adımı (ıska `cpuTime`) henüz koşmadı ve probe'u kullanıyordu. §7.5 ölçümü 6b'de gerçek yazı sayfasıyla yapmayı öngörüyor ve yazı sayfası aynı biçimde (pazarlama kabuğu + tek batch'te ≤ 3 sorgu) daha gerçekçi. Bu yüzden 5. adım `/blog/step-vs-iges` ile yeniden yazıldı (yukarıda).
+  - Adımı probe ile koşmak isteyen 6b-1'i (bu PR'dan önce) deploy edebilir; 6b-1'de probe duruyor.
+  - `devOnly` (`components/dev/guard.ts`) artık kullanılmıyor, ama genel bir yardımcı ve testi var; kaldı.
+- **Worker giriş boyutu.** 6b-1'e göre 946,1 kB → 947,9 kB (gzip 215,0 → 215,3 kB). Artış yönlendirme modülü ve yeni rota kaydından geliyor.
+- **Yerel doğrulama** (production build, `wrangler dev`, `APP_ENV=production`):
+  - 301: `/dashboard` → `/app`, `/file/abc123` → `/app/files/abc123`, `/login?next=x` → `/sign-in`, `/signup?invite=abc` → `/sign-up`, `/ModelSnap` → `/`, `/author/fixture-author` → `/authors/deniz-fixture`, `/author/nobody` → `/blog`.
+  - 404: `/file/a/b` ve `/dev/cms-probe`.
+- **Staging kontrolü:** `for p in /dashboard /file/abc123 /file/a/b '/login?next=x' '/signup?invite=x' /ModelSnap /author/fixture-author /author/nobody /dev/cms-probe; do curl -s -o /dev/null -w "%{http_code} %{redirect_url} <- $p\n" "$S$p"; done`. Beklenen sonuçlar yerel doğrulamadakiyle aynı.
 
