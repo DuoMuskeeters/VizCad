@@ -138,6 +138,12 @@ export type ResolvedLink =
   | { readonly kind: 'password' }
 
 /** One comment of a file (docs/09 §6). No e-mail and no user id: the author is a display name only. */
+/** A comment pin: the node and the point in the node's own coordinates (docs/11 §4.3). */
+export interface CommentPin {
+  readonly path: string
+  readonly point: readonly [number, number, number]
+}
+
 export interface CommentView {
   readonly id: string
   /** The top-level comment this replies to (one level only); null for a top-level comment. */
@@ -151,6 +157,8 @@ export interface CommentView {
   readonly createdAt: number
   /** The file's version number when the comment was written; null for legacy comments. */
   readonly versionNumber: number | null
+  /** The pin on the model (B3: drawn only on the version it was left on); null for a comment without one. */
+  readonly anchor: CommentPin | null
   /** The caller wrote it. */
   readonly mine: boolean
   /** The caller may delete it: its author, or an owner or admin. */

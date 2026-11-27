@@ -1,0 +1,1 @@
+ALTER TABLE `file_comments` ADD `anchor` text CHECK(`anchor` IS NULL OR length(`anchor`) <= 1024);

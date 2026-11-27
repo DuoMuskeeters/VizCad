@@ -316,6 +316,9 @@ export const fileComments = sqliteTable("file_comments", {
   authorScopeAtWrite: text("authorScopeAtWrite", { enum: ["internal", "guest"] }),
   versionNumber: integer("versionNumber"),
   deletedAt: integer("deletedAt", { mode: "timestamp" }),
+  // 0018. A comment pin (docs/11 §4.3, B3): JSON `{ v, path, point }`, NULL for a comment without a pin. The migration
+  // adds CHECK (length ≤ 1024); the program validates the content with Schema.
+  anchor: text("anchor"),
 }, (t) => [
   index("file_comments_file_created_idx").on(t.fileId, t.createdAt, t.id),
 ]);

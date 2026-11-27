@@ -85,7 +85,7 @@ describe('listComments visibility', () => {
         assert.deepStrictEqual(ids(yield* list(who)), ['c1-own', 'c2-internal', 'c3-other-guest', 'c4-legacy', 'c5-demoted', 'c6-removed', 'c7-member'])
       }
       const page = yield* list('cat')
-      assert.deepStrictEqual(Object.keys(page.items[0] ?? {}).sort(), ['author', 'canDelete', 'content', 'createdAt', 'deleted', 'id', 'mine', 'parentId', 'versionNumber'])
+      assert.deepStrictEqual(Object.keys(page.items[0] ?? {}).sort(), ['anchor', 'author', 'canDelete', 'content', 'createdAt', 'deleted', 'id', 'mine', 'parentId', 'versionNumber'])
       assert.deepStrictEqual(page.items[0]?.author, { displayName: 'EVE' })
       assert.deepStrictEqual(page.items[5]?.author, { displayName: 'REM' })
       assert.notInclude(JSON.stringify(page), 'example.com')
@@ -204,6 +204,27 @@ describe('addComment', () => {
       assert.strictEqual(yield* tag(reply('max', replies[0]?.id ?? 'x')), 'CommentUnavailable')
       yield* deleteComment(caller('bob'), { workspaceId: 'acme', commentId: 'c7-member' })
       assert.strictEqual(yield* tag(reply('max', 'c7-member')), 'CommentUnavailable')
+    })))
+
+  it.effect('a pin (anchor, docs/11 §4.3): stored with the comment and its version, read back; old and legacy rows have none', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* comments
+      const pin = { v: 1 as const, path: '0.2.1', point: [12.5, -3, 40] as const }
+      const made = yield* addComment(caller('eve'), { workspaceId: 'acme', fileId: 'f1', content: 'Torque here?', anchor: pin })
+      assert.deepStrictEqual(made.anchor, { path: '0.2.1', point: [12.5, -3, 40] })
+      assert.strictEqual(made.versionNumber, 3)
+      const stored = (yield* rows('fileComments')).find((c) => c.id === made.id)
+      assert.deepStrictEqual(JSON.parse(stored?.anchor ?? 'null'), { v: 1, path: '0.2.1', point: [12.5, -3, 40] })
+      const page = yield* list('eve')
+      assert.deepStrictEqual(page.items.find((c) => c.id === made.id)?.anchor, { path: '0.2.1', point: [12.5, -3, 40] })
+      assert.isNull(page.items.find((c) => c.id === 'c2-internal')?.anchor)
+      // A reply has no pin of its own; an unreadable stored pin reads as none; a deleted comment keeps none.
+      assert.strictEqual(yield* tag(addComment(caller('max'), { workspaceId: 'acme', fileId: 'f1', content: 'r', parentId: made.id, anchor: pin })), 'ValidationError')
+      yield* Db.use((x) => x.use((d) => d.update(schema.fileComments).set({ anchor: '{"v":2}' }).where(eq(schema.fileComments.id, 'c7-member'))))
+      assert.isNull((yield* list('max')).items.find((c) => c.id === 'c7-member')?.anchor)
+      yield* deleteComment(caller('eve'), { workspaceId: 'acme', commentId: made.id })
+      assert.isNull((yield* list('eve')).items.find((c) => c.id === made.id)?.anchor)
     })))
 
   it.effect('a trashed file takes no comments', () =>

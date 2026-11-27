@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, or, type SQL, sql } from 'drizzle-orm'
-import { Effect } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as schema from '../db/schema'
 import { CommentUnavailable, PermissionDenied, ValidationError } from '../errors'
 import { decidePermission } from '../permissions'
@@ -7,6 +7,7 @@ import type { CommentPage, CommentView } from '../../shared/fileViews'
 import { Db } from '../services/Db'
 import { decodeCursor, encodeCursor } from './activity'
 import { openFile } from './fileContext'
+import { StoredAnchor, type CommentAnchor } from '../scene'
 import { activity, authorize, type Caller, guard, newUlid, runBatch, stillRole, toDate, toSeconds } from './shared'
 
 /** Longest comment (docs/09 §6). The text is plain; the client renders it as text, never as HTML. */
@@ -33,7 +34,11 @@ interface CommentRow {
   readonly createdAt: Date
   readonly versionNumber: number | null
   readonly deletedAt: Date | null
+  readonly anchor: string | null
 }
+
+const readAnchor = (text: string | null) =>
+  text === null ? null : Option.match(Schema.decodeUnknownOption(StoredAnchor)(text), { onNone: () => null, onSome: (a) => ({ path: a.path, point: a.point }) })
 
 const project = (row: CommentRow, me: string, manager: boolean): CommentView => ({
   id: row.id,
@@ -43,6 +48,8 @@ const project = (row: CommentRow, me: string, manager: boolean): CommentView => 
   deleted: row.deletedAt !== null,
   createdAt: toSeconds(row.createdAt),
   versionNumber: row.versionNumber,
+  // A deleted comment keeps no pin.
+  anchor: row.deletedAt === null ? readAnchor(row.anchor) : null,
   mine: row.userId === me,
   canDelete: row.deletedAt === null && (row.userId === me || manager),
 })
@@ -51,7 +58,7 @@ const commentColumns = () => {
   const c = schema.fileComments
   return {
     id: c.id, parentId: c.parentId, userId: c.userId, authorName: schema.user.name, content: c.content, createdAt: c.createdAt,
-    versionNumber: c.versionNumber, deletedAt: c.deletedAt,
+    versionNumber: c.versionNumber, deletedAt: c.deletedAt, anchor: c.anchor,
   }
 }
 
@@ -95,10 +102,13 @@ export const listComments = Effect.fn('listComments')(function* (
  */
 export const addComment = Effect.fn('addComment')(function* (
   caller: Caller,
-  input: { readonly workspaceId: string; readonly fileId: string; readonly content: string; readonly parentId?: string },
+  input: { readonly workspaceId: string; readonly fileId: string; readonly content: string; readonly parentId?: string; readonly anchor?: CommentAnchor },
 ) {
   const content = input.content.trim()
   if (content === '' || content.length > MAX_COMMENT_LENGTH) return yield* new ValidationError({ message: 'invalid comment' })
+  // A pin starts a thread: a reply belongs to its comment's pin.
+  if (input.anchor !== undefined && input.parentId !== undefined) return yield* new ValidationError({ message: 'a reply has no pin' })
+  const anchor = input.anchor === undefined ? null : JSON.stringify({ v: 1, path: input.anchor.path, point: input.anchor.point })
   const { base, file, role, still } = yield* openFile(caller, input.workspaceId, input.fileId)
   yield* authorize({ ...base, action: { kind: 'comment' } })
   const db = yield* Db
@@ -124,9 +134,9 @@ export const addComment = Effect.fn('addComment')(function* (
   yield* runBatch((d) => [
     guard(d, sql`${stillRole(input.workspaceId, caller.userId, [role])} AND ${still(false)}
       AND (${parentId} IS NULL OR EXISTS (SELECT 1 FROM file_comments p WHERE p.id = ${parentId} AND p.fileId = ${file.id} AND p.parentId IS NULL AND p.deletedAt IS NULL))`),
-    // Columns in table order: id, fileId, userId, parentId, content, createdAt, updatedAt, authorScopeAtWrite, versionNumber, deletedAt.
+    // Columns in table order: id, fileId, userId, parentId, content, createdAt, updatedAt, authorScopeAtWrite, versionNumber, deletedAt, anchor.
     d.insert(c).select(sql`SELECT ${id}, f.id, ${caller.userId}, ${parentId}, ${content}, ${base.now}, ${base.now}, ${scope},
-      COALESCE(f.currentVersionNumber, (SELECT count(*) FROM file_versions v WHERE v.fileId = f.id) + 1), NULL
+      COALESCE(f.currentVersionNumber, (SELECT count(*) FROM file_versions v WHERE v.fileId = f.id) + 1), NULL, ${anchor}
       FROM files f WHERE f.id = ${file.id}`),
     activity(d, { workspaceId: input.workspaceId, caller, targetKind: 'file', targetId: file.id, action: 'comment.created', at: base.now }, activityId),
   ])
