@@ -257,4 +257,14 @@ describe('GET /s/{token}/scene (Faz 5d)', () => {
       assert.deepStrictEqual((yield* rows('accessLog')).map((l) => l.action), ['link.created'])
     })),
   )
+
+  it.effect('too many reads from one IP: 429', () =>
+    run(Effect.gen(function* () {
+      const view = yield* share({ level: 'view' })
+      const statuses: number[] = []
+      for (let i = 0; i < 125; i++) statuses.push((yield* call(getContent(view, {}, 'scene'))).status)
+      assert.strictEqual(statuses[0], 200)
+      assert.strictEqual(statuses.at(-1), 429)
+    })),
+  )
 })

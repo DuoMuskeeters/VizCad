@@ -272,9 +272,12 @@ export const deliverLinkModel = Effect.fn('deliverLinkModel')(function* (request
  * `GET /s/{token}/scene` (docs/11 §3.1, Faz 5d): the scene record of the model the link shows, so the shared page draws
  * the same names, colours, hidden parts and saved views. Read with `preview`, like `model`; a link never writes it, never
  * sees an earlier model's record, and never learns who in the workspace wrote it (`updatedBy` is always null). Not
- * audited: it is the file's presentation, not its bytes (the model read is).
+ * audited: it is the file's presentation, not its bytes (the model read is). Rate limited per IP (`linkScene`) before
+ * the token is looked up.
  */
 export const getLinkScene = Effect.fn('getLinkScene')(function* (request: LinkRequest, token: string) {
+  if (!isTokenFormat(token)) return yield* new LinkUnavailable()
+  yield* (yield* RateLimit).hit({ action: 'linkScene', ip: request.ip })
   const row = yield* loadByToken(token)
   const { decision } = yield* decide(request, row, 'preview')
   if (!decision.allowed) return yield* refusal(decision.reason, row)

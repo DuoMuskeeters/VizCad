@@ -343,6 +343,24 @@ describe('getLinkScene (Faz 5d)', () => {
       assert.strictEqual((yield* failure(getLinkScene(visitor(), locked.token)))._tag, 'LinkPasswordRequired')
     })),
   )
+
+  it.effect('rate limited per IP on its own counter (linkScene), before the token is looked up', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const view = yield* share({ level: 'view' })
+      const stranger = 'Z'.repeat(43)
+      let blocked = 0
+      for (let i = 0; i < 125; i++) {
+        const result = yield* getLinkScene(visitor(), stranger).pipe(Effect.result)
+        if (result._tag === 'Failure' && result.failure._tag === 'RateLimitExceeded') blocked++
+      }
+      assert.isAbove(blocked, 0)
+      assert.strictEqual((yield* failure(getLinkScene(visitor(), view.token)))._tag, 'RateLimitExceeded')
+      // Other visitors read on; opening links is a separate counter.
+      assert.isNull((yield* getLinkScene(visitor(null, '203.0.113.99'), view.token)).scene)
+      assert.strictEqual((yield* resolveShareLink(visitor(), view.token)).kind, 'file')
+    })),
+  )
 })
 
 describe('deliverLinkModel', () => {
