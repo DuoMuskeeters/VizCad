@@ -14,6 +14,8 @@ const calls = vi.hoisted(() => ({
   /** How many clipping planes the renderer had while the axes gizmo drew. */
   gizmo: [] as number[],
   frames: [] as FrameRequestCallback[],
+  /** Vector3s made (per-frame allocation check). */
+  vectors: 0,
 }))
 vi.mock('three', async (importOriginal) => {
   const three = await importOriginal<typeof import('three')>()
@@ -51,7 +53,13 @@ vi.mock('three', async (importOriginal) => {
     }
     clear() {}
   }
-  return { ...three, WebGLRenderer: StubRenderer }
+  class CountedVector3 extends three.Vector3 {
+    constructor(x?: number, y?: number, z?: number) {
+      super(x, y, z)
+      calls.vectors++
+    }
+  }
+  return { ...three, WebGLRenderer: StubRenderer, Vector3: CountedVector3 }
 })
 vi.mock('three/examples/jsm/helpers/ViewHelper.js', () => ({
   ViewHelper: class {
@@ -337,8 +345,9 @@ describe('measure', () => {
 })
 
 describe('pins', () => {
-  it('a click in pin mode gives the node and the point in its own coordinates; a press on a drawn pin selects it', () => {
-    const { tools, tap, at, onPick, host, scene } = setup()
+  it('a click in pin mode gives the node and the point in its own coordinates; a tap on a drawn pin selects it', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { tools, tap, at, onPick, host, scene, pointer } = setup()
     const placed: Array<{ path: string; point: readonly number[] }> = []
     tools.pins.start((pin) => placed.push(pin))
     tap(...at(0.4, 0.3, 0.3))
@@ -354,12 +363,46 @@ describe('pins', () => {
     const selected: string[] = []
     tools.pins.onSelect((id) => selected.push(id))
     tools.pins.set([{ id: 'c1', label: '1', path: pin.path, point: pin.point as [number, number, number], active: false }])
-    tap(...at(world.x, world.y, world.z))
+    const [px, py] = at(world.x, world.y, world.z)
+    tap(px, py)
+    // Told after the release and its click are over (no ghost tap); no part is picked for it.
+    expect(selected).toEqual([])
+    vi.runAllTimers()
+    expect(selected).toEqual(['c1'])
+    expect(onPick).not.toHaveBeenCalled()
+    // A drag that starts on a pin is an orbit: the controls hear the press, and nothing is selected.
+    const orbit = vi.fn()
+    host.canvas.addEventListener('pointerdown', orbit)
+    pointer('pointerdown', px, py, { buttons: 1 })
+    expect(orbit).toHaveBeenCalledTimes(1)
+    pointer('pointermove', px + 40, py, { buttons: 1 })
+    pointer('pointerup', px + 40, py)
+    vi.runAllTimers()
     expect(selected).toEqual(['c1'])
     // Away from the pin, a click picks as before.
     tap(...at(0.85, 0.1, 0.05))
     expect(onPick).toHaveBeenCalledTimes(1)
     scene.dispose()
+  })
+})
+
+describe('pins, drawn each frame', () => {
+  it('make no new vectors however many pins there are', () => {
+    const o = setup()
+    const draw = recorder()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => draw.ctx) as never)
+    const path = o.scene.outline()!.children[0]!.path
+    const count = () => {
+      o.frame()
+      const before = calls.vectors
+      o.frame()
+      return calls.vectors - before
+    }
+    const none = count()
+    o.tools.pins.set(Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, label: String(i + 1), path, point: [0.1 * i, 0.1, 0.1] as const, active: i === 0 })))
+    expect(count()).toBe(none)
+    expect(draw.calls('fillText').map((args) => args[0])).toContain('6')
+    o.scene.dispose()
   })
 })
 

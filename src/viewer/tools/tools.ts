@@ -136,8 +136,9 @@ export const createTools = (host: ToolHost): ToolsApi => {
   container.appendChild(overlay)
 
   /** CSS px of a world point on the canvas, or null behind the camera. */
+  const projected = new Vector3()
   const toScreen = (p: Vec3 | Vector3, width = canvas.clientWidth, height = canvas.clientHeight): Screen | null => {
-    const v = Array.isArray(p) ? new Vector3(p[0], p[1], p[2]) : (p as Vector3).clone()
+    const v = Array.isArray(p) ? projected.set(p[0], p[1], p[2]) : projected.copy(p as Vector3)
     v.project(camera)
     if (v.z > 1 || v.z < -1) return null
     return [((v.x + 1) / 2) * width, ((1 - v.y) / 2) * height]
@@ -393,7 +394,9 @@ export const createTools = (host: ToolHost): ToolsApi => {
   let hoverFrame = 0
   const onDown = (event: PointerEvent) => {
     justAimed = false
-    if (event.isPrimary && event.button === 0 && pickPin(event)) return
+    // A press on a pin: picked on release if it stayed put; meanwhile the orbit may start from it as from anywhere.
+    pinPress = event.isPrimary && event.button === 0 ? pinPressAt(event) : null
+    if (pinPress !== null) return
     if (section?.handle && event.button === 0 && grabHandle(event)) return
     if (mode !== 'touch' || event.pointerType !== 'touch' || !event.isPrimary) {
       if (hold !== null) cancelHold()
@@ -439,6 +442,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
   }
   const onUp = (event: PointerEvent) => {
     if (drag !== null) return endHandle(event)
+    if (releasePin(event)) return
     if (hold?.id === event.pointerId) cancelHold()
     if (aiming === null || aiming.id !== event.pointerId) return
     const point = aiming.point
@@ -450,6 +454,7 @@ export const createTools = (host: ToolHost): ToolsApi => {
   }
   // A cancelled press (the browser took the gesture, a call came in) places nothing.
   const onCancel = (event: PointerEvent) => {
+    pinPress = null
     if (drag !== null) return endHandle(event)
     if (hold?.id === event.pointerId) cancelHold()
     if (aiming === null || aiming.id !== event.pointerId) return
@@ -512,32 +517,51 @@ export const createTools = (host: ToolHost): ToolsApi => {
   let placing: ((pin: { path: string; point: Vec3 }) => void) | null = null
   const pinListeners = new Set<(id: string) => void>()
   const PIN_RADIUS = 11
-  /** A pin's place in the world and whether its part is drawn (a pin on a hidden or cut-away part is faded). */
-  const pinAt = (pin: PinMark): { world: Vector3; shown: boolean } | null => {
+  // Drawn every frame: one scratch vector, no allocation per pin.
+  const pinWorld = new Vector3()
+  /**
+   * Puts a pin's place in the world into `pinWorld`; whether its part is drawn (a pin on a hidden or cut-away part is
+   * faded), or null when its part is not in this model.
+   */
+  const pinAt = (pin: PinMark): boolean | null => {
     const object = host.studio()?.objectAt(pin.path)
     if (!object) return null
     object.updateWorldMatrix(true, false)
-    const world = object.localToWorld(new Vector3(pin.point[0], pin.point[1], pin.point[2]))
-    const cut = section !== null && plane.distanceToPoint(world) < 0
-    return { world, shown: shownInScene(object) && !cut }
+    object.localToWorld(pinWorld.set(pin.point[0], pin.point[1], pin.point[2]))
+    const cut = section !== null && plane.distanceToPoint(pinWorld) < 0
+    return shownInScene(object) && !cut
   }
-  /** A press on a drawn pin selects its comment and nothing else (no orbit, no pick). */
-  const pickPin = (event: PointerEvent) => {
-    if (pins.length === 0 || pinListeners.size === 0) return false
+  let pinPress: { id: string; pointer: number; x: number; y: number; slop: number } | null = null
+  /** The drawn pin under a press (the topmost), if any. */
+  const pinPressAt = (event: PointerEvent): typeof pinPress => {
+    if (pins.length === 0 || pinListeners.size === 0) return null
     const rect = canvas.getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
-    const reach = PIN_RADIUS + (event.pointerType === 'touch' ? 10 : 3)
-    for (const pin of [...pins].reverse()) {
-      if (pin.id === '') continue
-      const at = pinAt(pin)
-      const s = at === null ? null : toScreen(at.world, rect.width, rect.height)
+    const touch = event.pointerType === 'touch'
+    const reach = PIN_RADIUS + (touch ? 10 : 3)
+    for (let i = pins.length - 1; i >= 0; i--) {
+      const pin = pins[i]!
+      if (pin.id === '' || pinAt(pin) === null) continue
+      const s = toScreen(pinWorld, rect.width, rect.height)
       if (s === null || Math.hypot(s[0] - x, s[1] - y) > reach) continue
-      event.stopImmediatePropagation()
-      pinListeners.forEach((listener) => listener(pin.id))
-      return true
+      return { id: pin.id, pointer: event.pointerId, x: event.clientX, y: event.clientY, slop: touch ? 10 : 5 }
     }
-    return false
+    return null
+  }
+  /**
+   * A release that ends a press on a pin without moving: its comment is selected, and the scene neither picks a part nor
+   * places a point for it. Told after this event (and its click) are over, so a panel that opens in reply never takes
+   * them (no ghost tap on a phone).
+   */
+  const releasePin = (event: PointerEvent) => {
+    const press = pinPress
+    if (press === null || press.pointer !== event.pointerId) return false
+    pinPress = null
+    if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > press.slop) return false
+    host.skipClick()
+    setTimeout(() => pinListeners.forEach((listener) => listener(press.id)))
+    return true
   }
   let clickOwner: 'measure' | 'pin' | null = null
   const pinClick = (ray: Raycaster) => {
@@ -606,11 +630,11 @@ export const createTools = (host: ToolHost): ToolsApi => {
     }
     if (withPins)
       for (const pin of pins) {
-        const at = pinAt(pin)
-        const s = at === null ? null : project(vec(at.world))
-        if (at === null || s === null) continue
+        const shown = pinAt(pin)
+        const s = shown === null ? null : toScreen(pinWorld, width / scale, height / scale)
+        if (shown === null || s === null) continue
         const r = pin.active ? PIN_RADIUS + 2 : PIN_RADIUS
-        ctx.globalAlpha = at.shown ? 1 : 0.45
+        ctx.globalAlpha = shown ? 1 : 0.45
         ctx.beginPath()
         ctx.arc(s[0], s[1], r, 0, Math.PI * 2)
         ctx.fillStyle = pin.id === '' ? INK : ACCENT
