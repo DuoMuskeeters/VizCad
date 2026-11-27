@@ -5,6 +5,7 @@ import type { Caller } from '../programs/shared'
 import * as AppConfig from '../services/AppConfig'
 import * as Auth from '../services/Auth'
 import * as Background from '../services/Background'
+import * as Cache from '../services/Cache'
 import { Db } from '../services/Db'
 import * as DbMemory from '../services/Db.memory'
 import * as Email from '../services/Email'
@@ -30,6 +31,7 @@ export const programLayer = (limits: Entitlements.WorkspaceLimits = Entitlements
     Background.inline,
     Storage.memory,
     Turnstile.test,
+    Cache.memory,
   ).pipe(Layer.provideMerge(AppConfig.test(config)))
 
 const at = (seconds: number) => new Date(seconds * 1000)
@@ -122,6 +124,7 @@ const tables = {
   fileAccess: schema.fileAccess,
   accessLog: schema.accessLog,
   shareLinks: schema.shareLinks,
+  cachePurges: schema.cachePurges,
   files: schema.files,
   fileVersions: schema.fileVersions,
   fileStars: schema.fileStars,
