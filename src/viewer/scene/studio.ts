@@ -5,7 +5,7 @@
  * and a GLB derivative alike). Materials it creates are its own and freed by `dispose`; the model's own ones are put
  * back first, so the model's dispose frees them as before.
  */
-import { Box3, Color, type Material, type Mesh, MeshStandardMaterial, type Object3D, type Raycaster } from 'three'
+import { Box3, Color, type Intersection, type Material, type Mesh, MeshStandardMaterial, type Object3D, type Plane, type Raycaster } from 'three'
 import { chainOf, isUnder, type OutlineNode } from '../tree/outline'
 
 export type Finish = 'matte' | 'satin' | 'metal'
@@ -96,10 +96,14 @@ export const visibleIn = (path: string, view: Pick<StudioView, 'isolated' | 'hid
 
 export type Studio = {
   readonly outline: OutlineNode | null
+  /** The section planes: picking ignores what they cut away. */
+  readonly setClip: (planes: readonly Plane[]) => void
   readonly objectAt: (path: string) => Object3D | null
   readonly apply: (view: StudioView) => void
   /** The part under the ray (a visible mesh), as the path of its node. */
   readonly pick: (raycaster: Raycaster) => string | null
+  /** The nearest visible surface under the ray and its node (measure, pins). */
+  readonly hit: (raycaster: Raycaster) => { readonly path: string; readonly hit: Intersection<Mesh> } | null
   readonly boundsOf: (path: string) => Box3 | null
   /** The file's own colour of a node (its first mesh's material, before any look), `#rrggbb`. */
   readonly colorOf: (path: string) => string | null
@@ -120,6 +124,7 @@ export const createStudio = (model: Object3D): Studio => {
   })
   const base = new Map<Mesh, Material | Material[]>()
   for (const mesh of meshes.keys()) base.set(mesh, mesh.material)
+  let clip: readonly Plane[] = []
   const styled = new Map<string, MeshStandardMaterial>()
   const lit = new Map<Material, Material>()
 
@@ -151,8 +156,25 @@ export const createStudio = (model: Object3D): Studio => {
     return out
   }
 
+  // Only meshes that are drawn: hidden ones and the edge lines (children of meshes, not in `meshes`) are not tested. A
+  // section plane (renderer clipping) cuts the ray too: hits on the clipped side do not count.
+  const hitOf = (raycaster: Raycaster) => {
+    const shown: Mesh[] = []
+    for (const mesh of meshes.keys()) {
+      let visible = true
+      for (let at: Object3D | null = mesh; at !== null && visible; at = at.parent) visible = at.visible
+      if (visible) shown.push(mesh)
+    }
+    const cut = clip
+    const hit = raycaster.intersectObjects<Mesh>(shown, false).find((h) => cut.every((plane) => plane.distanceToPoint(h.point) >= 0))
+    return hit === undefined ? null : { path: meshes.get(hit.object)!, hit }
+  }
+
   return {
     outline,
+    setClip: (planes) => {
+      clip = planes
+    },
     objectAt: (path) => index.get(path) ?? null,
     apply: (view) => {
       for (const [path, object] of index) object.visible = visibleIn(path, view)
@@ -165,17 +187,8 @@ export const createStudio = (model: Object3D): Studio => {
         mesh.material = material
       }
     },
-    pick: (raycaster) => {
-      // Only meshes that are drawn: hidden ones and the edge lines (children of meshes, not in `meshes`) are not tested.
-      const shown: Mesh[] = []
-      for (const mesh of meshes.keys()) {
-        let visible = true
-        for (let at: Object3D | null = mesh; at !== null && visible; at = at.parent) visible = at.visible
-        if (visible) shown.push(mesh)
-      }
-      const hit = raycaster.intersectObjects(shown, false)[0]
-      return hit === undefined ? null : (meshes.get(hit.object as Mesh) ?? null)
-    },
+    pick: (raycaster) => hitOf(raycaster)?.path ?? null,
+    hit: (raycaster) => hitOf(raycaster),
     boundsOf: (path) => {
       const object = index.get(path)
       if (object === undefined) return null

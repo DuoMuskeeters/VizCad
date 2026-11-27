@@ -31,14 +31,16 @@ vi.mock('#/viewer/Viewer.client', () => ({
           seen.stl.push(args)
           return new Blob(['solid'])
         },
+        tools: async () => null,
       }
     }
     return (
       <section aria-label="3D view" hidden={props.hidden}>
         {props.overlay}
-        <div role="toolbar" aria-label="Viewer tools">
-          {props.toolbarStart}
-        </div>
+        {props.toolbar?.({
+          ready: true, stats: null, wireframe: false, edges: false, edgesAvailable: true,
+          fit: () => {}, view: () => {}, toggleWireframe: () => {}, toggleEdges: () => {},
+        })}
       </section>
     )
   },
@@ -190,7 +192,7 @@ describe('assembly studio on the file page', () => {
     narrow()
     router.search = { node: '0.1.1' }
     const { user } = await open()
-    const tools = screen.getByRole('toolbar', { name: 'Viewer tools' })
+    const tools = screen.getByRole('toolbar', { name: 'Studio tools' })
     await user.click(within(tools).getByRole('button', { name: 'Parts' }))
     const sheet = screen.getByRole('region', { name: 'Parts tree' })
     expect(within(sheet).getByText('Stator')).toBeInTheDocument()

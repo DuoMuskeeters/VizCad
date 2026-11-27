@@ -17,6 +17,7 @@ import { createScene, WebGlUnavailable, type SceneHandle } from './scene/createS
 import { VIEW_NAMES, type ViewName } from './scene/fit'
 import type { StudioView } from './scene/studio'
 import type { OutlineNode } from './tree/outline'
+import type { ToolsApi } from './tools/types'
 import {
   edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type LoadStage, type ViewerError, type ViewerStart, type ViewerState,
 } from './state'
@@ -26,6 +27,8 @@ import { classifyError, formatOfExtension, isConvertFormat, ParseFailure, type E
 const loadGlbModule = () => import('./scene/loadGlb')
 /** The STL writer loads only when someone downloads a part (B7). */
 const loadStlModule = () => import('./scene/stl')
+/** Section, measure and screenshot (Faz 5d) load the first time a tool opens. */
+const loadTools = () => import('./tools/tools')
 
 /** What the page may ask the open model (docs/11 §4): no three.js object leaves the viewer. */
 export type ViewerApi = {
@@ -38,6 +41,21 @@ export type ViewerApi = {
   readonly colorOf: (path: string) => string | null
   /** Binary STL of a node (B7): in its place in the assembly, or centred on the origin. */
   readonly exportStl: (path: string, centered: boolean, name: string) => Promise<Blob | null>
+  /** The section, measure and screenshot tools (Faz 5d): a lazy chunk, loaded on first use; null without a scene. */
+  readonly tools: () => Promise<ToolsApi | null>
+}
+
+/** What a page's own toolbar works with (`toolbar`): the viewer keeps the state, the page draws the buttons. */
+export type ViewerControls = {
+  readonly ready: boolean
+  readonly stats: Stats | null
+  readonly wireframe: boolean
+  readonly edges: boolean
+  readonly edgesAvailable: boolean
+  readonly fit: () => void
+  readonly view: (name: ViewName) => void
+  readonly toggleWireframe: () => void
+  readonly toggleEdges: () => void
 }
 
 /** The assembly studio (docs/11 §4.2): the page owns selection, isolation, hidden nodes and looks; the viewer applies them. */
@@ -104,6 +122,8 @@ export type ViewerProps = {
   readonly overlay?: ReactNode
   /** First items of the toolbar (the phone's "Parts" button). */
   readonly toolbarStart?: ReactNode
+  /** The page's toolbar in place of the default one (the studio's, Faz 5d). */
+  readonly toolbar?: ((controls: ViewerControls) => ReactNode) | undefined
   /** Hides the canvas (folder view) without unmounting the open model. */
   readonly hidden?: boolean | undefined
 }
@@ -282,7 +302,7 @@ const StatusPanel = ({ state, format, onCancel, onStart, onRebuild, onUploadVers
 
 const Viewer = ({
   name, extension, size, url, thumbnailUrl, start, source: sourceProp, modelBytes, maxConvertBytes, onThumbnail, onDerivative, onConvertFailed, retryAlways,
-  rebuildUrl, onUploadVersion, downloadAction, studio, frameClassName, overlay, toolbarStart, hidden,
+  rebuildUrl, onUploadVersion, downloadAction, studio, frameClassName, overlay, toolbarStart, toolbar, hidden,
 }: ViewerProps) => {
   const { t, locale } = useI18n()
   const [state, dispatch] = useReducer(viewerReducer, start, initialViewerState)
@@ -293,6 +313,7 @@ const Viewer = ({
   const fromSource = useRef(false)
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<SceneHandle | null>(null)
+  const tools = useRef<{ scene: SceneHandle; loading: Promise<ToolsApi | null>; live: ToolsApi | null } | null>(null)
   const cancelJob = useRef<(() => void) | null>(null)
   const thumbnailSink = useRef(onThumbnail)
   thumbnailSink.current = onThumbnail
@@ -325,6 +346,8 @@ const Viewer = ({
       else throw error
     }
     return () => {
+      tools.current?.live?.dispose()
+      tools.current = null
       scene.current?.dispose()
       scene.current = null
     }
@@ -454,6 +477,24 @@ const Viewer = ({
         const pieces = module.writeStl(object, { centered, name: partName })
         return pieces === null ? null : new Blob(pieces, { type: 'model/stl' })
       },
+      tools: () => {
+        const handle = scene.current
+        if (handle === null) return Promise.resolve(null)
+        if (tools.current?.scene !== handle) {
+          const entry: { scene: SceneHandle; loading: Promise<ToolsApi | null>; live: ToolsApi | null } = { scene: handle, live: null, loading: Promise.resolve(null) }
+          entry.loading = loadTools().then(
+            (module) => {
+              // The viewer may have closed while the chunk loaded.
+              if (tools.current !== entry) return null
+              entry.live = module.createTools(handle.host())
+              return entry.live
+            },
+            () => null,
+          )
+          tools.current = entry
+        }
+        return tools.current.loading
+      },
     }
     return () => {
       api.current = null
@@ -467,6 +508,18 @@ const Viewer = ({
   const notReady = ready ? {} : { disabledReason: t('viewer.tool.notReady') }
   const pressed = 'aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent'
   const number = (n: number) => n.toLocaleString(locale)
+
+  const controls: ViewerControls = {
+    ready,
+    stats,
+    wireframe: state.wireframe,
+    edges: state.edges,
+    edgesAvailable: edgesAvailable(state),
+    fit: () => scene.current?.fit(),
+    view: (name) => scene.current?.view(name),
+    toggleWireframe: () => dispatch({ type: 'toggleWireframe' }),
+    toggleEdges: () => dispatch({ type: 'toggleEdges' }),
+  }
 
   return (
     <section aria-label={t('viewer.region')} hidden={hidden} className={cx('min-w-0 gap-2', hidden ? 'hidden' : 'grid', frameClassName && 'h-full grid-rows-[minmax(0,1fr)_auto]')}>
@@ -501,7 +554,7 @@ const Viewer = ({
         )}
       </div>
 
-      <div role="toolbar" aria-label={t('viewer.toolbar')} className={cx('flex flex-wrap items-center gap-1', frameClassName && 'px-2 pb-1 app:px-3')}>
+      {toolbar ? toolbar(controls) : <div role="toolbar" aria-label={t('viewer.toolbar')} className={cx('flex flex-wrap items-center gap-1', frameClassName && 'px-2 pb-1 app:px-3')}>
         {toolbarStart}
         <IconButton label={t('viewer.tool.fit')} onClick={() => scene.current?.fit()} {...notReady}>
           <Focus aria-hidden className="size-4.5" />
@@ -554,7 +607,7 @@ const Viewer = ({
             {stats.parts === 1 ? t('viewer.statsOne', { triangles: number(stats.triangles) }) : t('viewer.stats', { triangles: number(stats.triangles), parts: number(stats.parts) })}
           </p>
         ) : null}
-      </div>
+      </div>}
     </section>
   )
 }

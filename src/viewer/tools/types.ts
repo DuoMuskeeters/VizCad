@@ -1,0 +1,86 @@
+/**
+ * What the page and the lazily loaded tools (`tools.ts`, docs/11 §4.3) agree on. Plain data only: no three.js, so the
+ * page side (`app/files/studio/`) can import it without pulling the viewer chunk in.
+ */
+export type Axis = 'x' | 'y' | 'z'
+
+export type Vec3 = readonly [number, number, number]
+
+/** The section plane (docs/11 §4.3): an axis, a place along the model's box (0–1), which side is cut away. */
+export type SectionSettings = {
+  readonly axis: Axis
+  /** 0 = the box's low end, 1 = its high end. */
+  readonly position: number
+  /** false keeps the low side (cuts away what is above the plane); true keeps the high side. */
+  readonly flipped: boolean
+  /** Cut faces drawn hatched (docs/03 §4.2). */
+  readonly hatch: boolean
+  /** The plane handle on the canvas (desktop only, docs/11 §4.4: on a phone it fights the orbit gesture). */
+  readonly handle: boolean
+}
+
+/** The model's extent along an axis, in model units (mm). */
+export type SectionRange = { readonly min: number; readonly max: number }
+
+export type Snap = 'vertex' | 'edge' | 'surface'
+
+export type MeasurePoint = { readonly point: Vec3; readonly path: string | null; readonly snap: Snap }
+
+export type Measurement = {
+  readonly id: number
+  readonly a: MeasurePoint
+  readonly b: MeasurePoint
+  /** Model units (mm). */
+  readonly distance: number
+  readonly delta: Vec3
+}
+
+export type MeasureState = {
+  readonly list: readonly Measurement[]
+  /** The first point of the next measurement, until the second is chosen. */
+  readonly pending: MeasurePoint | null
+}
+
+/** `mouse`: hover with vertex and edge snapping, click to place. `touch`: hold, slide under a magnifier, release (§4.4). */
+export type MeasureMode = 'mouse' | 'touch'
+
+/** B8 defaults: twice the size, the canvas background, pins and measurements included. */
+export type ScreenshotOptions = {
+  readonly background: 'canvas' | 'white' | 'transparent'
+  readonly scale: 1 | 2
+  readonly pins: boolean
+  readonly measures: boolean
+}
+
+export const SCREENSHOT_DEFAULTS: ScreenshotOptions = { background: 'canvas', scale: 2, pins: true, measures: true }
+
+/** Texts the tools draw on the canvas; the page owns the language and the unit. */
+export type ToolLabels = {
+  readonly vertex: string
+  readonly edge: string
+  /** A length in model units (mm) as the page shows it ("1.000,0 mm", "39.37 in"). */
+  readonly length: (mm: number) => string
+  /** The section handle's tag ("X = 640 mm"). */
+  readonly plane: (axis: Axis, mm: number) => string
+}
+
+export type ToolsApi = {
+  readonly section: {
+    /** null turns the section off. */
+    readonly set: (settings: SectionSettings | null) => void
+    readonly range: (axis: Axis) => SectionRange | null
+    /** The handle was dragged to a new position (0–1). */
+    readonly onDrag: (listener: (position: number) => void) => () => void
+  }
+  readonly measure: {
+    readonly start: (mode: MeasureMode, single: boolean) => void
+    /** Stops placing points; what was measured stays drawn (it goes into a screenshot, B8). */
+    readonly stop: () => void
+    readonly remove: (id: number) => void
+    readonly clear: () => void
+    readonly subscribe: (listener: (state: MeasureState) => void) => () => void
+  }
+  readonly setLabels: (labels: ToolLabels) => void
+  readonly screenshot: (options: ScreenshotOptions) => Promise<Blob | null>
+  readonly dispose: () => void
+}
