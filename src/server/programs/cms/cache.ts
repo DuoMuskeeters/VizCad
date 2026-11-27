@@ -83,7 +83,8 @@ export const purgeUrls = Effect.fn('purgeUrls')(function* (input: { readonly url
   for (const raw of input.urls) {
     const url = siteUrlOf(siteUrl, raw)
     if (url === undefined || !isMarketingPath(url.pathname)) return yield* new ValidationError({ message: 'urls must be cached pages of the site' })
-    urls.add(url.href)
+    // Origin and path only: no credentials or fragment from the given URL are stored.
+    urls.add(`${url.origin}${url.pathname}`)
   }
   const now = yield* nowSeconds
   yield* runBatch((d) => enqueuePurges(d, { targets: { urls: [...urls], host: false }, hostname: siteUrl.hostname, reason: 'manual', now }))

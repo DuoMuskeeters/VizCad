@@ -634,3 +634,13 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 4. **Hostname temizleme.** `h /` ve `h /tr` (`hit`) → `cms purgeHost` (beklenen `"hostname":"staging.viz-cad.com"`, `done:1, calls:1`) → `h /` ve `h /tr` (ikisi de `miss`). Hız sınırı: `for i in 1 2 3 4 5 6; do cms purgeHost; done` (dakikada 5; 429 gelirse yanıtta `failed:1`, `cms listPurges` satırında `lastError: "rate-limited"`, `notBefore` +60 s). Sonuçlar (100 URL, hostname dakikada 5 / kova 25) buraya not edilir.
 5. **Iska `cpuTime`.** Bir terminalde: `pnpm wrangler tail vizcad-rewrite --format json | jq -c 'select(.event.request.url? // "" | test("/dev/cms-probe|staging\\.viz-cad\\.com/(tr)?$")) | {url: .event.request.url, cpu: .cpuTime, wall: .wallTime, outcome}'`. Diğerinde 10 kez: `cms purgeUrls "{\"urls\":[\"$S/dev/cms-probe\",\"$S/\"]}" >/dev/null; h /dev/cms-probe; h /` (her tur önce temizler, sonra `miss` ister). İzolatın ilk isteği (modül değerlendirmesi) ayrı yazılır; medyan ve en yüksek `cpu` §7.5'teki ≤ 8 ms ıska ve ≤ 2 ms isabet bütçesiyle karşılaştırılır (isabet için `h /` bir kez daha).
 6. **Zone AI bot ayarları (salt okunur).** Cloudflare panosu → viz-cad.com → Security → Bots: "Block AI bots" ve "Manage your robots.txt" durumu not edilir; açıksa değişiklik kullanıcı onayıyla (K11).
+
+### 6a-2 · İnceleme düzeltmeleri ve geçiş öncesi açıklar (PR #32)
+- **Açık yönlendirme kapatıldı:** `/en//evil.com` ve `/en/\evil.com` önceden `http://evil.com/` adresine 301 veriyordu. Artık `/en` sonrası baştaki eğik çizgiler teke iniyor ve `location` her zaman `url.origin + yol`. Bunun testi var.
+- **Dil düğmesi:** en az 44×44 px; menü genişliği `w-44`, en fazla ekran − 24 px. Ekran okuyucu etiketi sayfanın dilinde (`LANGUAGE_LABEL`, 5 dil).
+- **Temizleme kuyruğu:** adresin yalnız origin ve yolu yazılıyor; kullanıcı:şifre ve fragment saklanmıyor.
+- **Geçişten önce yapılacaklar (bu PR'da yok):**
+  1. Production'da uygulama ve giriş sayfalarına `X-Robots-Tag: noindex` başlığı eklenecek. Bugün yalnız robots meta var, başlık sadece staging'de.
+  2. robots.txt ve sitemap'ler artık bütün env'i çözüyor. İlgisiz bir yapılandırma hatası bu dosyaları 500 yapıyor, Google 5xx robots'u "hiçbir şeyi tarama" diye okuyor. Ya bu dosyalar için yalnız `SITE_URL` ve `APP_ENV` çözülecek, ya da geçişte env doğrulanacak.
+  3. Yeni sitemap bugün yalnız `/`'yi listeliyor. Canlıdaki `/faq`, `/contact`, `/modelsnap`, `/blog` ve yazılar 6b/6d/6f gelmeden geçiş yapılmamalı.
+- **Sonraki iş:** route gölgeleme testi bugün elle yazılmış bir liste. Router'ın route listesinden üretilmesi 6b'ye kaldı.

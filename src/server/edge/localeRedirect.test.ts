@@ -37,4 +37,12 @@ describe('localeRedirect', () => {
     expect(localeRedirect(new Request('https://viz-cad.com/en/faq', { method: 'POST' }))).toBeNull()
     expect(localeRedirect(new Request('https://viz-cad.com/faq'))).toBeNull()
   })
+
+  it('never redirects off the site: extra slashes and backslashes after /en stay on our host', () => {
+    for (const path of ['/en//evil.com', '/en/\\evil.com', '/en///evil.com/', '/en//evil.com/x?y=1']) {
+      const location = localeRedirect(new Request(`https://viz-cad.com${path}`))?.headers.get('location') ?? ''
+      expect(new URL(location).host).toBe('viz-cad.com')
+      expect(location.startsWith('https://viz-cad.com/evil.com')).toBe(true)
+    }
+  })
 })

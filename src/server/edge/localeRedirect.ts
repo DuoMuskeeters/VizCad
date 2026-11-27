@@ -9,7 +9,9 @@ import { isMarketingPath } from '#/shared/marketingRoutes'
 /** The normalized path and query, or null when the URL needs no redirect. */
 export const localeRedirectTarget = (url: URL): string | null => {
   let path = url.pathname
-  if (path === '/en' || path.startsWith('/en/')) path = path.slice(3) === '' ? '/' : path.slice(3)
+  // One leading slash only: `/en//evil.com` (or `/en/\\evil.com`, which URL parsing turns into `//`) must never become a
+  // protocol-relative `//evil.com`.
+  if (path === '/en' || path.startsWith('/en/')) path = `/${path.slice(3).replace(/^\/+/, '')}`
   if (path.length > 1 && path.endsWith('/')) {
     const trimmed = path.replace(/\/+$/, '') || '/'
     if (isMarketingPath(trimmed)) path = trimmed
@@ -23,5 +25,5 @@ export const localeRedirect = (request: Request): Response | null => {
   const url = new URL(request.url)
   const target = localeRedirectTarget(url)
   if (target === null) return null
-  return new Response(null, { status: 301, headers: { location: new URL(target, url).href, 'cache-control': 'public, max-age=86400' } })
+  return new Response(null, { status: 301, headers: { location: `${url.origin}${target}`, 'cache-control': 'public, max-age=86400' } })
 }
