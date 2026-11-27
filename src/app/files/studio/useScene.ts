@@ -73,6 +73,7 @@ export const useScene = (fileId: string, version: number, enabled: boolean, fetc
   const stopped = useRef(false)
   const target = useRef({ fileId, version, fetcher })
   target.current = { fileId, version, fetcher }
+  const editedOn = useRef(target.current)
 
   useEffect(() => {
     if (!enabled) return
@@ -90,8 +91,12 @@ export const useScene = (fileId: string, version: number, enabled: boolean, fetc
     })
     return () => {
       live = false
-      if (timer.current !== null) clearTimeout(timer.current)
+      if (timer.current === null) return
+      // Leaving the model (or the page) with a change still waiting: send it now, best effort, for the version it was
+      // made on; after a new version the server refuses it (`VersionChanged`): the paths belong to the old model.
+      clearTimeout(timer.current)
       timer.current = null
+      if (dirty.current && !stopped.current) void flushRef.current()
     }
     // `fetcher` is a test seam, fixed per page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +109,8 @@ export const useScene = (fileId: string, version: number, enabled: boolean, fetc
     dirty.current = false
     setStatus('saving')
     const sent = latest.current
-    const result = await saveScene({ fileId: target.current.fileId, version: target.current.version, revision: revision.current, body: sent }, target.current.fetcher)
+    const to = editedOn.current
+    const result = await saveScene({ fileId: to.fileId, version: to.version, revision: revision.current, body: sent }, to.fetcher)
     inFlight.current = false
     if (result.ok) {
       revision.current = result.revision
@@ -128,6 +134,8 @@ export const useScene = (fileId: string, version: number, enabled: boolean, fetc
   const change = useCallback(
     (next: SceneBody, immediately = false) => {
       if (stopped.current) return
+      // The model the change was made on: a save sent after the page moved to another version still names this one.
+      editedOn.current = target.current
       latest.current = next
       setBody(next)
       dirty.current = true
@@ -139,15 +147,10 @@ export const useScene = (fileId: string, version: number, enabled: boolean, fetc
     [flush],
   )
 
+  const flushRef = useRef(flush)
+  flushRef.current = flush
   const reload = useCallback(() => setReadKey((n) => n + 1), [])
 
-  // Leaving the page with a change still waiting: send it now (best effort).
-  useEffect(
-    () => () => {
-      if (timer.current !== null && dirty.current && !stopped.current) void flush()
-    },
-    [flush],
-  )
 
   return { answer, body, status, savedAt, change, reload }
 }
