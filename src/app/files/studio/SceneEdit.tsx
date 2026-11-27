@@ -34,9 +34,9 @@ export const SaveState = ({ status }: { status: SaveStatus }) => {
   const { t } = useI18n()
   if (status === 'idle' || status === 'conflict' || status === 'version') return null
   return (
-    <span role="status" className={cx('inline-flex items-center gap-1.5 text-sm', status === 'error' ? 'text-danger' : 'text-text-2')}>
+    <span role="status" className={cx('inline-flex items-center gap-1.5 text-sm', status === 'error' || status === 'tooLarge' ? 'text-danger' : 'text-text-2')}>
       {status === 'saving' ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : status === 'saved' ? <CloudCheck aria-hidden className="size-4 text-success" /> : null}
-      {t(status === 'saving' ? 'studio.save.saving' : status === 'saved' ? 'studio.save.saved' : status === 'pending' ? 'studio.save.pending' : 'studio.save.error')}
+      {t(status === 'saving' ? 'studio.save.saving' : status === 'saved' ? 'studio.save.saved' : status === 'pending' ? 'studio.save.pending' : status === 'tooLarge' ? 'studio.save.tooLarge' : 'studio.save.error')}
     </span>
   )
 }
@@ -59,6 +59,21 @@ export const EditBar = ({ status, onDone }: { status: SaveStatus; onDone: () => 
       <Button variant="primary" onClick={onDone}>
         {t('studio.edit.done')}
       </Button>
+    </Band>
+  )
+}
+
+/** After Done: a change that did not save stays visible, with a retry. */
+export const UnsavedBar = ({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) => {
+  const { t } = useI18n()
+  return (
+    <Band role="alert" tone="warn" icon={<TriangleAlert aria-hidden />} title={t('studio.save.unsaved')} lead={t(status === 'tooLarge' ? 'studio.save.tooLarge' : 'studio.save.error')}>
+      {status === 'error' ? (
+        <Button onClick={onRetry}>
+          <RefreshCw aria-hidden className="size-4.5" />
+          {t('studio.save.retry')}
+        </Button>
+      ) : null}
     </Band>
   )
 }

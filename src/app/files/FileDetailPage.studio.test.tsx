@@ -77,7 +77,9 @@ const stubScene = (answer: Answer) => {
       server.writes.push(JSON.parse(String(init.body)))
       return server.writeStatus === 200
         ? new Response(JSON.stringify({ ok: true, data: { revision: server.writes.length, updatedAt: 1 } }), { status: 200 })
-        : new Response(JSON.stringify({ ok: false, error: 'SceneConflict' }), { status: 409 })
+        : server.writeStatus === 500
+          ? new Response(JSON.stringify({ ok: false, error: 'Internal' }), { status: 500 })
+          : new Response(JSON.stringify({ ok: false, error: 'SceneConflict' }), { status: 409 })
     }
     server.reads++
     return new Response(JSON.stringify({ ok: true, data: server.answer }), { status: 200 })
@@ -260,6 +262,36 @@ describe('scene prep (5c-2)', () => {
     await user.click(within(alert).getByRole('button', { name: 'Reload' }))
     await waitFor(() => expect(last().studio!.view.looks.get('0.0')).toEqual({ color: '#ffffff', finish: undefined }))
     expect(last().studio!.view.looks.has('0.1')).toBe(false)
+  }, 10_000)
+
+  it('editing waits until the earlier colours are applied or ignored', async () => {
+    stubScene({ ...editable, previous: { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Motor' } }, views: [] } } })
+    const { user } = await open()
+    await screen.findByText('Apply the colours and names of version 3?')
+    const edit = screen.getByRole('button', { name: 'Edit appearance' })
+    expect(edit).toHaveAttribute('aria-disabled', 'true')
+    await user.click(edit)
+    expect(screen.queryByText('You are editing the appearance.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ignore' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit appearance' })).not.toHaveAttribute('aria-disabled'))
+  })
+
+  it('a change that did not save stays visible after Done, with a retry', async () => {
+    stubScene(editable)
+    server.writeStatus = 500
+    const { user } = await open()
+    await user.click(within(screen.getByRole('tree', { name: 'Parts tree' })).getByText('Motor'))
+    await waitFor(() => expect(server.reads).toBe(1))
+    await user.click(screen.getByRole('button', { name: 'Edit appearance' }))
+    await user.click(within(screen.getByRole('region', { name: 'Edit appearance' })).getByRole('button', { name: 'Blue' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1), { timeout: 3000 })
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Appearance changes are not saved.')
+    server.writeStatus = 200
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(server.writes).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByText('Appearance changes are not saved.')).not.toBeInTheDocument())
   }, 10_000)
 
   it('a new version offers the previous colours by name path: apply writes the matched entries', async () => {

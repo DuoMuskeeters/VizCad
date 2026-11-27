@@ -45,7 +45,7 @@ import { createThumbnailStore } from './studio/thumbnails'
 import { TreePanel } from './studio/TreePanel'
 import { useWide } from './studio/useWide'
 import { useScene } from './studio/useScene'
-import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState } from './studio/SceneEdit'
+import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar } from './studio/SceneEdit'
 import { StlDialog } from './studio/StlDialog'
 import { EMPTY_SCENE } from '#/shared/scene'
 
@@ -310,10 +310,18 @@ export const FileDetailPage = () => {
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
   // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
-  const scene = useScene(id, state.status === 'ready' ? state.file.currentVersion.number : 0, state.status === 'ready' && state.file.model.kind !== 'none')
+  // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
+  const scene = useScene(
+    id,
+    shownFile?.currentVersion.number ?? 0,
+    shownFile === null ? '' : `${shownFile.model.kind}:${shownFile.model.bytes ?? 0}`,
+    shownFile !== null && shownFile.model.kind !== 'none' && !preparingModel,
+  )
   const sceneHidden = useMemo(() => hiddenOf(scene.body), [scene.body])
   const looks = useMemo(() => looksOf(scene.body), [scene.body])
   const renamed = useMemo(() => namesOf(scene.body), [scene.body])
+  // Folder thumbnails show the record's colours: drawn again after a change.
+  useEffect(() => thumbnails.clear(), [looks, thumbnails])
   const { localHidden, localShown } = studioState
   const hidden = useMemo(() => hiddenOn({ localHidden, localShown }, sceneHidden), [localHidden, localShown, sceneHidden])
   // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank).
@@ -584,7 +592,9 @@ export const FileDetailPage = () => {
   const modelOpen = hasViewer && modelReady && outline !== null
   const editReason = !wide ? t('studio.edit.desktop') : !can.edit ? t('studio.edit.noPermission') : scene.answer?.canEdit ? null : t('studio.edit.notReady')
   const stlReason = !wide ? t('studio.stl.desktop') : !can.download ? t('studio.stl.noPermission') : null
-  const isEditing = editing && editReason === null && modelOpen
+  // The earlier colours are offered first: editing would replace the record they would be applied to.
+  const offering = match !== null && wide && !matchDismissed && modelOpen
+  const isEditing = editing && editReason === null && modelOpen && !offering
   const blocked = scene.status === 'conflict' || scene.status === 'version'
   const stlButton = (path: string) => (
     <Button onClick={() => setStlPath(path)} {...(stlReason === null ? {} : { disabledReason: stlReason })}>
@@ -768,7 +778,7 @@ export const FileDetailPage = () => {
     <section className="mb-5 grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold">{t('studio.view.label')}</h3>
-        <Button variant={editReason === null ? 'secondary' : 'ghost'} onClick={() => setEditing(true)} {...(editReason === null && !blocked ? {} : { disabledReason: editReason ?? t('studio.conflict.title') })}>
+        <Button variant={editReason === null ? 'secondary' : 'ghost'} onClick={() => setEditing(true)} {...(editReason === null && !blocked && !offering ? {} : { disabledReason: editReason ?? (blocked ? t('studio.conflict.title') : t('studio.edit.answerMatch')) })}>
           <Paintbrush aria-hidden className="size-4.5" />
           {t('studio.edit.open')}
         </Button>
@@ -856,18 +866,20 @@ export const FileDetailPage = () => {
         <ConflictBar kind={scene.status} onReload={() => (scene.status === 'version' ? window.location.reload() : scene.reload())} />
       ) : isEditing ? (
         <EditBar status={scene.status} onDone={() => setEditing(false)} />
-      ) : match !== null && wide && !matchDismissed && modelOpen ? (
+      ) : offering ? (
         <MatchBar
           version={scene.answer?.previous?.versionNumber ?? null}
-          matched={match.matched}
-          unmatched={match.unmatched}
+          matched={match!.matched}
+          unmatched={match!.unmatched}
           busy={scene.status === 'saving'}
-          onApply={() => scene.change(match.body, true)}
+          onApply={() => scene.change(match!.body, true)}
           onIgnore={() => {
             dispatch({ type: 'dismissMatch' })
             scene.change(EMPTY_SCENE, true)
           }}
         />
+      ) : scene.status === 'error' || scene.status === 'tooLarge' ? (
+        <UnsavedBar status={scene.status} onRetry={scene.retry} />
       ) : null}
     </>
   )
