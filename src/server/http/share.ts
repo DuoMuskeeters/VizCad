@@ -1,6 +1,6 @@
 import { Effect, type Layer, Schema } from 'effect'
 import { type AppError, ResourceUnavailable, ValidationError } from '../errors'
-import { deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword } from '../programs/shareLinks'
+import { deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, getLinkScene, type LinkRequest, resolveShareLink, verifyLinkPassword } from '../programs/shareLinks'
 import { AppConfig } from '../services/AppConfig'
 import type { Db } from '../services/Db'
 import type { Entitlements } from '../services/Entitlements'
@@ -14,8 +14,9 @@ import { handle, type RequestMeta } from './respond'
 
 export type ShareServices = Db | AppConfig | Storage | RateLimit | Turnstile | Entitlements
 
-/** `/s/{token}/content`, `/s/{token}/model`, `/s/{token}/thumbnail`, `POST /api/s/resolve`, `POST /api/s/password`. */
+/** `/s/{token}/content`, `/s/{token}/model`, `/s/{token}/thumbnail`, `/s/{token}/scene`, `POST /api/s/resolve`, `POST /api/s/password`. */
 const DELIVERY_PATH = /^\/s\/([^/]+)\/(content|model|thumbnail)$/
+const SCENE_PATH = /^\/s\/([^/]+)\/scene$/
 const API_PREFIX = '/api/s/'
 
 const Token = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(64))
@@ -67,6 +68,12 @@ export const shareProgram = (request: Request) =>
             ? yield* deliverLinkModel(visitor, token, range)
             : yield* deliverLinkThumbnail(visitor, token),
       )
+    }
+
+    const scene = SCENE_PATH.exec(url.pathname)
+    if (scene !== null) {
+      yield* checkReadRequest(request, trustedOrigins)
+      return json(yield* getLinkScene(visitor, scene[1] ?? ''))
     }
 
     const name = url.pathname.startsWith(API_PREFIX) ? url.pathname.slice(API_PREFIX.length) : ''

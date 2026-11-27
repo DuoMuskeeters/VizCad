@@ -12,13 +12,14 @@ const baseUrl = process.env.BASE_URL || 'http://localhost:3077';
 const glbDir = process.env.GLB_DIR || '/tmp/vizcad-glb';
 const glb = process.env.GLB || 'Stealthburner_455parca.step.glb';
 
+let sceneAnswer = null;
 const routes = async (page) => {
   await page.route('**/api/files/*/model*', async (route) => {
     const body = fs.readFileSync(path.join(glbDir, glb));
     await route.fulfill({ body, headers: { 'content-type': 'model/gltf-binary', 'content-length': String(body.length) } }).catch(() => {});
   });
   await page.route('**/api/files/*/thumbnail*', (route) => route.fulfill({ status: 404 }));
-  await page.route('**/api/files/*/scene*', (route) => route.fulfill({ json: { ok: true, data: { scene: null, previous: null, canEdit: true, maxViews: 20 } } }));
+  await page.route('**/api/files/*/scene*', (route) => route.fulfill({ json: { ok: true, data: sceneAnswer ?? { scene: null, previous: null, canEdit: true, maxViews: 20 } } }));
 };
 const ready = (page) => page.waitForFunction(() => { const c = document.querySelector('canvas[role=img]'); return c && !c.parentElement.classList.contains('invisible'); }, null, { timeout: 90000 }).then(() => page.waitForTimeout(800));
 const toolbar = (page) => page.getByRole('toolbar', { name: 'Stüdyo araçları' })
@@ -66,6 +67,52 @@ const screens = [
     },
   },
   {
+    name: 'pins',
+    setup: async (page, phone) => {
+      const place = async (fx, fy, text) => {
+        // The page scrolls to the comment field after a pin: back to the canvas first.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const box = await canvasBox(page);
+        await toolbar(page).getByRole('button', { name: phone ? 'Yorum' : 'Yorum pini' }).click();
+        await page.waitForTimeout(300);
+        if (phone) await page.touchscreen.tap(box.x + box.width * fx, box.y + box.height * fy);
+        else await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+        await page.waitForTimeout(400);
+        await page.getByRole('textbox', { name: 'Yorum yaz' }).fill(text);
+        await page.getByRole('button', { name: 'Yorum yaz', exact: true }).click();
+        await page.waitForTimeout(400);
+      };
+      await place(0.42, 0.45, 'Fan kanalının vidası burada mı?');
+      await place(0.62, 0.58, 'Ray ucu için kapak gerekli.');
+      // A third pin, being written.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const box = await canvasBox(page);
+      await toolbar(page).getByRole('button', { name: phone ? 'Yorum' : 'Yorum pini' }).click();
+      await page.waitForTimeout(300);
+      if (phone) await page.touchscreen.tap(box.x + box.width * 0.47, box.y + box.height * 0.6);
+      else await page.mouse.click(box.x + box.width * 0.47, box.y + box.height * 0.6);
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'views',
+    scene: { scene: { revision: 2, body: { v: 1, nodes: {}, views: [
+      { id: 'v1', name: 'Fan tarafı', camera: { position: [180, -160, 120], target: [0, 0, 20], up: [0, 0, 1], fov: 35 } },
+      { id: 'v2', name: 'Ray kesiti', camera: { position: [0, -260, 60], target: [0, 0, 20], up: [0, 0, 1], fov: 35 }, section: { normal: [-1, 0, 0], constant: 10 } },
+    ] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 },
+    setup: async (page, phone) => {
+      if (phone) {
+        await toolbar(page).getByRole('button', { name: 'Diğer araçlar' }).click();
+        await page.getByRole('menuitem', { name: 'Ray kesiti' }).click();
+        await page.waitForTimeout(600);
+        await toolbar(page).getByRole('button', { name: 'Diğer araçlar' }).click();
+      } else {
+        await page.getByRole('button', { name: 'Ray kesiti görünümünü uygula' }).click();
+      }
+      await page.waitForTimeout(600);
+    },
+  },
+  {
     name: 'more',
     phoneOnly: true,
     setup: async (page) => {
@@ -93,6 +140,7 @@ const viewports = [
         await context.addInitScript(() => {
           try { localStorage.setItem('vizcad_locale', 'tr'); localStorage.setItem('vizcad.gestures.seen', '1'); } catch {}
         });
+        sceneAnswer = screen.scene ?? null;
         const page = await context.newPage();
         page.on('pageerror', (e) => problems.push(`${screen.name} ${vp.tag} ${theme}: ${e.message}`));
         await routes(page);
@@ -102,7 +150,7 @@ const viewports = [
         const file = path.join(outDir, `${screen.name}-${vp.tag}-${theme === 'light' ? 'acik' : 'koyu'}.png`);
         await page.screenshot({ path: file });
         if (vp.phone) {
-          const small = await page.evaluate(() => [...document.querySelectorAll('[role=toolbar][aria-label="Stüdyo araçları"] button, section[aria-label] button, [role=menu] [role^=menuitem]')]
+          const small = await page.evaluate(() => [...document.querySelectorAll('[role=toolbar][aria-label="Stüdyo araçları"] button, section[aria-label] button:not([role=switch]), [role=menu] [role^=menuitem]')]
             .filter((b) => b.offsetParent !== null)
             .map((b) => { const r = b.getBoundingClientRect(); return { label: b.getAttribute('aria-label') || b.textContent.trim(), w: r.width, h: r.height }; })
             .filter((b) => b.h < 44 || b.w < 44));

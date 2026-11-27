@@ -33,7 +33,7 @@ export const sceneModelKey = (row: KeyColumns): string | null => {
   return readyDerivative(row)?.key ?? null
 }
 
-const bodyOf = (text: string): SceneBody => Option.getOrElse(Schema.decodeUnknownOption(StoredScene)(text), () => EMPTY_SCENE as SceneBody)
+export const bodyOf = (text: string): SceneBody => Option.getOrElse(Schema.decodeUnknownOption(StoredScene)(text), () => EMPTY_SCENE as SceneBody)
 
 /** The file and the caller's `preview` on it; `edit` decided too. */
 const openForScene = Effect.fnUntraced(function* (caller: Caller, fileId: string) {

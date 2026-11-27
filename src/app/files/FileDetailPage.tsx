@@ -19,7 +19,9 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { chainOf, findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import type { PinMark } from '#/viewer/tools/types'
+import type { CommentView, PendingPin } from '#/shared/fileViews'
 import { editNode, hiddenOf, looksOf, matchPrevious, namesOf, type SceneEdit } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
@@ -29,7 +31,7 @@ import { useSession } from '../session'
 import { useWorkspace } from '../workspace'
 import { MoveDialog, RenameDialog } from './FileDialogs'
 import { FileMenu } from './FileMenu'
-import { ActivityTab, CommentsTab, VersionsTab } from './FileTabs'
+import { ActivityTab, CommentsTab, useComments, VersionsTab, type CommentPins } from './FileTabs'
 import { startDownload } from './download'
 import { formatBytes, formatDateTime, tileText } from './format'
 import { ShareDialog } from './ShareDialog'
@@ -47,8 +49,10 @@ import { useWide } from './studio/useWide'
 import { useScene } from './studio/useScene'
 import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar } from './studio/SceneEdit'
 import { StlDialog } from './studio/StlDialog'
-import { desktopOnlyIcons, GestureHints, MeasureHint, StudioToolbar, ToolCard } from './studio/Tools'
+import { desktopOnlyIcons, GestureHints, StudioToolbar, ToolCard, ToolHint } from './studio/Tools'
 import { useTools } from './studio/useTools'
+import { SavedViews } from './studio/SavedViews'
+import type { SceneView } from '#/shared/scene'
 import { EMPTY_SCENE } from '#/shared/scene'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
@@ -241,6 +245,12 @@ export const FileDetailPage = () => {
     setState({ status: 'loading' })
     void load()
   }, [load])
+  // A reload while the page is in use (a pin met a newer version): a failure keeps the page and what is typed in it.
+  const refresh = useCallback(async () => {
+    const result = await call<AnyFileView>('getFile', { workspaceId: active.id, fileId: id })
+    if (result.ok) setState({ status: 'ready', file: result.data })
+    else if (result.error === 'Unauthenticated') expire()
+  }, [call, expire, active.id, id])
 
   // The viewer rendered a thumbnail for a file without one (lazy path, docs/11 §9 5a): store it, then show it. The
   // endpoint stores on whatever is current when it lands, so a thumbnail of a version that is no longer current (or
@@ -309,15 +319,83 @@ export const FileDetailPage = () => {
   const preparingModel = shownFile !== null && shownFormat !== null && isConvertFormat(shownFormat) && shownFile.model.kind !== 'derivative' && (preparingHere || held === shownFile.id)
   const modelKey = shownFile === null ? null : `${shownFile.id}:${shownFile.currentVersion.number}${preparingModel ? ':preparing' : ''}`
   if (studioState.key !== modelKey) dispatch({ type: 'reset', key: modelKey })
-  useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
-
   const nodeParam = search.node
   const node = outline !== null && nodeParam !== undefined && findNode(outline, nodeParam) !== null ? nodeParam : null
   const stale = outline !== null && nodeParam !== undefined && node === null
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
+  // Comment pins (docs/11 §4.3, B3): the comments live here so the canvas can draw their pins.
+  const comments = useComments(active.id, id)
+  const [pendingPin, setPendingPin] = useState<PendingPin | null>(null)
+  const [activeComment, setActiveComment] = useState<string | null>(null)
+  const [showPins, setShowPins] = useState(true)
+  const [pinsFor, setPinsFor] = useState(modelKey)
+  if (pinsFor !== modelKey) {
+    setPinsFor(modelKey)
+    setPendingPin(null)
+    setActiveComment(null)
+  }
   // Section, measure, screenshot (Faz 5d): per open model; the section's range fits the isolated part.
-  const tools = useTools(api, modelKey, wide, isolated)
+  const tools = useTools(api, modelKey, wide, isolated, (pin) => {
+    setPendingPin({ path: pin.path, point: pin.point, version: shownFile?.currentVersion.number ?? 0 })
+    setActiveComment(null)
+    setTab('comments')
+    setPanelOpen(true)
+  })
+  // A saved view applied with another isolation (docs/11 §3.1): the viewer fits the camera to the new isolation in its own
+  // effect, which runs before this one (a child's effects run first); the view's camera is set after it, not undone by it.
+  // Only a change of the isolation sets it off (any other render in between leaves it waiting).
+  const viewAfterIsolation = useRef<SceneView | null>(null)
+  const applyToolsView = useRef(tools.applyView)
+  applyToolsView.current = tools.applyView
+  useEffect(() => {
+    const view = viewAfterIsolation.current
+    if (view === null) return
+    viewAfterIsolation.current = null
+    void applyToolsView.current(view)
+  }, [isolated])
+  const shownVersion = shownFile?.currentVersion.number ?? 0
+  const pinsOpen = modelReady && outline !== null
+  // Pins of this version on parts this model has, numbered in comment order; the one being written comes last.
+  const pinNumbers = useMemo(() => {
+    const numbers = new Map<string, number>()
+    if (outline === null) return numbers
+    for (const comment of comments.items ?? [])
+      if (comment.parentId === null && !comment.deleted && comment.anchor !== null && comment.versionNumber === shownVersion && findNode(outline, comment.anchor.path) !== null)
+        numbers.set(comment.id, numbers.size + 1)
+    return numbers
+  }, [comments.items, outline, shownVersion])
+  const marks = useMemo<PinMark[]>(() => {
+    const out: PinMark[] = []
+    if (showPins)
+      for (const comment of comments.items ?? []) {
+        const number = pinNumbers.get(comment.id)
+        if (number !== undefined && comment.anchor !== null) out.push({ id: comment.id, label: String(number), path: comment.anchor.path, point: comment.anchor.point, active: comment.id === activeComment })
+      }
+    if (pendingPin !== null) out.push({ id: '', label: String(pinNumbers.size + 1), path: pendingPin.path, point: pendingPin.point, active: true })
+    return out
+  }, [comments.items, pinNumbers, showPins, pendingPin, activeComment])
+  const wantPins = pinsOpen && marks.length > 0
+  // Pins an image may show (B8): the sent ones; the one being written stays off it.
+  const sentPins = marks.some((mark) => mark.id !== '')
+  const ensureTools = tools.ensure
+  useEffect(() => {
+    if (wantPins) ensureTools()
+  }, [wantPins, ensureTools])
+  const liveTools = tools.tools
+  useEffect(() => {
+    liveTools?.pins.set(pinsOpen ? marks : [])
+  }, [liveTools, marks, pinsOpen])
+  useEffect(
+    () =>
+      liveTools?.pins.onSelect((commentId) => {
+        setActiveComment(commentId)
+        setTab('comments')
+        setPanelOpen(true)
+      }),
+    [liveTools],
+  )
+  useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
   // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
   // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
   const scene = useScene(
@@ -325,16 +403,11 @@ export const FileDetailPage = () => {
     shownFile?.currentVersion.number ?? 0,
     shownFile === null ? '' : `${shownFile.model.kind}:${shownFile.model.bytes ?? 0}`,
     shownFile !== null && shownFile.model.kind !== 'none' && !preparingModel,
+    undefined,
+    // Told by the app's toast (above the page): also when the save fails after the person left the file page.
+    () => toast({ title: t('studio.save.lost'), tone: 'danger' }),
   )
   sceneReload.current = scene.reload
-  // A save of a model left behind failed: said once per lost change.
-  const sceneLost = scene.lost
-  const toldLost = useRef(0)
-  useEffect(() => {
-    if (sceneLost <= toldLost.current) return
-    toldLost.current = sceneLost
-    toast({ title: t('studio.save.lost'), tone: 'danger' })
-  }, [sceneLost, toast, t])
   const sceneHidden = useMemo(() => hiddenOf(scene.body), [scene.body])
   const looks = useMemo(() => looksOf(scene.body), [scene.body])
   const renamed = useMemo(() => namesOf(scene.body), [scene.body])
@@ -654,6 +727,77 @@ export const FileDetailPage = () => {
     </Button>
   )
   const steps = outline !== null && isolated !== null ? pathNames(outline, isolated, nameOf) : []
+  // Saved views (docs/11 §3.1): applied by everyone who sees the model, saved on a desktop by an editor.
+  const views = scene.body.views
+  const maxViews = scene.answer?.maxViews ?? 20
+  const viewWriteReason = !wide ? t('views.saveDesktop')
+    : !can.edit ? t('views.noPermission')
+    : !scene.answer?.canEdit ? t('studio.edit.notReady')
+    : blocked ? t('studio.conflict.title')
+    : offering ? t('studio.edit.answerMatch')
+    : null
+  const viewReason = viewWriteReason ?? (views.length >= maxViews ? t('views.limit', { count: maxViews }) : null)
+  const saveView = (name: string) => {
+    void tools.snapshot().then((shot) => {
+      if (shot === null) return
+      const view: SceneView = {
+        id: crypto.randomUUID(),
+        name,
+        camera: shot.camera,
+        ...(hidden.size > 0 ? { hidden: [...hidden] } : {}),
+        ...(shot.section === undefined ? {} : { section: shot.section }),
+        ...(isolated === null ? {} : { isolated }),
+      }
+      scene.change({ ...scene.body, views: [...scene.body.views, view] }, true)
+    })
+  }
+  const applyView = (view: SceneView) => {
+    dispatch({ type: 'viewHidden', hidden: new Set(view.hidden ?? []), sceneHidden })
+    // The view's own isolation (none for an older view, or a part not in this version: the whole model).
+    const target = view.isolated !== undefined && outline !== null && findNode(outline, view.isolated) !== null && view.isolated !== '0' ? view.isolated : null
+    toast({ title: t('views.applied', { name: view.name }) })
+    if (target === isolated) return void tools.applyView(view)
+    // Changing the isolation fits the camera to it once it applies: the view's camera goes on after that fit.
+    viewAfterIsolation.current = view
+    go({ node: target })
+  }
+  const savedViews = modelOpen && !showFolder ? (
+    <SavedViews
+      views={views}
+      onApply={applyView}
+      saving={
+        wide && can.edit
+          ? { reason: viewReason, canDelete: viewWriteReason === null, onSave: saveView, onDelete: (viewId) => scene.change({ ...scene.body, views: views.filter((v) => v.id !== viewId) }, true) }
+          : undefined
+      }
+    />
+  ) : null
+  const pinHidden = (path: string) => chainOf(path).some((step) => hidden.has(step)) || (isolated !== null && !isUnder(path, isolated))
+  const commentPins: CommentPins | undefined = modelOpen
+    ? {
+        version: loaded.currentVersion.number,
+        numberOf: (comment: CommentView) => pinNumbers.get(comment.id) ?? null,
+        where: (path: string) => (outline === null || findNode(outline, path) === null ? null : pathNames(outline, path, nameOf).map((step) => step.name).join(' › ')),
+        hidden: pinHidden,
+        onShow: (path: string) => {
+          for (const step of chainOf(path)) if (hidden.has(step)) dispatch({ type: 'toggleHidden', path: step, hiddenNow: true })
+          if (isolated !== null && !isUnder(path, isolated)) go({ node: null })
+        },
+        active: activeComment,
+        onActivate: (comment: CommentView) => {
+          setActiveComment(comment.id)
+          if (comment.anchor !== null) setSelected(comment.anchor.path)
+        },
+        pending: pendingPin,
+        pendingNumber: pinNumbers.size + 1,
+        placing: tools.tool === 'pin',
+        onPlace: () => tools.open('pin'),
+        onClear: () => setPendingPin(null),
+        onVersionChanged: () => void refresh(),
+        show: showPins,
+        onShowChange: setShowPins,
+      }
+    : undefined
   const endName = (path: string | null) => (outline === null || path === null ? '' : nameOf(findNode(outline, path) ?? outline))
   const overlay = modelOpen ? (
     <>
@@ -675,9 +819,13 @@ export const FileDetailPage = () => {
           }
         />
       ) : null}
-      {isolated !== null && tools.tool !== 'measure' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
-      {wide ? <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} /> : <GestureHints />}
-      {tools.tool === 'measure' ? <MeasureHint wide={wide} /> : null}
+      {isolated !== null && tools.tool !== 'measure' && tools.tool !== 'pin' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
+      {wide ? (
+        <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={sentPins} onSaveView={viewReason === null ? () => saveView(t('views.default', { number: views.length + 1 })) : undefined} />
+      ) : (
+        <GestureHints />
+      )}
+      {tools.tool === 'measure' || tools.tool === 'pin' ? <ToolHint wide={wide} tool={tools.tool} /> : null}
     </>
   ) : null
 
@@ -751,6 +899,8 @@ export const FileDetailPage = () => {
               controls={controls}
               wide={wide}
               tools={tools}
+              pins={can.comment && modelOpen}
+              savedViews={modelOpen ? views.map((view) => ({ id: view.id, name: view.name, onApply: () => applyView(view) })) : undefined}
               parts={
                 assembly && !wide
                   ? {
@@ -881,7 +1031,6 @@ export const FileDetailPage = () => {
           />
         </>
       )}
-      <p className="text-sm text-text-3">{t('studio.edit.views')}</p>
     </section>
   ) : null
 
@@ -899,6 +1048,7 @@ export const FileDetailPage = () => {
             {stale ? <p className="mb-4 rounded-md bg-warn-soft px-3 py-2 text-base text-warn-text">{t('studio.stale')}</p> : null}
             {selectionCard}
             {appearance}
+            {savedViews}
             <Details file={loaded} outline={studioReady ? outline : null} />
             {showFolder ? (
               <div className="mt-5 grid gap-1.5">
@@ -908,7 +1058,7 @@ export const FileDetailPage = () => {
             ) : null}
           </TabsContent>
           <TabsContent value="comments">
-            <CommentsTab workspaceId={active.id} fileId={loaded.id} can={can} />
+            <CommentsTab comments={comments} can={can} pins={commentPins} />
           </TabsContent>
           <TabsContent value="activity">
             <ActivityTab workspaceId={active.id} fileId={loaded.id} can={can} />
@@ -1013,7 +1163,7 @@ export const FileDetailPage = () => {
         </section>
       ) : null}
 
-      {!wide && modelOpen && !showFolder ? <ToolCard tools={tools} wide={false} fileName={loaded.name} nameOf={endName} /> : null}
+      {!wide && modelOpen && !showFolder ? <ToolCard tools={tools} wide={false} fileName={loaded.name} nameOf={endName} pins={sentPins} /> : null}
 
       {renaming ? (
         <RenameDialog

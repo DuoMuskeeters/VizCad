@@ -103,7 +103,20 @@ const busy = (session: Session) => !session.stopped && (session.dirty || session
  * `model` names the stored model the record belongs to (kind and size): when the GLB is stored, the record is read
  * again for it. `enabled` is false while no model is open (Preparing, no 3D).
  */
-export const useScene = (fileId: string, version: number, model: string, enabled: boolean, fetcher?: Fetch): SceneState => {
+export const useScene = (
+  fileId: string,
+  version: number,
+  model: string,
+  enabled: boolean,
+  fetcher?: Fetch,
+  /**
+   * A change was lost on a model left behind. Called even after the page is gone (the person left the file page while
+   * the save was on its way): the caller passes something held above the page (the app's toast), never page state.
+   */
+  onLost?: () => void,
+): SceneState => {
+  const lostSink = useRef(onLost)
+  lostSink.current = onLost
   const [answer, setAnswer] = useState<SceneAnswer | null>(null)
   const [read, setRead] = useState(false)
   const [body, setBody] = useState<SceneBody>(EMPTY_SCENE)
@@ -146,8 +159,11 @@ export const useScene = (fileId: string, version: number, model: string, enabled
       session.stopped = true
       sessions.current.delete(session)
       if (session.live) setStatus(result.error)
-      // Left behind, the change is lost all the same: the page says so.
-      else setLost((n) => n + 1)
+      // Left behind, the change is lost all the same: the page (or, once it is gone, the app) says so.
+      else {
+        setLost((n) => n + 1)
+        lostSink.current?.()
+      }
       return
     }
     // A model left behind has no next edit and no Retry: a newer change waiting behind the failed one is tried once;
@@ -160,6 +176,7 @@ export const useScene = (fileId: string, version: number, model: string, enabled
       session.stopped = true
       sessions.current.delete(session)
       setLost((n) => n + 1)
+      lostSink.current?.()
       return
     }
     // A network or server error: keep the change and try again on the next edit (or Retry).

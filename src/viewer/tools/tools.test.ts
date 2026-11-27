@@ -14,6 +14,8 @@ const calls = vi.hoisted(() => ({
   /** How many clipping planes the renderer had while the axes gizmo drew. */
   gizmo: [] as number[],
   frames: [] as FrameRequestCallback[],
+  /** Vector3s made (per-frame allocation check). */
+  vectors: 0,
 }))
 vi.mock('three', async (importOriginal) => {
   const three = await importOriginal<typeof import('three')>()
@@ -51,7 +53,13 @@ vi.mock('three', async (importOriginal) => {
     }
     clear() {}
   }
-  return { ...three, WebGLRenderer: StubRenderer }
+  class CountedVector3 extends three.Vector3 {
+    constructor(x?: number, y?: number, z?: number) {
+      super(x, y, z)
+      calls.vectors++
+    }
+  }
+  return { ...three, WebGLRenderer: StubRenderer, Vector3: CountedVector3 }
 })
 vi.mock('three/examples/jsm/helpers/ViewHelper.js', () => ({
   ViewHelper: class {
@@ -84,6 +92,17 @@ const box10 = (): ParsedModel => {
   const quads = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]
   const index = quads.flatMap(([a, b, c, d]) => [a!, b!, c!, a!, c!, d!])
   return model([{ name: 'Box', color: null, position: new Float32Array(p), normal: null, index: new Uint32Array(index), vertexColor: null, groups: [] }])
+}
+
+/** box10 split in two meshes: the x = +5 face, and the rest (the test gives them one path, as a GLB part's primitives). */
+const box10TwoPrimitives = (): ParsedModel => {
+  const p: number[] = []
+  for (const x of [-5, 5]) for (const y of [-5, 5]) for (const z of [-5, 5]) p.push(x, y, z)
+  const quads = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]
+  const tri = (qs: number[][]) => new Uint32Array(qs.flatMap(([a, b, c, d]) => [a!, b!, c!, a!, c!, d!]))
+  const prim = (name: string, qs: number[][]) => ({ name, color: null, position: new Float32Array(p), normal: null, index: tri(qs), vertexColor: null, groups: [] })
+  const meshes = [prim('Box', [quads[1]!]), prim('Box', quads.filter((_, i) => i !== 1))]
+  return { meshes, tree: normaliseTree({ name: 'Box', meshes: [0, 1], children: [] }, meshes), up: 'z' }
 }
 
 /** A 2D context that records what is drawn (jsdom has none). */
@@ -127,12 +146,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const setup = (parsed: ParsedModel = model()) => {
+const setup = (parsed: ParsedModel = model(), prepare?: (root: Object3D) => void) => {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const onPick = vi.fn()
   const scene = createScene(container, 'label', { onPick })
   const root = buildModel(parsed)
+  prepare?.(root)
   scene.setModel(root, stats)
   const host = scene.host()
   const canvas = host.canvas
@@ -287,6 +307,43 @@ describe('measure', () => {
     scene.dispose()
   })
 
+  it('a ray through an edge the cut-away triangles share is one crossing: the click still lands on the plane', () => {
+    const { tools, tap, at, measured, scene, host } = setup(box10())
+    // Straight down onto the top face's diagonal x = y (shared by its two triangles), then through the cut at z = 0.
+    host.camera.position.set(2, 2, 60)
+    host.camera.up.set(0, 1, 0)
+    host.camera.lookAt(2, 2, 0)
+    host.camera.updateMatrixWorld()
+    tools.section.set({ axis: 'z', position: 0.5, flipped: false, hatch: true, handle: false })
+    tools.measure.start('mouse', false)
+    tap(...at(2, 2, 5))
+    const point = measured().pending!.point
+    expect(point[2]).toBeCloseTo(0, 5)
+    scene.dispose()
+  })
+
+  it('a ray that crosses one part through two of its primitives, all on the cut-away side, lands nowhere (not on the plane in the air)', () => {
+    // In a GLB a part's primitives share its path (they have none of their own): give the second one the first's.
+    const { tools, tap, at, measured, scene, host } = setup(box10TwoPrimitives(), (root) => {
+      const meshes: Object3D[] = []
+      root.traverse((object) => {
+        if ((object as { isMesh?: boolean }).isMesh === true) meshes.push(object)
+      })
+      meshes[1]!.userData['vizcadPath'] = meshes[0]!.userData['vizcadPath']
+    })
+    // From the +x side, slanting down: it enters at x = 5 (z ≈ 3.75) and leaves at x = −5 (z ≈ 2.25), both above the
+    // cut at z = 0, then reaches the plane at x = −20, beyond the box.
+    host.camera.position.set(60, 0, 12)
+    host.camera.up.set(0, 0, 1)
+    host.camera.lookAt(-20, 0, 0)
+    host.camera.updateMatrixWorld()
+    tools.section.set({ axis: 'z', position: 0.5, flipped: false, hatch: true, handle: false })
+    tools.measure.start('mouse', false)
+    tap(...at(-20, 0, 0))
+    expect(measured().pending ?? null).toBeNull()
+    scene.dispose()
+  })
+
   it('does not snap to a corner the plane cut away', () => {
     const { tools, tap, at, measured, scene } = setup(box10())
     tools.measure.start('mouse', false)
@@ -299,6 +356,24 @@ describe('measure', () => {
     tools.section.set({ axis: 'z', position: 0.99, flipped: false, hatch: true, handle: false })
     tap(x - 3, y + 3)
     expect(measured().pending?.snap).not.toBe('vertex')
+    scene.dispose()
+  })
+
+  it('does not snap to an edge the plane cut away, though the face under the pointer is kept', () => {
+    const { tools, tap, at, measured, scene } = setup(box10())
+    tools.measure.start('mouse', false)
+    // On the front face, just left of its edge x = 5 (half way up, far from the corners).
+    const [x, y] = at(5, -5, 0)
+    tap(x - 3, y)
+    expect(measured().pending).toMatchObject({ snap: 'edge' })
+    expect(measured().pending!.point[0]).toBeCloseTo(5, 5)
+    tools.measure.clear()
+    // Cut just inside that edge (x = 4.97 kept below): the face under the pointer stays, its edge is gone.
+    tools.section.set({ axis: 'x', position: 0.997, flipped: false, hatch: true, handle: false })
+    tap(x - 3, y)
+    const point = measured().pending!
+    expect(point.snap).toBe('surface')
+    expect(point.point[0]).toBeLessThan(4.97)
     scene.dispose()
   })
 
@@ -333,6 +408,68 @@ describe('measure', () => {
     scene.setModel(buildModel(model()), stats)
     expect(state.list).toEqual([])
     scene.dispose()
+  })
+})
+
+describe('pins', () => {
+  it('a click in pin mode gives the node and the point in its own coordinates; a tap on a drawn pin selects it', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { tools, tap, at, onPick, host, scene, pointer } = setup()
+    const placed: Array<{ path: string; point: readonly number[] }> = []
+    tools.pins.start((pin) => placed.push(pin))
+    tap(...at(0.4, 0.3, 0.3))
+    expect(onPick).not.toHaveBeenCalled()
+    expect(placed).toHaveLength(1)
+    const pin = placed[0]!
+    const node = host.studio()!.objectAt(pin.path)!
+    const world = node.localToWorld(new Vector3(...(pin.point as [number, number, number])))
+    expect(world.x + world.y + world.z).toBeCloseTo(1, 4)
+    tools.pins.stop()
+    // Stopping the measure tool later must not take the click from someone else.
+    tools.measure.stop()
+    const selected: string[] = []
+    tools.pins.onSelect((id) => selected.push(id))
+    tools.pins.set([{ id: 'c1', label: '1', path: pin.path, point: pin.point as [number, number, number], active: false }])
+    const [px, py] = at(world.x, world.y, world.z)
+    tap(px, py)
+    // Told after the release and its click are over (no ghost tap); no part is picked for it.
+    expect(selected).toEqual([])
+    vi.runAllTimers()
+    expect(selected).toEqual(['c1'])
+    expect(onPick).not.toHaveBeenCalled()
+    // A drag that starts on a pin is an orbit: the controls hear the press, and nothing is selected.
+    const orbit = vi.fn()
+    host.canvas.addEventListener('pointerdown', orbit)
+    pointer('pointerdown', px, py, { buttons: 1 })
+    expect(orbit).toHaveBeenCalledTimes(1)
+    pointer('pointermove', px + 40, py, { buttons: 1 })
+    pointer('pointerup', px + 40, py)
+    vi.runAllTimers()
+    expect(selected).toEqual(['c1'])
+    // Away from the pin, a click picks as before.
+    tap(...at(0.85, 0.1, 0.05))
+    expect(onPick).toHaveBeenCalledTimes(1)
+    scene.dispose()
+  })
+})
+
+describe('pins, drawn each frame', () => {
+  it('make no new vectors however many pins there are', () => {
+    const o = setup()
+    const draw = recorder()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => draw.ctx) as never)
+    const path = o.scene.outline()!.children[0]!.path
+    const count = () => {
+      o.frame()
+      const before = calls.vectors
+      o.frame()
+      return calls.vectors - before
+    }
+    const none = count()
+    o.tools.pins.set(Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, label: String(i + 1), path, point: [0.1 * i, 0.1, 0.1] as const, active: i === 0 })))
+    expect(count()).toBe(none)
+    expect(draw.calls('fillText').map((args) => args[0])).toContain('6')
+    o.scene.dispose()
   })
 })
 
@@ -486,6 +623,24 @@ describe('screenshot', () => {
     // The image's own draw (the live overlay redraws the screen after it, with the marks, as before).
     const imageTexts = bare.draw.log.slice(0, bare.draw.log.findIndex(([key]) => key === 'restore') + 1).filter(([key]) => key === 'fillText')
     expect(imageTexts).toEqual([])
+    o.scene.dispose()
+  })
+
+  it('pins go into the image when asked, the pin of a comment not sent yet never', async () => {
+    const o = setup()
+    const path = o.scene.outline()!.children[0]!.path
+    o.tools.pins.set([
+      { id: 'c1', label: '1', path, point: [0.2, 0.2, 0.2], active: false },
+      { id: '', label: '2', path, point: [0.1, 0.1, 0.5], active: true },
+    ])
+    const imageTexts = (log: Array<[string, unknown[]]>) => log.slice(0, log.findIndex(([key]) => key === 'restore') + 1).filter(([key]) => key === 'fillText').map(([, args]) => args[0])
+    const withPins = await shoot(o, { background: 'canvas', scale: 1, pins: true, measures: true })
+    expect(imageTexts(withPins.draw.log)).toEqual(['1'])
+    // The live overlay (drawn again after the shot) still shows the unsent pin.
+    expect(withPins.draw.calls('fillText').map((args) => args[0])).toContain('2')
+    vi.restoreAllMocks()
+    const without = await shoot(o, { background: 'canvas', scale: 1, pins: false, measures: true })
+    expect(imageTexts(without.draw.log)).toEqual([])
     o.scene.dispose()
   })
 

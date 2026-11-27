@@ -114,9 +114,9 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
   let counter = 0
   const uploads = new Map<string, { name: string; size: number; target: string | null; project: string | null }>()
   let comments: (CommentView & { fileId: string })[] = [
-    { fileId: 'f1', id: 'c1', parentId: null, author: { displayName: 'Mehmet Kaya' }, content: 'Cıvata dairesi çapını kontrol eder misin? EN 1092-1 tablosunda 180 mm yazıyor.', deleted: false, createdAt: now() - 2 * day, versionNumber: 2, mine: false, canDelete: role === 'owner' || role === 'admin' },
-    { fileId: 'f1', id: 'c2', parentId: 'c1', author: { displayName: me }, content: 'Kontrol ettim, 3. sürümde düzelttim.', deleted: false, createdAt: now() - day, versionNumber: 3, mine: true, canDelete: true },
-    { fileId: 'f1', id: 'c3', parentId: null, author: null, content: '', deleted: true, createdAt: now() - 3 * day, versionNumber: 1, mine: false, canDelete: false },
+    { fileId: 'f1', id: 'c1', parentId: null, author: { displayName: 'Mehmet Kaya' }, content: 'Cıvata dairesi çapını kontrol eder misin? EN 1092-1 tablosunda 180 mm yazıyor.', deleted: false, createdAt: now() - 2 * day, versionNumber: 2, anchor: null, mine: false, canDelete: role === 'owner' || role === 'admin' },
+    { fileId: 'f1', id: 'c2', parentId: 'c1', author: { displayName: me }, content: 'Kontrol ettim, 3. sürümde düzelttim.', deleted: false, createdAt: now() - day, versionNumber: 3, anchor: null, mine: true, canDelete: true },
+    { fileId: 'f1', id: 'c3', parentId: null, author: null, content: '', deleted: true, createdAt: now() - 3 * day, versionNumber: 1, anchor: null, mine: false, canDelete: false },
   ]
   const t0 = now()
   // Per file and per project: given access and waiting guest invitations.
@@ -334,7 +334,7 @@ export const createFilesFixture = (role: Role, scenario: FilesScenario = 'normal
       }
       case 'addComment': {
         const content = String(body['content']).trim()
-        const created = { fileId: String(body['fileId']), id: `c-new-${++counter}`, parentId: typeof body['parentId'] === 'string' ? body['parentId'] : null, author: { displayName: me }, content, deleted: false, createdAt: now(), versionNumber: 1, mine: true, canDelete: true }
+        const created = { fileId: String(body['fileId']), id: `c-new-${++counter}`, parentId: typeof body['parentId'] === 'string' ? body['parentId'] : null, author: { displayName: me }, content, deleted: false, createdAt: now(), versionNumber: files.find((f) => f.id === body['fileId'])?.version ?? 1, anchor: (body['anchor'] as CommentView['anchor'] | undefined) ?? null, mine: true, canDelete: true }
         comments = [...comments, created]
         const { fileId: _file, ...view } = created
         return ok(view)

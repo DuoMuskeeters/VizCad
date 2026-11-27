@@ -218,6 +218,19 @@ describe('useScene', () => {
     expect(result.current.status).toBe('pending')
   })
 
+  it('a change lost after the page is gone is still told, through the callback held above the page', async () => {
+    const api = scripted('fail')
+    const told = vi.fn()
+    const { result, unmount } = renderHook(() => useScene('f1', 4, 'derivative:1', true, api.fetcher, told))
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#5a5a5a')))
+    // The person leaves the file page entirely: the waiting change is sent on the way out and fails.
+    unmount()
+    await waitFor(() => expect(told).toHaveBeenCalledTimes(1))
+    expect(api.writes).toEqual([{ version: 4, revision: 0, body: body('#5a5a5a') }])
+    expect(leavingIsBlocked()).toBe(false)
+  })
+
   it('a conflict on a model left behind counts as a lost change', async () => {
     const api = server(409)
     const { result, rerender } = renderHook(({ version }) => useScene('f1', version, 'derivative:1', true, api.fetcher), { initialProps: { version: 4 } })

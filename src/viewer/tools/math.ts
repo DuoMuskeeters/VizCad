@@ -68,6 +68,22 @@ export const sectionPlane = (settings: Pick<SectionSettings, 'axis' | 'position'
 }
 
 /**
+ * A stored plane (a saved view's `section`) back as a setting: the axis its normal runs along, the side it keeps and the
+ * place within `range`. A plane that is not along an axis takes the nearest axis.
+ */
+export const sectionFromPlane = (plane: { normal: Vec3; constant: number }, range: (axis: Axis) => SectionRange | null): Pick<SectionSettings, 'axis' | 'position' | 'flipped'> | null => {
+  const sizes = plane.normal.map(Math.abs)
+  const index = sizes.indexOf(Math.max(...sizes))
+  const axis = (['x', 'y', 'z'] as const)[index]!
+  const along = plane.normal[index]!
+  const span = range(axis)
+  if (span === null || along === 0 || !(span.max > span.min)) return null
+  const flipped = along > 0
+  const at = (flipped ? -plane.constant : plane.constant) / Math.abs(along)
+  return { axis, flipped, position: Math.max(0, Math.min(1, (at - span.min) / (span.max - span.min))) }
+}
+
+/**
  * A handle drag as a new 0–1 position: the pointer's movement projected on the axis as drawn on screen. `axisOnScreen`
  * is how far one model unit along the axis moves on screen (CSS px); a nearly end-on axis does not move the plane.
  */

@@ -83,6 +83,8 @@ export type ToolHost = {
   readonly setClick: (handler: ((raycaster: Raycaster, event: PointerEvent) => void) | null) => void
   /** Sets `raycaster` from a pointer position; false when the canvas has no size. */
   readonly aim: (raycaster: Raycaster, clientX: number, clientY: number) => boolean
+  /** The press ending now was a tool's own (a pin tapped): no click and no pick for it. */
+  readonly skipClick: () => void
 }
 
 export class WebGlUnavailable extends Error {
@@ -190,13 +192,16 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
   // A second tap within this time and distance fits the model (B5, phone).
   let lastTap: { x: number; y: number; at: number } | null = null
   let press: { id: number; x: number; y: number; at: number } | null = null
+  let skip = false
   // Only the main button selects: a right or middle press pans or opens nothing, and never changes the selection.
   const onDown = (event: PointerEvent) => {
+    skip = false
     press = event.isPrimary && event.button === 0 ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() } : null
   }
   const onUp = (event: PointerEvent) => {
     const start = press
     press = null
+    if (skip) return void (skip = false)
     if (start === null || event.button !== 0 || start.id !== event.pointerId || studio === null) return
     const now = performance.now()
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP || now - start.at > CLICK_MS) return
@@ -459,6 +464,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         click = next
       },
       aim,
+      skipClick: () => {
+        skip = true
+      },
     }),
     memory: () => ({ geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }),
     dispose: () => {

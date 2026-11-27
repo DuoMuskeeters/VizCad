@@ -4,13 +4,16 @@
  * opens. One card at a time; a section stays on while another card is open (so a screenshot can show it) until it is
  * turned off on its own card. Measurements stay drawn until cleared (B4: never saved; a screenshot may include them).
  */
-import { useCallback, useEffect, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useI18n } from '#/i18n'
 import type { ViewerApi } from '#/viewer/Viewer.client'
-import { SCREENSHOT_DEFAULTS, type CoveredRect, type MeasureState, type ScreenshotOptions, type SectionSettings, type ToolsApi } from '#/viewer/tools/types'
+import type { SceneView } from '#/shared/scene'
+import { sectionFromPlane, sectionPlane } from '#/viewer/tools/math'
+import { SCREENSHOT_DEFAULTS, type CoveredRect, type MeasureState, type ScreenshotOptions, type SectionSettings, type ToolsApi, type Vec3 } from '#/viewer/tools/types'
 import { formatLength, formatPlace, type LengthUnit } from './units'
 
-export type ToolName = 'section' | 'measure' | 'shot'
+/** `pin`: the next click on the model places a comment pin (no card; the Comments tab writes the comment). */
+export type ToolName = 'section' | 'measure' | 'shot' | 'pin'
 
 const NO_MEASURES: MeasureState = { list: [], pending: null }
 
@@ -19,10 +22,17 @@ export type StudioTools = ReturnType<typeof useTools>
 /** The section as the page keeps it; the canvas handle follows the screen and the open card, not the setting. */
 export type SectionState = Omit<SectionSettings, 'handle'>
 
-/**
- * `scope`: the isolated part's path (the section's range fits it), null for the whole model.
- */
-export const useTools = (api: RefObject<ViewerApi | null>, modelKey: string | null, wide: boolean, scope: string | null = null) => {
+export const useTools = (
+  api: RefObject<ViewerApi | null>,
+  modelKey: string | null,
+  wide: boolean,
+  /** The isolated part's path (the section's range fits it), null for the whole model. */
+  scope: string | null = null,
+  /** A pin was placed on the model (tool `pin`). */
+  onPin?: (pin: { readonly path: string; readonly point: Vec3 }) => void,
+) => {
+  const pinSink = useRef(onPin)
+  pinSink.current = onPin
   const { t, locale } = useI18n()
   const [tool, setTool] = useState<ToolName | null>(null)
   const [section, setSection] = useState<SectionState | null>(null)
@@ -85,6 +95,15 @@ export const useTools = (api: RefObject<ViewerApi | null>, modelKey: string | nu
   useEffect(() => {
     tools?.section.setCovered(covered)
   }, [tools, covered])
+  const pinning = tool === 'pin'
+  useEffect(() => {
+    if (tools === null) return
+    if (!pinning) return tools.pins.stop()
+    tools.pins.start((pin) => {
+      pinSink.current?.(pin)
+      setTool(null)
+    })
+  }, [tools, pinning])
   const measuring = tool === 'measure'
   useEffect(() => {
     if (tools === null) return
@@ -133,10 +152,31 @@ export const useTools = (api: RefObject<ViewerApi | null>, modelKey: string | nu
     failed,
     retry: () => void load(),
     setCovered,
+    /** Loads the tools chunk without opening a card (pins are drawn as soon as there are any). */
+    ensure: load,
     range: (axis: SectionSettings['axis']) => tools?.section.range(axis) ?? null,
     removeMeasure: (id: number) => tools?.measure.remove(id),
     clearMeasures: () => tools?.measure.clear(),
     // A tap before the chunk is in waits for it rather than failing.
     screenshot: (options: ScreenshotOptions): Promise<Blob | null> => (tools !== null ? Promise.resolve(tools) : load()).then((ready) => ready?.screenshot(options) ?? null),
+    /** The camera and the cut as they are now, for a saved view (docs/11 §3.1); null before the tools have loaded. */
+    snapshot: async (): Promise<Pick<SceneView, 'camera' | 'section'> | null> => {
+      const live = tools ?? (await api.current?.tools()) ?? null
+      if (live === null) return null
+      const range = section === null ? null : live.section.range(section.axis)
+      return { camera: live.camera.get(), ...(section !== null && range !== null ? { section: sectionPlane(section, range) } : {}) }
+    },
+    /** A saved view: its camera, and its cut (or none). The hidden parts are the page's (B2: this screen only). */
+    applyView: async (view: SceneView) => {
+      const live = tools ?? (await api.current?.tools()) ?? null
+      if (live === null) return
+      if (tools === null) setLive({ key: modelKey, tools: live })
+      // Tools that loaded just now have not taken the scope yet (its effect runs after the next render): the cut is read
+      // against the isolated part's range, not the whole model's.
+      live.section.setScope(scope)
+      live.camera.set(view.camera)
+      const cut = view.section === undefined ? null : sectionFromPlane(view.section, live.section.range)
+      setSection((current) => (cut === null ? null : { hatch: current?.hatch ?? true, ...cut }))
+    },
   }
 }

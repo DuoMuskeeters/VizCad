@@ -43,6 +43,8 @@ export type ViewerApi = {
   readonly exportStl: (path: string, centered: boolean, name: string) => Promise<Blob | null>
   /** The section, measure and screenshot tools (Faz 5d): a lazy chunk, loaded on first use; null without a scene. Rejects when the chunk does not load (tried again on the next call). */
   readonly tools: () => Promise<ToolsApi | null>
+  /** The camera to a standard view of the whole model, fitted. */
+  readonly view: (name: ViewName) => void
 }
 
 /** What a page's own toolbar works with (`toolbar`): the viewer keeps the state, the page draws the buttons. */
@@ -477,6 +479,7 @@ const Viewer = ({
         const pieces = module.writeStl(object, { centered, name: partName })
         return pieces === null ? null : new Blob(pieces, { type: 'model/stl' })
       },
+      view: (name) => scene.current?.view(name),
       tools: () => {
         const handle = scene.current
         if (handle === null) return Promise.resolve(null)

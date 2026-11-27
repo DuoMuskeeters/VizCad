@@ -37,6 +37,8 @@ const fakeTools = () => {
         return () => {}
       }),
     },
+    pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+    camera: { get: vi.fn(() => ({ position: [100, -100, 80] as const, target: [0, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 })), set: vi.fn() },
     setLabels: vi.fn(),
     screenshot: vi.fn(async () => new Blob(['png'], { type: 'image/png' })),
     dispose: vi.fn(),
@@ -145,6 +147,13 @@ describe('section', () => {
     expect(api.section.setCovered).toHaveBeenLastCalledWith(null)
   })
 
+  it('the desktop card never runs past a narrow canvas: its width is capped at the canvas less its margins', async () => {
+    const { user } = mount(true)
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    // jsdom has no layout: the cap is the class that sets it (w-72, at most the canvas width minus 12 px a side).
+    expect(screen.getByRole('region', { name: 'Section' })).toHaveClass('w-72', 'max-w-[calc(100%-24px)]')
+  })
+
   it('the range fits the isolated part', async () => {
     const { api, user, update } = mount(true, { scope: '0.1' })
     await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
@@ -217,6 +226,34 @@ describe('screenshot (B8)', () => {
     await user.click(within(card).getByRole('button', { name: 'Share or save' }))
     expect(api.screenshot).toHaveBeenCalledWith(expect.objectContaining({ background: 'white' }))
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: [expect.any(File)] }))
+  })
+
+  it('phone: the image card offers the pins too', async () => {
+    const fake = fakeTools()
+    const Phone = () => {
+      const api = useRef<ViewerApi | null>({ tools: async () => fake.api } as unknown as ViewerApi)
+      const state = useTools(api, 'f1:1', false)
+      return (
+        <>
+          <StudioToolbar controls={controls} wide={false} tools={state} />
+          <ToolCard tools={state} wide={false} fileName="Pump.step" nameOf={() => ''} pins />
+        </>
+      )
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider initialLocale="en">
+        <UiProvider>
+          <Phone />
+        </UiProvider>
+      </I18nProvider>,
+    )
+    await user.click(within(toolbar()).getByRole('button', { name: 'Image' }))
+    const card = screen.getByRole('region', { name: 'Screenshot' })
+    await user.click(within(card).getByRole('switch', { name: 'Include comment pins' }))
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { share: vi.fn(async () => {}), canShare: () => true }))
+    await user.click(within(card).getByRole('button', { name: 'Share or save' }))
+    expect(fake.api.screenshot).toHaveBeenCalledWith(expect.objectContaining({ pins: false }))
   })
 
   const shareFails = async (error: Error) => {

@@ -66,6 +66,19 @@ export type ToolLabels = {
   readonly plane: (axis: Axis, mm: number) => string
 }
 
+/** A saved view's camera (docs/11 §3.1 `views[].camera`). */
+export type CameraState = { readonly position: Vec3; readonly target: Vec3; readonly up: Vec3; readonly fov: number }
+
+/** A comment pin on the canvas: the node and the point in its own coordinates; `id` '' is the pin being written. */
+export type PinMark = {
+  readonly id: string
+  /** The number drawn in the pin. */
+  readonly label: string
+  readonly path: string
+  readonly point: Vec3
+  readonly active: boolean
+}
+
 export type ToolsApi = {
   readonly section: {
     /** null turns the section off. */
@@ -85,6 +98,20 @@ export type ToolsApi = {
     readonly remove: (id: number) => void
     readonly clear: () => void
     readonly subscribe: (listener: (state: MeasureState) => void) => () => void
+  }
+  readonly pins: {
+    /** What is drawn; a pin whose part is hidden or cut away is drawn faded. */
+    readonly set: (pins: readonly PinMark[]) => void
+    /** The next click on the model places a pin (node path + point in the node's coordinates) instead of picking. */
+    readonly start: (onPlace: (pin: { readonly path: string; readonly point: Vec3 }) => void) => void
+    readonly stop: () => void
+    /** A press on a drawn pin. */
+    readonly onSelect: (listener: (id: string) => void) => () => void
+  }
+  readonly camera: {
+    readonly get: () => CameraState
+    /** Moves the camera there at once (a saved view). */
+    readonly set: (camera: CameraState) => void
   }
   readonly setLabels: (labels: ToolLabels) => void
   readonly screenshot: (options: ScreenshotOptions) => Promise<Blob | null>

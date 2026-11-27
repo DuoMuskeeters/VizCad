@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-router', async () => {
   return { ...routerMock, useSearch: () => router.search, useNavigate: () => router.navigate }
 })
 
-const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][], thumbs: [] as string[] }))
+const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][], thumbs: [] as string[], tools: null as unknown }))
 vi.mock('#/viewer/Viewer.client', () => ({
   default: (props: ViewerProps) => {
     seen.props.push(props)
@@ -31,7 +31,8 @@ vi.mock('#/viewer/Viewer.client', () => ({
           seen.stl.push(args)
           return new Blob(['solid'])
         },
-        tools: async () => null,
+        tools: async () => seen.tools as never,
+        view: () => {},
       }
     }
     return (
@@ -100,6 +101,7 @@ beforeEach(() => {
   seen.stl = []
   seen.thumbs = []
   seen.props = []
+  seen.tools = null
   router.search = {}
   router.navigate.mockReset()
   vi.unstubAllGlobals()
@@ -446,5 +448,239 @@ describe('scene prep (5c-2)', () => {
     await user.click(within(dialog).getByRole('radio', { name: /Centred on the origin/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Download STL' }))
     await waitFor(() => expect(seen.stl).toEqual([['0.2', true, 'Pump unit']]))
+  })
+})
+
+describe('comment pins on the file page', () => {
+  it('a pin placed on the canvas is sent with the version open on the screen', async () => {
+    const tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() },
+      setLabels: vi.fn(),
+      screenshot: vi.fn(),
+      dispose: vi.fn(),
+    }
+    seen.tools = tools
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const { user, calls } = await open()
+    await user.click(screen.getByRole('tab', { name: /Comments/ }))
+    await user.click(await screen.findByRole('button', { name: 'Pin' }))
+    await waitFor(() => expect(tools.pins.start).toHaveBeenCalled())
+    const placed = tools.pins.start.mock.lastCall![0] as unknown as (pin: { path: string; point: [number, number, number] }) => void
+    act(() => placed({ path: '0.2.0', point: [1, 2, 3] }))
+    await user.type(screen.getByRole('textbox', { name: 'Write a comment' }), 'Check this bolt')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'addComment')?.body['anchor']).toEqual({ v: 1, path: '0.2.0', point: [1, 2, 3], version: 4 }))
+  })
+})
+
+describe('a new version while a pinned comment is written', () => {
+  it('the page opens the current version: the text stays, the old pin goes', async () => {
+    seen.tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    const tools = seen.tools as { pins: { start: ReturnType<typeof vi.fn> } }
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    let version = 4
+    const { user, calls } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer({ ...file, currentVersion: { number: version, uploadedBy: null } })
+      : op === 'addComment' ? new Response(JSON.stringify({ ok: false, error: 'VersionChanged' }), { status: 409, headers: { 'content-type': 'application/json' } })
+      : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await user.click(screen.getByRole('tab', { name: /Comments/ }))
+    await user.click(await screen.findByRole('button', { name: 'Pin' }))
+    await waitFor(() => expect(tools.pins.start).toHaveBeenCalled())
+    const placed = tools.pins.start.mock.lastCall![0] as (pin: { path: string; point: [number, number, number] }) => void
+    act(() => placed({ path: '0.2.0', point: [1, 2, 3] }))
+    expect(await screen.findByRole('button', { name: 'Remove the pin' })).toBeInTheDocument()
+    version = 5
+    await user.type(screen.getByRole('textbox', { name: 'Write a comment' }), 'Check this bolt')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    expect(await screen.findByText(/placed the pin on version 4/)).toBeInTheDocument()
+    await waitFor(() => expect(calls.filter((c) => c.operation === 'getFile')).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove the pin' })).not.toBeInTheDocument())
+    expect(screen.getByRole('textbox', { name: 'Write a comment' })).toHaveValue('Check this bolt')
+  })
+})
+
+describe('screenshot on a phone', () => {
+  it('offers the pins once a sent comment has one', async () => {
+    narrow()
+    seen.tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const pinned = { id: 'p1', parentId: null, author: { displayName: 'Ada' }, content: 'Here', deleted: false, createdAt: 1, versionNumber: 4, anchor: { path: '0.2.0', point: [1, 2, 3] }, mine: false, canDelete: false }
+    const { user } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer(file) : op === 'listComments' ? answer({ items: [pinned], nextCursor: null }) : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await user.click(within(screen.getByRole('toolbar', { name: 'Studio tools' })).getByRole('button', { name: 'Image' }))
+    const card = screen.getByRole('region', { name: 'Screenshot' })
+    expect(await within(card).findByRole('switch', { name: 'Include comment pins' })).toBeInTheDocument()
+  })
+})
+
+describe('pins past the first page of comments', () => {
+  it('are drawn too: every page is read from the start', async () => {
+    const tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    seen.tools = tools
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const comment = (id: string, anchor: unknown) => ({ id, parentId: null, author: { displayName: 'Ada' }, content: id, deleted: false, createdAt: 1, versionNumber: 4, anchor, mine: false, canDelete: false })
+    const first = Array.from({ length: 100 }, (_, i) => comment(`a${i}`, null))
+    const { calls } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op, body) =>
+      op === 'getFile' ? answer(file)
+      : op === 'listComments' ? answer(body['cursor'] === 'page2' ? { items: [comment('late', { path: '0.2.0', point: [1, 2, 3] })], nextCursor: null } : { items: first, nextCursor: 'page2' })
+      : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await waitFor(() => expect(tools.pins.set).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'late', label: '1', path: '0.2.0' })]))
+    expect(calls.filter((c) => c.operation === 'listComments').map((c) => c.body['cursor'] ?? null)).toEqual([null, 'page2'])
+  })
+})
+
+describe('saved views (docs/11 §3.1)', () => {
+  const camera = { position: [300, -300, 240] as const, target: [10, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 }
+  const fakeTools = () => ({
+    section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+    measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+    pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+    camera: { get: vi.fn(() => camera), set: vi.fn() },
+    setLabels: vi.fn(),
+    screenshot: vi.fn(),
+    dispose: vi.fn(),
+  })
+  const saved = { id: 'v1', name: 'Pump side', camera: { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], fov: 40 }, hidden: ['0.1'], section: { normal: [-1, 0, 0], constant: 25 } }
+
+  it('applies a saved view (camera, cut, hidden on this screen) and saves the current one on a desktop', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    expect([...last().studio!.view.hidden]).toEqual(['0.1'])
+    await waitFor(() => expect(tools.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x', position: 0.25, flipped: false })))
+    await user.type(within(views).getByRole('textbox', { name: 'View name' }), 'Top')
+    await user.click(within(views).getByRole('button', { name: 'Save view' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    const body = (server.writes[0] as { body: { views: Array<{ name: string; camera: unknown; hidden?: string[]; section?: unknown }> } }).body
+    expect(body.views.map((v) => v.name)).toEqual(['Pump side', 'Top'])
+    expect(body.views[1]).toMatchObject({ camera, hidden: ['0.1'], section: { normal: [-1, 0, 0], constant: 25 } })
+  })
+
+  it('at the limit a view can still be deleted, though no new one can be saved', async () => {
+    seen.tools = fakeTools()
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 1 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    expect(within(views).getByRole('button', { name: 'Save view' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(within(views).getByRole('button', { name: 'Delete the view Pump side' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    expect((server.writes[0] as { body: { views: unknown[] } }).body.views).toEqual([])
+  })
+
+  it('applied while a part is open alone: the isolation goes first, the view’s camera after its fit; the view says so', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    router.search = { node: '0.2' }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    expect(await screen.findByText('View “Pump side” applied.')).toBeInTheDocument()
+    expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: {} })
+    // Not yet: the viewer would fit the camera to the whole model right after, undoing it.
+    expect(tools.camera.set).not.toHaveBeenCalled()
+    let isolatedAtSet: string | null | undefined
+    tools.camera.set.mockImplementation(() => {
+      isolatedAtSet = last().studio!.view.isolated
+    })
+    // The router moved: a render (here, a pick) reads the new search.
+    router.search = {}
+    act(() => last().studio!.onPick('0.0'))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    expect(isolatedAtSet).toBeNull()
+  })
+
+  it('a view saved with a part open alone keeps it, and brings it back when applied', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    router.search = { node: '0.1' }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.type(within(views).getByRole('textbox', { name: 'View name' }), 'Motor alone')
+    await user.click(within(views).getByRole('button', { name: 'Save view' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    expect((server.writes[0] as { body: { views: Array<{ isolated?: string }> } }).body.views[0]!.isolated).toBe('0.1')
+    // Applied from the whole model: the part opens alone again, then the camera.
+    router.search = {}
+    act(() => last().studio!.onPick('0.0'))
+    await waitFor(() => expect(last().studio!.view.isolated).toBeNull())
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Motor alone' }))
+    expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: { node: '0.1' } })
+  })
+
+  it('a view with a part alone and a cut, applied before the tools are in: the cut is read against the part’s range', async () => {
+    const tools = fakeTools()
+    // The part spans x 80–100, the whole model 0–100: the scope must be on the tools before the range is read.
+    let scope: string | null = null
+    tools.section.setScope.mockImplementation((next: string | null) => {
+      scope = next
+    })
+    tools.section.range.mockImplementation(() => (scope === '0.2' ? { min: 80, max: 100 } : { min: 0, max: 100 }))
+    let arrive: (value: unknown) => void = () => {}
+    seen.tools = new Promise((resolve) => {
+      arrive = resolve
+    })
+    router.search = { node: '0.2' }
+    const view = { ...saved, hidden: [], isolated: '0.2', section: { normal: [-1, 0, 0], constant: 90 } }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [view] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    // The tools chunk comes in late, after the click.
+    await act(async () => arrive(tools))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    // 90 within 80–100 is halfway; read against 0–100 it would be 0.9 (drawn at 98 on the part).
+    await waitFor(() => expect(tools.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x', position: 0.5 })))
+  })
+
+  it('on a phone: apply only (no save form), also from the More menu', async () => {
+    narrow()
+    const tools = fakeTools()
+    seen.tools = tools
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    expect(within(views).queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('toolbar', { name: 'Studio tools' })).getByRole('button', { name: 'More tools' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Pump side' }))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
   })
 })

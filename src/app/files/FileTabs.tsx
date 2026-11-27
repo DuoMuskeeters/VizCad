@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
-import { CornerDownRight, Download, History, Trash2, Upload } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CornerDownRight, Download, History, MapPin, MapPinOff, Trash2, Upload, X } from 'lucide-react'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
-import { Button } from '#/components/ui/Button'
+import { Button, IconButton } from '#/components/ui/Button'
+import { SwitchRow } from '#/components/ui/Switch'
 import { Field } from '#/components/ui/Field'
 import { Textarea } from '#/components/ui/Input'
 import { InlineAlert, Notice } from '#/components/ui/Notice'
 import { Skeleton } from '#/components/ui/Skeleton'
 import { useToast } from '#/components/ui/Toast'
-import type { CommentPage, CommentView, FileActivityPage, VersionEntry } from '#/shared/fileViews'
+import type { CommentPage, CommentView, FileActivityPage, PendingPin, VersionEntry } from '#/shared/fileViews'
 import { useI18n, type I18nKey } from '#/i18n'
 import { failureKey } from '../errors'
 import { useSession } from '../session'
@@ -57,13 +58,160 @@ const TabError = ({ onRetry }: { onRetry: () => void }) => {
 
 /** ---- Comments ---------------------------------------------------------------------------------------------- */
 
-const CommentItem = ({ comment, onReply, onDelete, reply = false }: { comment: CommentView; onReply?: () => void; onDelete: () => void; reply?: boolean }) => {
+const COMMENT_PAGE = 100
+const COMMENT_PAGES = 20
+
+/** The file's comments, held by the page: the Comments tab lists them and the canvas draws their pins (docs/11 §4.3). */
+export const useComments = (workspaceId: string, fileId: string) => {
+  const { call } = useSession()
+  const { toast } = useToast()
+  const { t } = useI18n()
+  const [items, setItems] = useState<readonly CommentView[] | null>(null)
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  // From the start: every page (up to COMMENT_PAGES of them), so the canvas draws every pin and numbers them in comment
+  // order; past that, "Load more" goes on from where it stopped. The first page shows at once and the others are added
+  // as they come; "Load more" only once the run is over (so it never reads a page twice). A page that fails later keeps
+  // what came.
+  const live = useRef(0)
+  const load = useCallback(
+    async (after: string | null) => {
+      const run = after === null ? ++live.current : live.current
+      let next = after
+      for (let page = 0; page < (after === null ? COMMENT_PAGES : 1); page++) {
+        const result = await call<CommentPage>('listComments', { workspaceId, fileId, limit: COMMENT_PAGE, ...(next === null ? {} : { cursor: next }) })
+        // Another file (or a fresh start) meanwhile: this run's pages are not this list's.
+        if (run !== live.current) return
+        if (!result.ok) {
+          if (page > 0) break
+          return after === null ? setFailed(true) : undefined
+        }
+        const got = result.data.items
+        const fresh = after === null && page === 0
+        setFailed(false)
+        // A comment posted while later pages load is held already; the page brings it again in server order.
+        const gotIds = new Set(got.map((c) => c.id))
+        setItems((current) => (fresh || current === null ? got : [...current.filter((c) => !gotIds.has(c.id)), ...got]))
+        next = result.data.nextCursor
+        if (next === null) break
+      }
+      setCursor(next)
+    },
+    [call, workspaceId, fileId],
+  )
+  useEffect(() => {
+    setItems(null)
+    setCursor(null)
+    void load(null)
+  }, [load])
+
+  const add = useCallback(
+    async (input: { content: string; parentId?: string; anchor?: PendingPin }) => {
+      const result = await call<CommentView>('addComment', {
+        workspaceId, fileId, content: input.content,
+        ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
+        ...(input.anchor === undefined ? {} : { anchor: { v: 1, path: input.anchor.path, point: input.anchor.point, version: input.anchor.version } }),
+      })
+      if (result.ok) setItems((current) => [...(current ?? []), result.data])
+      return result
+    },
+    [call, workspaceId, fileId],
+  )
+
+  const remove = useCallback(
+    async (comment: CommentView) => {
+      const result = await call('deleteComment', { workspaceId, commentId: comment.id })
+      if (!result.ok) return toast({ title: t(failureKey(result)), tone: 'danger' })
+      setItems((current) => (current ?? []).map((item) => (item.id === comment.id ? { ...item, content: '', deleted: true, canDelete: false, anchor: null } : item)))
+      toast({ title: t('comments.deleteDone') })
+    },
+    [call, workspaceId, toast, t],
+  )
+
+  return { items, cursor, failed, load, add, remove }
+}
+
+export type Comments = ReturnType<typeof useComments>
+
+/**
+ * What the Comments tab knows about pins (only while a 3D model is open). B3: a pin left on another version stays in the
+ * list and is not drawn; a pin on a part that is hidden right now is drawn faded and offers "Show".
+ */
+export type CommentPins = {
+  readonly version: number
+  /** The pin's number on the canvas, or null when it is not drawn here. */
+  readonly numberOf: (comment: CommentView) => number | null
+  /** "Pump group › Motor › Terminal box", or null when the part is not in this model. */
+  readonly where: (path: string) => string | null
+  readonly hidden: (path: string) => boolean
+  readonly onShow: (path: string) => void
+  readonly active: string | null
+  readonly onActivate: (comment: CommentView) => void
+  /** The pin of the comment being written, with the version it was placed on. */
+  readonly pending: PendingPin | null
+  readonly pendingNumber: number
+  readonly placing: boolean
+  readonly onPlace: () => void
+  readonly onClear: () => void
+  /** A new version came while the comment was written: the page reads the file again (the old version's pin goes). */
+  readonly onVersionChanged: () => void
+  readonly show: boolean
+  readonly onShowChange: (show: boolean) => void
+}
+
+const PinTag = ({ comment, pins }: { comment: CommentView; pins: CommentPins }) => {
+  const { t } = useI18n()
+  const anchor = comment.anchor
+  if (anchor === null) return null
+  const where = pins.where(anchor.path)
+  const number = pins.numberOf(comment)
+  if (comment.versionNumber !== pins.version || where === null || number === null)
+    return (
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-text-3">
+        <MapPinOff aria-hidden className="size-4 shrink-0" />
+        {comment.versionNumber !== null && comment.versionNumber !== pins.version ? t('comments.pin.old', { number: comment.versionNumber }) : t('comments.pin.missing')}
+      </p>
+    )
+  const hidden = pins.hidden(anchor.path)
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-2">
+      <button
+        type="button"
+        onClick={() => pins.onActivate(comment)}
+        aria-pressed={pins.active === comment.id}
+        className="inline-flex min-h-11 min-w-0 items-center gap-1.5 rounded-md text-left hover:text-text app:min-h-8 aria-pressed:text-accent"
+      >
+        <span aria-hidden className={`grid size-5.5 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-canvas ${hidden ? 'opacity-45' : ''}`}>{number}</span>
+        <span className="sr-only">{t('comments.pin.label', { number })}</span>
+        <span className="min-w-0 break-words">{where}</span>
+      </button>
+      {hidden ? (
+        <>
+          <span className="text-text-3">· {t('comments.pin.hidden')}</span>
+          <Button variant="ghost" onClick={() => pins.onShow(anchor.path)} className="h-9 px-2 text-sm">
+            {t('studio.show')}
+          </Button>
+        </>
+      ) : null}
+    </p>
+  )
+}
+
+const CommentItem = ({ comment, onReply, onDelete, reply = false, pins, active = false }: {
+  comment: CommentView
+  onReply?: () => void
+  onDelete: () => void
+  reply?: boolean
+  pins?: CommentPins | undefined
+  active?: boolean
+}) => {
   const { t, locale } = useI18n()
   const name = comment.author?.displayName ?? t('comments.unknownAuthor')
   if (comment.deleted)
     return <div className={`py-2 text-base italic text-text-3 ${reply ? 'ml-9' : ''}`}>{t('comments.deleted')}</div>
   return (
-    <div className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-3 ${reply ? 'ml-9' : ''}`}>
+    <div data-comment={comment.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-3 ${reply ? 'ml-9' : ''} ${active ? '-mx-2 rounded-lg bg-accent-soft px-2' : ''}`}>
       <Avatar name={name} size="sm" decorative />
       <div className="min-w-0">
         <p className="flex flex-wrap items-baseline gap-x-2 text-base">
@@ -72,6 +220,7 @@ const CommentItem = ({ comment, onReply, onDelete, reply = false }: { comment: C
           {comment.versionNumber !== null ? <span className="text-sm text-text-3">{t('comments.version', { number: comment.versionNumber })}</span> : null}
         </p>
         <p className="mt-1 whitespace-pre-wrap break-words text-md text-text">{comment.content}</p>
+        {pins ? <PinTag comment={comment} pins={pins} /> : null}
         <div className="mt-1 flex gap-1">
           {onReply ? (
             <Button variant="ghost" onClick={onReply} className="h-9 px-2 text-base">
@@ -91,32 +240,33 @@ const CommentItem = ({ comment, onReply, onDelete, reply = false }: { comment: C
   )
 }
 
-export const CommentsTab = ({ workspaceId, fileId, can }: { workspaceId: string; fileId: string; can: FileAbilities }) => {
+export const CommentsTab = ({ comments, can, pins }: { comments: Comments; can: FileAbilities; pins?: CommentPins | undefined }) => {
   const { t } = useI18n()
-  const { call } = useSession()
-  const { toast } = useToast()
-  const [items, setItems] = useState<readonly CommentView[] | null>(null)
-  const [cursor, setCursor] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
+  const { items, cursor, failed, load, add, remove } = comments
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<CommentView | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const field = useRef<HTMLTextAreaElement>(null)
+  const pending = pins?.pending ?? null
 
-  const load = useCallback(
-    async (after: string | null) => {
-      const result = await call<CommentPage>('listComments', { workspaceId, fileId, ...(after === null ? {} : { cursor: after }) })
-      if (!result.ok) return after === null ? setFailed(true) : undefined
-      setFailed(false)
-      setItems((current) => (after === null || current === null ? result.data.items : [...current, ...result.data.items]))
-      setCursor(result.data.nextCursor)
-    },
-    [call, workspaceId, fileId],
-  )
+  // A pin was just placed: the comment for it is written next. Not at once: on a phone the tap's click still follows
+  // the pointer, and a page that scrolled meanwhile would hand that click to whatever is now under the finger.
   useEffect(() => {
-    setItems(null)
-    void load(null)
-  }, [load])
+    if (pending === null) return
+    setReplyTo(null)
+    const timer = setTimeout(() => {
+      field.current?.focus({ preventScroll: true })
+      field.current?.scrollIntoView({ block: 'nearest' })
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [pending])
+  // A pin pressed on the canvas: its comment comes into view.
+  const activeId = pins?.active ?? null
+  useEffect(() => {
+    if (activeId === null) return
+    document.querySelector(`[data-comment="${CSS.escape(activeId)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [activeId])
 
   const submit = async () => {
     const content = text.trim()
@@ -124,35 +274,58 @@ export const CommentsTab = ({ workspaceId, fileId, can }: { workspaceId: string;
     if (content.length > COMMENT_MAX) return setError(t('comments.tooLong'))
     setBusy(true)
     setError(null)
-    const result = await call<CommentView>('addComment', { workspaceId, fileId, content, ...(replyTo === null ? {} : { parentId: replyTo.id }) })
+    const anchor = replyTo === null && pending !== null ? pending : undefined
+    const result = await add({ content, ...(replyTo === null ? {} : { parentId: replyTo.id }), ...(anchor === undefined ? {} : { anchor }) })
     setBusy(false)
-    if (!result.ok) return setError(t(failureKey(result)))
-    setItems((current) => [...(current ?? []), result.data])
+    // A new version came while it was written: the text stays, the page opens the current version (the pin of the old
+    // one goes with it) and the pin is placed again on that one.
+    if (!result.ok) {
+      const stale = anchor !== undefined && result.error === 'VersionChanged'
+      if (stale) pins?.onVersionChanged()
+      return setError(stale ? t('comments.pin.versionChanged', { number: anchor.version }) : t(failureKey(result)))
+    }
     setText('')
     setReplyTo(null)
+    if (anchor !== undefined) pins?.onClear()
   }
 
-  const remove = async (comment: CommentView) => {
-    const result = await call('deleteComment', { workspaceId, commentId: comment.id })
-    if (!result.ok) return toast({ title: t(failureKey(result)), tone: 'danger' })
-    setItems((current) => (current ?? []).map((item) => (item.id === comment.id ? { ...item, content: '', deleted: true, canDelete: false } : item)))
-    toast({ title: t('comments.deleteDone') })
-  }
+  // The top-level comments and each one's replies, grouped once (not one pass over the list per comment).
+  const { top, replies } = useMemo(() => {
+    const top: CommentView[] = []
+    const replies = new Map<string, CommentView[]>()
+    for (const item of items ?? []) {
+      if (item.parentId === null) top.push(item)
+      else {
+        const list = replies.get(item.parentId)
+        if (list === undefined) replies.set(item.parentId, [item])
+        else list.push(item)
+      }
+    }
+    return { top, replies }
+  }, [items])
 
   if (failed) return <TabError onRetry={() => void load(null)} />
   if (items === null) return <TabSkeleton />
-  const top = items.filter((item) => item.parentId === null)
-  const repliesOf = (id: string) => items.filter((item) => item.parentId === id)
+  const anyPin = top.some((item) => item.anchor !== null && !item.deleted)
   return (
     <div className="grid grid-cols-1 gap-4">
+      {pins && anyPin ? (
+        <SwitchRow label={t('comments.pin.showAll')} checked={pins.show} onCheckedChange={pins.onShowChange} className="min-h-11" />
+      ) : null}
       {top.length === 0 ? (
-        <p className="py-4 text-md text-text-2">{t('comments.empty')}</p>
+        <p className="py-4 text-md text-text-2">{pins && can.comment ? t('comments.emptyPin') : t('comments.empty')}</p>
       ) : (
         <ul aria-label={t('comments.list')} className="divide-y divide-line">
           {top.map((comment) => (
             <li key={comment.id}>
-              <CommentItem comment={comment} onDelete={() => void remove(comment)} {...(can.comment && !comment.deleted ? { onReply: () => setReplyTo(comment) } : {})} />
-              {repliesOf(comment.id).map((reply) => (
+              <CommentItem
+                comment={comment}
+                pins={pins}
+                active={pins?.active === comment.id}
+                onDelete={() => void remove(comment)}
+                {...(can.comment && !comment.deleted ? { onReply: () => setReplyTo(comment) } : {})}
+              />
+              {(replies.get(comment.id) ?? []).map((reply) => (
                 <CommentItem key={reply.id} comment={reply} reply onDelete={() => void remove(reply)} />
               ))}
             </li>
@@ -180,12 +353,29 @@ export const CommentsTab = ({ workspaceId, fileId, can }: { workspaceId: string;
               </Button>
             </p>
           ) : null}
+          {pins && pending !== null && replyTo === null ? (
+            <p className="flex items-center gap-2 rounded-md border border-accent bg-accent-soft py-1 pl-2 text-sm">
+              <span aria-hidden className="grid size-5.5 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-canvas">{pins.pendingNumber}</span>
+              <span className="min-w-0 flex-1 break-words">{pins.where(pending.path) ?? ''}</span>
+              <IconButton label={t('comments.pin.remove')} onClick={pins.onClear}>
+                <X aria-hidden className="size-4" />
+              </IconButton>
+            </p>
+          ) : null}
           <Field label={t('comments.label')} {...(error ? { error } : {})}>
-            <Textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={t('comments.placeholder')} />
+            <Textarea ref={field} value={text} onChange={(event) => setText(event.target.value)} placeholder={pending !== null ? t('comments.pin.placeholder') : t('comments.placeholder')} />
           </Field>
-          <Button type="submit" variant="primary" loading={busy} className="justify-self-end">
-            {t('comments.send')}
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            {pins && replyTo === null ? (
+              <Button variant="ghost" aria-pressed={pins.placing} onClick={pins.onPlace} className="aria-pressed:bg-accent-soft aria-pressed:text-accent">
+                <MapPin aria-hidden className="size-4.5" />
+                {pending === null ? t('comments.pin.add') : t('comments.pin.move')}
+              </Button>
+            ) : null}
+            <Button type="submit" variant="primary" loading={busy}>
+              {t('comments.send')}
+            </Button>
+          </div>
         </form>
       ) : (
         <Notice>{t('comments.denied')}</Notice>
