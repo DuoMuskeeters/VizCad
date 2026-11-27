@@ -114,7 +114,7 @@ export class AppConfig extends Context.Service<
     }
     /** None when R2 S3 credentials are not configured (e.g. local dev): presigning fails with ConfigError. */
     readonly r2Presign: Option.Option<R2Presign>
-    /** None when not configured: purge only clears the local data center's cache. */
+    /** None when not configured (K5 open): every purge fails with CacheError and the purge drain skips (docs/12 §7.4). */
     readonly cachePurge: Option.Option<CachePurge>
     /** `SHARE_TOKEN_KEYS`: versioned AES-GCM keys that encrypt the copyable link token. None when not configured. */
     readonly shareTokenKeys: Option.Option<ShareTokenKeys>

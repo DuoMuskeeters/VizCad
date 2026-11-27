@@ -8,6 +8,7 @@ import { cx, fastTransition } from '#/components/ui/cx'
 import { Tooltip } from '#/components/ui/Tooltip'
 import { useI18n } from '#/i18n'
 import { isAssembly, type OutlineNode } from '#/viewer/tree/outline'
+import { counted } from './names'
 
 const tool = cx(
   'inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-md px-2.5 text-base text-canvas-text hover:bg-white/10 app:h-9 app:min-w-9 pointer-coarse:h-11',
@@ -46,7 +47,7 @@ export const SelectionBar = ({ node, name, hidden, isolated, onIsolate, onToggle
       <span className="flex min-w-0 items-center gap-2 px-2">
         {assembly ? <Boxes aria-hidden className="size-4 shrink-0 text-brand" /> : <Box aria-hidden className="size-4 shrink-0 text-brand" />}
         <span className="truncate text-base font-medium">{name}</span>
-        {assembly ? <span className="hidden shrink-0 text-sm opacity-75 app:inline">{t('studio.parts', { count: node.parts.toLocaleString(locale) })}</span> : null}
+        {assembly ? <span className="hidden shrink-0 text-sm opacity-75 app:inline">{counted(t, locale, 'studio.parts', node.parts)}</span> : null}
       </span>
       {isolated ? null : (
         <CanvasTool label={t('studio.isolate')} onClick={onIsolate}>

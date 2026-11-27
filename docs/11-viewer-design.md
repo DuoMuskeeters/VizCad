@@ -452,9 +452,19 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 3. **Klasör görünümü açık model ister:** ağaç GLB'den okunur; model hazır olmadan Parçalar görünümünde görüntüleyicinin kendi durumu (yükleniyor, hata) gösterilir.
 4. **Tek alt montajlı sarmalayıcı** (CAD dışa aktarımlarında yaygın; Stealthburner'da kök → `SBr2_CW2.5_Assembly`) klasör görünümünde atlanır ve ağaçta açık gelir; yol çubuğundan üst düzeye çıkılabilir.
 
+### 5c-1 · İnceleme düzeltmeleri (PR #27)
+
+- **`?node=` ham metin:** TanStack'in JSON ayrıştırması `0.1`'i sayıya çeviriyordu (`0.10` → `0.1`, uygulama içi link `%220.1%22`). `src/searchParams.ts` `node`'u URLSearchParams'tan ham okur (eski tırnaklı linkler de açılır) ve tırnaksız yazar; diğer parametreler JSON kalır. Test gerçek router + bellek geçmişiyle (`0`, `0.1`, `0.10`).
+- **Parça düzey olamaz:** `levelOf` yaprak düğüm için üst düzeyi verir (klasör görünümü ve telefon sayfası boş kalmaz).
+- **Görüntüleyici:** tel kafes kapanınca önbellekteki vurgu kopyaları da kapanır (`setView` her seferinde atar); gizli düğüm izole edilince çizilir (sayfa gizliden de çıkarır); seçme yalnız sol tuş ve yalnız görünen mesh'leri tarar (kenar çizgileri ve gizliler listede yok); `focus` önce tuvali ölçer (Parçalar görünümünden dönüşte doğru oran); küçük resim kapalı kenarları açmaz, geometrisi olmayan düğüm sonsuza dek dönmez (simge).
+- **Sayfa durumu tek `useReducer`'da** (`studio/state.ts`: ağaç, hazır, seçim, gizliler, telefon sayfası); model anahtarı Hazırlanıyor'da değişir, eski ağaç kalmaz. Küçük resimler `studio/thumbnails.ts` deposunda; her kart kendi girdisine abone, ızgara her resimde yeniden çizilmez.
+- **Erişim ve dokunma:** her durumda atlama linki ve `<main>`; 900 px üstü dokunmatikte ağaç satırları 44 px; "Tümünü göster" izoleyken ve telefonda (sayfa ve Parçalar listesi) de var; 360 px altında 3B/Parçalar seçici ikinci satırda (320 px + yükleme hapı: başlık 88 px, taşma yok); Sürümler sekmesi `grid-cols-1` ile 320 px'te yana kaymaz.
+- **Arama** Türkçe harfleri katlar (ı→i, ş→s, ğ→g, ç→c, ö→o, ü→u; çalışma ortamının diline bağlı değil). **Metinler:** tekil biçimler (`…One`, "1 part", "1 sub-assembly"), kullanılmayan üç anahtar silindi.
+- **Ölçüm:** görüntüleyici chunk'ı **158,5 KB** gzip (bütçe 160).
+
 ### 5c-2 · Yapılanlar
 
-- **Migration `0016_scenes`** (yalnız `CREATE TABLE` + `CREATE INDEX`; `check-migrations` geçiyor; 6a numarayı değiştirebilir): `file_scenes` (`id`, `workspaceId` + `fileId` → `files(workspaceId, id)` bileşik FK **CASCADE**, `modelR2Key`, `revision ≥ 1`, `body` ≤ 131.072 karakter CHECK, `updatedByUserId` SET NULL, `updatedAt`; `UNIQUE(fileId, modelR2Key)`, `(fileId, updatedAt)` dizini). Test: `migration0016.test.ts` (eski satırlar aynen, kısıtlar, dosya silinince kayıt gider). Staging'e **uygulanmadı** (bu iş uzak D1 komutu içermiyordu): `pnpm db:migrate:staging` ile uygulanmalı.
+- **Migration `0017_scenes`** (yalnız `CREATE TABLE` + `CREATE INDEX`; `check-migrations` geçiyor; 6a `0016_cms` aldığı için 0017): `file_scenes` (`id`, `workspaceId` + `fileId` → `files(workspaceId, id)` bileşik FK **CASCADE**, `modelR2Key`, `revision ≥ 1`, `body` ≤ 131.072 karakter CHECK, `updatedByUserId` SET NULL, `updatedAt`; `UNIQUE(fileId, modelR2Key)`, `(fileId, updatedAt)` dizini). Test: `migration0017.test.ts` (eski satırlar aynen, kısıtlar, dosya silinince kayıt gider). Staging'e **uygulanmadı** (bu iş uzak D1 komutu içermiyordu): `pnpm db:migrate:staging` ile uygulanmalı.
 - **Gövde şeması** (`server/scene.ts`, sınırlar `shared/scene.ts`): `v: 1`, `nodes` (yol anahtarı §1.3 kuralıyla, ≤ 2000 giriş; `name` 1–200, `color` küçük harf `#rrggbb`, `finish` matte/satin/metal, `hidden: true`, `at` ad yolu ≤ 1024), `views` (kamera vektörleri sonlu, fov 1–179, ≤ `Entitlements.savedViewsPerScene` = 20). HTTP'de fazla alan 400.
 - **Programlar** (`programs/scenes.ts`): `getScene` (`preview`; bu modelin kaydı; kayıt yoksa ve kişi `edit` ise dosyanın başka modeline ait en yeni kayıt + sürüm numarası, §3.3), `putScene` (`edit`; açık sürüm numarası tutmazsa `VersionChanged`; `revision` 0 = ilk yazım, eskiyse `SceneConflict` 409 ve hiçbir şey yazılmaz; tek batch: rol + dosya yerinde + aynı model (kaynak ve GLB anahtarı) + revizyon guard'ı, yazım, artık hiçbir satırın tutmadığı modellerin kayıtlarının budanması, `scene.updated` aktivitesi dosya başına 10 dakikada en çok bir). Uç: `GET/POST /api/files/{id}/scene` (`http/files.ts`, POST CSRF + Schema, gövde sınırı 129 KiB). Testler `scenes.test.ts` (7) ve `files.test.ts`'e uç senaryosu.
 - **İstemci mantığı** (`viewer/tree/scene.ts`, saf): kayıttan görünüşler, gizliler, adlar; seyrek düzenleme (boşalan giriş silinir, her girişe `at` yazılır); ad yolu eşleme (`matchPrevious`). Test `scene.test.ts`.
@@ -477,7 +487,7 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 
 ### Açık kalanlar
 
-- **Staging kabulü** (455 parçalı montajda klasör gezinme + renk kaydı + yeni sürümde eşleme) yapılmadı: `0016` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-assembly.cjs` ile tekrar.
+- **Staging kabulü** (455 parçalı montajda klasör gezinme + renk kaydı + yeni sürümde eşleme) yapılmadı: `0017` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-assembly.cjs` ile tekrar.
 - **Paylaşılan link sayfası** sahne kaydını henüz uygulamıyor (`/s/{token}/scene` ucu yok); misafir ve üye dosya sayfasında uygulanmış görür. 5d'de paylaşılan sayfa araçlarıyla birlikte eklenmeli.
 - **CPU ölçümü (§3.1):** 2000 girişlik gövdenin Schema doğrulaması staging'de ölçülmedi.
 - **A3 ölçümü:** parça küçük resmi yerelde (M serisi, GPU) Stealthburner'ın 4 alt montajında kare başına bir çizimle anlık; 455 parçalık tek düzeyde ve orta sınıf cihazda ölçülmedi. Yavaş kalırsa atlas (A3) ya da yalnız görünür kartlar.

@@ -8,7 +8,7 @@ import { Button, IconButton } from '#/components/ui/Button'
 import { cx, fastTransition } from '#/components/ui/cx'
 import { useI18n } from '#/i18n'
 import { chainOf, findNode, soleChain, isAssembly, isUnder, parentOf, searchOutline, visibleRows, type OutlineNode } from '#/viewer/tree/outline'
-import { hiddenParts, type Namer } from './names'
+import { counted, hiddenParts, type Namer } from './names'
 
 export type TreeProps = {
   readonly outline: OutlineNode
@@ -137,7 +137,7 @@ export const TreePanel = ({ outline, nameOf, selected, isolated, hidden, onSelec
               const parent = parentPath === null ? null : findNode(outline, parentPath)
               return (
                 <div key={node.path} data-path={node.path} role="treeitem" aria-level={1} aria-selected={selected === node.path} className={cx(rowBase, 'grid-cols-[minmax(0,1fr)_auto] pl-2', selected === node.path ? 'bg-accent-soft' : 'hover:bg-hover')}>
-                  <button type="button" data-row-main="" onClick={() => onSelect(node.path)} onKeyDown={(event) => onKey(event, node, false)} className="flex min-w-0 items-center gap-2 py-1 text-left">
+                  <button type="button" data-row-main="" onClick={() => onSelect(node.path)} onKeyDown={(event) => onKey(event, node, false)} className="flex min-w-0 items-center gap-2 self-stretch py-1 text-left pointer-coarse:min-h-11">
                     {isAssembly(node) ? <Boxes aria-hidden className="size-4 shrink-0 text-text-3" /> : <Box aria-hidden className="size-4 shrink-0 text-text-3" />}
                     <span className="min-w-0">
                       <span className="block truncate text-base">{name}</span>
@@ -164,7 +164,7 @@ export const TreePanel = ({ outline, nameOf, selected, isolated, hidden, onSelec
                 aria-level={depth + 1}
                 aria-selected={sel}
                 {...(assembly ? { 'aria-expanded': open } : {})}
-                className={cx(rowBase, INDENT[Math.min(depth, INDENT.length - 1)], sel ? 'bg-accent-soft' : 'hover:bg-hover', (off || out) && 'text-text-3')}
+                className={cx(rowBase, 'pointer-coarse:grid-cols-[44px_minmax(0,1fr)_auto]', INDENT[Math.min(depth, INDENT.length - 1)], sel ? 'bg-accent-soft' : 'hover:bg-hover', (off || out) && 'text-text-3')}
               >
                 {assembly ? (
                   <button
@@ -185,7 +185,7 @@ export const TreePanel = ({ outline, nameOf, selected, isolated, hidden, onSelec
                   onClick={() => onSelect(node.path)}
                   onDoubleClick={() => assembly && toggle(node.path)}
                   onKeyDown={(event) => onKey(event, node, open)}
-                  className={cx('flex min-w-0 items-center gap-2 py-1 text-left text-base', sel && 'font-medium', off && 'line-through decoration-text-3/60')}
+                  className={cx('flex min-w-0 items-center gap-2 self-stretch py-1 text-left text-base pointer-coarse:min-h-11', sel && 'font-medium', off && 'line-through decoration-text-3/60')}
                 >
                   {assembly ? <Boxes aria-hidden className={cx('size-4 shrink-0', sel ? 'text-accent' : 'text-text-3')} /> : <Box aria-hidden className={cx('size-4 shrink-0', sel ? 'text-accent' : 'text-text-3')} />}
                   <span className="truncate">{name}</span>
@@ -200,18 +200,23 @@ export const TreePanel = ({ outline, nameOf, selected, isolated, hidden, onSelec
 
       <div className="flex min-h-11 items-center gap-2 border-t border-line px-4 text-sm text-text-2">
         {found !== null ? (
-          <span>{found.more ? t('studio.search.more', { count: number(found.hits.length) }) : t('studio.search.results', { count: number(found.hits.length) })}</span>
-        ) : iso !== null ? (
-          <span className="truncate">{t('studio.footer.isolated', { name: nameOf(iso), count: number(iso.parts) })}</span>
-        ) : hiddenCount > 0 ? (
-          <>
-            <span>{t('studio.footer.hidden', { count: number(outline.parts), hidden: number(hiddenCount) })}</span>
-            <Button variant="ghost" className="ml-auto h-11 px-2 text-sm text-accent app:h-8" onClick={onShowAll}>
-              {t('studio.showAll')}
-            </Button>
-          </>
+          <span>{found.more ? t('studio.search.more', { count: number(found.hits.length) }) : counted(t, locale, 'studio.search.results', found.hits.length)}</span>
         ) : (
-          <span>{t('studio.footer.parts', { count: number(outline.parts) })}</span>
+          <>
+            <span className="min-w-0 truncate">
+              {iso !== null
+                ? counted(t, locale, 'studio.footer.isolated', iso.parts, { name: nameOf(iso) })
+                : hiddenCount > 0
+                  ? t('studio.footer.hidden', { count: number(outline.parts), hidden: number(hiddenCount) })
+                  : counted(t, locale, 'studio.footer.parts', outline.parts)}
+            </span>
+            {/* Also while isolated: hidden parts inside the open subtree stay hidden until shown again. */}
+            {hiddenCount > 0 ? (
+              <Button variant="ghost" className="ml-auto h-11 shrink-0 px-2 text-sm text-accent app:h-8 pointer-coarse:h-11" onClick={onShowAll}>
+                {t('studio.showAll')}
+              </Button>
+            ) : null}
+          </>
         )}
       </div>
     </aside>

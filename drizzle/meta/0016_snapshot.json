@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "deaf9860-ce91-476a-b117-ee840d0de56f",
+  "id": "523574b7-7d22-43d5-9a35-be8b8014e386",
   "prevId": "ff0fd71a-9d7d-40aa-895c-1b8b5f56e429",
   "tables": {
     "access_log": {
@@ -405,6 +405,20 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "avatarAssetId": {
+          "name": "avatarAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -412,6 +426,13 @@
           "name": "author_profiles_userId_unique",
           "columns": [
             "userId"
+          ],
+          "isUnique": true
+        },
+        "author_profiles_slug_uq": {
+          "name": "author_profiles_slug_uq",
+          "columns": [
+            "slug"
           ],
           "isUnique": true
         }
@@ -429,11 +450,100 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "author_profiles_avatarAssetId_cms_assets_id_fk": {
+          "name": "author_profiles_avatarAssetId_cms_assets_id_fk",
+          "tableFrom": "author_profiles",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "avatarAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "author_translations": {
+      "name": "author_translations",
+      "columns": {
+        "authorId": {
+          "name": "authorId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "jobTitle": {
+          "name": "jobTitle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "author_translations_authorId_author_profiles_id_fk": {
+          "name": "author_translations_authorId_author_profiles_id_fk",
+          "tableFrom": "author_translations",
+          "tableTo": "author_profiles",
+          "columnsFrom": [
+            "authorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "author_translations_authorId_locale_pk": {
+          "columns": [
+            "authorId",
+            "locale"
+          ],
+          "name": "author_translations_authorId_locale_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "author_translations_locale_check": {
+          "name": "author_translations_locale_check",
+          "value": "\"author_translations\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "author_translations_length_check": {
+          "name": "author_translations_length_check",
+          "value": "(\"author_translations\".\"bio\" IS NULL OR length(\"author_translations\".\"bio\") <= 600) AND (\"author_translations\".\"jobTitle\" IS NULL OR length(\"author_translations\".\"jobTitle\") <= 80)"
+        }
+      }
     },
     "batch_guard": {
       "name": "batch_guard",
@@ -454,6 +564,319 @@
         "batch_guard_failed": {
           "name": "batch_guard_failed",
           "value": "\"batch_guard\".\"ok\" = 1"
+        }
+      }
+    },
+    "cache_purges": {
+      "name": "cache_purges",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notBefore": {
+          "name": "notBefore",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "lastError": {
+          "name": "lastError",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cache_purges_target_uq": {
+          "name": "cache_purges_target_uq",
+          "columns": [
+            "kind",
+            "target",
+            "notBefore"
+          ],
+          "isUnique": true
+        },
+        "cache_purges_not_before_idx": {
+          "name": "cache_purges_not_before_idx",
+          "columns": [
+            "notBefore"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cache_purges_kind_check": {
+          "name": "cache_purges_kind_check",
+          "value": "\"cache_purges\".\"kind\" IN ('url', 'host')"
+        },
+        "cache_purges_attempts_check": {
+          "name": "cache_purges_attempts_check",
+          "value": "\"cache_purges\".\"attempts\" >= 0"
+        }
+      }
+    },
+    "cms_assets": {
+      "name": "cms_assets",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "r2Key": {
+          "name": "r2Key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mime": {
+          "name": "mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "variants": {
+          "name": "variants",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "alt": {
+          "name": "alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cms_assets_r2Key_unique": {
+          "name": "cms_assets_r2Key_unique",
+          "columns": [
+            "r2Key"
+          ],
+          "isUnique": true
+        },
+        "cms_assets_sha256_unique": {
+          "name": "cms_assets_sha256_unique",
+          "columns": [
+            "sha256"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "cms_assets_createdByUserId_user_id_fk": {
+          "name": "cms_assets_createdByUserId_user_id_fk",
+          "tableFrom": "cms_assets",
+          "tableTo": "user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cms_assets_mime_check": {
+          "name": "cms_assets_mime_check",
+          "value": "\"cms_assets\".\"mime\" IN ('image/webp', 'image/png', 'image/jpeg', 'image/gif', 'image/avif')"
+        },
+        "cms_assets_size_check": {
+          "name": "cms_assets_size_check",
+          "value": "\"cms_assets\".\"bytes\" > 0 AND \"cms_assets\".\"width\" > 0 AND \"cms_assets\".\"height\" > 0"
+        }
+      }
+    },
+    "contact_messages": {
+      "name": "contact_messages",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company": {
+          "name": "company",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "emailedAt": {
+          "name": "emailedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "emailAttempts": {
+          "name": "emailAttempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "contact_messages_created_idx": {
+          "name": "contact_messages_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "contact_messages_locale_check": {
+          "name": "contact_messages_locale_check",
+          "value": "\"contact_messages\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "contact_messages_length_check": {
+          "name": "contact_messages_length_check",
+          "value": "length(\"contact_messages\".\"name\") <= 80 AND (\"contact_messages\".\"company\" IS NULL OR length(\"contact_messages\".\"company\") <= 120) AND length(\"contact_messages\".\"message\") <= 4000"
+        },
+        "contact_messages_attempts_check": {
+          "name": "contact_messages_attempts_check",
+          "value": "\"contact_messages\".\"emailAttempts\" >= 0"
         }
       }
     },
@@ -1050,127 +1473,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "file_scenes": {
-      "name": "file_scenes",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "workspaceId": {
-          "name": "workspaceId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "fileId": {
-          "name": "fileId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "modelR2Key": {
-          "name": "modelR2Key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "revision": {
-          "name": "revision",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updatedByUserId": {
-          "name": "updatedByUserId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "file_scenes_file_model_uq": {
-          "name": "file_scenes_file_model_uq",
-          "columns": [
-            "fileId",
-            "modelR2Key"
-          ],
-          "isUnique": true
-        },
-        "file_scenes_file_updated_idx": {
-          "name": "file_scenes_file_updated_idx",
-          "columns": [
-            "fileId",
-            "updatedAt"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "file_scenes_updatedByUserId_user_id_fk": {
-          "name": "file_scenes_updatedByUserId_user_id_fk",
-          "tableFrom": "file_scenes",
-          "tableTo": "user",
-          "columnsFrom": [
-            "updatedByUserId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "file_scenes_file_fk": {
-          "name": "file_scenes_file_fk",
-          "tableFrom": "file_scenes",
-          "tableTo": "files",
-          "columnsFrom": [
-            "workspaceId",
-            "fileId"
-          ],
-          "columnsTo": [
-            "workspaceId",
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "file_scenes_revision_check": {
-          "name": "file_scenes_revision_check",
-          "value": "\"file_scenes\".\"revision\" >= 1"
-        },
-        "file_scenes_body_check": {
-          "name": "file_scenes_body_check",
-          "value": "length(\"file_scenes\".\"body\") <= 131072"
-        }
-      }
     },
     "file_shares": {
       "name": "file_shares",
@@ -2037,6 +2339,214 @@
         }
       }
     },
+    "legal_acceptances": {
+      "name": "legal_acceptances",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "acceptedAt": {
+          "name": "acceptedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "legal_acceptances_userId_user_id_fk": {
+          "name": "legal_acceptances_userId_user_id_fk",
+          "tableFrom": "legal_acceptances",
+          "tableTo": "user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "legal_acceptances_userId_kind_version_pk": {
+          "columns": [
+            "userId",
+            "kind",
+            "version"
+          ],
+          "name": "legal_acceptances_userId_kind_version_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "legal_acceptances_locale_check": {
+          "name": "legal_acceptances_locale_check",
+          "value": "\"legal_acceptances\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "legal_acceptances_kind_check": {
+          "name": "legal_acceptances_kind_check",
+          "value": "\"legal_acceptances\".\"kind\" IN ('privacy', 'terms', 'cookies', 'subprocessors', 'kvkk')"
+        }
+      }
+    },
+    "legal_documents": {
+      "name": "legal_documents",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentMd": {
+          "name": "contentMd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentHtml": {
+          "name": "contentHtml",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "changeSummary": {
+          "name": "changeSummary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "effectiveAt": {
+          "name": "effectiveAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "legal_documents_kind_locale_version_uq": {
+          "name": "legal_documents_kind_locale_version_uq",
+          "columns": [
+            "kind",
+            "locale",
+            "version"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "legal_documents_createdByUserId_user_id_fk": {
+          "name": "legal_documents_createdByUserId_user_id_fk",
+          "tableFrom": "legal_documents",
+          "tableTo": "user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "legal_documents_locale_check": {
+          "name": "legal_documents_locale_check",
+          "value": "\"legal_documents\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "legal_documents_kind_check": {
+          "name": "legal_documents_kind_check",
+          "value": "\"legal_documents\".\"kind\" IN ('privacy', 'terms', 'cookies', 'subprocessors', 'kvkk')"
+        },
+        "legal_documents_version_check": {
+          "name": "legal_documents_version_check",
+          "value": "\"legal_documents\".\"version\" >= 1"
+        }
+      }
+    },
     "member": {
       "name": "member",
       "columns": {
@@ -2266,6 +2776,587 @@
         }
       }
     },
+    "page_seo": {
+      "name": "page_seo",
+      "columns": {
+        "pageKey": {
+          "name": "pageKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ogAssetId": {
+          "name": "ogAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "draftTitle": {
+          "name": "draftTitle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "draftDescription": {
+          "name": "draftDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "draftOgAssetId": {
+          "name": "draftOgAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "live": {
+          "name": "live",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "page_seo_ogAssetId_cms_assets_id_fk": {
+          "name": "page_seo_ogAssetId_cms_assets_id_fk",
+          "tableFrom": "page_seo",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "ogAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "page_seo_draftOgAssetId_cms_assets_id_fk": {
+          "name": "page_seo_draftOgAssetId_cms_assets_id_fk",
+          "tableFrom": "page_seo",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "draftOgAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "page_seo_updatedByUserId_user_id_fk": {
+          "name": "page_seo_updatedByUserId_user_id_fk",
+          "tableFrom": "page_seo",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "page_seo_pageKey_locale_pk": {
+          "columns": [
+            "pageKey",
+            "locale"
+          ],
+          "name": "page_seo_pageKey_locale_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "page_seo_locale_check": {
+          "name": "page_seo_locale_check",
+          "value": "\"page_seo\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        }
+      }
+    },
+    "post_drafts": {
+      "name": "post_drafts",
+      "columns": {
+        "postId": {
+          "name": "postId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "excerpt": {
+          "name": "excerpt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentMd": {
+          "name": "contentMd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metaTitle": {
+          "name": "metaTitle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metaDescription": {
+          "name": "metaDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "keywords": {
+          "name": "keywords",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverAlt": {
+          "name": "coverAlt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ogAssetId": {
+          "name": "ogAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "post_drafts_postId_posts_id_fk": {
+          "name": "post_drafts_postId_posts_id_fk",
+          "tableFrom": "post_drafts",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "post_drafts_ogAssetId_cms_assets_id_fk": {
+          "name": "post_drafts_ogAssetId_cms_assets_id_fk",
+          "tableFrom": "post_drafts",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "ogAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "post_drafts_updatedByUserId_user_id_fk": {
+          "name": "post_drafts_updatedByUserId_user_id_fk",
+          "tableFrom": "post_drafts",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "post_drafts_postId_locale_pk": {
+          "columns": [
+            "postId",
+            "locale"
+          ],
+          "name": "post_drafts_postId_locale_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "post_drafts_locale_check": {
+          "name": "post_drafts_locale_check",
+          "value": "\"post_drafts\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "post_drafts_revision_check": {
+          "name": "post_drafts_revision_check",
+          "value": "\"post_drafts\".\"revision\" >= 0"
+        }
+      }
+    },
+    "post_slug_redirects": {
+      "name": "post_slug_redirects",
+      "columns": {
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "postId": {
+          "name": "postId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "post_slug_redirects_postId_posts_id_fk": {
+          "name": "post_slug_redirects_postId_posts_id_fk",
+          "tableFrom": "post_slug_redirects",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "post_slug_redirects_locale_slug_pk": {
+          "columns": [
+            "locale",
+            "slug"
+          ],
+          "name": "post_slug_redirects_locale_slug_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "post_slug_redirects_locale_check": {
+          "name": "post_slug_redirects_locale_check",
+          "value": "\"post_slug_redirects\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        }
+      }
+    },
+    "post_translations": {
+      "name": "post_translations",
+      "columns": {
+        "postId": {
+          "name": "postId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "excerpt": {
+          "name": "excerpt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentMd": {
+          "name": "contentMd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentHtml": {
+          "name": "contentHtml",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "toc": {
+          "name": "toc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "readTimeMin": {
+          "name": "readTimeMin",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metaTitle": {
+          "name": "metaTitle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metaDescription": {
+          "name": "metaDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "keywords": {
+          "name": "keywords",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverAlt": {
+          "name": "coverAlt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ogAssetId": {
+          "name": "ogAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "post_translations_locale_slug_uq": {
+          "name": "post_translations_locale_slug_uq",
+          "columns": [
+            "locale",
+            "slug"
+          ],
+          "isUnique": true
+        },
+        "post_translations_locale_published_idx": {
+          "name": "post_translations_locale_published_idx",
+          "columns": [
+            "locale",
+            "\"publishedAt\" DESC"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "post_translations_postId_posts_id_fk": {
+          "name": "post_translations_postId_posts_id_fk",
+          "tableFrom": "post_translations",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "post_translations_ogAssetId_cms_assets_id_fk": {
+          "name": "post_translations_ogAssetId_cms_assets_id_fk",
+          "tableFrom": "post_translations",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "ogAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "post_translations_updatedByUserId_user_id_fk": {
+          "name": "post_translations_updatedByUserId_user_id_fk",
+          "tableFrom": "post_translations",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "post_translations_postId_locale_pk": {
+          "columns": [
+            "postId",
+            "locale"
+          ],
+          "name": "post_translations_postId_locale_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "post_translations_locale_check": {
+          "name": "post_translations_locale_check",
+          "value": "\"post_translations\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        },
+        "post_translations_title_check": {
+          "name": "post_translations_title_check",
+          "value": "length(\"post_translations\".\"title\") <= 120 AND length(\"post_translations\".\"excerpt\") <= 300"
+        }
+      }
+    },
     "posts": {
       "name": "posts",
       "columns": {
@@ -2412,6 +3503,27 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverAssetId": {
+          "name": "coverAssetId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -2421,6 +3533,14 @@
             "slug"
           ],
           "isUnique": true
+        },
+        "posts_status_published_idx": {
+          "name": "posts_status_published_idx",
+          "columns": [
+            "status",
+            "publishedAt"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -2435,6 +3555,32 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "posts_coverAssetId_cms_assets_id_fk": {
+          "name": "posts_coverAssetId_cms_assets_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "cms_assets",
+          "columnsFrom": [
+            "coverAssetId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "posts_updatedByUserId_user_id_fk": {
+          "name": "posts_updatedByUserId_user_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -3351,6 +4497,144 @@
         }
       }
     },
+    "site_settings": {
+      "name": "site_settings",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "site_settings_updatedByUserId_user_id_fk": {
+          "name": "site_settings_updatedByUserId_user_id_fk",
+          "tableFrom": "site_settings",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "site_texts": {
+      "name": "site_texts",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "draftValue": {
+          "name": "draftValue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedByUserId": {
+          "name": "updatedByUserId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "site_texts_updatedByUserId_user_id_fk": {
+          "name": "site_texts_updatedByUserId_user_id_fk",
+          "tableFrom": "site_texts",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updatedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "site_texts_key_locale_pk": {
+          "columns": [
+            "key",
+            "locale"
+          ],
+          "name": "site_texts_key_locale_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "site_texts_locale_check": {
+          "name": "site_texts_locale_check",
+          "value": "\"site_texts\".\"locale\" IN ('en', 'tr', 'de', 'es', 'fr')"
+        }
+      }
+    },
     "storage_deletions": {
       "name": "storage_deletions",
       "columns": {
@@ -3825,6 +5109,14 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "post_translations_locale_published_idx": {
+        "columns": {
+          "\"publishedAt\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

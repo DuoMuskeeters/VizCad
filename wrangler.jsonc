@@ -56,10 +56,11 @@
 	"durable_objects": { "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiter" }] },
 	"migrations": [{ "tag": "v1-rate-limiter", "new_sqlite_classes": ["RateLimiter"] }],
 	// Cron triggers (docs/09 §9.2). Wrangler inherits `triggers` into environments, so env.production overrides it with an
-	// empty list: production gets no crons before the cutover (scripts/wranglerCrons.test.ts checks both). Keep the expressions equal to HOURLY and DAILY in src/server/programs/cron.ts.
+	// empty list: production gets no crons before the cutover (scripts/wranglerCrons.test.ts checks both). Keep the expressions equal to HOURLY, DAILY and PURGE in src/server/programs/cron.ts.
 	//   0 * * * *    expire abandoned upload sessions, drain the R2 deletion queue
 	//   30 3 * * *   prune the security log (90 days)
-	"triggers": { "crons": ["0 * * * *", "30 3 * * *"] },
+	//   */10 * * * * drain the edge cache purge queue (docs/12 §7.4; its own invocation, PURGE in cron.ts)
+	"triggers": { "crons": ["0 * * * *", "30 3 * * *", "*/10 * * * *"] },
 	"d1_databases": [
 		{
 			"binding": "vizcad_auth",

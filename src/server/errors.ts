@@ -35,7 +35,10 @@ export class CaptchaFailed extends Data.TaggedError('CaptchaFailed')<{
   readonly reason: string
 }> {}
 
-/** Edge cache purge failed (reads and writes never fail; they degrade to a miss). */
+/**
+ * An edge cache purge failed (`Cache` service): not configured, a target off the site host, HTTP 429, unreachable, or
+ * rejected by the API. The hit path's reads and writes (EdgeCache.ts) are Effect-free and have no error: a failure there is a miss.
+ */
 export class CacheError extends Data.TaggedError('CacheError')<{
   readonly reason: string
 }> {}

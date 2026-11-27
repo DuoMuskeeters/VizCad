@@ -90,7 +90,8 @@ const lookAt = (path: string, looks: ReadonlyMap<string, NodeLook>): Look => {
 export const visibleIn = (path: string, view: Pick<StudioView, 'isolated' | 'hidden'>) => {
   const iso = view.isolated
   if (iso !== null && !isUnder(path, iso)) return isUnder(iso, path)
-  return !view.hidden.has(path)
+  // The isolated node itself always draws: isolating a hidden node must not leave an empty canvas.
+  return path === iso || !view.hidden.has(path)
 }
 
 export type Studio = {
@@ -165,13 +166,15 @@ export const createStudio = (model: Object3D): Studio => {
       }
     },
     pick: (raycaster) => {
-      for (const hit of raycaster.intersectObject(model, true)) {
-        if (!isMesh(hit.object)) continue
-        let shown = true
-        for (let at: Object3D | null = hit.object; at !== null && shown; at = at.parent) shown = at.visible
-        if (shown) return meshes.get(hit.object) ?? null
+      // Only meshes that are drawn: hidden ones and the edge lines (children of meshes, not in `meshes`) are not tested.
+      const shown: Mesh[] = []
+      for (const mesh of meshes.keys()) {
+        let visible = true
+        for (let at: Object3D | null = mesh; at !== null && visible; at = at.parent) visible = at.visible
+        if (visible) shown.push(mesh)
       }
-      return null
+      const hit = raycaster.intersectObjects(shown, false)[0]
+      return hit === undefined ? null : (meshes.get(hit.object as Mesh) ?? null)
     },
     boundsOf: (path) => {
       const object = index.get(path)

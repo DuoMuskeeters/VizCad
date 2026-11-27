@@ -1,17 +1,9 @@
 import { Effect, Layer, Option, Redacted, Schema } from 'effect'
+import { BUILD_ID } from '#/shared/buildId'
 import { CacheError } from '../errors'
 import { AppConfig } from './AppConfig'
-import { Cache } from './Cache'
-
-/** The part of the Workers Cache API (`caches.default`) this service uses. */
-export interface CacheBinding {
-  match(request: Request): Promise<Response | undefined>
-  put(request: Request, response: Response): Promise<void>
-  delete(request: Request): Promise<boolean>
-}
-
-/** The per-request URL limit for purge-by-URL depends on the plan; 30 fits all of them. */
-const PURGE_BATCH = 30
+import { Cache, CacheErrorReason, checkHost, checkUrls, PURGE_BATCH } from './Cache'
+import { cacheKeyUrl } from './EdgeCache'
 
 const PurgeResponse = Schema.Struct({
   success: Schema.Boolean,
@@ -19,27 +11,30 @@ const PurgeResponse = Schema.Struct({
 })
 
 /**
- * Cache API for reads/writes (per data center; only works on a custom domain, not workers.dev).
- * Purge deletes locally and, when CF_ZONE_ID/CF_PURGE_TOKEN are set, purges every data center via the API.
+ * Cloudflare purge API (docs/12 §7.4). No local `cache.delete`: a zone purge covers every data center including this
+ * one, and a local delete costs one subrequest per URL. URLs are sent with this build's `?v=` suffix, the key the hit
+ * path stores under (EdgeCache.ts). `fetchFn` and `buildId` are injectable for tests.
  */
-export const make = (cache: CacheBinding, fetchFn: typeof fetch) =>
+export const make = (fetchFn: typeof fetch, buildId: string = BUILD_ID) =>
   Layer.effect(
     Cache,
     Effect.gen(function* () {
-      const { cachePurge } = yield* AppConfig
+      const { cachePurge, siteUrl } = yield* AppConfig
 
-      const purgeZone = (zoneId: string, token: string, urls: ReadonlyArray<string>) =>
+      const call = (zoneId: string, token: string, body: { files: ReadonlyArray<string> } | { hosts: ReadonlyArray<string> }) =>
         Effect.gen(function* () {
-          const json = yield* Effect.tryPromise({
+          const response = yield* Effect.tryPromise({
             try: (signal) =>
-              fetchFn(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
+              fetchFn(`https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(zoneId)}/purge_cache`, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-                body: JSON.stringify({ files: urls }),
+                body: JSON.stringify(body),
                 signal,
-              }).then((r) => r.json()),
+              }),
             catch: () => new CacheError({ reason: 'purge-unreachable' }),
           })
+          if (response.status === 429) return yield* new CacheError({ reason: CacheErrorReason.rateLimited })
+          const json = yield* Effect.tryPromise({ try: () => response.json(), catch: () => new CacheError({ reason: 'purge-malformed-response' }) })
           const result = yield* Schema.decodeUnknownEffect(PurgeResponse)(json).pipe(
             Effect.mapError(() => new CacheError({ reason: 'purge-malformed-response' })),
           )
@@ -48,31 +43,27 @@ export const make = (cache: CacheBinding, fetchFn: typeof fetch) =>
           }
         })
 
+      const configured = Option.isSome(cachePurge)
+      const withConfig = <A>(run: (zoneId: string, token: string) => Effect.Effect<A, CacheError>) =>
+        Option.match(cachePurge, {
+          onNone: () => Effect.fail(new CacheError({ reason: CacheErrorReason.notConfigured })),
+          onSome: ({ zoneId, token }) => run(zoneId, Redacted.value(token)),
+        })
+
       return Cache.of({
-        match: (url) =>
-          Effect.tryPromise(() => cache.match(new Request(url))).pipe(
-            Effect.map(Option.fromNullishOr),
-            Effect.catch((cause) => Effect.logWarning('cache match failed', cause).pipe(Effect.as(Option.none()))),
-          ),
-        put: (url, response) =>
-          Effect.tryPromise(() => cache.put(new Request(url), response)).pipe(
-            Effect.catch((cause) => Effect.logWarning('cache put failed', cause)),
-          ),
+        configured,
         purge: (urls) =>
-          Effect.gen(function* () {
-            yield* Effect.forEach(urls, (url) => Effect.tryPromise(() => cache.delete(new Request(url))).pipe(Effect.ignore), {
-              discard: true,
-            })
-            // TODO(Faz 6, before CMS publish is wired): when purge config is missing this returns success
-            // after a local-only delete. Publishing must require a zone-wide purge (fail without config).
-            if (Option.isNone(cachePurge) || urls.length === 0) return
-            const { zoneId, token } = cachePurge.value
-            for (let i = 0; i < urls.length; i += PURGE_BATCH) {
-              yield* purgeZone(zoneId, Redacted.value(token), urls.slice(i, i + PURGE_BATCH))
-            }
-          }),
+          withConfig((zoneId, token) =>
+            Effect.gen(function* () {
+              const checked = yield* checkUrls(siteUrl, urls)
+              const keys = checked.map((url) => cacheKeyUrl(url.origin, url.pathname, buildId))
+              for (let i = 0; i < keys.length; i += PURGE_BATCH) yield* call(zoneId, token, { files: keys.slice(i, i + PURGE_BATCH) })
+            }),
+          ),
+        purgeHost: (hostname) =>
+          withConfig((zoneId, token) => checkHost(siteUrl, hostname).pipe(Effect.andThen(call(zoneId, token, { hosts: [hostname] })))),
       })
     }),
   )
 
-export const layer = (cache: CacheBinding) => make(cache, (input, init) => fetch(input, init))
+export const layer = make((input, init) => fetch(input, init))

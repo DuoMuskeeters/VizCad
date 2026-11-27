@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  soleChain, chainOf, countNodes, findNode, isNodePath, isUnder, namePaths, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
+  soleChain, chainOf, countNodes, findNode, fold, levelOf, isNodePath, isUnder, namePaths, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
 } from './outline'
 
 const part = (path: string, name: string): OutlineNode => ({ path, name, parts: 1, drawn: true, children: [] })
@@ -65,5 +65,25 @@ describe('outline', () => {
     expect(names.get('0.1.2')).toBe('Pompa grubu/Motor 7,5 kW/Vida M3 [2]')
     expect(names.get('0.2.1.0')).toBe('Pompa grubu/Pompa ünitesi/Çark/Kanat\\/1')
     expect(new Set(names.values()).size).toBe(names.size)
+  })
+
+  it('folds Turkish letters for search, whatever the runtime locale', () => {
+    expect(fold('IŞIK Çark Güç ÖZÜ İç')).toBe('isik cark guc ozu ic')
+    expect(fold('ısı')).toBe(fold('ISI'))
+    expect(searchOutline(pump, 'sase').hits.map((h) => h.node.path)).toEqual(['0.0'])
+    expect(searchOutline(pump, 'CARK').hits.map((h) => h.node.path)).toEqual(['0.2.1'])
+    expect(searchOutline(pump, 'unitesi').hits.map((h) => h.node.path)).toEqual(['0.2'])
+    expect(searchOutline(pump, 'govde').hits.map((h) => h.node.path)).toEqual(['0.1.0', '0.2.0'])
+  })
+
+  it('opens a part as its parent level', () => {
+    expect(levelOf(pump, '0.1')).toBe('0.1')
+    expect(levelOf(pump, '0.1.2')).toBe('0.1')
+    expect(levelOf(pump, '0.0')).toBe('0')
+    expect(levelOf(pump, '0.9')).toBe('0')
+    expect(levelOf(pump, null)).toBe('0')
+    const wrapped = asm('0', 'Root', [asm('0.0', 'Wrapper', [part('0.0.0', 'A'), part('0.0.1', 'B')])])
+    expect(levelOf(wrapped, null)).toBe('0.0')
+    expect(levelOf(wrapped, '0.0.1')).toBe('0.0')
   })
 })

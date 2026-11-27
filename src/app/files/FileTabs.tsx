@@ -144,7 +144,7 @@ export const CommentsTab = ({ workspaceId, fileId, can }: { workspaceId: string;
   const top = items.filter((item) => item.parentId === null)
   const repliesOf = (id: string) => items.filter((item) => item.parentId === id)
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       {top.length === 0 ? (
         <p className="py-4 text-md text-text-2">{t('comments.empty')}</p>
       ) : (
@@ -266,7 +266,7 @@ export const VersionsTab = ({
 
   const all = [state.data.current, ...state.data.versions]
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div>
         <Button
           onClick={() => uploads.pick(fileId)}

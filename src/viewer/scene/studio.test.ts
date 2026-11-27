@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Raycaster, Vector2, type Material, type Object3D } from 'three'
+import { BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, PerspectiveCamera, Raycaster, Vector2, type Material, type Object3D } from 'three'
 import { createStudio, EMPTY_VIEW, outlineOf, visibleIn, type StudioView } from './studio'
 
 const tag = <T extends Object3D>(object: T, path: string, name: string): T => {
@@ -108,5 +108,34 @@ describe('studio', () => {
     expect(studio.boundsOf('0.1.1')?.min.x).toBeCloseTo(2.5)
     expect(studio.boundsOf('0.9')).toBeNull()
     expect(studio.colorOf('0.1.0')).toBe('#888888')
+  })
+
+  it('draws an isolated node even when it was hidden', () => {
+    expect(visibleIn('0.1', { isolated: '0.1', hidden: new Set(['0.1']) })).toBe(true)
+    expect(visibleIn('0.1.0', { isolated: '0.1', hidden: new Set(['0.1', '0.1.0']) })).toBe(false)
+    const { root, body } = model()
+    const studio = createStudio(root)
+    studio.apply(view({ isolated: '0.1', hidden: new Set(['0.1']) }))
+    expect(studio.objectAt('0.1')!.visible).toBe(true)
+    expect(body.visible).toBe(true)
+  })
+
+  it('picks through edge lines and hidden parts to the drawn mesh behind them', () => {
+    const { root, body } = model()
+    const studio = createStudio(root)
+    // An edge line on the body, between the camera and the fan behind it on the same ray.
+    body.position.set(3, -3, 0)
+    body.add(new LineSegments(new EdgesGeometry(new BoxGeometry(1, 1, 1)), new LineBasicMaterial()))
+    root.updateMatrixWorld(true)
+    const camera = new PerspectiveCamera(35, 1, 0.1, 1000)
+    camera.position.set(3, -20, 0)
+    camera.up.set(0, 0, 1)
+    camera.lookAt(3, 0, 0)
+    camera.updateMatrixWorld(true)
+    const ray = new Raycaster()
+    ray.setFromCamera(new Vector2(0, 0), camera)
+    expect(studio.pick(ray)).toBe('0.1.0')
+    studio.apply(view({ hidden: new Set(['0.1.0']) }))
+    expect(studio.pick(ray)).toBe('0.1.1')
   })
 })

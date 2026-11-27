@@ -93,7 +93,12 @@ beforeEach(() => {
   seen.props = []
   router.search = {}
   router.navigate.mockReset()
+  vi.unstubAllGlobals()
 })
+
+/** A phone-wide screen: `useWide` reads `(min-width: 900px)`. */
+const narrow = () =>
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} }))
 
 describe('assembly studio on the file page', () => {
   it('shows the tree, selects from it and from the canvas, and hides on this screen only (B2)', async () => {
@@ -143,7 +148,7 @@ describe('assembly studio on the file page', () => {
     const { user } = await open()
     const folder = screen.getByRole('region', { name: 'Parts' })
     expect(within(folder).getByRole('heading', { name: 'Assembly · 5 parts' })).toBeInTheDocument()
-    expect(within(folder).getByText(/This level has 2 sub-assemblies and 1 parts/)).toBeInTheDocument()
+    expect(within(folder).getByText(/This level has 2 sub-assemblies and 1 part\./)).toBeInTheDocument()
     expect(last().hidden).toBe(true)
     await user.click(within(folder).getByRole('button', { name: 'Open Motor' }))
     expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: { view: 'parts', node: '0.1' } })
@@ -163,6 +168,57 @@ describe('assembly studio on the file page', () => {
     })
     expect(screen.queryByRole('tree')).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'View' })).not.toBeInTheDocument()
+  })
+
+  it('opens a part link in the Parts view at its parent level, not as an empty level', async () => {
+    router.search = { view: 'parts', node: '0.1.1' }
+    await open()
+    const folder = screen.getByRole('region', { name: 'Parts' })
+    expect(within(folder).getByRole('heading', { name: 'Sub-assembly · 2 parts' })).toBeInTheDocument()
+    expect(within(folder).getByText('Stator')).toBeInTheDocument()
+    expect(within(folder).getByText('Fan')).toBeInTheDocument()
+  })
+
+  it('on a phone, opens the parts sheet of an isolated part at its parent level and offers Show all', async () => {
+    narrow()
+    router.search = { node: '0.1.1' }
+    const { user } = await open()
+    const tools = screen.getByRole('toolbar', { name: 'Viewer tools' })
+    await user.click(within(tools).getByRole('button', { name: 'Parts' }))
+    const sheet = screen.getByRole('region', { name: 'Parts tree' })
+    expect(within(sheet).getByText('Stator')).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Hide Stator' }))
+    expect([...last().studio!.view.hidden]).toEqual(['0.1.0'])
+    await user.click(within(sheet).getByRole('button', { name: 'Show all' }))
+    expect(last().studio!.view.hidden.size).toBe(0)
+  })
+
+  it('moves the 3D / Parts switch to a second row on a phone', async () => {
+    narrow()
+    await open()
+    // One switch in the top bar (hidden below 360 px by CSS), one in the second row (hidden from 360 px).
+    expect(screen.getAllByRole('navigation', { name: 'View' })).toHaveLength(2)
+  })
+
+  it('offers Show all while a part is isolated, and isolating a hidden part shows it again', async () => {
+    const { user } = await open()
+    const tree = screen.getByRole('tree', { name: 'Parts tree' })
+    await user.click(within(tree).getByRole('button', { name: 'Hide Pump unit' }))
+    await user.click(within(tree).getByRole('button', { name: 'Hide Frame' }))
+    router.search = { node: '0.2' }
+    // Any change re-renders the page, which reads the new search.
+    act(() => last().studio!.onPick('0.2.0'))
+    await waitFor(() => expect(last().studio!.view.isolated).toBe('0.2'))
+    await waitFor(() => expect([...last().studio!.view.hidden]).toEqual(['0.0']))
+    await user.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(last().studio!.view.hidden.size).toBe(0)
+  })
+
+  it('has a skip link and a main region while the file loads', async () => {
+    renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? new Promise<Response>(() => {}) : undefined))
+    const skip = await screen.findByRole('link', { name: 'Skip to content' })
+    expect(skip).toHaveAttribute('href', '#main')
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
   })
 })
 
