@@ -22,6 +22,7 @@ import { SavedViews } from '../files/studio/SavedViews'
 import { EMPTY_SCENE, type SceneAnswer, type SceneBody, type SceneView } from '#/shared/scene'
 import type { StudioView } from '#/viewer/scene/studio'
 import { sectionFromPlane } from '#/viewer/tools/math'
+import { findNode, type OutlineNode } from '#/viewer/tree/outline'
 import { hiddenOf, looksOf } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 
@@ -213,28 +214,56 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   const api = useRef<ViewerApi | null>(null)
   const looks = useMemo(() => looksOf(scene), [scene])
   const recordHidden = useMemo(() => hiddenOf(scene), [scene])
-  const view = useMemo<StudioView>(() => ({ selected: null, isolated: null, hidden: viewHidden ?? recordHidden, looks }), [viewHidden, recordHidden, looks])
+  // A saved view's isolated part, on this screen only (none until a view with one is applied).
+  const [isolated, setIsolated] = useState<string | null>(null)
+  const [outline, setOutline] = useState<OutlineNode | null>(null)
+  const view = useMemo<StudioView>(() => ({ selected: null, isolated, hidden: viewHidden ?? recordHidden, looks }), [isolated, viewHidden, recordHidden, looks])
   // Views apply to an open model only: before it (a phone opens 3D on a tap) there is no camera to set.
   const [modelReady, setModelReady] = useState(false)
   const [applied, setApplied] = useState<string | null>(null)
-  const studio = useMemo(() => ({ view, api, onOutline: NO_PICK, onPick: NO_PICK, onReady: setModelReady }), [view])
-  const applyView = (saved: SceneView) => {
-    if (!modelReady) return
-    setViewHidden(new Set(saved.hidden ?? []))
-    setApplied(saved.name)
+  const studio = useMemo(() => ({ view, api, onOutline: setOutline, onPick: NO_PICK, onReady: setModelReady }), [view])
+  // The camera and the cut of a view, the cut read against the isolated part's range.
+  const setCameraAndCut = (saved: SceneView, scope: string | null) => {
     void api.current?.tools().then((tools) => {
       if (tools === null) return
+      tools.section.setScope(scope)
       tools.camera.set(saved.camera)
       const cut = saved.section === undefined ? null : sectionFromPlane(saved.section, tools.section.range)
       tools.section.set(cut === null ? null : { ...cut, hatch: true, handle: false })
     }, () => undefined)
   }
-  // Back to the model as shared: the record's hidden parts, no cut, the whole model in view.
+  // A view with another isolation: the viewer fits the camera to it in its own effect (a child's effects run first), so
+  // the view's camera goes on in this one, after that fit (as on the file page).
+  const viewAfterIsolation = useRef<SceneView | null>(null)
+  const applyAfter = useRef(setCameraAndCut)
+  applyAfter.current = setCameraAndCut
+  useEffect(() => {
+    const saved = viewAfterIsolation.current
+    if (saved === null) return
+    viewAfterIsolation.current = null
+    applyAfter.current(saved, isolated)
+  }, [isolated])
+  const applyView = (saved: SceneView) => {
+    if (!modelReady) return
+    setViewHidden(new Set(saved.hidden ?? []))
+    setApplied(saved.name)
+    // The view's isolation (none for an older view, or a part this model does not have: the whole model).
+    const target = saved.isolated !== undefined && saved.isolated !== '0' && outline !== null && findNode(outline, saved.isolated) !== null ? saved.isolated : null
+    if (target === isolated) return setCameraAndCut(saved, target)
+    viewAfterIsolation.current = saved
+    setIsolated(target)
+  }
+  // Back to the model as shared: the record's hidden parts, no isolation, no cut, the whole model in view.
   const resetView = () => {
     setViewHidden(null)
     setApplied(null)
+    setIsolated(null)
+    viewAfterIsolation.current = null
     api.current?.view('iso')
-    void api.current?.tools().then((tools) => tools?.section.set(null), () => undefined)
+    void api.current?.tools().then((tools) => {
+      tools?.section.setScope(null)
+      tools?.section.set(null)
+    }, () => undefined)
   }
   // Same size rule as the file page: "over N MB" only while the source is over the limit; a GLB over the plan's cap (or
   // a too_large from a lower limit) reads as the 3D copy being too large, in a guest's words.

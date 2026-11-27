@@ -71,7 +71,7 @@ describe('SharePage', () => {
     const camera = vi.fn()
     const section = vi.fn()
     const view = vi.fn()
-    last()!.studio!.api.current = { tools: async () => ({ camera: { set: camera }, section: { set: section, range: () => null } }), view } as never
+    last()!.studio!.api.current = { tools: async () => ({ camera: { set: camera }, section: { set: section, range: () => null, setScope: vi.fn() } }), view } as never
     // Before the model is open (a phone opens 3D on a tap) a view waits, and says why.
     const apply = screen.getByRole('button', { name: 'Apply the view Pump side' })
     expect(apply).toHaveAttribute('aria-disabled', 'true')
@@ -94,6 +94,44 @@ describe('SharePage', () => {
     expect(screen.queryByText('View “Pump side” applied.')).not.toBeInTheDocument()
     // A link never saves.
     expect(screen.queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
+  })
+
+  it('a saved view with a part alone opens it alone: the camera after the viewer’s fit, the cut in the part’s range; reset clears it', async () => {
+    const camera = { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], fov: 40 }
+    const body = { v: 1, nodes: {}, views: [{ id: 'v1', name: 'Pump alone', camera, isolated: '0.2', section: { normal: [-1, 0, 0], constant: 90 } }] }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      url.endsWith('/scene')
+        ? new Response(JSON.stringify({ ok: true, data: { scene: { revision: 2, body, updatedAt: 1, updatedBy: null }, previous: null, canEdit: false, maxViews: 20 } }), { status: 200 })
+        : new Response(JSON.stringify({ ok: true, data: { kind: 'file', file: { ...file, model: glb } } }), { status: 200 })))
+    mount()
+    await screen.findByRole('region', { name: '3D view' })
+    let scope: string | null = null
+    const setCamera = vi.fn()
+    const section = vi.fn()
+    const setScope = vi.fn((next: string | null) => {
+      scope = next
+    })
+    const range = () => (scope === '0.2' ? { min: 80, max: 100 } : { min: 0, max: 100 })
+    last()!.studio!.api.current = { tools: async () => ({ camera: { set: setCamera }, section: { set: section, range, setScope } }), view: vi.fn() } as never
+    const part = (path: string) => ({ path, name: path, parts: 1, drawn: true, children: [] })
+    act(() => {
+      last()!.studio!.onReady?.(true)
+      last()!.studio!.onOutline({ path: '0', name: 'Pump', parts: 3, drawn: false, children: [part('0.0'), part('0.1'), part('0.2')] })
+    })
+    let isolatedAtSet: string | null | undefined
+    setCamera.mockImplementation(() => {
+      isolatedAtSet = last()!.studio!.view.isolated
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply the view Pump alone' }))
+    await waitFor(() => expect(setCamera).toHaveBeenCalledWith(camera))
+    // Set once the viewer drew the isolation (and fitted to it), not before.
+    expect(isolatedAtSet).toBe('0.2')
+    expect(last()!.studio!.view.isolated).toBe('0.2')
+    expect(section).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x', position: 0.5 }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the whole model' }))
+    expect(last()!.studio!.view.isolated).toBeNull()
+    await waitFor(() => expect(section).toHaveBeenLastCalledWith(null))
+    expect(setScope).toHaveBeenLastCalledWith(null)
   })
 
   it('shows the file card with a download link from the content route; the token only travels in the body', async () => {
