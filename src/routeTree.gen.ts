@@ -40,6 +40,7 @@ import { Route as DevUiShellRouteImport } from './routes/dev/ui/shell'
 import { Route as STokenIndexRouteImport } from './routes/s/$token/index'
 import { Route as STokenContentRouteImport } from './routes/s/$token/content'
 import { Route as STokenModelRouteImport } from './routes/s/$token/model'
+import { Route as STokenSceneRouteImport } from './routes/s/$token/scene'
 import { Route as STokenThumbnailRouteImport } from './routes/s/$token/thumbnail'
 import { Route as ApiFilesFileIdContentRouteImport } from './routes/api/files/$fileId/content'
 import { Route as ApiFilesFileIdModelRouteImport } from './routes/api/files/$fileId/model'
@@ -202,6 +203,11 @@ const STokenModelRoute = STokenModelRouteImport.update({
   path: '/s/$token/model',
   getParentRoute: () => rootRouteImport,
 } as any)
+const STokenSceneRoute = STokenSceneRouteImport.update({
+  id: '/s/$token/scene',
+  path: '/s/$token/scene',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const STokenThumbnailRoute = STokenThumbnailRouteImport.update({
   id: '/s/$token/thumbnail',
   path: '/s/$token/thumbnail',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/model': typeof STokenModelRoute
+  '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
@@ -301,6 +308,7 @@ export interface FileRoutesByTo {
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/model': typeof STokenModelRoute
+  '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects': typeof AppProjectsIndexRoute
   '/dev/ui': typeof DevUiIndexRoute
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/dev/ui/shell': typeof DevUiShellRoute
   '/s/$token/content': typeof STokenContentRoute
   '/s/$token/model': typeof STokenModelRoute
+  '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/model'
+    | '/s/$token/scene'
     | '/s/$token/thumbnail'
     | '/app/projects/'
     | '/dev/ui/'
@@ -420,6 +430,7 @@ export interface FileRouteTypes {
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/model'
+    | '/s/$token/scene'
     | '/s/$token/thumbnail'
     | '/app/projects'
     | '/dev/ui'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/dev/ui/shell'
     | '/s/$token/content'
     | '/s/$token/model'
+    | '/s/$token/scene'
     | '/s/$token/thumbnail'
     | '/app/projects/'
     | '/dev/ui/'
@@ -491,6 +503,7 @@ export interface RootRouteChildren {
   DevUiShellRoute: typeof DevUiShellRoute
   STokenContentRoute: typeof STokenContentRoute
   STokenModelRoute: typeof STokenModelRoute
+  STokenSceneRoute: typeof STokenSceneRoute
   STokenThumbnailRoute: typeof STokenThumbnailRoute
   DevUiIndexRoute: typeof DevUiIndexRoute
   STokenIndexRoute: typeof STokenIndexRoute
@@ -720,6 +733,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenModelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$token/scene': {
+      id: '/s/$token/scene'
+      path: '/s/$token/scene'
+      fullPath: '/s/$token/scene'
+      preLoaderRoute: typeof STokenSceneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$token/thumbnail': {
       id: '/s/$token/thumbnail'
       path: '/s/$token/thumbnail'
@@ -812,6 +832,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevUiShellRoute: DevUiShellRoute,
   STokenContentRoute: STokenContentRoute,
   STokenModelRoute: STokenModelRoute,
+  STokenSceneRoute: STokenSceneRoute,
   STokenThumbnailRoute: STokenThumbnailRoute,
   DevUiIndexRoute: DevUiIndexRoute,
   STokenIndexRoute: STokenIndexRoute,

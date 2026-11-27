@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '../../components/ui/test-utils'
 import { I18nProvider } from '#/i18n'
@@ -54,6 +54,29 @@ describe('formatSize', () => {
 })
 
 describe('SharePage', () => {
+  it('applies the scene record of the shared model (Faz 5d): colours and hidden parts; saved views apply on this screen', async () => {
+    const body = {
+      v: 1, nodes: { '0.1': { color: '#b23a2e', at: 'Motor' }, '0.2': { hidden: true, at: 'Cover' } },
+      views: [{ id: 'v1', name: 'Pump side', camera: { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], fov: 40 }, hidden: ['0.1'] }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      url.endsWith('/scene')
+        ? new Response(JSON.stringify({ ok: true, data: { scene: { revision: 2, body, updatedAt: 1, updatedBy: null }, previous: null, canEdit: false, maxViews: 20 } }), { status: 200 })
+        : new Response(JSON.stringify({ ok: true, data: { kind: 'file', file: { ...file, model: glb } } }), { status: 200 })))
+    mount()
+    await screen.findByRole('region', { name: '3D view' })
+    await waitFor(() => expect(last()?.studio?.view.looks.get('0.1')).toEqual({ color: '#b23a2e' }))
+    expect([...last()!.studio!.view.hidden]).toEqual(['0.2'])
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === `/s/${TOKEN}/scene`)).toBe(true)
+    const camera = vi.fn()
+    last()!.studio!.api.current = { tools: async () => ({ camera: { set: camera }, section: { set: vi.fn(), range: () => null } }) } as never
+    fireEvent.click(screen.getByRole('button', { name: 'Apply the view Pump side' }))
+    await waitFor(() => expect(camera).toHaveBeenCalledWith(body.views[0]!.camera))
+    expect([...last()!.studio!.view.hidden]).toEqual(['0.1'])
+    // A link never saves.
+    expect(screen.queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
+  })
+
   it('shows the file card with a download link from the content route; the token only travels in the body', async () => {
     const calls = answer({ status: 200, body: { ok: true, data: { kind: 'file', file } } })
     mount()
@@ -66,7 +89,7 @@ describe('SharePage', () => {
     expect(last()).toMatchObject({ url: `/s/${TOKEN}/model`, source: 'source', start: 'auto' })
     expect(last()?.onDerivative).toBeUndefined()
     expect(screen.getByText(/recorded for Acme as “via link”/)).toBeInTheDocument()
-    expect(calls).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
+    expect(calls.filter((c) => !c.url.endsWith('/scene'))).toEqual([{ url: '/api/s/resolve', body: JSON.stringify({ token: TOKEN }) }])
   })
 
   it('a GLB over the plan cap reads as the 3D view being too large, not "over 50 MB"; a source over the limit says the limit', async () => {
@@ -144,7 +167,7 @@ describe('SharePage', () => {
     await user.type(screen.getByLabelText('Password'), 'right one 1')
     await user.click(screen.getByRole('button', { name: 'Open file' }))
     expect(await screen.findByRole('heading', { name: 'Bracket.step' })).toBeInTheDocument()
-    expect(calls.map((c) => c.url)).toEqual(['/api/s/resolve', '/api/s/password', '/api/s/password', '/api/s/resolve'])
+    expect(calls.map((c) => c.url).filter((u) => !u.endsWith('/scene'))).toEqual(['/api/s/resolve', '/api/s/password', '/api/s/password', '/api/s/resolve'])
     expect(calls.every((c) => !c.url.includes('password=') && !c.url.includes('right'))).toBe(true)
     expect(JSON.parse(calls[2]?.body ?? '{}')).toEqual({ token: TOKEN, password: 'right one 1' })
   })

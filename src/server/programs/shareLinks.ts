@@ -14,6 +14,8 @@ import {
 } from '../shareCrypto'
 import { recordDenied, recordDelivery } from './audit'
 import { modelTarget, streamContent, streamModel, streamThumbnail } from './delivery'
+import { bodyOf, sceneModelKey } from './scenes'
+import type { SceneAnswer } from '../../shared/scene'
 import { fileForPermission, nowSeconds, toSeconds, truncateIp, truncateUserAgent, type Trace } from './shared'
 
 /** What the link endpoints know about a request: no session, only the visitor's address, agent and cookies. */
@@ -264,6 +266,28 @@ export const deliverLinkModel = Effect.fn('deliverLinkModel')(function* (request
         Effect.ignore,
       )),
   )
+})
+
+/**
+ * `GET /s/{token}/scene` (docs/11 §3.1, Faz 5d): the scene record of the model the link shows, so the shared page draws
+ * the same names, colours, hidden parts and saved views. Read with `preview`, like `model`; a link never writes it, never
+ * sees an earlier model's record, and never learns who in the workspace wrote it (`updatedBy` is always null). Not
+ * audited: it is the file's presentation, not its bytes (the model read is).
+ */
+export const getLinkScene = Effect.fn('getLinkScene')(function* (request: LinkRequest, token: string) {
+  const row = yield* loadByToken(token)
+  const { decision } = yield* decide(request, row, 'preview')
+  if (!decision.allowed) return yield* refusal(decision.reason, row)
+  const { savedViewsPerScene } = yield* (yield* Entitlements).limits(row.workspaceId)
+  const answer = (scene: SceneAnswer['scene']): SceneAnswer => ({ scene, previous: null, canEdit: false, maxViews: savedViewsPerScene })
+  const key = sceneModelKey(row.file)
+  if (key === null) return answer(null)
+  const db = yield* Db
+  const s = schema.fileScenes
+  const found = (yield* db.use((d) =>
+    d.select({ revision: s.revision, body: s.body, updatedAt: s.updatedAt }).from(s).where(and(eq(s.fileId, row.file.id), eq(s.modelR2Key, key))).limit(1),
+  ))[0]
+  return answer(found === undefined ? null : { revision: found.revision, body: bodyOf(found.body), updatedAt: toSeconds(found.updatedAt), updatedBy: null })
 })
 
 /** `GET /s/{token}/thumbnail`: the current thumbnail for any live link (`view` suffices); audited as `file.previewed`. */

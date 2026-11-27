@@ -11,8 +11,9 @@ import { glb } from '../testing/glb'
 import { png } from '../testing/images'
 import { caller, programLayer, rows, seedDerivative, seedLink, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
 import { createShareLink, revokeShareLink, updateShareLink } from './links'
+import { putScene } from './scenes'
 import {
-  deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, type LinkRequest, resolveShareLink, verifyLinkPassword,
+  deliverLinkContent, deliverLinkModel, deliverLinkThumbnail, getLinkScene, type LinkRequest, resolveShareLink, verifyLinkPassword,
 } from './shareLinks'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>) => TestClock.setTime(T0 * 1000).pipe(Effect.andThen(body), Effect.provide(programLayer(defaultPlan)))
@@ -314,6 +315,32 @@ describe('password gate and proof cookie', () => {
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token: 'nope', password: 'x' })))._tag, 'LinkUnavailable')
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token, password: '' })))._tag, 'ValidationError')
       assert.strictEqual((yield* failure(verifyLinkPassword(visitor(), { token, password: 'x'.repeat(129) })))._tag, 'ValidationError')
+    })),
+  )
+})
+
+describe('getLinkScene (Faz 5d)', () => {
+  it.effect('a link reads the record of the model it shows: no writer name, no earlier record, no write; password and revoke apply', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      const view = yield* share({ level: 'view' })
+      // No GLB yet: no model key, so no record.
+      assert.deepStrictEqual(yield* getLinkScene(visitor(), view.token), { scene: null, previous: null, canEdit: false, maxViews: 20 })
+      yield* seedDerivative('f1', 'acme', glb())
+      const body = { v: 1 as const, nodes: { '0.1': { color: '#b23a2e', at: 'Motor' } }, views: [] }
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 0, body })
+      const answer = yield* getLinkScene(visitor(), view.token)
+      assert.deepStrictEqual(answer.scene?.body, body)
+      assert.isNull(answer.scene?.updatedBy)
+      assert.isFalse(answer.canEdit)
+      assert.notInclude(JSON.stringify(answer), 'bob')
+      // Not audited: presentation, not the file's bytes.
+      assert.lengthOf((yield* accessRows).filter((r) => r.action === 'file.previewed'), 0)
+
+      yield* revokeShareLink(caller('bob'), { ...ids, linkId: view.linkId })
+      assert.strictEqual((yield* failure(getLinkScene(visitor(), view.token)))._tag, 'LinkUnavailable')
+      const locked = yield* share({ level: 'view', password: 'pump pass 123' })
+      assert.strictEqual((yield* failure(getLinkScene(visitor(), locked.token)))._tag, 'LinkPasswordRequired')
     })),
   )
 })

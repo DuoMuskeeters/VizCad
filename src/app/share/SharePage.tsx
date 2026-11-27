@@ -1,4 +1,4 @@
-import { type FormEvent, lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClientOnlyFn } from '@tanstack/react-start'
 import { CircleAlert, Clock, Download, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { Turnstile, turnstileSiteKey } from '#/auth/Turnstile'
@@ -18,6 +18,36 @@ import { deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { ViewerStart } from '#/viewer/state'
 import { ERROR_CODES, formatOfExtension, isConvertFormat } from '#/viewer/worker/protocol'
 import { tileText } from '../files/format'
+import { SavedViews } from '../files/studio/SavedViews'
+import { EMPTY_SCENE, type SceneAnswer, type SceneBody, type SceneView } from '#/shared/scene'
+import type { StudioView } from '#/viewer/scene/studio'
+import { sectionFromPlane } from '#/viewer/tools/math'
+import { hiddenOf, looksOf } from '#/viewer/tree/scene'
+import type { ViewerApi } from '#/viewer/Viewer.client'
+
+/**
+ * The scene record of the shared model (`GET /s/{token}/scene`, Faz 5d): names, colours, hidden parts and saved views
+ * as the workspace prepared them. Read only; a failed read shows the model as in the file.
+ */
+const useLinkScene = (token: string, enabled: boolean): SceneBody => {
+  const [body, setBody] = useState<SceneBody>(EMPTY_SCENE)
+  useEffect(() => {
+    if (!enabled) return
+    let live = true
+    void fetch(`/s/${encodeURIComponent(token)}/scene`, { credentials: 'same-origin' })
+      .then((response) => (response.ok ? (response.json() as Promise<{ data: SceneAnswer }>) : null))
+      .then((answer) => {
+        if (live && answer !== null) setBody(answer.data.scene?.body ?? EMPTY_SCENE)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [token, enabled])
+  return body
+}
+
+const NO_PICK = () => {}
 
 /** The viewer chunk (three.js) loads only on the client, only when the link has something to show in 3D. */
 const loadViewer = createClientOnlyFn(() => import('#/viewer/Viewer.client'))
@@ -176,6 +206,24 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
     : file.model.kind === 'source' && format !== null && deferOpen(format, phone) ? 'phone'
     : 'tap'
   const hasDerivativeFormat = format !== null && isConvertFormat(format)
+  const shows3d = format !== null && file.model.kind !== 'none'
+  const scene = useLinkScene(token, shows3d)
+  // A saved view's hidden parts replace the record's on this screen only.
+  const [viewHidden, setViewHidden] = useState<ReadonlySet<string> | null>(null)
+  const api = useRef<ViewerApi | null>(null)
+  const looks = useMemo(() => looksOf(scene), [scene])
+  const recordHidden = useMemo(() => hiddenOf(scene), [scene])
+  const view = useMemo<StudioView>(() => ({ selected: null, isolated: null, hidden: viewHidden ?? recordHidden, looks }), [viewHidden, recordHidden, looks])
+  const studio = useMemo(() => ({ view, api, onOutline: NO_PICK, onPick: NO_PICK }), [view])
+  const applyView = (saved: SceneView) => {
+    setViewHidden(new Set(saved.hidden ?? []))
+    void api.current?.tools().then((tools) => {
+      if (tools === null) return
+      tools.camera.set(saved.camera)
+      const cut = saved.section === undefined ? null : sectionFromPlane(saved.section, tools.section.range)
+      tools.section.set(cut === null ? null : { ...cut, hatch: true, handle: false })
+    })
+  }
   // Same size rule as the file page: "over N MB" only while the source is over the limit; a GLB over the plan's cap (or
   // a too_large from a lower limit) reads as the 3D copy being too large, in a guest's words.
   const noModelText = sourceTooLarge(file)
@@ -201,7 +249,7 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
           </div>
         </div>
 
-        {format !== null && file.model.kind !== 'none' ? (
+        {shows3d ? (
           <section aria-label={t('sp.stage')} className="min-w-0 app:col-start-1 app:row-span-3 app:row-start-1">
             <Suspense fallback={<ViewerFallback src={thumbnail} />}>
               <Viewer
@@ -214,6 +262,7 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
                 source={file.model.kind}
                 modelBytes={file.model.bytes}
                 maxConvertBytes={file.model.maxConvertBytes}
+                studio={studio}
                 downloadAction={file.can.download ? (
                   <Button asChild>
                     <a href={`/s/${encodeURIComponent(token)}/content`} download>
@@ -223,6 +272,11 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
                 ) : undefined}
               />
             </Suspense>
+            {scene.views.length > 0 ? (
+              <div className="pt-3">
+                <SavedViews views={scene.views} onApply={applyView} />
+              </div>
+            ) : null}
           </section>
         ) : (
         <section aria-label={t('sp.stage')} className="grid place-items-center overflow-hidden rounded-lg border border-line bg-surface app:col-start-1 app:row-span-3 app:row-start-1 app:min-h-96">

@@ -241,3 +241,20 @@ describe('POST /api/s/resolve and /api/s/password', () => {
     })),
   )
 })
+
+describe('GET /s/{token}/scene (Faz 5d)', () => {
+  it.effect('JSON with the link headers; same origin only; no query string; a view link reads, never sees who wrote it', () =>
+    run(Effect.gen(function* () {
+      const view = yield* share({ level: 'view' })
+      const empty = yield* call(getContent(view, {}, 'scene'))
+      assert.strictEqual(empty.status, 200)
+      assert.deepStrictEqual(JSON.parse(empty.text), { ok: true, data: { scene: null, previous: null, canEdit: false, maxViews: 20 } })
+      assert.deepStrictEqual(['cache-control', 'referrer-policy', 'x-content-type-options'].map((n) => empty.headers.get(n)), ['private, no-store', 'no-referrer', 'nosniff'])
+      assert.strictEqual((yield* call(getContent(view, { 'sec-fetch-site': 'cross-site' }, 'scene'))).status, 403)
+      assert.strictEqual((yield* call(new Request(`${ORIGIN}/s/${view}/scene?x=1`, { headers: { 'sec-fetch-site': 'same-origin' } }))).status, 400)
+      assert.strictEqual((yield* call(getContent('not-a-token', {}, 'scene'))).status, 404)
+      // No audit row for the record itself.
+      assert.deepStrictEqual((yield* rows('accessLog')).map((l) => l.action), ['link.created'])
+    })),
+  )
+})
