@@ -4,7 +4,7 @@ import { TestClock } from 'effect/testing'
 import { affectedUrls } from '../cms/affectedUrls'
 import { CacheError } from '../errors'
 import * as AppConfig from '../services/AppConfig'
-import { CacheErrorReason, CachePurges, memoryWith, type MemoryOptions, type PurgeCall } from '../services/Cache'
+import { Cache, CacheErrorReason, CachePurges, memoryWith, type MemoryOptions, type PurgeCall } from '../services/Cache'
 import { Db } from '../services/Db'
 import * as DbMemory from '../services/Db.memory'
 import { programLayer, rows, T0 } from '../testing/fixtures'
@@ -157,6 +157,31 @@ describe('drainCachePurges', () => {
       assert.strictEqual(left[0]?.attempts, 1)
       assert.strictEqual(left[0]?.lastError, 'purge-unreachable')
       assert.strictEqual(toUnixSeconds(left[0]?.notBefore ?? new Date(0)), T0 + LATE_PURGE_SECONDS)
+    })),
+  )
+
+  it.effect('two overlapping drains that both fail keep the target queued (the second finds the row the first moved)', () =>
+    within()(Effect.gen(function* () {
+      // Queued a minute ago: both rows are due now and nothing waits at the retry moment yet.
+      yield* enqueue({ urls: urls(1) }, T0 - LATE_PURGE_SECONDS)
+      const context = yield* Effect.context<Db | AppConfig.AppConfig>()
+      let purges = 0
+      const failing: Cache['Service'] = {
+        configured: true,
+        purgeHost: () => Effect.fail(new CacheError({ reason: 'purge-unreachable' })),
+        // The first call runs a whole second drain (the cron next to a publish request) before it fails itself.
+        purge: () =>
+          Effect.gen(function* () {
+            if (purges++ === 0) yield* drainCachePurges().pipe(Effect.provideService(Cache, failing), Effect.provideContext(context), Effect.orDie)
+            return yield* new CacheError({ reason: 'purge-unreachable' })
+          }),
+      }
+      const summary = yield* drainCachePurges().pipe(Effect.provideService(Cache, failing))
+      assert.strictEqual(summary.failed, 2)
+      const left = yield* rows('cachePurges')
+      assert.deepStrictEqual(left.map((r) => [r.target, toUnixSeconds(r.notBefore), r.attempts, r.lastError]), [
+        ['https://vizcad.test/blog/p0', T0 + RETRY_SECONDS, 1, 'purge-unreachable'],
+      ])
     })),
   )
 

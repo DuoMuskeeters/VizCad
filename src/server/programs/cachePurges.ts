@@ -127,7 +127,8 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
   }
 
   // A failed target keeps one row, moved to `now + 60 s`. If the target already has a row there (its late purge), that
-  // row takes the failure count instead; the unique (kind, target, notBefore) key allows only one.
+  // row takes the failure count instead; the unique (kind, target, notBefore) key allows only one. That row can be one
+  // of this run's own: an overlapping drain read the same due rows, failed first and already moved it. It is kept.
   const retryAt = fromUnixSeconds(now + RETRY_SECONDS)
   const failedTargets = failures.flatMap(({ rows, reason }) =>
     [...groupBy(rows)].map(([target, group]) => ({
@@ -159,7 +160,7 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
     const survivor = atRetry.get(`${f.kind} ${f.target}`)
     const [first, ...rest] = f.ids
     if (survivor !== undefined) {
-      deletes.push(...f.ids)
+      deletes.push(...f.ids.filter((id) => id !== survivor.id))
       update(Math.max(survivor.attempts, f.attempts), f.reason, false, survivor.id)
     } else if (first !== undefined) {
       deletes.push(...rest)
