@@ -139,7 +139,8 @@ export const buildHead = (input: HeadInput): Head => {
     { property: 'og:title', content: input.title },
     { property: 'og:description', content: input.description },
     { property: 'og:site_name', content: input.siteName },
-    { property: 'og:locale', content: ogLocale[input.locale] },
+    // OG describes the canonical page: a closed locale's card is the `en` page's card.
+    { property: 'og:locale', content: ogLocale[live ? input.locale : 'en'] },
     ...localeAlternates,
     ...image,
     ...article,

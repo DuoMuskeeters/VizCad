@@ -50,7 +50,7 @@ export function LanguageLinks({ alternates }: Props) {
   const { current, links } = useLinks(alternates)
   return (
     <nav aria-label="Language">
-      <ul className="flex flex-wrap gap-1">
+      <ul className="-mx-3 flex flex-wrap gap-1">
         {links.map(({ locale, href }) => (
           <li key={locale}>
             <a href={href} hrefLang={locale} lang={locale} aria-current={locale === current ? 'true' : undefined} className={`${item} ${locale === current ? 'font-medium text-text' : 'text-text-2'}`}>

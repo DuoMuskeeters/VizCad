@@ -67,7 +67,7 @@ describe('buildHead', () => {
     expect(canonical(head)).toEqual(['https://viz-cad.com/pricing'])
     expect(hreflang(head)).toEqual([])
     expect(metaOf(head, 'og:url')).toEqual(['https://viz-cad.com/pricing'])
-    expect(metaOf(head, 'og:locale')).toEqual(['de_DE'])
+    expect(metaOf(head, 'og:locale'), 'the card describes the canonical en page').toEqual(['en_US'])
     expect(metaOf(head, 'og:locale:alternate')).toEqual([])
     expect(metaOf(head, 'robots')).toEqual([])
   })

@@ -19,14 +19,17 @@ export const Route = createFileRoute('/{-$locale}/')({
     if (site?.ok !== true) return { meta: [{ title: TITLE }, { name: 'description', content: DESCRIPTION }] }
     const siteUrl = new URL(site.siteOrigin)
     const locale = params.locale ?? 'en'
+    const alternates = sameAlternates('/', [])
+    // A closed locale renders the English fallback: its content language is `en`.
+    const contentLocale = alternates[locale] === undefined ? 'en' : locale
     const head = buildHead({
       siteUrl,
       locale,
-      alternates: sameAlternates('/', []),
+      alternates,
       title: TITLE,
       description: DESCRIPTION,
       siteName: SITE_NAME,
-      jsonLd: [organization({ siteUrl, name: SITE_NAME, logo: `${siteUrl.origin}/vizcad-logo-512.png` }), website({ siteUrl, name: SITE_NAME, locale })],
+      jsonLd: [organization({ siteUrl, name: SITE_NAME, logo: `${siteUrl.origin}/vizcad-logo-512.png` }), website({ siteUrl, name: SITE_NAME, locale: contentLocale })],
     })
     return { meta: [...head.meta], links: [...head.links], scripts: [...head.scripts] }
   },
