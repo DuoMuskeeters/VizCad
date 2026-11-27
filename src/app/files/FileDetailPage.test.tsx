@@ -28,7 +28,7 @@ describe('file page', () => {
     expect(await within(viewer).findByText('Your browser does not support 3D viewing.', { selector: 'p:not([role=status])' })).toBeInTheDocument()
     expect(within(viewer).getByRole('status')).toHaveTextContent('Your browser does not support 3D viewing.')
     expect(within(viewer).getByRole('button', { name: 'Download' })).toBeInTheDocument()
-    expect(within(viewer).getByRole('toolbar', { name: 'Viewer tools' })).toBeInTheDocument()
+    expect(within(viewer).getByRole('toolbar', { name: 'Studio tools' })).toBeInTheDocument()
     expect(screen.queryByText('No thumbnail yet.')).not.toBeInTheDocument()
   })
 

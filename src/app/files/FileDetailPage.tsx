@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
-import { Box, ChevronLeft, Download, FileDown, FileQuestion, LayoutGrid, ListTree, Loader2, Paintbrush, PanelLeft, PanelRight, Share2, X } from 'lucide-react'
+import { Box, ChevronLeft, Download, FileDown, FileQuestion, LayoutGrid, Loader2, Paintbrush, PanelLeft, PanelRight, Share2, X } from 'lucide-react'
 import { MenuItem } from '#/components/ui/Menu'
 import { Avatar } from '#/components/ui/Avatar'
 import { Badge } from '#/components/ui/Badge'
@@ -47,6 +47,8 @@ import { useWide } from './studio/useWide'
 import { useScene } from './studio/useScene'
 import { Chip, ConflictBar, EditBar, MatchBar, NodeEditor, SaveState, UnsavedBar } from './studio/SceneEdit'
 import { StlDialog } from './studio/StlDialog'
+import { desktopOnlyIcons, GestureHints, MeasureHint, StudioToolbar, ToolCard } from './studio/Tools'
+import { useTools } from './studio/useTools'
 import { EMPTY_SCENE } from '#/shared/scene'
 
 /** The viewer chunk (three.js) loads only here, on the client: the server build never sees it (app routes have no SSR). */
@@ -314,6 +316,8 @@ export const FileDetailPage = () => {
   const stale = outline !== null && nodeParam !== undefined && node === null
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
+  // Section, measure, screenshot (Faz 5d): per open model; the section's range fits the isolated part.
+  const tools = useTools(api, modelKey, wide, isolated)
   // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
   // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
   const scene = useScene(
@@ -433,6 +437,19 @@ export const FileDetailPage = () => {
     },
     [scene, names, leaveIsolationFor],
   )
+
+  // One sheet at a time on a phone: a tool card and the parts list replace each other. The folder view closes a card.
+  const openTool = tools.open
+  useEffect(() => {
+    if (tools.tool !== null) setSheet(null)
+  }, [tools.tool, setSheet])
+  useEffect(() => {
+    if (sheet !== null) openTool(null)
+  }, [sheet, openTool])
+  const folderShown = search.view === 'parts'
+  useEffect(() => {
+    if (folderShown) openTool(null)
+  }, [folderShown, openTool])
 
   // The phone sheet closes with Escape.
   useEffect(() => {
@@ -637,6 +654,7 @@ export const FileDetailPage = () => {
     </Button>
   )
   const steps = outline !== null && isolated !== null ? pathNames(outline, isolated, nameOf) : []
+  const endName = (path: string | null) => (outline === null || path === null ? '' : nameOf(findNode(outline, path) ?? outline))
   const overlay = modelOpen ? (
     <>
       {selectedNode !== null ? (
@@ -657,7 +675,9 @@ export const FileDetailPage = () => {
           }
         />
       ) : null}
-      {isolated !== null ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
+      {isolated !== null && tools.tool !== 'measure' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
+      {wide ? <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} /> : <GestureHints />}
+      {tools.tool === 'measure' ? <MeasureHint wide={wide} /> : null}
     </>
   ) : null
 
@@ -726,14 +746,30 @@ export const FileDetailPage = () => {
           frameClassName={wide ? 'h-full' : undefined}
           overlay={overlay}
           hidden={showFolder}
-          toolbarStart={
-            assembly && !wide ? (
-              <Button variant="ghost" aria-pressed={sheet !== null} onClick={() => setSheet(sheet === null && outline !== null ? { level: levelOf(outline, isolated) } : null)} className="aria-pressed:bg-accent-soft aria-pressed:text-accent" {...(studioReady ? {} : { disabledReason: t('viewer.tool.notReady') })}>
-                <ListTree aria-hidden className="size-4.5" />
-                {t('studio.view.parts')}
-              </Button>
-            ) : null
-          }
+          toolbar={(controls) => (
+            <StudioToolbar
+              controls={controls}
+              wide={wide}
+              tools={tools}
+              parts={
+                assembly && !wide
+                  ? {
+                      open: sheet !== null,
+                      onToggle: () => setSheet(sheet === null && outline !== null ? { level: levelOf(outline, isolated) } : null),
+                      disabledReason: studioReady ? undefined : t('viewer.tool.notReady'),
+                    }
+                  : undefined
+              }
+              desktopOnly={
+                wide
+                  ? undefined
+                  : [
+                      { key: 'edit', label: t('studio.edit.open'), icon: desktopOnlyIcons.edit, reason: can.edit ? t('studio.edit.desktop') : t('studio.edit.noPermission') },
+                      { key: 'stl', label: t('studio.stl.open'), icon: desktopOnlyIcons.stl, reason: can.download ? t('studio.stl.desktop') : t('studio.stl.noPermission') },
+                    ]
+              }
+            />
+          )}
         />
       </Suspense>
     </>
@@ -976,6 +1012,8 @@ export const FileDetailPage = () => {
           </div>
         </section>
       ) : null}
+
+      {!wide && modelOpen && !showFolder ? <ToolCard tools={tools} wide={false} fileName={loaded.name} nameOf={endName} /> : null}
 
       {renaming ? (
         <RenameDialog

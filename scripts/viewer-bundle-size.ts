@@ -9,7 +9,7 @@ import { gzipSync } from 'node:zlib'
 const BUDGET_KB = 160
 const dir = 'dist/client/assets'
 const files = readdirSync(dir)
-const kb = (bytes: number) => Math.round(bytes / 1000)
+const kb = (bytes: number) => Math.round(bytes / 100) / 10
 const measure = (name: string) => {
   const bytes = readFileSync(join(dir, name))
   return { raw: bytes.length, gzip: gzipSync(bytes, { level: 9 }).length }
@@ -17,7 +17,9 @@ const measure = (name: string) => {
 const pick = (pattern: RegExp) => files.filter((name) => pattern.test(name))
 
 const rows: Array<[string, string]> = [
-  ['viewer chunk (three.js, scene, UI)', '^Viewer\\.client-.*\\.js$'],
+  // three's core is its own chunk since the tools (a lazy chunk) import it too; the viewer loads it at once.
+  ['viewer chunk (three.js, scene, UI)', '^(Viewer\\.client|three\\.core)-.*\\.js$'],
+  ['studio tools (lazy: section, measure, screenshot)', '^tools-.*\\.js$'],
   ['GLB loader (main thread, lazy: only for a GLB derivative)', '^loadGlb-.*\\.js$'],
   ['parse Worker (three.js, readers, thumbnail, GLB writer)', '^parse\\.worker-.*\\.js$'],
   ['pipeline (main thread, also used by uploads)', '^pipeline-.*\\.js$'],

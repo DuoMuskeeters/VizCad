@@ -3,6 +3,7 @@ import { appEn, appTr } from './app'
 import { filesEn, filesTr } from './files'
 import { screensEn, screensTr } from './screens'
 import { studioEn, studioTr } from './studio'
+import { toolsEn, toolsTr } from './tools'
 import { viewerEn, viewerTr } from './viewer'
 
 export const en = {
@@ -117,6 +118,7 @@ export const en = {
   ...screensEn,
   ...viewerEn,
   ...studioEn,
+  ...toolsEn,
 } as const
 
 export type I18nKey = keyof typeof en
@@ -233,6 +235,7 @@ export const tr: Record<I18nKey, string> = {
   ...screensTr,
   ...viewerTr,
   ...studioTr,
+  ...toolsTr,
 }
 
 export const translations: Record<Locale, Record<I18nKey, string>> = {

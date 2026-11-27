@@ -52,9 +52,37 @@ export type SceneHandle = {
   /** The meshes of a node for an STL export (B7): the node's object, world transforms applied by the exporter. */
   readonly objectAt: (path: string) => Object3D | null
   readonly colorOf: (path: string) => string | null
+  /** What the lazily loaded tools (`tools/`, docs/11 §4.3) work with. */
+  readonly host: () => ToolHost
   /** Draw calls, geometries and textures still alive (dispose check, docs/11 §6). */
   readonly memory: () => { readonly geometries: number; readonly textures: number }
   readonly dispose: () => void
+}
+
+/**
+ * The scene as the tools see it (section, measure, pins, screenshot: `tools/tools.ts`, a lazy chunk). The scene keeps
+ * the loop; a tool asks for a frame (`redraw`), draws its overlay after each frame (`onFrame`, same task as the draw, so
+ * the WebGL canvas can still be read), and takes over a click (`setClick`) instead of part picking.
+ */
+export type ToolHost = {
+  readonly renderer: WebGLRenderer
+  readonly scene: Scene
+  readonly camera: PerspectiveCamera
+  readonly canvas: HTMLCanvasElement
+  readonly container: HTMLElement
+  readonly controls: OrbitControls
+  readonly model: () => Object3D | null
+  readonly studio: () => Studio | null
+  readonly redraw: () => void
+  /** Draws a frame now (screenshot); `gizmo` false leaves the axes out. */
+  readonly drawNow: (gizmo: boolean) => void
+  readonly setGrid: (visible: boolean) => void
+  readonly onFrame: (listener: () => void) => () => void
+  readonly onModel: (listener: () => void) => () => void
+  /** A click (not a drag) goes here instead of picking while set; the ray is already cast from the pointer. */
+  readonly setClick: (handler: ((raycaster: Raycaster, event: PointerEvent) => void) | null) => void
+  /** Sets `raycaster` from a pointer position; false when the canvas has no size. */
+  readonly aim: (raycaster: Raycaster, clientX: number, clientY: number) => boolean
 }
 
 export class WebGlUnavailable extends Error {
@@ -96,7 +124,8 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
   canvas.className = 'block size-full touch-none select-none cursor-grab active:cursor-grabbing'
   let renderer: WebGLRenderer
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+    // Stencil for the section cap, alpha for a transparent screenshot (docs/11 §4.3).
+    renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', stencil: true, alpha: true })
   } catch {
     throw new WebGlUnavailable()
   }
@@ -149,6 +178,17 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
 
   // Picking (docs/11 §4.2): a short press without movement selects; any drag stays an orbit. One pointer only.
   const raycaster = new Raycaster()
+  const aim = (ray: Raycaster, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return false
+    ray.setFromCamera(new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1), camera)
+    return true
+  }
+  let click: ((raycaster: Raycaster, event: PointerEvent) => void) | null = null
+  const frameListeners = new Set<() => void>()
+  const modelListeners = new Set<() => void>()
+  // A second tap within this time and distance fits the model (B5, phone).
+  let lastTap: { x: number; y: number; at: number } | null = null
   let press: { id: number; x: number; y: number; at: number } | null = null
   // Only the main button selects: a right or middle press pans or opens nothing, and never changes the selection.
   const onDown = (event: PointerEvent) => {
@@ -157,12 +197,20 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
   const onUp = (event: PointerEvent) => {
     const start = press
     press = null
-    if (start === null || event.button !== 0 || start.id !== event.pointerId || options.onPick === undefined || studio === null) return
-    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP || performance.now() - start.at > CLICK_MS) return
-    const rect = canvas.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return
-    raycaster.setFromCamera(new Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1), camera)
-    options.onPick(studio.pick(raycaster))
+    if (start === null || event.button !== 0 || start.id !== event.pointerId || studio === null) return
+    const now = performance.now()
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP || now - start.at > CLICK_MS) return
+    if (!aim(raycaster, event.clientX, event.clientY)) return
+    if (click !== null) return click(raycaster, event)
+    if (event.pointerType === 'touch') {
+      const tap = lastTap
+      lastTap = { x: event.clientX, y: event.clientY, at: now }
+      if (tap !== null && now - tap.at < 320 && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 30) {
+        lastTap = null
+        return handle.fit()
+      }
+    }
+    options.onPick?.(studio.pick(raycaster))
   }
   const onCancel = () => {
     press = null
@@ -175,7 +223,13 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     if (lost) return
     renderer.clear()
     renderer.render(scene, camera)
-    if (withGizmo && canvas.clientWidth >= GIZMO_MIN_WIDTH) gizmo.render(renderer)
+    if (withGizmo && canvas.clientWidth >= GIZMO_MIN_WIDTH) {
+      // Clipping planes are the renderer's, not the scene's: a section plane would cut the axes gizmo too.
+      const planes = renderer.clippingPlanes
+      renderer.clippingPlanes = []
+      gizmo.render(renderer)
+      renderer.clippingPlanes = planes
+    }
   }
 
   const loop = () => {
@@ -185,6 +239,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     if ((moved || dirty) && !lost) {
       dirty = false
       render()
+      frameListeners.forEach((listener) => listener())
     }
   }
   frame = requestAnimationFrame(loop)
@@ -225,7 +280,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     edges = []
   }
 
-  return {
+  const handle: SceneHandle = {
     setModel: (root, stats) => {
       studio?.dispose()
       if (model !== null) disposeObject(model)
@@ -249,6 +304,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
       grid.position.set(center.x, center.y, box.min.z)
       scene.add(grid)
       place(viewDirection('iso'))
+      modelListeners.forEach((listener) => listener())
     },
     fit: () => {
       const direction = camera.position.clone().sub(controls.target)
@@ -355,6 +411,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         const ratio = renderer.getPixelRatio()
         renderer.setPixelRatio(1)
         renderer.setSize(width, height, false)
+        // A section plane does not cut a thumbnail.
+        const planes = renderer.clippingPlanes
+        renderer.clippingPlanes = []
         camera.aspect = width / height
         camera.layers.set(1)
         fitCamera(camera, box, viewDirection('iso'), 1.04)
@@ -362,6 +421,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         renderer.render(scene, camera)
         // Read in the same task as the draw (no preserveDrawingBuffer).
         canvas.toBlob((blob) => resolve(blob), 'image/png')
+        renderer.clippingPlanes = planes
         camera.layers.set(0)
         lights.forEach((light) => light.layers.disable(1))
         for (const [object, visible] of shown) {
@@ -376,6 +436,30 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         renderer.setPixelRatio(ratio)
         resize()
       }),
+    host: () => ({
+      renderer, scene, camera, canvas, container, controls,
+      model: () => model,
+      studio: () => studio,
+      redraw: () => {
+        dirty = true
+      },
+      drawNow: (withGizmo) => render(withGizmo),
+      setGrid: (visible) => {
+        if (grid !== null) grid.visible = visible
+      },
+      onFrame: (listener) => {
+        frameListeners.add(listener)
+        return () => frameListeners.delete(listener)
+      },
+      onModel: (listener) => {
+        modelListeners.add(listener)
+        return () => modelListeners.delete(listener)
+      },
+      setClick: (next) => {
+        click = next
+      },
+      aim,
+    }),
     memory: () => ({ geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }),
     dispose: () => {
       if (disposed) return
@@ -398,6 +482,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
       renderer.dispose()
       renderer.forceContextLoss()
       canvas.remove()
+      frameListeners.clear()
+      modelListeners.clear()
     },
   }
+  return handle
 }
