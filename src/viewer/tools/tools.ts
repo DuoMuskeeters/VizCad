@@ -630,6 +630,8 @@ export const createTools = (host: ToolHost): ToolsApi => {
     }
     if (withPins)
       for (const pin of pins) {
+        // The pin of a comment not sent yet is on the screen only, never in an image.
+        if (!live && pin.id === '') continue
         const shown = pinAt(pin)
         const s = shown === null ? null : toScreen(pinWorld, width / scale, height / scale)
         if (shown === null || s === null) continue

@@ -559,6 +559,24 @@ describe('screenshot', () => {
     o.scene.dispose()
   })
 
+  it('pins go into the image when asked, the pin of a comment not sent yet never', async () => {
+    const o = setup()
+    const path = o.scene.outline()!.children[0]!.path
+    o.tools.pins.set([
+      { id: 'c1', label: '1', path, point: [0.2, 0.2, 0.2], active: false },
+      { id: '', label: '2', path, point: [0.1, 0.1, 0.5], active: true },
+    ])
+    const imageTexts = (log: Array<[string, unknown[]]>) => log.slice(0, log.findIndex(([key]) => key === 'restore') + 1).filter(([key]) => key === 'fillText').map(([, args]) => args[0])
+    const withPins = await shoot(o, { background: 'canvas', scale: 1, pins: true, measures: true })
+    expect(imageTexts(withPins.draw.log)).toEqual(['1'])
+    // The live overlay (drawn again after the shot) still shows the unsent pin.
+    expect(withPins.draw.calls('fillText').map((args) => args[0])).toContain('2')
+    vi.restoreAllMocks()
+    const without = await shoot(o, { background: 'canvas', scale: 1, pins: false, measures: true })
+    expect(imageTexts(without.draw.log)).toEqual([])
+    o.scene.dispose()
+  })
+
   it('a transparent image clears with alpha 0 and no grid; the screen gets both back', async () => {
     const o = setup()
     const grid = o.host.scene.children.find((child) => child.type === 'GridHelper')!

@@ -221,6 +221,34 @@ describe('screenshot (B8)', () => {
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: [expect.any(File)] }))
   })
 
+  it('phone: the image card offers the pins too', async () => {
+    const fake = fakeTools()
+    const Phone = () => {
+      const api = useRef<ViewerApi | null>({ tools: async () => fake.api } as unknown as ViewerApi)
+      const state = useTools(api, 'f1:1', false)
+      return (
+        <>
+          <StudioToolbar controls={controls} wide={false} tools={state} />
+          <ToolCard tools={state} wide={false} fileName="Pump.step" nameOf={() => ''} pins />
+        </>
+      )
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider initialLocale="en">
+        <UiProvider>
+          <Phone />
+        </UiProvider>
+      </I18nProvider>,
+    )
+    await user.click(within(toolbar()).getByRole('button', { name: 'Image' }))
+    const card = screen.getByRole('region', { name: 'Screenshot' })
+    await user.click(within(card).getByRole('switch', { name: 'Include comment pins' }))
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { share: vi.fn(async () => {}), canShare: () => true }))
+    await user.click(within(card).getByRole('button', { name: 'Share or save' }))
+    expect(fake.api.screenshot).toHaveBeenCalledWith(expect.objectContaining({ pins: false }))
+  })
+
   const shareFails = async (error: Error) => {
     const { user } = mount(false)
     vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { share: vi.fn(async () => Promise.reject(error)), canShare: () => true }))

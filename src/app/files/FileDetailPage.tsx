@@ -370,6 +370,8 @@ export const FileDetailPage = () => {
     return out
   }, [comments.items, pinNumbers, showPins, pendingPin, activeComment])
   const wantPins = pinsOpen && marks.length > 0
+  // Pins an image may show (B8): the sent ones; the one being written stays off it.
+  const sentPins = marks.some((mark) => mark.id !== '')
   const ensureTools = tools.ensure
   useEffect(() => {
     if (wantPins) ensureTools()
@@ -812,7 +814,7 @@ export const FileDetailPage = () => {
       ) : null}
       {isolated !== null && tools.tool !== 'measure' && tools.tool !== 'pin' ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
       {wide ? (
-        <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={marks.length > 0} onSaveView={viewReason === null ? () => saveView(t('views.default', { number: views.length + 1 })) : undefined} />
+        <ToolCard tools={tools} wide fileName={loaded.name} nameOf={endName} below={selectedNode !== null} pins={sentPins} onSaveView={viewReason === null ? () => saveView(t('views.default', { number: views.length + 1 })) : undefined} />
       ) : (
         <GestureHints />
       )}
@@ -1154,7 +1156,7 @@ export const FileDetailPage = () => {
         </section>
       ) : null}
 
-      {!wide && modelOpen && !showFolder ? <ToolCard tools={tools} wide={false} fileName={loaded.name} nameOf={endName} /> : null}
+      {!wide && modelOpen && !showFolder ? <ToolCard tools={tools} wide={false} fileName={loaded.name} nameOf={endName} pins={sentPins} /> : null}
 
       {renaming ? (
         <RenameDialog

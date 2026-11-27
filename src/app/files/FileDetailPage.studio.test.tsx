@@ -476,6 +476,30 @@ describe('comment pins on the file page', () => {
   })
 })
 
+describe('screenshot on a phone', () => {
+  it('offers the pins once a sent comment has one', async () => {
+    narrow()
+    seen.tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const pinned = { id: 'p1', parentId: null, author: { displayName: 'Ada' }, content: 'Here', deleted: false, createdAt: 1, versionNumber: 4, anchor: { path: '0.2.0', point: [1, 2, 3] }, mine: false, canDelete: false }
+    const { user } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) =>
+      op === 'getFile' ? answer(file) : op === 'listComments' ? answer({ items: [pinned], nextCursor: null }) : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await user.click(within(screen.getByRole('toolbar', { name: 'Studio tools' })).getByRole('button', { name: 'Image' }))
+    const card = screen.getByRole('region', { name: 'Screenshot' })
+    expect(await within(card).findByRole('switch', { name: 'Include comment pins' })).toBeInTheDocument()
+  })
+})
+
 describe('saved views (docs/11 §3.1)', () => {
   const camera = { position: [300, -300, 240] as const, target: [10, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 }
   const fakeTools = () => ({
