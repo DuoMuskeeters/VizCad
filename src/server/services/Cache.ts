@@ -31,17 +31,26 @@ export const CacheErrorReason = {
   rateLimited: 'rate-limited',
 } as const
 
-/** Validates purge targets against the site host. Shared by the live and the memory layer. */
+/** A purgeable URL: absolute, on the site's scheme and host, without query or fragment. */
+export const siteUrlOf = (siteUrl: URL, raw: string): URL | undefined => {
+  const url = URL.canParse(raw) ? new URL(raw) : undefined
+  return url !== undefined && url.origin === siteUrl.origin && url.search === '' && url.hash === '' ? url : undefined
+}
+
+export const isSiteHost = (siteUrl: URL, hostname: string): boolean => hostname === siteUrl.hostname
+
+/**
+ * Validates purge targets against the site host. Shared by the live and the memory layer. One foreign URL fails the
+ * whole call, so the drain drops such queue rows before batching (cachePurges.ts).
+ */
 export const checkUrls = (siteUrl: URL, urls: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<URL>, CacheError> =>
   Effect.forEach(urls, (raw) => {
-    const url = URL.canParse(raw) ? new URL(raw) : null
-    return url !== null && url.protocol === siteUrl.protocol && url.host === siteUrl.host && url.search === '' && url.hash === ''
-      ? Effect.succeed(url)
-      : Effect.fail(new CacheError({ reason: CacheErrorReason.foreignHost }))
+    const url = siteUrlOf(siteUrl, raw)
+    return url !== undefined ? Effect.succeed(url) : Effect.fail(new CacheError({ reason: CacheErrorReason.foreignHost }))
   })
 
 export const checkHost = (siteUrl: URL, hostname: string): Effect.Effect<void, CacheError> =>
-  hostname === siteUrl.hostname ? Effect.void : Effect.fail(new CacheError({ reason: CacheErrorReason.foreignHost }))
+  isSiteHost(siteUrl, hostname) ? Effect.void : Effect.fail(new CacheError({ reason: CacheErrorReason.foreignHost }))
 
 export type PurgeCall = { readonly kind: 'url'; readonly urls: ReadonlyArray<string> } | { readonly kind: 'host'; readonly hostname: string }
 

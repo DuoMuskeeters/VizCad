@@ -69,7 +69,7 @@ describe('drainCachePurges', () => {
     within({ configured: false })(Effect.gen(function* () {
       yield* enqueue({ urls: urls(3) })
       const summary = yield* drainCachePurges()
-      assert.deepStrictEqual(summary, { skipped: 'not-configured', done: 0, failed: 0, queued: 6, calls: 0 })
+      assert.deepStrictEqual(summary, { skipped: 'not-configured', done: 0, failed: 0, dropped: 0, queued: 6, calls: 0 })
       assert.deepStrictEqual(yield* calls, [])
       assert.isTrue((yield* rows('cachePurges')).every((r) => r.attempts === 0))
     })),
@@ -78,10 +78,10 @@ describe('drainCachePurges', () => {
   it.effect('purges due rows (100 URLs per call), deletes them, keeps the +60 s rows until they are due', () =>
     within()(Effect.gen(function* () {
       yield* enqueue({ urls: urls(12) })
-      assert.deepStrictEqual(yield* drainCachePurges({ maxCalls: PUBLISH_MAX_CALLS }), { done: 12, failed: 0, queued: 12, calls: 1 })
+      assert.deepStrictEqual(yield* drainCachePurges({ maxCalls: PUBLISH_MAX_CALLS }), { done: 12, failed: 0, dropped: 0, queued: 12, calls: 1 })
       assert.deepStrictEqual(urlCount(yield* calls), [12])
       yield* TestClock.adjust(`${LATE_PURGE_SECONDS} seconds`)
-      assert.deepStrictEqual(yield* drainCachePurges(), { done: 12, failed: 0, queued: 0, calls: 1 })
+      assert.deepStrictEqual(yield* drainCachePurges(), { done: 12, failed: 0, dropped: 0, queued: 0, calls: 1 })
       assert.deepStrictEqual(yield* rows('cachePurges'), [])
     })),
   )
@@ -103,7 +103,7 @@ describe('drainCachePurges', () => {
   it.effect('a target due twice (the cron ran late) is sent once and both rows go', () =>
     within()(Effect.gen(function* () {
       yield* enqueue({ urls: urls(2) }, T0 - 120)
-      assert.deepStrictEqual(yield* drainCachePurges(), { done: 4, failed: 0, queued: 0, calls: 1 })
+      assert.deepStrictEqual(yield* drainCachePurges(), { done: 4, failed: 0, dropped: 0, queued: 0, calls: 1 })
       assert.deepStrictEqual(yield* calls, [{ kind: 'url', urls: urls(2) }])
     })),
   )
@@ -112,7 +112,7 @@ describe('drainCachePurges', () => {
     within()(Effect.gen(function* () {
       yield* enqueue({ urls: urls(5) })
       yield* enqueue({ urls: [], host: true })
-      assert.deepStrictEqual(yield* drainCachePurges(), { done: 6, failed: 0, queued: 6, calls: 1 })
+      assert.deepStrictEqual(yield* drainCachePurges(), { done: 6, failed: 0, dropped: 0, queued: 6, calls: 1 })
       assert.deepStrictEqual(yield* calls, [{ kind: 'host', hostname: 'vizcad.test' }])
     })),
   )
@@ -185,12 +185,15 @@ describe('drainCachePurges', () => {
     })),
   )
 
-  it.effect('a URL on another host (queued under an old siteUrl) fails and backs off instead of being sent', () =>
+  it.effect('rows off the site host (queued under an old siteUrl) are dropped unsent; the site URLs of the batch still go out', () =>
     within()(Effect.gen(function* () {
-      yield* enqueue({ urls: ['https://viz-cad.com/blog'] })
+      yield* enqueue({ urls: ['https://viz-cad.com/blog', 'http://vizcad.test/blog', ...urls(2)] })
+      yield* runBatch((d) => enqueuePurges(d, { targets: { urls: [], host: true }, hostname: 'viz-cad.com', reason: 'test', now: T0 }))
       const summary = yield* drainCachePurges()
-      assert.strictEqual(summary.failed, 1)
-      assert.deepStrictEqual(yield* calls, [])
+      assert.deepStrictEqual(summary, { done: 2, failed: 0, dropped: 3, queued: 5, calls: 1 })
+      assert.deepStrictEqual(yield* calls, [{ kind: 'url', urls: urls(2) }])
+      const left = yield* rows('cachePurges')
+      assert.isTrue(left.every((r) => toUnixSeconds(r.notBefore) === T0 + LATE_PURGE_SECONDS && r.attempts === 0))
     })),
   )
 })

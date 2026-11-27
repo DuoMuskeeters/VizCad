@@ -4,7 +4,7 @@ import type { PurgeTargets } from '../cms/affectedUrls'
 import * as schema from '../db/schema'
 import type { CacheError } from '../errors'
 import { AppConfig } from '../services/AppConfig'
-import { Cache, CacheErrorReason, PURGE_BATCH } from '../services/Cache'
+import { Cache, CacheErrorReason, isSiteHost, PURGE_BATCH, siteUrlOf } from '../services/Cache'
 import { type Database, Db } from '../services/Db'
 import { fromUnixSeconds } from '../time'
 import { nowSeconds, runBatch } from './shared'
@@ -55,6 +55,8 @@ export interface DrainSummary {
   readonly done: number
   /** Rows whose purge failed in this run (retried after `RETRY_SECONDS`). */
   readonly failed: number
+  /** Rows deleted unsent because their target is not on the site host (queued under an older `siteUrl`). Logged. */
+  readonly dropped: number
   /** Rows still in the queue (later `notBefore`, failed, or over this run's budget). */
   readonly queued: number
   readonly calls: number
@@ -78,7 +80,7 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
   if (!cache.configured) {
     const waiting = yield* queued
     yield* Effect.logWarning('cache purge skipped').pipe(Effect.annotateLogs({ reason: CacheErrorReason.notConfigured, queued: waiting }))
-    return { skipped: 'not-configured', done: 0, failed: 0, queued: waiting, calls: 0 } satisfies DrainSummary
+    return { skipped: 'not-configured', done: 0, failed: 0, dropped: 0, queued: waiting, calls: 0 } satisfies DrainSummary
   }
 
   const maxCalls = Math.max(1, options.maxCalls ?? DRAIN_MAX_CALLS)
@@ -91,6 +93,13 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
     )
 
   const succeeded: Array<number> = []
+  /**
+   * A target off the site host can never be purged (the Cache host check refuses it, and one such URL would fail its
+   * whole 100-URL call), so its rows are deleted unsent and logged instead of retried.
+   */
+  const dropped: Array<Row> = []
+  const onSite = (groups: Map<string, Array<Row>>, valid: (target: string) => boolean) =>
+    [...groups].filter(([target, rows]) => valid(target) || void dropped.push(...rows))
   const failures: Array<{ readonly rows: ReadonlyArray<Row>; readonly reason: string }> = []
   let calls = 0
 
@@ -103,22 +112,21 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
       Effect.tap(() => Effect.sync(() => void calls++)),
     )
 
-  // Host rows name the site host (enqueuePurges); a different one fails the host check and backs off like any failure.
+  // Host rows name the site host (enqueuePurges); a different one is dropped.
   let hostPurged = false
-  for (const [target, rows] of groupBy(yield* due('host', 50))) {
+  for (const [target, rows] of onSite(groupBy(yield* due('host', 50)), (host) => isSiteHost(siteUrl, host))) {
     if (calls >= maxCalls) break
     const before = succeeded.length
     yield* attempt(rows, cache.purgeHost(target))
-    if (succeeded.length > before && target === siteUrl.hostname) hostPurged = true
+    if (succeeded.length > before) hostPurged = true
   }
 
   if (calls < maxCalls) {
-    const urlRows = yield* due('url', hostPurged ? 1000 : (maxCalls - calls) * PURGE_BATCH * 2)
+    const groups = onSite(groupBy(yield* due('url', hostPurged ? 1000 : (maxCalls - calls) * PURGE_BATCH * 2)), (url) => siteUrlOf(siteUrl, url) !== undefined)
     if (hostPurged) {
       // The hostname purge emptied every URL of the host: due URL rows are done without their own call.
-      succeeded.push(...urlRows.map((r) => r.id))
+      succeeded.push(...groups.flatMap(([, rows]) => rows.map((r) => r.id)))
     } else {
-      const groups = [...groupBy(urlRows)]
       for (const batch of chunk(groups, PURGE_BATCH)) {
         if (calls >= maxCalls) break
         yield* attempt(batch.flatMap(([, rows]) => rows), cache.purge(batch.map(([target]) => target)))
@@ -147,7 +155,7 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
     ),
   ).pipe(Effect.map((lists) => new Map(lists.flat().map((r) => [`${r.kind} ${r.target}`, r]))))
 
-  const deletes = [...succeeded]
+  const deletes = [...succeeded, ...dropped.map((r) => r.id)]
   /** `attempts|reason|moved` → ids: rows set to the same values share one statement (D1 counts statements). */
   const updates = new Map<string, { attempts: number; reason: string; move: boolean; ids: Array<number> }>()
   const update = (attempts: number, reason: string, move: boolean, id: number) => {
@@ -183,7 +191,15 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
   if (failed > 0) {
     yield* Effect.logWarning('cache purge failed').pipe(Effect.annotateLogs({ reasons: [...new Set(failures.map((f) => f.reason))].join(','), failed }))
   }
-  return { done: succeeded.length, failed, queued: yield* queued, calls } satisfies DrainSummary
+  if (dropped.length > 0) {
+    // Targets are site URLs or the site hostname, not user data; a few are enough to see where they came from.
+    yield* Effect.logWarning('cache purge dropped foreign targets').pipe(Effect.annotateLogs({
+      reason: CacheErrorReason.foreignHost,
+      dropped: dropped.length,
+      targets: [...new Set(dropped.map((r) => r.target))].slice(0, 5).join(','),
+    }))
+  }
+  return { done: succeeded.length, failed, dropped: dropped.length, queued: yield* queued, calls } satisfies DrainSummary
 })
 
 /** Groups rows by target, keeping first-seen order. */
