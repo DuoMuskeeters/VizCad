@@ -485,6 +485,21 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 6. **Ağaçta yerinde ad değiştirme yok:** ad, panelin Ad alanından değişir (tel kafesteki ağaç içi alan yerine; tek giriş yolu).
 7. **Kayıtlı görünümler arayüzü 5d'de:** şema ve sınır hazır; kaydetme/uygulama kesit aracıyla birlikte gelir (panelde not var).
 
+### 5c-2 · İnceleme düzeltmeleri (PR #28)
+
+- **Migration `0017_scenes`:** 6a `0016_cms`'i aldı; `rewrite`'ın günlüğü ve 0016 anlık görüntüsü korundu, `0017_scenes` yeniden üretildi (`prevId` CMS anlık görüntüsüne bağlı, SQL aynı). Test `migration0017.test.ts`.
+- **Ad yolu kökü içermez** (kök `''`): yeni sürüm başka adlı bir dosyadan yüklense de, STL/OBJ/PLY kökü dosya adını taşısa da eşleşir. Aynı adlı kardeşler grup boyutunu taşır (`Vida M3 [2/3]`): sayı değişirse eşleşmez. `/`, köşeli parantez ve ters bölü kaçışlı; eşleşmeyenler listesi `nameSteps` ile okunur adımlar gösterir.
+- **Alanlar:** odaklanıp değiştirmeden bırakılan Ad ya da renk kodu alanı kaydetmez (renk kodu dosyanın kendi rengiyle açılır; bulanıklaşma artık onu sahne rengine çevirmez).
+- **`useScene` model başına oturum:** revizyon, son gövde, kirli, yolda ve durdu bilgisi model başına bir nesnede. Geride kalan oturum (yeni sürüm, GLB saklandı, yeniden okuma) kendi kuyruğunu bitirir; sonuçları (geç çakışma ve sürüm cevabı dahil) sayfanın durumuna ulaşmaz. Hazırlanıyor'da okunmaz; `model.kind` ya da model boyutu değişince yeniden okunur.
+- **Ayrılırken:** bekleyen, yolda ya da hatalı değişiklikte `beforeunload` uyarısı; `pagehide`'da bekleyen değişiklik `fetch keepalive` ile gönderilir (toplam ≤ 64 KiB). Bitti'den sonra kaydedilemeyen değişiklik bir uyarı bandında kalır, "Yeniden dene" ile.
+- **Sınırlar istemcide:** 2000 girişi ya da 128 Ki karakteri aşan gövde gönderilmez, açık bir iletiyle reddedilir. Sunucunun istek sınırı UTF-8 bayt sayar (`SCENE_MAX_BODY × 3 + 1 KiB`); karakter sınırı programda.
+- **Önceki renkler teklifi** cevaplanmadan "Görünümü düzenle" kapalı (gerekçe metniyle).
+- **STL:** aynalı örnekte (negatif determinant) köşeler yer değiştirir, yüzler dışa bakar; dosya ~5 MB parçalarla `Blob` olarak yazılır, 1 GiB üstü reddedilir; yazma hatası düğmeyi dönerken bırakmaz. Eksen notu düzeltildi (Y-yukarı kaynak Z-yukarı çıkar).
+- **Sunucu:** misafir `updatedBy` görmez; yazma sırasında çöpe atma ya da rol kaybı kendi hatasını verir (çakışma değil); düzenlemeye hâlâ izin veren rol değişikliğinde yazma bir kez yinelenir. Etkinlikte `scene.updated` etiketleri (genel liste ve dosya sekmesi).
+- **Klasör küçük resimleri** renk/görünüş değişince yeniden çizilir. 5c-1'in durum indirgeyicisi sahne dönemi durumunu da tutar: benim gizle/göster'im, düzenleme, STL, teklif.
+- **Testler:** `SceneEdit.test.tsx` (odak + bulanıklık kaydetmez), `StlDialog.test.tsx`, `useScene.test.ts` (kayıt sırasında model değişimi, Hazırlanıyor, sınır, ayrılma uyarısı, keepalive), `scenes.test.ts` (misafir gizliliği, çöpteki dosyayı okuma/yazma, sürüm geri yükleme, okuma ile toplu yazma arasına düşen kayıt, rol kaybı, rol yükselmesi, çöpe atma), `files.test.ts` (UTF-8 istek sınırı), ad yolu ve eşleme testleri. Yarış yardımcısı `server/testing/races.ts`'e taşındı.
+- **Ölçüm:** görüntüleyici chunk'ı **158,6 KB** gzip; STL yazıcısı ayrı 0,8 KB.
+
 ### Açık kalanlar
 
 - **Staging kabulü** (455 parçalı montajda klasör gezinme + renk kaydı + yeni sürümde eşleme) yapılmadı: `0017` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-assembly.cjs` ile tekrar.
