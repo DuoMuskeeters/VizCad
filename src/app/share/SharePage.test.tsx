@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '../../components/ui/test-utils'
 import { I18nProvider } from '#/i18n'
@@ -69,10 +69,29 @@ describe('SharePage', () => {
     expect([...last()!.studio!.view.hidden]).toEqual(['0.2'])
     expect(vi.mocked(fetch).mock.calls.some(([url]) => url === `/s/${TOKEN}/scene`)).toBe(true)
     const camera = vi.fn()
-    last()!.studio!.api.current = { tools: async () => ({ camera: { set: camera }, section: { set: vi.fn(), range: () => null } }) } as never
+    const section = vi.fn()
+    const view = vi.fn()
+    last()!.studio!.api.current = { tools: async () => ({ camera: { set: camera }, section: { set: section, range: () => null } }), view } as never
+    // Before the model is open (a phone opens 3D on a tap) a view waits, and says why.
+    const apply = screen.getByRole('button', { name: 'Apply the view Pump side' })
+    expect(apply).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('Open the 3D model to apply a view.')).toBeInTheDocument()
+    fireEvent.click(apply)
+    await act(async () => {})
+    expect(camera).not.toHaveBeenCalled()
+    expect([...last()!.studio!.view.hidden]).toEqual(['0.2'])
+    act(() => last()!.studio!.onReady?.(true))
+    expect(screen.queryByText('Open the 3D model to apply a view.')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Apply the view Pump side' }))
     await waitFor(() => expect(camera).toHaveBeenCalledWith(body.views[0]!.camera))
     expect([...last()!.studio!.view.hidden]).toEqual(['0.1'])
+    expect(screen.getByText('View “Pump side” applied.')).toHaveAttribute('role', 'status')
+    // Back to the model as shared: the record's hidden parts, no cut, the whole model in view.
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the whole model' }))
+    expect([...last()!.studio!.view.hidden]).toEqual(['0.2'])
+    expect(view).toHaveBeenCalledWith('iso')
+    await waitFor(() => expect(section).toHaveBeenLastCalledWith(null))
+    expect(screen.queryByText('View “Pump side” applied.')).not.toBeInTheDocument()
     // A link never saves.
     expect(screen.queryByRole('button', { name: 'Save view' })).not.toBeInTheDocument()
   })

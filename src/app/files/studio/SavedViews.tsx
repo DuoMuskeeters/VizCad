@@ -18,7 +18,13 @@ export type ViewSaving = {
   readonly onDelete: (id: string) => void
 }
 
-export const SavedViews = ({ views, onApply, saving }: { views: readonly SceneView[]; onApply: (view: SceneView) => void; saving?: ViewSaving | undefined }) => {
+export const SavedViews = ({ views, onApply, saving, waiting }: {
+  views: readonly SceneView[]
+  onApply: (view: SceneView) => void
+  saving?: ViewSaving | undefined
+  /** Why a view cannot be applied yet (the model is not open): said once above the list, the buttons wait. */
+  waiting?: string | undefined
+}) => {
   const { t } = useI18n()
   const [name, setName] = useState('')
   const fallback = t('views.default', { number: views.length + 1 })
@@ -32,13 +38,17 @@ export const SavedViews = ({ views, onApply, saving }: { views: readonly SceneVi
         <p className="text-sm text-text-2">{saving ? t('views.emptySave') : t('views.empty')}</p>
       ) : (
         <ul className="grid gap-0.5">
+          {waiting ? <li className="px-2 text-sm text-text-2">{waiting}</li> : null}
           {views.map((view) => (
             <li key={view.id} className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => onApply(view)}
+                onClick={() => {
+                  if (!waiting) onApply(view)
+                }}
                 aria-label={t('views.applyNamed', { name: view.name })}
-                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-base hover:bg-hover app:min-h-9"
+                {...(waiting ? { 'aria-disabled': true } : {})}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-base hover:bg-hover aria-disabled:cursor-not-allowed aria-disabled:opacity-55 app:min-h-9"
               >
                 <Bookmark aria-hidden className="size-4 shrink-0 text-text-3" />
                 <span className="min-w-0 truncate">{view.name}</span>

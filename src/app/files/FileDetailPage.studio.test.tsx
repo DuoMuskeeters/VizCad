@@ -32,6 +32,7 @@ vi.mock('#/viewer/Viewer.client', () => ({
           return new Blob(['solid'])
         },
         tools: async () => seen.tools as never,
+        view: () => {},
       }
     }
     return (

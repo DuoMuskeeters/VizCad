@@ -214,15 +214,27 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
   const looks = useMemo(() => looksOf(scene), [scene])
   const recordHidden = useMemo(() => hiddenOf(scene), [scene])
   const view = useMemo<StudioView>(() => ({ selected: null, isolated: null, hidden: viewHidden ?? recordHidden, looks }), [viewHidden, recordHidden, looks])
-  const studio = useMemo(() => ({ view, api, onOutline: NO_PICK, onPick: NO_PICK }), [view])
+  // Views apply to an open model only: before it (a phone opens 3D on a tap) there is no camera to set.
+  const [modelReady, setModelReady] = useState(false)
+  const [applied, setApplied] = useState<string | null>(null)
+  const studio = useMemo(() => ({ view, api, onOutline: NO_PICK, onPick: NO_PICK, onReady: setModelReady }), [view])
   const applyView = (saved: SceneView) => {
+    if (!modelReady) return
     setViewHidden(new Set(saved.hidden ?? []))
+    setApplied(saved.name)
     void api.current?.tools().then((tools) => {
       if (tools === null) return
       tools.camera.set(saved.camera)
       const cut = saved.section === undefined ? null : sectionFromPlane(saved.section, tools.section.range)
       tools.section.set(cut === null ? null : { ...cut, hatch: true, handle: false })
-    })
+    }, () => undefined)
+  }
+  // Back to the model as shared: the record's hidden parts, no cut, the whole model in view.
+  const resetView = () => {
+    setViewHidden(null)
+    setApplied(null)
+    api.current?.view('iso')
+    void api.current?.tools().then((tools) => tools?.section.set(null), () => undefined)
   }
   // Same size rule as the file page: "over N MB" only while the source is over the limit; a GLB over the plan's cap (or
   // a too_large from a lower limit) reads as the 3D copy being too large, in a guest's words.
@@ -274,7 +286,13 @@ const FileCard = ({ token, file }: { token: string; file: LinkFileView }) => {
             </Suspense>
             {scene.views.length > 0 ? (
               <div className="pt-3">
-                <SavedViews views={scene.views} onApply={applyView} />
+                {applied !== null ? (
+                  <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <p role="status" className="min-w-0 flex-1 text-sm text-text-2">{t('views.applied', { name: applied })}</p>
+                    <Button onClick={resetView}>{t('views.reset')}</Button>
+                  </div>
+                ) : null}
+                <SavedViews views={scene.views} onApply={applyView} waiting={modelReady ? undefined : t('views.openFirst')} />
               </div>
             ) : null}
           </section>
