@@ -6,6 +6,7 @@ import type { MeshData, ParsedModel, Stats } from '../worker/protocol'
 import { buildModel } from './build'
 
 // jsdom has no WebGL: a stub renderer records what the scene asks of it (docs/11 §6 dispose check).
+const sizes = vi.hoisted(() => [] as Array<[number, number]>)
 const renderers = vi.hoisted(() => [] as Array<{ render: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; forceContextLoss: ReturnType<typeof vi.fn>; lists: ReturnType<typeof vi.fn> }>)
 vi.mock('three', async (importOriginal) => {
   const three = await importOriginal<typeof import('three')>()
@@ -21,7 +22,9 @@ vi.mock('three', async (importOriginal) => {
     }
     setPixelRatio() {}
     setClearColor() {}
-    setSize() {}
+    setSize(width: number, height: number) {
+      sizes.push([width, height])
+    }
     clear() {}
   }
   return { ...three, WebGLRenderer: StubRenderer }
@@ -69,6 +72,7 @@ const nextFrame = () => {
 
 beforeEach(() => {
   renderers.length = 0
+  sizes.length = 0
   frames = []
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
   vi.stubGlobal('cancelAnimationFrame', () => {
@@ -139,6 +143,25 @@ describe('createScene', () => {
     canvas.dispatchEvent(new Event('webglcontextrestored'))
     nextFrame()
     expect(renderer.render).not.toHaveBeenCalled()
+  })
+
+  it('focus measures a shown canvas, never a hidden one (0 × 0 would fit with a broken aspect)', () => {
+    const container = document.createElement('div')
+    const box = { width: 800, height: 400 }
+    Object.defineProperty(container, 'clientWidth', { get: () => box.width })
+    Object.defineProperty(container, 'clientHeight', { get: () => box.height })
+    const scene = createScene(container, 'label')
+    scene.setModel(buildModel(model()), stats)
+    sizes.length = 0
+    box.width = 0
+    box.height = 0
+    scene.focus('0')
+    expect(sizes).toEqual([])
+    box.width = 600
+    box.height = 300
+    scene.focus('0')
+    expect(sizes).toEqual([[600, 300]])
+    scene.dispose()
   })
 
   it('turns wireframe off on every material the studio swapped in, cached highlight clones too', () => {

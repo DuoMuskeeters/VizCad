@@ -310,8 +310,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
     focus: (path) => {
       focusPath = path
       // The canvas may have just been shown or resized (leaving the Parts view, the tree toggled) in the same commit;
-      // the ResizeObserver reports that only later, so measure now and fit with the new aspect.
-      resize()
+      // the ResizeObserver reports that only later, so measure now and fit with the new aspect. A hidden canvas (the
+      // Parts view) measures 0 × 0: it keeps its last aspect, and the observer resizes it once it shows.
+      if (container.clientWidth > 0 && container.clientHeight > 0) resize()
       const direction = camera.position.clone().sub(controls.target)
       place(direction.lengthSq() > 0 ? direction : viewDirection('iso'))
     },
