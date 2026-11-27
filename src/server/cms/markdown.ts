@@ -25,7 +25,7 @@ import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { toHast } from 'mdast-util-to-hast'
 import { gfm } from 'micromark-extension-gfm'
 import type { Locale } from '#/i18n/locales'
-import { slugify } from './slug'
+import { slugify } from './slug.ts'
 
 export interface TocEntry {
   readonly depth: number
@@ -105,10 +105,13 @@ export const classifyLink = (url: string): LinkKind => {
   return 'unsafe'
 }
 
+const BLOCK_PARENTS: ReadonlySet<string> = new Set(['root', 'blockquote', 'list', 'listItem', 'table', 'tableRow', 'footnoteDefinition'])
+
+/** Plain text of a node: inline children join directly, block children with a space (word count, heading text). */
 const textOf = (node: Nodes): string => {
   if ('value' in node && typeof node.value === 'string' && node.type !== 'html') return node.value
   if (node.type === 'image') return node.alt ?? ''
-  if ('children' in node) return (node.children as ReadonlyArray<Nodes>).map(textOf).join(node.type === 'paragraph' ? '' : ' ')
+  if ('children' in node) return (node.children as ReadonlyArray<Nodes>).map(textOf).join(BLOCK_PARENTS.has(node.type) ? ' ' : '')
   return ''
 }
 
