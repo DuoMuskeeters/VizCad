@@ -96,8 +96,9 @@ export const filesProgram = (request: Request) =>
       if (request.method === 'POST') {
         yield* checkMutationRequest(request, trustedOrigins)
         const { caller } = yield* readCaller(request)
-        // The body may be up to 128 KiB of JSON text plus the envelope.
-        const body = yield* decodeBody(SceneWrite, yield* readBody(request, SCENE_MAX_BODY + 1024))
+        // The stored limit counts characters (UTF-16 units); on the wire one unit is up to 3 UTF-8 bytes (an astral
+        // character: 2 units, 4 bytes). The program checks the characters; the envelope adds a little.
+        const body = yield* decodeBody(SceneWrite, yield* readBody(request, SCENE_MAX_BODY * 3 + 1024))
         return sealed(yield* putScene(caller, { fileId, ...body }))
       }
       if (request.method !== 'GET') return yield* new ResourceUnavailable()

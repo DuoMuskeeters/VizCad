@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { Effect, Schema } from 'effect'
 import { TestClock } from 'effect/testing'
 import * as schema from '../db/schema'
@@ -8,7 +8,9 @@ import { Db } from '../services/Db'
 import { defaultPlan, type WorkspaceLimits } from '../services/Entitlements'
 import { glb } from '../testing/glb'
 import { caller, programLayer, rows, seedDerivative, seedFileGrant, seedMember, seedStoredFile, seedUser, seedWorkspace, T0 } from '../testing/fixtures'
-import { purgeFile, trashFile } from './trash'
+import { beforeFirstBatch } from '../testing/races'
+import { purgeFile, restoreFile, trashFile } from './trash'
+import { restoreVersion } from './versions'
 import { getScene, putScene, SCENE_ACTIVITY_SECONDS } from './scenes'
 
 const run = <A, E, R>(body: Effect.Effect<A, E, R>, limits: WorkspaceLimits = defaultPlan) =>
@@ -137,6 +139,67 @@ describe('scenes', () => {
       const activity = (yield* rows('accessLog')).filter((r) => r.action === 'scene.updated')
       assert.deepStrictEqual(activity.map((r) => [r.actorUserId, r.targetId]), [['bob', 'f1'], ['ada', 'f1']])
     }), { ...defaultPlan, savedViewsPerScene: 2 }))
+})
+
+describe('scenes: privacy, trash, restore and races', () => {
+  it.effect('a guest reads the record without the name of who wrote it', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* seedFileGrant('f1', 'eve', 'acme', 'view')
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 0, body: red })
+      assert.isNull((yield* getScene(caller('eve'), { fileId: 'f1' })).scene?.updatedBy)
+      assert.strictEqual((yield* getScene(caller('cat'), { fileId: 'f1' })).scene?.updatedBy, 'BOB')
+    })))
+
+  it.effect('a trashed file has no scene to read or write; restored from the trash, its record is back', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 0, body: red })
+      yield* trashFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })
+      assert.strictEqual((yield* Effect.flip(getScene(caller('bob'), { fileId: 'f1' })))._tag, 'ResourceUnavailable')
+      assert.strictEqual((yield* Effect.flip(putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 1, body: body() })))._tag, 'ResourceUnavailable')
+      yield* restoreFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })
+      assert.deepStrictEqual((yield* getScene(caller('bob'), { fileId: 'f1' })).scene?.body, red)
+    })))
+
+  it.effect('restoring an earlier version brings its model and so its record back; it is written on the new version number', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 0, body: red })
+      yield* newVersion('w/acme/f/f1/glb-2.glb')
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 2, revision: 0, body: body({ '0': { color: '#ffffff' } }) })
+      yield* restoreVersion(caller('bob'), { workspaceId: 'acme', fileId: 'f1', versionId: 'v1' })
+      const read = yield* getScene(caller('ada'), { fileId: 'f1' })
+      assert.deepStrictEqual([read.scene?.revision, read.scene?.body], [1, red])
+      assert.strictEqual((yield* Effect.flip(putScene(caller('ada'), { fileId: 'f1', version: 2, revision: 1, body: body() })))._tag, 'VersionChanged')
+      assert.deepStrictEqual(yield* putScene(caller('ada'), { fileId: 'f1', version: 3, revision: 1, body: body() }), { revision: 2, updatedAt: T0 })
+    })))
+
+  it.effect('a change landing between the read and the batch: another save is a conflict, a trash or lost right is its own error', () =>
+    run(Effect.gen(function* () {
+      yield* world
+      yield* putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 0, body: red })
+      const write = putScene(caller('ada'), { fileId: 'f1', version: 1, revision: 1, body: body() })
+      // Bob saves first: Ada's revision is stale.
+      const saved = yield* Effect.flip(write.pipe(Effect.provideService(Db, yield* beforeFirstBatch(putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 1, body: red })))))
+      assert.strictEqual(saved._tag, 'SceneConflict')
+      // Ada loses her role (admin → commenter): not a conflict, she may not edit any more.
+      const demote = Db.use((db) => db.use((d) => d.update(schema.member).set({ role: 'commenter' }).where(and(eq(schema.member.organizationId, 'acme'), eq(schema.member.userId, 'ada')))))
+      const denied = yield* Effect.flip(putScene(caller('ada'), { fileId: 'f1', version: 1, revision: 2, body: body() }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(demote))))
+      assert.strictEqual(denied._tag, 'PermissionDenied')
+      // Max (a member with an edit grant) becomes an admin while writing: the role changed but still edits, so the
+      // write goes through.
+      yield* seedFileGrant('f1', 'max', 'acme', 'edit')
+      const promote = Db.use((db) => db.use((d) => d.update(schema.member).set({ role: 'admin' }).where(and(eq(schema.member.organizationId, 'acme'), eq(schema.member.userId, 'max')))))
+      assert.deepStrictEqual(
+        yield* putScene(caller('max'), { fileId: 'f1', version: 1, revision: 2, body: body() }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(promote))),
+        { revision: 3, updatedAt: T0 },
+      )
+      // The file is trashed meanwhile: gone, not a conflict.
+      const trashed = yield* Effect.flip(putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 3, body: red }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(trashFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })))))
+      assert.strictEqual(trashed._tag, 'ResourceUnavailable')
+      assert.strictEqual((yield* rows('fileScenes'))[0]?.revision, 3)
+    })))
 })
 
 describe('SceneBody schema', () => {

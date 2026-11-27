@@ -335,4 +335,16 @@ describe('/api/files/{id}/scene', () => {
       assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/scene`, { method: 'PUT', headers: { cookie: 'session=tok-bob' } }))).status, 404)
     })),
   )
+
+  it.effect('the request cap counts UTF-8 bytes: a body under the stored character limit in Turkish or CJK names is accepted', () =>
+    run(Effect.gen(function* () {
+      yield* seedDerivative('f1', 'acme', glb())
+      // About 121 000 characters, most of them three UTF-8 bytes each: ~340 KB on the wire, under 128 Ki characters stored.
+      const nodes = Object.fromEntries(Array.from({ length: 550 }, (_, i) => [`0.${i}`, { name: '部品'.repeat(100) }]))
+      const wide = yield* call(post({ version: 1, revision: 0, body: { v: 1, nodes, views: [] } }))
+      assert.strictEqual(wide.status, 200)
+      const over = Object.fromEntries(Array.from({ length: 700 }, (_, i) => [`0.${i}`, { name: '部品'.repeat(100) }]))
+      assert.strictEqual((yield* call(post({ version: 1, revision: 1, body: { v: 1, nodes: over, views: [] } }))).status, 413)
+    })),
+  )
 })

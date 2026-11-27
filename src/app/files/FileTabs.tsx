@@ -199,7 +199,7 @@ export const CommentsTab = ({ workspaceId, fileId, can }: { workspaceId: string;
 const ACTIONS = new Set([
   'file.uploaded', 'file.version_uploaded', 'file.version_restored', 'file.renamed', 'file.moved', 'file.trashed', 'file.restored', 'file.purged',
   'file.previewed', 'file.downloaded', 'file.access_granted', 'file.access_revoked', 'comment.created', 'comment.deleted', 'link.created',
-  'link.updated', 'link.revoked', 'link.copied', 'link.opened', 'link.password_failed',
+  'link.updated', 'link.revoked', 'link.copied', 'link.opened', 'link.password_failed', 'scene.updated',
 ])
 
 export const ActivityTab = ({ workspaceId, fileId, can }: { workspaceId: string; fileId: string; can: FileAbilities }) => {

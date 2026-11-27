@@ -49,7 +49,7 @@ const openForScene = Effect.fnUntraced(function* (caller: Caller, fileId: string
  * colours" banner (§3.3). Readers who may not write never see an earlier record.
  */
 export const getScene = Effect.fn('getScene')(function* (caller: Caller, input: { readonly fileId: string }) {
-  const { file, key, canEdit, workspaceId } = yield* openForScene(caller, input.fileId)
+  const { file, key, canEdit, workspaceId, role } = yield* openForScene(caller, input.fileId)
   const { savedViewsPerScene } = yield* (yield* Entitlements).limits(workspaceId)
   const answer = (rest: Pick<SceneAnswer, 'scene' | 'previous'>): SceneAnswer => ({ ...rest, canEdit: canEdit && key !== null, maxViews: savedViewsPerScene })
   if (key === null) return answer({ scene: null, previous: null })
@@ -61,7 +61,8 @@ export const getScene = Effect.fn('getScene')(function* (caller: Caller, input: 
       .where(and(eq(s.fileId, file.id), eq(s.modelR2Key, key))).limit(1),
   )
   const row = rows[0]
-  if (row !== undefined) return answer({ scene: { revision: row.revision, body: bodyOf(row.body), updatedAt: toSeconds(row.updatedAt), updatedBy: row.name }, previous: null })
+  // A guest sees the record, not who in the workspace wrote it.
+  if (row !== undefined) return answer({ scene: { revision: row.revision, body: bodyOf(row.body), updatedAt: toSeconds(row.updatedAt), updatedBy: role === 'guest' ? null : row.name }, previous: null })
   if (!canEdit) return answer({ scene: null, previous: null })
   const earlier = yield* db.use((d) =>
     d.select({ body: s.body, key: s.modelR2Key }).from(s)
@@ -99,10 +100,10 @@ const pruneStale = (d: Database, fileId: string, keep: string) =>
  * A stale revision is `SceneConflict`, nothing is written. Saved views at most `savedViewsPerScene`, the stored text at
  * most 128 KiB. Activity `scene.updated` at most once in ten minutes per file.
  */
-export const putScene = Effect.fn('putScene')(function* (
-  caller: Caller,
-  input: { readonly fileId: string; readonly version: number; readonly revision: number; readonly body: SceneBody },
-) {
+type SceneWrite = { readonly fileId: string; readonly version: number; readonly revision: number; readonly body: SceneBody }
+
+/** One write; `'retry'` when the caller's role changed meanwhile but still allows editing. */
+const writeSceneOnce = Effect.fnUntraced(function* (caller: Caller, input: SceneWrite) {
   const { file, key, role, still, workspaceId, base } = yield* openForScene(caller, input.fileId)
   yield* authorizeDelivery(base, { kind: 'edit' })
   if ((yield* currentVersionOf(file)) !== input.version) return yield* new VersionChanged()
@@ -120,7 +121,7 @@ export const putScene = Effect.fn('putScene')(function* (
     : sql`EXISTS (SELECT 1 FROM file_scenes WHERE fileId = ${file.id} AND modelR2Key = ${key} AND revision = ${input.revision})`
   const id = yield* newUlid
   const activityId = yield* newUlid
-  yield* runBatch((d) => [
+  const written = yield* runBatch((d) => [
     guard(d, sql.join([stillRole(workspaceId, caller.userId, [role]), still(false), onModel(file.id, file.r2Key, file.derivativeR2Key), recordCondition], sql` AND `)),
     input.revision === 0
       ? d.insert(s).values({ id, workspaceId, fileId: file.id, modelR2Key: key, revision: 1, body: text, updatedByUserId: caller.userId, updatedAt: toDate(now) })
@@ -133,13 +134,25 @@ export const putScene = Effect.fn('putScene')(function* (
         AND action = 'scene.updated' AND createdAt > ${now - SCENE_ACTIVITY_SECONDS})`),
   ], [['file_scenes_file_model_uq', () => new SceneConflict()]]).pipe(
     Effect.catchTag('WriteConflict', () =>
-      // The guard does not say which part failed: a new model (version, GLB) is VersionChanged, the rest a conflict.
+      // The guard does not say which part failed. Opened again: a trashed or moved file, a lost edit right and a new
+      // model (version, GLB) each answer with their own error; a role that changed but still edits writes once more;
+      // what is left is a stale revision.
       Effect.gen(function* () {
-        const db = yield* Db
-        const rows = yield* db.use((d) => d.select({ r2Key: schema.files.r2Key, derivativeR2Key: schema.files.derivativeR2Key }).from(schema.files).where(eq(schema.files.id, file.id)).limit(1))
-        const row = rows[0]
-        return yield* (row !== undefined && (row.r2Key !== file.r2Key || row.derivativeR2Key !== file.derivativeR2Key) ? Effect.fail(new VersionChanged()) : Effect.fail(new SceneConflict()))
+        const again = yield* openForScene(caller, input.fileId)
+        yield* authorizeDelivery(again.base, { kind: 'edit' })
+        if (again.file.r2Key !== file.r2Key || again.file.derivativeR2Key !== file.derivativeR2Key) return yield* new VersionChanged()
+        if (again.role !== role) return 'retry' as const
+        return yield* new SceneConflict()
       })),
   )
+  if (written === 'retry') return written
   return { revision: input.revision === 0 ? 1 : next, updatedAt: now }
+})
+
+export const putScene = Effect.fn('putScene')(function* (caller: Caller, input: SceneWrite) {
+  const first = yield* writeSceneOnce(caller, input)
+  if (first !== 'retry') return first
+  // Written once more under the new role; a second change of role in between is reported as a conflict.
+  const second = yield* writeSceneOnce(caller, input)
+  return second === 'retry' ? yield* new SceneConflict() : second
 })
