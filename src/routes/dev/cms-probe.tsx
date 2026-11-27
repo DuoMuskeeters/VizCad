@@ -1,16 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { requireDevEnvironment } from '#/components/dev/guard'
+import { devOnly, requireDevEnvironment } from '#/components/dev/guard'
 import { MarketingShell } from '#/components/marketing/MarketingShell'
 import { NO_STORE_HEADER } from '#/shared/marketingRoutes'
 
 // Temporary CPU-gate page (docs/12 §7.5): a marketing shell and 3 D1 queries in one batch, served through the edge
 // cache like a marketing page so the miss `cpuTime` can be measured on staging. 404 in production. Deleted in 6b.
-const loadProbe = createServerFn({ method: 'GET' }).handler(async () => {
-  // Server-only modules load here, so they never reach the client bundle.
-  const [{ env }, { loadCmsProbe }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
-  return loadCmsProbe(env, 'en')
-})
+// The handler checks the environment itself: its RPC endpoint is reachable without the route's beforeLoad.
+const loadProbe = createServerFn({ method: 'GET' }).handler(
+  devOnly(async () => {
+    // Server-only modules load here, so they never reach the client bundle.
+    const [{ env }, { loadCmsProbe }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
+    return loadCmsProbe(env, 'en')
+  }),
+)
 
 export const Route = createFileRoute('/dev/cms-probe')({
   // Server-rendered on purpose: the guard runs on the server, so production answers 404.

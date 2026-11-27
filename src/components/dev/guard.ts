@@ -23,3 +23,14 @@ export const requireDevEnvironment = (): void => {
     throw notFound()
   }
 }
+
+/**
+ * Wraps a dev-only server function handler. Its RPC endpoint can be called without loading the route, so the route's
+ * `beforeLoad` guard alone does not protect it: the handler runs the same check first.
+ */
+export const devOnly =
+  <Args extends ReadonlyArray<unknown>, A>(handler: (...args: Args) => Promise<A>) =>
+  async (...args: Args): Promise<A> => {
+    requireDevEnvironment()
+    return handler(...args)
+  }
