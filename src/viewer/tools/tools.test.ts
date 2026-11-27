@@ -295,6 +295,21 @@ describe('measure', () => {
     scene.dispose()
   })
 
+  it('a ray through an edge the cut-away triangles share is one crossing: the click still lands on the plane', () => {
+    const { tools, tap, at, measured, scene, host } = setup(box10())
+    // Straight down onto the top face's diagonal x = y (shared by its two triangles), then through the cut at z = 0.
+    host.camera.position.set(2, 2, 60)
+    host.camera.up.set(0, 1, 0)
+    host.camera.lookAt(2, 2, 0)
+    host.camera.updateMatrixWorld()
+    tools.section.set({ axis: 'z', position: 0.5, flipped: false, hatch: true, handle: false })
+    tools.measure.start('mouse', false)
+    tap(...at(2, 2, 5))
+    const point = measured().pending!.point
+    expect(point[2]).toBeCloseTo(0, 5)
+    scene.dispose()
+  })
+
   it('does not snap to a corner the plane cut away', () => {
     const { tools, tap, at, measured, scene } = setup(box10())
     tools.measure.start('mouse', false)
