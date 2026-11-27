@@ -31,8 +31,9 @@ export const cacheKeyUrl = (origin: string, pathname: string, buildId: string): 
 export const marketingCacheKey = (request: Request, siteUrl: URL, buildId: string): string | null => {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null
   const url = new URL(request.url)
-  // Another host (workers.dev, a preview URL) is rendered normally: its HTML may differ and must not share keys.
-  if (url.host !== siteUrl.host || !isMarketingPath(url.pathname)) return null
+  // Another origin (workers.dev, a preview URL, or plain http on the site host) is rendered normally: its HTML may
+  // differ (absolute URLs, canonical) and must not be stored under the https key.
+  if (url.origin !== siteUrl.origin || !isMarketingPath(url.pathname)) return null
   return cacheKeyUrl(siteUrl.origin, url.pathname, buildId)
 }
 

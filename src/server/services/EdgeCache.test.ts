@@ -83,6 +83,12 @@ describe('marketingCacheKey', () => {
     expect(marketingCacheKey(new Request('https://viz-cad.com/blog', { method: 'POST' }), site, BUILD)).toBeNull()
     expect(marketingCacheKey(new Request('https://vizcad-rewrite.example.workers.dev/blog'), site, BUILD)).toBeNull()
   })
+
+  it('is null for plain http on the site host and for another port: only the site origin shares the https key', () => {
+    expect(marketingCacheKey(new Request('http://viz-cad.com/blog'), site, BUILD)).toBeNull()
+    expect(marketingCacheKey(new Request('https://viz-cad.com:8443/blog'), site, BUILD)).toBeNull()
+    expect(marketingCacheKey(new Request('http://localhost/blog'), new URL('http://localhost'), BUILD)).toBe('http://localhost/blog?v=abc1234.mf2k')
+  })
 })
 
 describe('sanitizeForSsr', () => {
