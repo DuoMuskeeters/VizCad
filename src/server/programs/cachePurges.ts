@@ -19,8 +19,13 @@ export const MAX_ATTEMPTS = 10
 export const PUBLISH_MAX_CALLS = 2
 export const DRAIN_MAX_CALLS = 3
 
-/** D1 binds at most 100 parameters per statement; a queue row binds 5. */
-const INSERT_ROWS_PER_STATEMENT = 18
+/** D1 binds at most 100 parameters per statement. */
+export const D1_MAX_PARAMS = 100
+/**
+ * Drizzle binds 6 parameters per queue row: kind, target, reason, createdAt, notBefore and the `attempts` default
+ * (id and lastError go in as SQL `null`). 16 rows bind 96. A test checks the largest chunk against `D1_MAX_PARAMS`.
+ */
+export const INSERT_ROWS_PER_STATEMENT = 16
 const IDS_PER_STATEMENT = 90
 
 const chunk = <A>(items: ReadonlyArray<A>, size: number): Array<ReadonlyArray<A>> =>

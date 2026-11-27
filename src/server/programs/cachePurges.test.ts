@@ -5,10 +5,11 @@ import { affectedUrls } from '../cms/affectedUrls'
 import { CacheError } from '../errors'
 import * as AppConfig from '../services/AppConfig'
 import { CacheErrorReason, CachePurges, memoryWith, type MemoryOptions, type PurgeCall } from '../services/Cache'
+import { Db } from '../services/Db'
 import * as DbMemory from '../services/Db.memory'
 import { programLayer, rows, T0 } from '../testing/fixtures'
 import { toUnixSeconds } from '../time'
-import { DRAIN_MAX_CALLS, drainCachePurges, enqueuePurges, LATE_PURGE_SECONDS, MAX_ATTEMPTS, PUBLISH_MAX_CALLS, RETRY_SECONDS } from './cachePurges'
+import { D1_MAX_PARAMS, DRAIN_MAX_CALLS, drainCachePurges, enqueuePurges, INSERT_ROWS_PER_STATEMENT, LATE_PURGE_SECONDS, MAX_ATTEMPTS, PUBLISH_MAX_CALLS, RETRY_SECONDS } from './cachePurges'
 import { DAILY, HOURLY, PURGE, runCron } from './cron'
 import { runBatch } from './shared'
 
@@ -47,6 +48,18 @@ describe('enqueuePurges', () => {
       const queued = yield* rows('cachePurges')
       assert.deepStrictEqual(queued.filter((r) => r.kind === 'host').map((r) => r.target), ['vizcad.test', 'vizcad.test'])
       assert.strictEqual(queued.filter((r) => r.kind === 'url').length, 300)
+    })),
+  )
+
+  it.effect('every insert statement binds at most 100 parameters (D1 limit), the largest chunk included', () =>
+    within()(Effect.gen(function* () {
+      const db = yield* Db
+      const statements = yield* db.use(async (d) =>
+        enqueuePurges(d, { targets: { urls: urls(150), host: true }, hostname: site.hostname, reason: 'a'.repeat(50), now: T0 }),
+      )
+      const params = statements.map((s) => s.toSQL().params.length)
+      assert.strictEqual(Math.max(...params), INSERT_ROWS_PER_STATEMENT * 6)
+      assert.isTrue(params.every((n) => n <= D1_MAX_PARAMS))
     })),
   )
 })
