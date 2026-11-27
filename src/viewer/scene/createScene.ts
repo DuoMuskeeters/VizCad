@@ -323,6 +323,9 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         if (lost || model === null || studio === null || !target) return resolve(null)
         const box = studio.boundsOf(path)
         if (box === null) return resolve(null)
+        // No selection tint in a thumbnail.
+        const selected = view.selected !== null
+        if (selected) studio.apply({ ...view, selected: null })
         // Only the node: layer 1 for it, its ancestors (transforms) and the lights; forced visible while drawn.
         const shown: Array<[Object3D, boolean]> = []
         const mark = (object: Object3D) => {
@@ -355,6 +358,7 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
           object.visible = visible
           object.layers.disable(1)
         }
+        if (selected) studio.apply(view)
         camera.position.copy(saved.position)
         camera.quaternion.copy(saved.quaternion)
         camera.near = saved.near

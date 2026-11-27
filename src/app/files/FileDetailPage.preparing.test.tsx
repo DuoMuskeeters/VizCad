@@ -23,6 +23,7 @@ vi.mock('./UploadProvider', async () => {
   const { useState, useEffect } = await import('react')
   return {
     UploadProvider: ({ children }: { children: ReactNode }) => children,
+    UploadPill: () => null,
     useUploads: () => {
       const [, bump] = useState(0)
       useEffect(() => {

@@ -21,7 +21,8 @@ describe('file page', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Flanş_DN100_rev3.step' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).not.toHaveAttribute('aria-disabled')
     expect(screen.getByText('STEP · 12.4 MB')).toBeInTheDocument()
-    expect(screen.getByText('Pompa revizyonu')).toBeInTheDocument()
+    // B1: the studio's own bar leads back to the file's project.
+    expect(screen.getByRole('link', { name: 'Pompa revizyonu' })).toHaveAttribute('href', expect.stringMatching(/^\/app\/projects\//))
     // The viewer chunk loads lazily; jsdom has no WebGL, so it lands on that state with the download next to it.
     const viewer = await screen.findByRole('region', { name: '3D view' })
     expect(await within(viewer).findByText('Your browser does not support 3D viewing.', { selector: 'p:not([role=status])' })).toBeInTheDocument()

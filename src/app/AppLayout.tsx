@@ -165,6 +165,14 @@ const ReadyFrame = ({
       </SidebarSection>
     </>
   )
+  // B1 (docs/03 §4.2): the file studio opens full width, outside the app's menu, with its own top bar.
+  if (pathname.startsWith('/app/files/'))
+    return (
+      <UploadProvider>
+        <Outlet />
+        <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} onCreated={onCreated} />
+      </UploadProvider>
+    )
   return (
     <UploadProvider>
       <AppShell
