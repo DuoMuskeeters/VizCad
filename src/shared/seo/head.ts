@@ -43,8 +43,9 @@ export type Alternates = Readonly<Partial<Record<Locale, string>>> & { readonly 
 export interface HeadImage {
   /** Absolute URL (1200×630 preferred, docs/12 §6.8). */
   readonly url: string
-  readonly width: number
-  readonly height: number
+  /** Omitted when unknown (a legacy cover URL has no stored size). */
+  readonly width?: number
+  readonly height?: number
   readonly alt: string
 }
 
@@ -73,6 +74,8 @@ export interface HeadInput {
   readonly jsonLd?: ReadonlyArray<JsonLd>
   /** Preview, old legal versions: `noindex, nofollow` (the Worker adds the header for app routes). */
   readonly noindex?: boolean
+  /** Extra `<link>`s (RSS alternate, LCP image preload). */
+  readonly links?: ReadonlyArray<HeadLink>
 }
 
 /** `og:locale` values. */
@@ -108,8 +111,12 @@ export const buildHead = (input: HeadInput): Head => {
   const image: ReadonlyArray<HeadMeta> = input.image
     ? [
         { property: 'og:image', content: input.image.url },
-        { property: 'og:image:width', content: String(input.image.width) },
-        { property: 'og:image:height', content: String(input.image.height) },
+        ...(input.image.width !== undefined && input.image.height !== undefined
+          ? [
+              { property: 'og:image:width', content: String(input.image.width) },
+              { property: 'og:image:height', content: String(input.image.height) },
+            ]
+          : []),
         { property: 'og:image:alt', content: input.image.alt },
         { name: 'twitter:image', content: input.image.url },
         { name: 'twitter:image:alt', content: input.image.alt },
@@ -152,7 +159,7 @@ export const buildHead = (input: HeadInput): Head => {
 
   return {
     meta,
-    links: [{ rel: 'canonical', href: canonical }, ...hreflang],
+    links: [{ rel: 'canonical', href: canonical }, ...hreflang, ...(input.links ?? [])],
     scripts: (input.jsonLd ?? []).map((value) => ({ type: 'application/ld+json', children: serializeJsonLd(value) })),
   }
 }

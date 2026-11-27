@@ -207,13 +207,19 @@ const transform = (ctx: Context, node: RootContent): Array<RootContent> => {
       return [heading]
     }
     default:
-      if ('children' in node) return [{ ...node, children: transformChildren(ctx, (node as Parent).children as Array<RootContent>) } as RootContent]
+      if ('children' in node) return [{ ...node, children: transformChildren(ctx, (node as Parent).children as Array<RootContent>, BLOCK_CONTAINERS.has(node.type)) } as RootContent]
       return [node]
   }
 }
 
-const transformChildren = <T extends RootContent>(ctx: Context, children: ReadonlyArray<T>): Array<T> =>
-  children.flatMap((child) => transform(ctx, child)) as Array<T>
+/** Parents whose children are blocks: escaped raw HTML there becomes a paragraph, like any other block of text. */
+const BLOCK_CONTAINERS: ReadonlySet<string> = new Set(['root', 'blockquote', 'listItem', 'footnoteDefinition'])
+
+const transformChildren = <T extends RootContent>(ctx: Context, children: ReadonlyArray<T>, block = false): Array<T> =>
+  children.flatMap((child) => {
+    const out = transform(ctx, child)
+    return block && child.type === 'html' ? out.map((node): RootContent => (node.type === 'text' ? { type: 'paragraph', children: [node] } : node)) : out
+  }) as Array<T>
 
 const collectDefinitions = (node: Nodes, into: Map<string, Definition>) => {
   if (node.type === 'definition') {
@@ -242,7 +248,7 @@ export const renderMarkdown = (markdown: string, options: RenderOptions): Render
     droppedLinks: [],
     externalImages: [],
   }
-  const safe: Root = { type: 'root', children: transformChildren(ctx, tree.children) }
+  const safe: Root = { type: 'root', children: transformChildren(ctx, tree.children, true) }
   const hast = toHast(safe, { allowDangerousHtml: false, footnoteLabel: FOOTNOTE_LABEL[options.locale] }) as HastRoot | HastElement
   const html = toHtml(hast, { allowDangerousHtml: false })
   return {

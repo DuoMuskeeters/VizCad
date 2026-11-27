@@ -11,6 +11,9 @@ describe('renderMarkdown: raw HTML', () => {
     expect(out.html).not.toContain('<iframe')
     expect(out.html).toContain('&#x3C;script>alert(1)&#x3C;/script>')
     expect(out.warnings.rawHtmlTags).toEqual(['div', 'iframe', 'script'])
+    // Block HTML becomes its own paragraph of text; inline HTML stays inside its paragraph.
+    expect(out.html).toContain('<p>&#x3C;div onclick="x()">block&#x3C;/div></p>')
+    expect(out.html).toContain('<p>Hello &#x3C;script>')
   })
 })
 

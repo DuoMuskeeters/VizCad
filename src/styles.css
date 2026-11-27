@@ -201,3 +201,42 @@
   progress[data-ui='progress']::-webkit-progress-value { background: var(--color-brand); border-radius: 2px; }
   progress[data-ui='progress']::-moz-progress-bar { background: var(--color-brand); border-radius: 2px; }
 }
+
+/*
+ * Blog post body (stored HTML from server/cms/markdown.ts, docs/12 §4.3). 17 px text, ≤ 75 characters a line from
+ * the article width. Wide content (tables, code) scrolls inside itself, never the page (no horizontal scroll at 320 px).
+ */
+@layer components {
+  .blog-prose {
+    font-size: var(--text-lg);
+    line-height: var(--leading-lg);
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+  }
+  .blog-prose > * + * { margin-top: 1.25em; }
+  .blog-prose h2 { margin-top: 2em; font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); letter-spacing: var(--tracking-heading); scroll-margin-top: 1rem; }
+  .blog-prose h3 { margin-top: 1.75em; font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); scroll-margin-top: 1rem; }
+  .blog-prose h4, .blog-prose h5, .blog-prose h6 { margin-top: 1.5em; font-weight: var(--weight-semibold); }
+  .blog-prose a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .blog-prose a:hover { color: var(--color-accent-hover); }
+  .blog-prose strong { font-weight: var(--weight-semibold); }
+  .blog-prose ul { list-style: disc; padding-left: 1.5em; }
+  .blog-prose ol { list-style: decimal; padding-left: 1.5em; }
+  .blog-prose li + li { margin-top: 0.4em; }
+  .blog-prose li > ul, .blog-prose li > ol { margin-top: 0.4em; }
+  .blog-prose ul.contains-task-list { list-style: none; padding-left: 0; }
+  .blog-prose blockquote { border-left: 3px solid var(--color-line-strong); padding-left: 1em; color: var(--color-text-2); }
+  .blog-prose hr { border: 0; border-top: 1px solid var(--color-line); }
+  .blog-prose img { max-width: 100%; height: auto; border-radius: var(--radius-lg); }
+  .blog-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--color-surface); border-radius: var(--radius-sm); padding: 0.1em 0.35em; }
+  .blog-prose pre { overflow-x: auto; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-lg); padding: 1em; font-size: var(--text-base); line-height: var(--leading-base); }
+  .blog-prose pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+  .blog-prose table { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; font-size: var(--text-md); line-height: var(--leading-md); }
+  .blog-prose th, .blog-prose td { border: 1px solid var(--color-line); padding: 0.5em 0.75em; text-align: left; overflow-wrap: normal; }
+  .blog-prose th { background: var(--color-surface); font-weight: var(--weight-semibold); }
+  .blog-prose th[align='center'], .blog-prose td[align='center'] { text-align: center; }
+  .blog-prose th[align='right'], .blog-prose td[align='right'] { text-align: right; }
+  .blog-prose del { color: var(--color-text-2); }
+  .blog-prose section.footnotes { border-top: 1px solid var(--color-line); padding-top: 1em; font-size: var(--text-md); color: var(--color-text-2); }
+  .blog-prose .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

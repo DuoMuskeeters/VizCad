@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getPublicPost, listPublicPosts } from '../src/server/programs/cms/blog'
 import { Db, make } from '../src/server/services/Db'
 import { type MemoryD1, openMemoryD1 } from '../src/server/testing/memoryD1'
+import { fixtureStatements } from './fixtures/blogLegacySample'
 import { CHUNK_BYTES, chunks, EXPORT_QUERIES, type LegacyExport, planMaterialize, rowsOf, sqlString, VERIFY_QUERIES, WRITING } from './materializeLegacyTranslations'
 
 const T = 1_700_000_000
@@ -143,6 +144,21 @@ describe('materializeLegacyTranslations', () => {
     const plan = runPlan(d1.sqlite)
     expect(plan.report.rejected).toEqual([{ postId: 'p8', reason: 'title longer than 120' }])
     expect(count(d1.sqlite, VERIFY_QUERIES.publishedWithoutEn ?? '')).toBe(1)
+  })
+})
+
+describe('staging sample fixture (scripts/fixtures/blogLegacySample.ts)', () => {
+  it('loads on a migrated database, is idempotent, and gives the script every case', async () => {
+    for (let i = 0; i < 2; i++) d1.sqlite.exec(fixtureStatements().join('\n'))
+    expect(count(d1.sqlite, "SELECT count(*) AS n FROM posts WHERE id LIKE 'fixture-%'")).toBe(17)
+    expect(await tagOf(getPublicPost('en', 'step-vs-iges'))).toBe('PostUnavailable')
+    const plan = runPlan(d1.sqlite)
+    expect(plan.report.rawHtml.map((r) => r.slug)).toEqual(['legacy-raw-html'])
+    expect(plan.report.nonconformingSlugs.map((r) => r.slug)).toEqual(['Legacy_Odd_Slug'])
+    expect(plan.report.draftsInserted).toEqual(['fixture-draft'])
+    expect(plan.report.authorSlugs).toEqual([{ authorId: 'fixture-author-profile', slug: 'deniz-fixture' }])
+    expect((await program(listPublicPosts('en', 1))).pages).toBe(2)
+    expect(await tagOf(getPublicPost('en', 'fixture-archived'))).toBe('PostGone')
   })
 })
 
