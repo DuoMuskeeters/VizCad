@@ -147,6 +147,13 @@ describe('section', () => {
     expect(api.section.setCovered).toHaveBeenLastCalledWith(null)
   })
 
+  it('the desktop card never runs past a narrow canvas: its width is capped at the canvas less its margins', async () => {
+    const { user } = mount(true)
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    // jsdom has no layout: the cap is the class that sets it (w-72, at most the canvas width minus 12 px a side).
+    expect(screen.getByRole('region', { name: 'Section' })).toHaveClass('w-72', 'max-w-[calc(100%-24px)]')
+  })
+
   it('the range fits the isolated part', async () => {
     const { api, user, update } = mount(true, { scope: '0.1' })
     await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))

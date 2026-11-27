@@ -310,6 +310,24 @@ describe('measure', () => {
     scene.dispose()
   })
 
+  it('does not snap to an edge the plane cut away, though the face under the pointer is kept', () => {
+    const { tools, tap, at, measured, scene } = setup(box10())
+    tools.measure.start('mouse', false)
+    // On the front face, just left of its edge x = 5 (half way up, far from the corners).
+    const [x, y] = at(5, -5, 0)
+    tap(x - 3, y)
+    expect(measured().pending).toMatchObject({ snap: 'edge' })
+    expect(measured().pending!.point[0]).toBeCloseTo(5, 5)
+    tools.measure.clear()
+    // Cut just inside that edge (x = 4.97 kept below): the face under the pointer stays, its edge is gone.
+    tools.section.set({ axis: 'x', position: 0.997, flipped: false, hatch: true, handle: false })
+    tap(x - 3, y)
+    const point = measured().pending!
+    expect(point.snap).toBe('surface')
+    expect(point.point[0]).toBeLessThan(4.97)
+    scene.dispose()
+  })
+
   it('an edge snap is a point on the 3D edge; a face diagonal is not an edge', () => {
     const { tools, tap, at, measured, scene } = setup(square())
     tools.measure.start('mouse', false)
