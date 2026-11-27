@@ -325,7 +325,7 @@ describe('scene prep (5c-2)', () => {
     })
     const { user } = await open()
     const banner = await screen.findByText('Apply the colours and names of version 3?')
-    expect(banner.parentElement).toHaveTextContent('1 parts matched, 1 did not.')
+    expect(banner.parentElement).toHaveTextContent('1 part matched, 1 did not.')
     await user.click(screen.getByRole('button', { name: 'Unmatched' }))
     expect(screen.getByRole('region', { name: 'Parts that did not match' })).toHaveTextContent('Gone')
     await user.click(screen.getByRole('button', { name: 'Apply' }))

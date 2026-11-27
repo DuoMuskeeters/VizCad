@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SceneBody } from '#/shared/scene'
 import { SAVE_DELAY_MS, useScene } from './useScene'
@@ -20,7 +20,29 @@ const server = (status = 200) => {
   return { writes, fetcher, release: () => release?.() }
 }
 
-afterEach(() => vi.useRealTimers())
+/** Writes answer with `ok` (the next revision) or a server error, in order; reads find no record. */
+const scripted = (...answers: Array<'ok' | 'fail'>) => {
+  const writes: Array<Record<string, unknown>> = []
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method !== 'POST') return new Response(JSON.stringify({ ok: true, data: { scene: null, previous: null, canEdit: true, maxViews: 20 } }))
+    writes.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+    return answers[writes.length - 1] === 'ok'
+      ? new Response(JSON.stringify({ ok: true, data: { revision: writes.length, updatedAt: 1 } }))
+      : new Response(JSON.stringify({ ok: false, error: 'Internal' }), { status: 500 })
+  }) as unknown as typeof fetch
+  return { writes, fetcher }
+}
+
+const leavingIsBlocked = () => {
+  const event = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(event)
+  return event.defaultPrevented
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  cleanup()
+})
 
 describe('useScene', () => {
   it('saves after a pause, one request at a time; a change made meanwhile follows on the next revision', async () => {
@@ -136,5 +158,45 @@ describe('useScene', () => {
     const post = vi.mocked(api.fetcher).mock.calls.find(([, init]) => init?.method === 'POST')
     expect(post?.[1]?.keepalive).toBe(true)
     api.release()
+  })
+
+  it('a pagehide save updates the revision and status when it answers (back from the bfcache); a failure shows', async () => {
+    const api = scripted('ok', 'fail')
+    const { result } = renderHook(() => useScene('f1', 4, 'derivative:1', true, api.fetcher))
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#121212')))
+    act(() => void window.dispatchEvent(new Event('pagehide')))
+    await waitFor(() => expect(result.current.status).toBe('saved'))
+    act(() => result.current.change(body('#343434')))
+    act(() => void window.dispatchEvent(new Event('pagehide')))
+    await waitFor(() => expect(result.current.status).toBe('error'))
+    expect(api.writes.map((w) => w['revision'])).toEqual([0, 1])
+  })
+
+  it('a failed save of a model left behind is dropped and told once; leaving stops warning', async () => {
+    const api = scripted('fail')
+    const { result, rerender } = renderHook(({ version }) => useScene('f1', version, 'derivative:1', true, api.fetcher), { initialProps: { version: 4 } })
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#565656')))
+    rerender({ version: 5 })
+    await waitFor(() => expect(result.current.lost).toBe(1))
+    expect(api.writes).toEqual([{ version: 4, revision: 0, body: body('#565656') }])
+    expect(leavingIsBlocked()).toBe(false)
+    expect(result.current.status).toBe('idle')
+  })
+
+  it('a size refusal stays shown while an earlier save answers, until a change is accepted', async () => {
+    const api = server()
+    const { result } = renderHook(() => useScene('f1', 4, 'derivative:1', true, api.fetcher))
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#787878'), true))
+    await waitFor(() => expect(api.writes).toHaveLength(1))
+    const nodes = Object.fromEntries(Array.from({ length: 2001 }, (_, i) => [`0.${i}`, { color: '#111111' }]))
+    act(() => result.current.change({ v: 1, nodes, views: [] }, true))
+    await act(async () => api.release())
+    await waitFor(() => expect(result.current.answer?.scene?.revision).toBe(1))
+    expect(result.current.status).toBe('tooLarge')
+    act(() => result.current.change(body('#9a9a9a')))
+    expect(result.current.status).toBe('pending')
   })
 })

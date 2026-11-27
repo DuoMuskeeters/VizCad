@@ -323,6 +323,14 @@ export const FileDetailPage = () => {
     shownFile !== null && shownFile.model.kind !== 'none' && !preparingModel,
   )
   sceneReload.current = scene.reload
+  // A save of a model left behind failed: said once per lost change.
+  const sceneLost = scene.lost
+  const toldLost = useRef(0)
+  useEffect(() => {
+    if (sceneLost <= toldLost.current) return
+    toldLost.current = sceneLost
+    toast({ title: t('studio.save.lost'), tone: 'danger' })
+  }, [sceneLost, toast, t])
   const sceneHidden = useMemo(() => hiddenOf(scene.body), [scene.body])
   const looks = useMemo(() => looksOf(scene.body), [scene.body])
   const renamed = useMemo(() => namesOf(scene.body), [scene.body])

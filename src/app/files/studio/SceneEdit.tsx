@@ -108,7 +108,7 @@ export const MatchBar = ({ version, matched, unmatched, busy, onApply, onIgnore 
         tone="info"
         icon={<GitCompareArrows aria-hidden />}
         title={version === null ? t('studio.match.titleEarlier') : t('studio.match.title', { version })}
-        lead={t('studio.match.lead', { matched: number(matched), unmatched: number(unmatched.length) })}
+        lead={t('studio.match.lead', { matched: matched === 1 ? t('studio.match.matchedOne') : t('studio.match.matched', { count: number(matched) }), unmatched: number(unmatched.length) })}
       >
         {unmatched.length > 0 ? (
           <Button variant="ghost" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((v) => !v)}>
