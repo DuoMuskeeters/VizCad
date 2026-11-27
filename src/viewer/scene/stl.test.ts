@@ -32,11 +32,12 @@ describe('writeStl', () => {
     geometry.setAttribute('position', new BufferAttribute(new Float32Array(9), 3))
     const index = new BufferAttribute(new Uint32Array(3), 1)
     // Claims just over the cap without allocating it.
-    index.count = 3 * (Math.floor((STL_MAX_BYTES - 84) / 50) + 1)
+    const counted = index as { count: number }
+    counted.count = 3 * (Math.floor((STL_MAX_BYTES - 84) / 50) + 1)
     geometry.setIndex(index)
     const mesh = new Mesh(geometry, new MeshStandardMaterial())
     expect(writeStl(mesh, { centered: false, name: 'big' })).toBeNull()
-    index.count = 3
+    counted.count = 3
     expect(writeStl(mesh, { centered: false, name: 'small' })).not.toBeNull()
   })
 
