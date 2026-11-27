@@ -616,3 +616,16 @@ Branch `rewrite-faz5d`, 27 Kasım 2026. Görev iki parçaya bölündü (görevde
 - **Ölçüm:** görüntüleyici **158,2 KB** gzip (bütçe 160), araç chunk'ı 6,2 KB. `pnpm check` 122 dosya / 9329 test geçti, `pnpm build` geçti.
 - **Görsel kontrol** (geçici, depoya konmadı): paylaşılan sayfa 320 açık (bekleme notu), 320 ve 390 koyu ile 1280 açık (uygulandı + Tüm modele dön); dosya sayfası 1280 açık/koyu sınırda silme ve bildirim; telefon görüntü kartı 390 koyu / 320 açık pin anahtarı. Yatay kaydırma yok.
 - **Açık:** pin aracının chunk'ı yüklenemezse (pin modunun kartı yok) hata yalnız bir sonraki araç kartında görünür.
+
+### 5d-2 · Yeniden kontrol düzeltmeleri (PR #31)
+
+`rewrite` (PR #30 birleşmiş hali) bu dala birleştirildi.
+
+- **Yalıtım + kesitli görünüm, araçlar geç yüklenince:** `applyView` araçları bekledikten sonra aralığı okumadan önce `section.setScope(scope)` çağırıyor; kesit tüm modelin değil parçanın aralığına göre (parça x 80–100, kesit 90 → 0,5; eskiden 0,9, yani 98). Test: araçlar tıklamadan sonra geliyor.
+- **Paylaşılan sayfa `isolated`'ı yok sayıyordu:** yalıtım sayfa durumunda (`onOutline` ile gelen ağaçta olmayan parça tüm modele düşer); farklıysa kamera ve kesit `isolated` değiştikten sonraki etkide (görüntüleyicinin sığdırmasından sonra), kesit parçanın aralığında. **Tüm modele dön** yalıtımı ve kapsamı da temizliyor. Test: kamera kurulurken yalıtım açık, konum 0,5, dönüşte yalıtım ve kapsam yok.
+- **`VersionChanged` sonrası dosya yenilenmiyordu:** `CommentPins.onVersionChanged` → sayfanın `load()`'u; yeni sürümle `modelKey` değişiyor ve eski pin gidiyor, metin duruyor. İleti buna göre ("Metnin duruyor ve güncel sürüm açıldı: pini yeniden koy."). Test: ikinci `getFile`, pin yok, metin aynı.
+- **Yorumlar:** ilk sayfa hemen görünüyor, sonrakiler geldikçe ekleniyor; "Daha fazla" yalnız tur bitince (aynı sayfa iki kez okunmasın). Eski tur koruması duruyor; `useComments.test.tsx` koruma kaldırılırsa düşüyor (dosya değişince eski dosyanın geç sayfası eklenmiyor). Yanıtlar `useMemo` ile bir kez gruplanıyor.
+- **PR #30 testleri:** kesilen kenara yapışma yok (`tools.test.ts`, `kept(onEdge)` kaldırılırsa düşüyor); masaüstü kartının genişlik sınırı (`Tools.test.tsx`, sınıf kontrolü: jsdom'da yerleşim yok).
+- **`surfaceAt`:** kesilen tarafta vuruşlar mesh başına sayılıyor, aynı mesh'te aynı uzaklıktaki vuruşlar (paylaşılan kenar/köşe) tek geçiş. Test: köşegenden dik inen ışın kesit düzlemine düşüyor (birleştirme kaldırılırsa −5).
+- **Yapılmadı:** `isEdge` için geometri başına komşuluk tablosu. Büyük bir parçada her kenar için bir Map girdisi yüzlerce MB'a çıkabilir; şimdiki tarama yalnız önbellekte olmayan kenarda ve imlecin altındaki üçgen için çalışıyor. Gerekirse ayrı ölçümle.
+- **Ölçüm:** görüntüleyici **158,2 KB** gzip (bütçe 160), araç chunk'ı 6,3 KB. `pnpm check` 123 dosya / 9337 test geçti, `pnpm build` geçti.
