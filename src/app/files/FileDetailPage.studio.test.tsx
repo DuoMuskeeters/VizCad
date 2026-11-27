@@ -506,6 +506,59 @@ describe('saved views (docs/11 §3.1)', () => {
     expect(body.views[1]).toMatchObject({ camera, hidden: ['0.1'], section: { normal: [-1, 0, 0], constant: 25 } })
   })
 
+  it('at the limit a view can still be deleted, though no new one can be saved', async () => {
+    seen.tools = fakeTools()
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 1 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    expect(within(views).getByRole('button', { name: 'Save view' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(within(views).getByRole('button', { name: 'Delete the view Pump side' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    expect((server.writes[0] as { body: { views: unknown[] } }).body.views).toEqual([])
+  })
+
+  it('applied while a part is open alone: the isolation goes first, the view’s camera after its fit; the view says so', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    router.search = { node: '0.2' }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [saved] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Pump side' }))
+    expect(await screen.findByText('View “Pump side” applied.')).toBeInTheDocument()
+    expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: {} })
+    // Not yet: the viewer would fit the camera to the whole model right after, undoing it.
+    expect(tools.camera.set).not.toHaveBeenCalled()
+    let isolatedAtSet: string | null | undefined
+    tools.camera.set.mockImplementation(() => {
+      isolatedAtSet = last().studio!.view.isolated
+    })
+    // The router moved: a render (here, a pick) reads the new search.
+    router.search = {}
+    act(() => last().studio!.onPick('0.0'))
+    await waitFor(() => expect(tools.camera.set).toHaveBeenCalledWith(saved.camera))
+    expect(isolatedAtSet).toBeNull()
+  })
+
+  it('a view saved with a part open alone keeps it, and brings it back when applied', async () => {
+    const tools = fakeTools()
+    seen.tools = tools
+    router.search = { node: '0.1' }
+    stubScene({ scene: { revision: 3, body: { v: 1, nodes: {}, views: [] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 })
+    const { user } = await open()
+    const views = await screen.findByRole('region', { name: 'Saved views' })
+    await user.type(within(views).getByRole('textbox', { name: 'View name' }), 'Motor alone')
+    await user.click(within(views).getByRole('button', { name: 'Save view' }))
+    await waitFor(() => expect(server.writes).toHaveLength(1))
+    expect((server.writes[0] as { body: { views: Array<{ isolated?: string }> } }).body.views[0]!.isolated).toBe('0.1')
+    // Applied from the whole model: the part opens alone again, then the camera.
+    router.search = {}
+    act(() => last().studio!.onPick('0.0'))
+    await waitFor(() => expect(last().studio!.view.isolated).toBeNull())
+    await user.click(within(views).getByRole('button', { name: 'Apply the view Motor alone' }))
+    expect(router.navigate).toHaveBeenLastCalledWith({ to: '/app/files/$id', params: { id: 'f1' }, search: { node: '0.1' } })
+  })
+
   it('on a phone: apply only (no save form), also from the More menu', async () => {
     narrow()
     const tools = fakeTools()

@@ -336,6 +336,18 @@ export const FileDetailPage = () => {
     setTab('comments')
     setPanelOpen(true)
   })
+  // A saved view applied with another isolation (docs/11 §3.1): the viewer fits the camera to the new isolation in its own
+  // effect, which runs before this one (a child's effects run first); the view's camera is set after it, not undone by it.
+  // Only a change of the isolation sets it off (any other render in between leaves it waiting).
+  const viewAfterIsolation = useRef<SceneView | null>(null)
+  const applyToolsView = useRef(tools.applyView)
+  applyToolsView.current = tools.applyView
+  useEffect(() => {
+    const view = viewAfterIsolation.current
+    if (view === null) return
+    viewAfterIsolation.current = null
+    void applyToolsView.current(view)
+  }, [isolated])
   const shownVersion = shownFile?.currentVersion.number ?? 0
   const pinsOpen = modelReady && outline !== null
   // Pins of this version on parts this model has, numbered in comment order; the one being written comes last.
@@ -710,13 +722,13 @@ export const FileDetailPage = () => {
   // Saved views (docs/11 §3.1): applied by everyone who sees the model, saved on a desktop by an editor.
   const views = scene.body.views
   const maxViews = scene.answer?.maxViews ?? 20
-  const viewReason = !wide ? t('views.saveDesktop')
+  const viewWriteReason = !wide ? t('views.saveDesktop')
     : !can.edit ? t('views.noPermission')
     : !scene.answer?.canEdit ? t('studio.edit.notReady')
     : blocked ? t('studio.conflict.title')
     : offering ? t('studio.edit.answerMatch')
-    : views.length >= maxViews ? t('views.limit', { count: maxViews })
     : null
+  const viewReason = viewWriteReason ?? (views.length >= maxViews ? t('views.limit', { count: maxViews }) : null)
   const saveView = (name: string) => {
     void tools.snapshot().then((shot) => {
       if (shot === null) return
@@ -726,21 +738,30 @@ export const FileDetailPage = () => {
         camera: shot.camera,
         ...(hidden.size > 0 ? { hidden: [...hidden] } : {}),
         ...(shot.section === undefined ? {} : { section: shot.section }),
+        ...(isolated === null ? {} : { isolated }),
       }
       scene.change({ ...scene.body, views: [...scene.body.views, view] }, true)
     })
   }
   const applyView = (view: SceneView) => {
-    void tools.applyView(view)
     dispatch({ type: 'viewHidden', hidden: new Set(view.hidden ?? []), sceneHidden })
-    // A view hides what it hid: an isolation that would hide the rest is left.
-    if (isolated !== null) go({ node: null })
+    // The view's own isolation (none for an older view, or a part not in this version: the whole model).
+    const target = view.isolated !== undefined && outline !== null && findNode(outline, view.isolated) !== null && view.isolated !== '0' ? view.isolated : null
+    toast({ title: t('views.applied', { name: view.name }) })
+    if (target === isolated) return void tools.applyView(view)
+    // Changing the isolation fits the camera to it once it applies: the view's camera goes on after that fit.
+    viewAfterIsolation.current = view
+    go({ node: target })
   }
   const savedViews = modelOpen && !showFolder ? (
     <SavedViews
       views={views}
       onApply={applyView}
-      saving={wide && can.edit ? { reason: viewReason, onSave: saveView, onDelete: (viewId) => scene.change({ ...scene.body, views: views.filter((v) => v.id !== viewId) }, true) } : undefined}
+      saving={
+        wide && can.edit
+          ? { reason: viewReason, canDelete: viewWriteReason === null, onSave: saveView, onDelete: (viewId) => scene.change({ ...scene.body, views: views.filter((v) => v.id !== viewId) }, true) }
+          : undefined
+      }
     />
   ) : null
   const pinHidden = (path: string) => chainOf(path).some((step) => hidden.has(step)) || (isolated !== null && !isUnder(path, isolated))

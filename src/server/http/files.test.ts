@@ -332,6 +332,10 @@ describe('/api/files/{id}/scene', () => {
         assert.strictEqual((yield* call(post(bad))).status, 400, JSON.stringify(bad))
       }
       assert.strictEqual((yield* call(post({ version: 2, revision: 1, body: scene }))).status, 409, 'VersionChanged')
+      // A saved view may keep the part opened alone: a node path, nothing else.
+      const view = { id: 'v1', name: 'Motor', camera: { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1], fov: 35 } }
+      assert.strictEqual((yield* call(post({ version: 1, revision: 1, body: { ...scene, views: [{ ...view, isolated: '0.1' }] } }))).status, 200)
+      assert.strictEqual((yield* call(post({ version: 1, revision: 2, body: { ...scene, views: [{ ...view, isolated: 'motor' }] } }))).status, 400)
       assert.strictEqual((yield* call(new Request(`${ORIGIN}/api/files/f1/scene`, { method: 'PUT', headers: { cookie: 'session=tok-bob' } }))).status, 404)
     })),
   )

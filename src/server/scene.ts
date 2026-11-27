@@ -35,6 +35,7 @@ export const SceneView = Schema.Struct({
   camera: Schema.Struct({ position: Vec3, target: Vec3, up: Vec3, fov: Schema.Finite.check(Schema.isBetween({ minimum: 1, maximum: 179 })) }),
   hidden: Schema.optionalKey(Schema.Array(NodePath).check(Schema.isMaxLength(SCENE_MAX_NODES))),
   section: Schema.optionalKey(Schema.Struct({ normal: Vec3, constant: Coordinate })),
+  isolated: Schema.optionalKey(NodePath),
 })
 
 export const SceneBody = Schema.Struct({

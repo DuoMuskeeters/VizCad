@@ -33,6 +33,8 @@ export type SceneView = {
   readonly camera: { readonly position: Vec3; readonly target: Vec3; readonly up: Vec3; readonly fov: number }
   readonly hidden?: readonly string[]
   readonly section?: { readonly normal: Vec3; readonly constant: number }
+  /** The part opened alone ("Open only this") when the view was saved. */
+  readonly isolated?: string
 }
 
 export type SceneBody = {

@@ -12,6 +12,8 @@ import { SCENE_VIEW_NAME_MAX, type SceneView } from '#/shared/scene'
 export type ViewSaving = {
   /** Why saving is not possible (no permission, at the limit, phone…); null when it is. */
   readonly reason: string | null
+  /** Deleting needs the same as saving except room for one more: at the limit a view can still be deleted. */
+  readonly canDelete: boolean
   readonly onSave: (name: string) => void
   readonly onDelete: (id: string) => void
 }
@@ -41,7 +43,7 @@ export const SavedViews = ({ views, onApply, saving }: { views: readonly SceneVi
                 <Bookmark aria-hidden className="size-4 shrink-0 text-text-3" />
                 <span className="min-w-0 truncate">{view.name}</span>
               </button>
-              {saving && saving.reason === null ? (
+              {saving?.canDelete ? (
                 <IconButton label={t('views.delete', { name: view.name })} size="sm" onClick={() => saving.onDelete(view.id)}>
                   <Trash2 aria-hidden className="size-4" />
                 </IconButton>
