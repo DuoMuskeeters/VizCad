@@ -58,6 +58,9 @@ const TabError = ({ onRetry }: { onRetry: () => void }) => {
 
 /** ---- Comments ---------------------------------------------------------------------------------------------- */
 
+const COMMENT_PAGE = 100
+const COMMENT_PAGES = 20
+
 /** The file's comments, held by the page: the Comments tab lists them and the canvas draws their pins (docs/11 §4.3). */
 export const useComments = (workspaceId: string, fileId: string) => {
   const { call } = useSession()
@@ -67,13 +70,29 @@ export const useComments = (workspaceId: string, fileId: string) => {
   const [cursor, setCursor] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
+  // From the start: every page (up to COMMENT_PAGES of them), so the canvas draws every pin and numbers them in comment
+  // order; past that, "Load more" goes on from where it stopped. A page that fails later keeps what came.
+  const live = useRef(0)
   const load = useCallback(
     async (after: string | null) => {
-      const result = await call<CommentPage>('listComments', { workspaceId, fileId, ...(after === null ? {} : { cursor: after }) })
-      if (!result.ok) return after === null ? setFailed(true) : undefined
+      const run = after === null ? ++live.current : live.current
+      let next = after
+      const got: CommentView[] = []
+      for (let page = 0; page < (after === null ? COMMENT_PAGES : 1); page++) {
+        const result = await call<CommentPage>('listComments', { workspaceId, fileId, limit: COMMENT_PAGE, ...(next === null ? {} : { cursor: next }) })
+        // Another file (or a fresh start) meanwhile: this run's pages are not this list's.
+        if (run !== live.current) return
+        if (!result.ok) {
+          if (page > 0) break
+          return after === null ? setFailed(true) : undefined
+        }
+        got.push(...result.data.items)
+        next = result.data.nextCursor
+        if (next === null) break
+      }
       setFailed(false)
-      setItems((current) => (after === null || current === null ? result.data.items : [...current, ...result.data.items]))
-      setCursor(result.data.nextCursor)
+      setItems((current) => (after === null || current === null ? got : [...current, ...got]))
+      setCursor(next)
     },
     [call, workspaceId, fileId],
   )

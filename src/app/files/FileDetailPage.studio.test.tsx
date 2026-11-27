@@ -500,6 +500,32 @@ describe('screenshot on a phone', () => {
   })
 })
 
+describe('pins past the first page of comments', () => {
+  it('are drawn too: every page is read from the start', async () => {
+    const tools = {
+      section: { set: vi.fn(), range: vi.fn(() => ({ min: 0, max: 100 })), onDrag: vi.fn(() => () => {}), setScope: vi.fn(), setCovered: vi.fn() },
+      measure: { start: vi.fn(), stop: vi.fn(), remove: vi.fn(), clear: vi.fn(), subscribe: vi.fn(() => () => {}) },
+      pins: { set: vi.fn(), start: vi.fn(), stop: vi.fn(), onSelect: vi.fn(() => () => {}) },
+      camera: { get: vi.fn(), set: vi.fn() }, setLabels: vi.fn(), screenshot: vi.fn(), dispose: vi.fn(),
+    }
+    seen.tools = tools
+    stubScene({ scene: null, previous: null, canEdit: true, maxViews: 20 })
+    const comment = (id: string, anchor: unknown) => ({ id, parentId: null, author: { displayName: 'Ada' }, content: id, deleted: false, createdAt: 1, versionNumber: 4, anchor, mine: false, canDelete: false })
+    const first = Array.from({ length: 100 }, (_, i) => comment(`a${i}`, null))
+    const { calls } = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op, body) =>
+      op === 'getFile' ? answer(file)
+      : op === 'listComments' ? answer(body['cursor'] === 'page2' ? { items: [comment('late', { path: '0.2.0', point: [1, 2, 3] })], nextCursor: null } : { items: first, nextCursor: 'page2' })
+      : undefined)
+    await screen.findByRole('region', { name: '3D view', hidden: true })
+    act(() => {
+      last().studio!.onReady?.(true)
+      last().studio!.onOutline(outline)
+    })
+    await waitFor(() => expect(tools.pins.set).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'late', label: '1', path: '0.2.0' })]))
+    expect(calls.filter((c) => c.operation === 'listComments').map((c) => c.body['cursor'] ?? null)).toEqual([null, 'page2'])
+  })
+})
+
 describe('saved views (docs/11 §3.1)', () => {
   const camera = { position: [300, -300, 240] as const, target: [10, 0, 0] as const, up: [0, 0, 1] as const, fov: 35 }
   const fakeTools = () => ({
