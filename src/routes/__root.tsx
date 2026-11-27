@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
-import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Outlet, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
 import { FileQuestion } from 'lucide-react'
 import appCss from '../styles.css?url'
 import { UiProvider } from '#/components/ui/UiProvider'
 import { I18nProvider } from '#/i18n'
 import { Button } from '#/components/ui/Button'
+import type { Locale } from '#/i18n/locales'
+import { isMarketingPath, localeOfPath } from '#/shared/marketingRoutes'
 import { EmptyState } from '#/components/ui/EmptyState'
 
 export const Route = createRootRoute({
@@ -31,9 +33,19 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+/**
+ * The locale a marketing URL names (`/tr/...`), or undefined elsewhere. On marketing pages the URL decides the language
+ * (K2): the app's stored preference must not switch the page or `<html lang>` after hydration.
+ */
+const useUrlLocale = (): Locale | undefined => {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  return isMarketingPath(pathname) ? localeOfPath(pathname) : undefined
+}
+
 function RootComponent() {
+  const urlLocale = useUrlLocale()
   return (
-    <I18nProvider>
+    <I18nProvider {...(urlLocale === undefined ? {} : { initialLocale: urlLocale })}>
       <UiProvider>
         <Outlet />
       </UiProvider>
@@ -61,9 +73,10 @@ function RootNotFound() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  // Server-rendered with the URL's locale on marketing pages (docs/12 §6.1); the app sets it from its preference.
+  const lang = useUrlLocale() ?? 'en'
   return (
-    // i18n (5 locales) arrives with the first real screens; English is the default.
-    <html lang="en">
+    <html lang={lang}>
       <head>
         <HeadContent />
       </head>

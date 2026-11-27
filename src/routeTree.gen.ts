@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -20,6 +19,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as Char123LocaleChar125RouteRouteImport } from './routes/{-$locale}/route'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppActivityRouteImport } from './routes/app.activity'
@@ -32,6 +32,7 @@ import { Route as GuestInviteTokenRouteImport } from './routes/guest-invite.$tok
 import { Route as InviteIdRouteImport } from './routes/invite.$id'
 import { Route as SharedTokenRouteImport } from './routes/shared/$token'
 import { Route as SitemapsChar123localeChar125DotxmlRouteImport } from './routes/sitemaps/{$locale}[.]xml'
+import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCmsSplatRouteImport } from './routes/api/cms/$'
@@ -52,11 +53,6 @@ import { Route as ApiFilesFileIdSceneRouteImport } from './routes/api/files/$fil
 import { Route as ApiFilesFileIdThumbnailRouteImport } from './routes/api/files/$fileId/thumbnail'
 import { Route as ApiFilesFileIdDerivativeStepRouteImport } from './routes/api/files/$fileId/derivative/$step'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
@@ -107,6 +103,12 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char123LocaleChar125RouteRoute =
+  Char123LocaleChar125RouteRouteImport.update({
+    id: '/{-$locale}',
+    path: '/{-$locale}',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -167,6 +169,12 @@ const SitemapsChar123localeChar125DotxmlRoute =
     id: '/sitemaps/{$locale}.xml',
     path: '/sitemaps/{$locale}.xml',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const Char123LocaleChar125IndexRoute =
+  Char123LocaleChar125IndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
   } as any)
 const ApiAppSplatRoute = ApiAppSplatRouteImport.update({
   id: '/api/app/$',
@@ -266,7 +274,7 @@ const ApiFilesFileIdDerivativeStepRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/{-$locale}': typeof Char123LocaleChar125RouteRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -289,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/shared/$token': typeof SharedTokenRoute
   '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app/': typeof AppIndexRoute
+  '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
@@ -310,7 +319,6 @@ export interface FileRoutesByFullPath {
   '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/onboarding': typeof OnboardingRoute
@@ -332,6 +340,7 @@ export interface FileRoutesByTo {
   '/shared/$token': typeof SharedTokenRoute
   '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app': typeof AppIndexRoute
+  '/{-$locale}': typeof Char123LocaleChar125IndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
@@ -354,7 +363,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/{-$locale}': typeof Char123LocaleChar125RouteRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -377,6 +386,7 @@ export interface FileRoutesById {
   '/shared/$token': typeof SharedTokenRoute
   '/sitemaps/{$locale}.xml': typeof SitemapsChar123localeChar125DotxmlRoute
   '/app/': typeof AppIndexRoute
+  '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/api/app/$': typeof ApiAppSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cms/$': typeof ApiCmsSplatRoute
@@ -400,7 +410,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
+    | '/{-$locale}'
     | '/app'
     | '/email-verified'
     | '/forgot-password'
@@ -423,6 +433,7 @@ export interface FileRouteTypes {
     | '/shared/$token'
     | '/sitemaps/{$locale}.xml'
     | '/app/'
+    | '/{-$locale}/'
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/cms/$'
@@ -444,7 +455,6 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/derivative/$step'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/email-verified'
     | '/forgot-password'
     | '/onboarding'
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/shared/$token'
     | '/sitemaps/{$locale}.xml'
     | '/app'
+    | '/{-$locale}'
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/cms/$'
@@ -487,7 +498,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/derivative/$step'
   id:
     | '__root__'
-    | '/'
+    | '/{-$locale}'
     | '/app'
     | '/email-verified'
     | '/forgot-password'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '/shared/$token'
     | '/sitemaps/{$locale}.xml'
     | '/app/'
+    | '/{-$locale}/'
     | '/api/app/$'
     | '/api/auth/$'
     | '/api/cms/$'
@@ -532,7 +544,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  Char123LocaleChar125RouteRoute: typeof Char123LocaleChar125RouteRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   EmailVerifiedRoute: typeof EmailVerifiedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -569,13 +581,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -644,6 +649,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}': {
+      id: '/{-$locale}'
+      path: '/{-$locale}'
+      fullPath: '/{-$locale}'
+      preLoaderRoute: typeof Char123LocaleChar125RouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -729,6 +741,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/sitemaps/{$locale}.xml'
       preLoaderRoute: typeof SitemapsChar123localeChar125DotxmlRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/{-$locale}/': {
+      id: '/{-$locale}/'
+      path: '/'
+      fullPath: '/{-$locale}/'
+      preLoaderRoute: typeof Char123LocaleChar125IndexRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
     }
     '/api/app/$': {
       id: '/api/app/$'
@@ -866,6 +885,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface Char123LocaleChar125RouteRouteChildren {
+  Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
+}
+
+const Char123LocaleChar125RouteRouteChildren: Char123LocaleChar125RouteRouteChildren =
+  {
+    Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,
+  }
+
+const Char123LocaleChar125RouteRouteWithChildren =
+  Char123LocaleChar125RouteRoute._addFileChildren(
+    Char123LocaleChar125RouteRouteChildren,
+  )
+
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -893,7 +926,7 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  Char123LocaleChar125RouteRoute: Char123LocaleChar125RouteRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   EmailVerifiedRoute: EmailVerifiedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
