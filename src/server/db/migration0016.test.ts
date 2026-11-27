@@ -146,6 +146,14 @@ describe('0016_cms', () => {
     expect(count(d1, 'legal_documents')).toBe(1)
   })
 
+  it('the immutability trigger guards every legal_documents column except createdByUserId (its ON DELETE SET NULL)', () => {
+    applyMigrations(d1.sqlite, { from: 16 })
+    const columns = d1.sqlite.prepare(`PRAGMA table_info(legal_documents)`).all().map((r) => String(r['name']))
+    const trigger = String(d1.sqlite.prepare(`SELECT sql FROM sqlite_master WHERE name = 'legal_documents_published_immutable'`).get()?.['sql'])
+    const guarded = (/UPDATE OF ([^]*?) ON/.exec(trigger)?.[1] ?? '').split(',').map((c) => c.trim().replace(/`/g, ''))
+    expect(guarded.sort()).toEqual(columns.filter((c) => c !== 'createdByUserId').sort())
+  })
+
   describe('author delete guards (docs/12 §1.4), with the real better-auth delete sequence', () => {
     // better-auth 1.4.7 internalAdapter.deleteUser: DELETE session, DELETE account, DELETE user, no transaction.
     const deleteUser = async (userId: string) => {
@@ -186,6 +194,19 @@ describe('0016_cms', () => {
       expect(() => d1.sqlite.exec(`DELETE FROM account WHERE id = 'a-author-google'`)).toThrow(/author_has_posts/)
       expect(() => d1.sqlite.exec(`DELETE FROM user WHERE id = 'author'`)).toThrow(/author_has_posts/)
       expect(count(d1, 'posts')).toBe(1)
+    })
+
+    it('the creator of a published legal version is deleted (better-auth sequence); the version stays as it was', async () => {
+      d1.sqlite.exec(`INSERT INTO legal_documents (id, kind, locale, version, title, contentMd, contentHtml, effectiveAt, publishedAt, createdAt, createdByUserId)
+        VALUES ('l1', 'privacy', 'en', 1, 'Privacy', 'x', '<p>x</p>', ${NOV_1}, ${NOV_1}, ${NOV_1}, 'reader')`)
+      const columns = 'id, kind, locale, version, title, contentMd, contentHtml, effectiveAt, publishedAt, createdAt'
+      const before = d1.sqlite.prepare(`SELECT ${columns} FROM legal_documents`).all()
+      await deleteUser('reader')
+      expect(count(d1, 'user', "id = 'reader'")).toBe(0)
+      expect(count(d1, 'account', "userId = 'reader'")).toBe(0)
+      expect(d1.sqlite.prepare(`SELECT ${columns} FROM legal_documents`).all()).toEqual(before)
+      expect(count(d1, 'legal_documents', 'createdByUserId IS NULL')).toBe(1)
+      expect(() => d1.sqlite.exec(`UPDATE legal_documents SET title = 'Changed' WHERE id = 'l1'`)).toThrow(/legal_document_published/)
     })
 
     it('once the posts are handed to another author, the guard lets the delete through', async () => {

@@ -219,8 +219,10 @@ BEGIN
 END;
 --> statement-breakpoint
 -- docs/12 §1.3: a published legal version is immutable; a new text is a new version.
+-- Every column except createdByUserId: deleting the creator runs its ON DELETE SET NULL as an UPDATE of that column,
+-- and aborting it would stop better-auth deleteUser after the account rows are gone. Name new columns here too.
 CREATE TRIGGER `legal_documents_published_immutable`
-BEFORE UPDATE ON `legal_documents`
+BEFORE UPDATE OF `id`, `kind`, `locale`, `version`, `title`, `contentMd`, `contentHtml`, `changeSummary`, `effectiveAt`, `publishedAt`, `createdAt` ON `legal_documents`
 WHEN OLD.`publishedAt` IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT, 'legal_document_published');
