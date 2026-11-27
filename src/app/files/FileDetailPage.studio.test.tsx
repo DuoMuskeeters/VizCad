@@ -57,7 +57,7 @@ const file = {
 const answer = (data: unknown) => new Response(JSON.stringify({ ok: true, data }), { status: 200, headers: { 'content-type': 'application/json' } })
 
 const last = () => seen.props.at(-1)!
-const open = async (data: typeof file = file) => {
+const open = async (data: Omit<typeof file, 'model'> & { model: unknown } = file) => {
   const rendered = renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? answer(data) : undefined))
   await screen.findByRole('region', { name: '3D view', hidden: true })
   act(() => {
@@ -322,6 +322,34 @@ describe('scene prep (5c-2)', () => {
     const edit = screen.getByRole('button', { name: 'Edit appearance' })
     expect(edit).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText('Only people who can edit the file change its appearance.')).toBeInTheDocument()
+  })
+
+  it('after the lazy conversion stores the GLB, the record is read again: Edit opens and the banner shows, no file reload', async () => {
+    let stored = false
+    const previous = { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Motor' } }, views: [] } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/scene')) {
+        server.reads++
+        return answer(stored ? { ...editable, previous } : { scene: null, previous: null, canEdit: false, maxViews: 20 })
+      }
+      if (url.endsWith('/derivative/start')) return answer({ sessionId: 's1', url: 'https://r2.test/put', headers: {} })
+      if (url === 'https://r2.test/put') return new Response(null, { status: 200, headers: { etag: '"e1"' } })
+      stored = true
+      return answer({})
+    }))
+    const source = { ...file, model: { kind: 'source', bytes: 12_400_000, derivative: null, maxConvertBytes: 52_428_800 } }
+    const { calls, user } = await open(source)
+    await waitFor(() => expect(server.reads).toBe(1))
+    expect(screen.getByRole('button', { name: 'Edit appearance' })).toHaveAttribute('aria-disabled', 'true')
+    const reads = calls.filter((c) => c.operation === 'getFile').length
+    const stats = { triangles: 10, nodes: 6, parts: 5, bbox: { min: [0, 0, 0], max: [1, 1, 1] }, ms: 5 } as const
+    await act(async () => last().onDerivative!(new ArrayBuffer(24), stats))
+    expect(await screen.findByText('Apply the colours and names of version 3?')).toBeInTheDocument()
+    expect(server.reads).toBe(2)
+    expect(calls.filter((c) => c.operation === 'getFile').length).toBe(reads)
+    expect(last().source).toBe('source')
+    await user.click(screen.getByRole('button', { name: 'Ignore' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit appearance' })).not.toHaveAttribute('aria-disabled'))
   })
 
   it('downloads a part as STL in its place by default, centred on request (B7)', async () => {

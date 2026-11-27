@@ -255,13 +255,18 @@ export const FileDetailPage = () => {
   }, [])
 
   // The viewer converted the source and wrote its GLB (docs/11 §2.5 lazy path): store it in the background, unless the
-  // version moved on meanwhile (the server refuses that too). The page keeps showing the model it has; the next open
-  // reads the GLB.
+  // version moved on meanwhile (the server refuses that too). The page keeps showing the model it has (`file.model`
+  // stays, so the viewer does not reopen); the scene record is read again, since a model with a stored GLB may now be
+  // edited (and offer an earlier version's colours). `sceneReload` is set once the scene hook has run.
+  const sceneReload = useRef<() => void>(() => {})
   const saveDerivative = useCallback((fileId: string, version: number, extension: string, glb: ArrayBuffer, stats: Stats) => {
     const format = formatOfExtension(extension)
     const pending = shown.current.uploading.some((item) => item.targetFileId === fileId && (item.status === 'queued' || item.status === 'uploading'))
-    if (format === null || pending || shown.current.file?.id !== fileId || shown.current.file.currentVersion.number !== version) return
-    void uploadDerivative({ fileId, version, glb, stats, converter: converterOf(format) })
+    const still = () => shown.current.file?.id === fileId && shown.current.file.currentVersion.number === version
+    if (format === null || pending || !still()) return
+    void uploadDerivative({ fileId, version, glb, stats, converter: converterOf(format) }).then((result) => {
+      if (result === 'ready' && still()) sceneReload.current()
+    })
   }, [])
   const recordFailure = useCallback((fileId: string, version: number, code: ErrorCode) => {
     void reportDerivativeFailure({ fileId, version, code })
@@ -317,6 +322,7 @@ export const FileDetailPage = () => {
     shownFile === null ? '' : `${shownFile.model.kind}:${shownFile.model.bytes ?? 0}`,
     shownFile !== null && shownFile.model.kind !== 'none' && !preparingModel,
   )
+  sceneReload.current = scene.reload
   const sceneHidden = useMemo(() => hiddenOf(scene.body), [scene.body])
   const looks = useMemo(() => looksOf(scene.body), [scene.body])
   const renamed = useMemo(() => namesOf(scene.body), [scene.body])
