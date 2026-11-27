@@ -187,18 +187,22 @@ describe('scenes: privacy, trash, restore and races', () => {
       const demote = Db.use((db) => db.use((d) => d.update(schema.member).set({ role: 'commenter' }).where(and(eq(schema.member.organizationId, 'acme'), eq(schema.member.userId, 'ada')))))
       const denied = yield* Effect.flip(putScene(caller('ada'), { fileId: 'f1', version: 1, revision: 2, body: body() }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(demote))))
       assert.strictEqual(denied._tag, 'PermissionDenied')
-      // Max (a member with an edit grant) becomes an admin while writing: the role changed but still edits, so the
-      // write goes through.
-      yield* seedFileGrant('f1', 'max', 'acme', 'edit')
+      // Max (a member, so he edits only the file he uploaded) becomes an admin while writing: the role changed but
+      // still edits, so the write goes through.
+      yield* seedStoredFile('f2', 'max', 'acme', STEP, { name: 'Valve.step' })
+      yield* seedDerivative('f2', 'acme', glb({ binBytes: 16 }))
+      yield* Db.use((db) => db.use((d) => d.insert(schema.fileAccess).values({
+        workspaceId: 'acme', fileId: 'f2', userId: 'max', level: 'edit', expiresAt: null, grantedByUserId: null, source: 'uploader', createdAt: new Date(T0 * 1000), updatedAt: new Date(T0 * 1000),
+      })))
       const promote = Db.use((db) => db.use((d) => d.update(schema.member).set({ role: 'admin' }).where(and(eq(schema.member.organizationId, 'acme'), eq(schema.member.userId, 'max')))))
       assert.deepStrictEqual(
-        yield* putScene(caller('max'), { fileId: 'f1', version: 1, revision: 2, body: body() }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(promote))),
-        { revision: 3, updatedAt: T0 },
+        yield* putScene(caller('max'), { fileId: 'f2', version: 1, revision: 0, body: red }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(promote))),
+        { revision: 1, updatedAt: T0 },
       )
       // The file is trashed meanwhile: gone, not a conflict.
-      const trashed = yield* Effect.flip(putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 3, body: red }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(trashFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })))))
+      const trashed = yield* Effect.flip(putScene(caller('bob'), { fileId: 'f1', version: 1, revision: 2, body: red }).pipe(Effect.provideService(Db, yield* beforeFirstBatch(trashFile(caller('bob'), { workspaceId: 'acme', fileId: 'f1' })))))
       assert.strictEqual(trashed._tag, 'ResourceUnavailable')
-      assert.strictEqual((yield* rows('fileScenes'))[0]?.revision, 3)
+      assert.strictEqual((yield* rows('fileScenes')).find((r) => r.fileId === 'f1')?.revision, 2)
     })))
 })
 
