@@ -7,7 +7,9 @@
  * query, no cookies, no headers, GET); only a GET miss with a cacheable response fills the cache; HEAD never does.
  * A cache failure is a miss and never breaks the page.
  */
-import { isMarketingPath } from '#/shared/marketingRoutes'
+import { isMarketingPath, NO_STORE_HEADER } from '#/shared/marketingRoutes'
+
+export { NO_STORE_HEADER }
 
 /** The part of the Workers Cache API (`caches.default`) the hit path uses. */
 export interface EdgeCacheBinding {
@@ -20,8 +22,6 @@ export const EDGE_CACHE_CONTROL = 'public, s-maxage=86400'
 /** What browsers get, hit or miss: revalidate every time, so a publish shows at once (the ETag makes that cheap). */
 export const BROWSER_CACHE_CONTROL = 'public, max-age=0, must-revalidate'
 export const CACHE_STATUS_HEADER = 'x-vizcad-cache'
-/** A page sets this to keep its response out of the cache. */
-export const NO_STORE_HEADER = 'x-vizcad-no-store'
 
 /** `{origin}{path}?v={buildId}`: each build has its own key space, so a deploy never serves HTML pointing at old assets. */
 export const cacheKeyUrl = (origin: string, pathname: string, buildId: string): string =>

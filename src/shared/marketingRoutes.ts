@@ -42,6 +42,9 @@ export const paths = {
   robots: () => '/robots.txt',
 } as const
 
+/** A page sets this response header to keep its response out of the edge cache (e.g. a failed data read). */
+export const NO_STORE_HEADER = 'x-vizcad-no-store'
+
 /** Temporary CPU-gate page (docs/12 §7.5, staging only, removed in 6b). Cached like a marketing page so hit/miss can be measured. */
 export const CMS_PROBE_PATH = '/dev/cms-probe'
 
