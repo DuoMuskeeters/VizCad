@@ -192,15 +192,17 @@ export const StudioToolbar = ({ controls, wide, tools, parts, desktopOnly }: Too
 export const desktopOnlyIcons = { edit: <Paintbrush />, stl: <FileDown /> }
 
 /** A two-to-three way choice in the card's tone: the canvas family on a desktop, the app theme on a phone. */
-const Choice = <T extends string>({ label, value, options, onChange, dark }: {
+const Choice = <T extends string>({ label, value, options, onChange, dark, bare = false }: {
   label: string
   value: T
   options: ReadonlyArray<{ value: T; label: string }>
   onChange: (value: T) => void
   dark: boolean
+  /** The label for screen readers only (the phone's compact rows). */
+  bare?: boolean
 }) => (
-  <div className="grid gap-1.5">
-    <span className={cx('text-sm', dark ? 'opacity-75' : 'text-text-2')}>{label}</span>
+  <div className="grid min-w-0 gap-1.5">
+    <span className={cx('text-sm', bare ? 'sr-only' : dark ? 'opacity-75' : 'text-text-2')}>{label}</span>
     <div role="group" aria-label={label} className={cx('grid grid-flow-col auto-cols-fr gap-0.5 rounded-lg p-0.75', dark ? 'bg-white/8' : 'bg-hover')}>
       {options.map((option) => (
         <button
@@ -234,6 +236,20 @@ const Toggle = ({ label, lead, on, onChange, dark }: { label: string; lead?: str
   </button>
 )
 
+/** A footer button in the card's tone (the app's Button assumes the app theme). */
+const CardButton = ({ dark, onClick, children }: { dark: boolean; onClick: () => void; children: ReactNode }) =>
+  dark ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx('inline-flex h-11 items-center gap-2 rounded-md border border-white/20 px-3 text-base font-medium text-canvas-text hover:bg-white/10 app:h-9 pointer-coarse:h-11 [&>svg]:size-4.5', fastTransition)}
+    >
+      {children}
+    </button>
+  ) : (
+    <Button onClick={onClick}>{children}</Button>
+  )
+
 const SectionBody = ({ tools, wide, dark }: { tools: StudioTools; wide: boolean; dark: boolean }) => {
   const { t, locale } = useI18n()
   const section = tools.section
@@ -241,15 +257,27 @@ const SectionBody = ({ tools, wide, dark }: { tools: StudioTools; wide: boolean;
   const range = tools.range(section.axis)
   const place = range === null ? null : range.min + section.position * (range.max - range.min)
   const set = (patch: Partial<typeof section>) => tools.setSection({ ...section, ...patch })
+  const axes = (
+    <Choice
+      dark={dark}
+      bare={!wide}
+      label={t('tools.section.axis')}
+      value={section.axis}
+      options={(['x', 'y', 'z'] as const).map((axis) => ({ value: axis, label: axis.toUpperCase() }))}
+      onChange={(axis: Axis) => set({ axis, position: 0.5 })}
+    />
+  )
   return (
-    <div className="grid gap-4">
-      <Choice
-        dark={dark}
-        label={t('tools.section.axis')}
-        value={section.axis}
-        options={(['x', 'y', 'z'] as const).map((axis) => ({ value: axis, label: axis.toUpperCase() }))}
-        onChange={(axis: Axis) => set({ axis, position: 0.5 })}
-      />
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
+      {wide ? axes : (
+        // Phone (§4.4 simple): axis and flip in one row, the slider under it; no handle, no hatch switch.
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">{axes}</div>
+          <IconButton label={t('tools.section.flip')} variant="secondary" onClick={() => set({ flipped: !section.flipped })}>
+            <FlipHorizontal2 aria-hidden className="size-4.5" />
+          </IconButton>
+        </div>
+      )}
       <label className="grid gap-1.5">
         <span className={cx('flex items-baseline justify-between text-sm', dark ? 'opacity-90' : 'text-text-2')}>
           {t('tools.section.place')}
@@ -266,8 +294,12 @@ const SectionBody = ({ tools, wide, dark }: { tools: StudioTools; wide: boolean;
           className="h-11 w-full cursor-pointer accent-brand"
         />
       </label>
-      <Toggle dark={dark} label={t('tools.section.hatch')} lead={t('tools.section.hatchLead')} on={section.hatch} onChange={(hatch) => set({ hatch })} />
-      {wide ? <p className={cx('text-sm', dark ? 'opacity-75' : 'text-text-3')}>{t('tools.section.handle')}</p> : null}
+      {wide ? (
+        <>
+          <Toggle dark={dark} label={t('tools.section.hatch')} lead={t('tools.section.hatchLead')} on={section.hatch} onChange={(hatch) => set({ hatch })} />
+          <p className={cx('text-sm', dark ? 'opacity-75' : 'text-text-3')}>{t('tools.section.handle')}</p>
+        </>
+      ) : null}
     </div>
   )
 }
@@ -280,17 +312,55 @@ const MeasureBody = ({ tools, wide, dark, nameOf }: { tools: StudioTools; wide: 
   const length = (mm: number) => formatLength(mm, tools.unit, locale)
   const delta = (value: number) => (tools.unit === 'mm' ? (Math.round(value * 10) / 10).toLocaleString(locale) : (Math.round((value / 25.4) * 100) / 100).toLocaleString(locale))
   const endName = (m: Measurement, end: 'a' | 'b') => `${nameOf(m[end].path)} · ${t(snapKey[m[end].snap])}`
+  const units = (
+    <Choice
+      dark={dark}
+      bare={!wide}
+      label={t('tools.measure.unit')}
+      value={tools.unit}
+      options={[{ value: 'mm', label: 'mm' }, { value: 'in', label: t('tools.measure.inch') }]}
+      onChange={tools.setUnit}
+    />
+  )
+  if (!wide) {
+    // Phone (§4.4 simple): one measurement, its length and offsets, unit and clear in one row; the canvas stays free.
+    const m = list.at(-1)
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
+        {m === undefined || pending !== null ? (
+          <p className="text-base text-text-2">{pending === null ? t('tools.measure.emptyTouch') : t('tools.measure.pending')}</p>
+        ) : (
+          <div className="min-w-0" aria-live="polite">
+            <b className="block text-xl font-semibold tabular-nums">{length(m.distance)}</b>
+            <p className="flex flex-wrap gap-x-3 text-sm tabular-nums text-text-2">
+              <span>ΔX {delta(m.delta[0])}</span>
+              <span>ΔY {delta(m.delta[1])}</span>
+              <span>ΔZ {delta(m.delta[2])}</span>
+            </p>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <div className="w-40">{units}</div>
+          {m !== undefined || pending !== null ? (
+            <IconButton label={t('tools.measure.clear')} variant="secondary" className="ml-auto" onClick={tools.clearMeasures}>
+              <Eraser aria-hidden className="size-4.5" />
+            </IconButton>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
       {list.length === 0 ? (
         <p className={cx('text-base', dark ? 'opacity-90' : 'text-text-2')}>
           <b className="font-semibold">{pending === null ? t('tools.measure.empty') : t('tools.measure.pending')}</b>{' '}
           {pending === null ? (wide ? t('tools.measure.emptyMouse') : t('tools.measure.emptyTouch')) : null}
         </p>
       ) : (
-        <ol className="grid gap-1.5">
+        <ol className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
           {list.map((m, i) => (
-            <li key={m.id} className={cx('grid gap-1 rounded-lg border p-2 pl-3', i === list.length - 1 ? 'border-accent' : dark ? 'border-white/12' : 'border-line')}>
+            <li key={m.id} className={cx('grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 rounded-lg border p-2 pl-3', i === list.length - 1 ? 'border-accent' : dark ? 'border-white/12' : 'border-line')}>
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <b className="block text-md font-semibold tabular-nums">{length(m.distance)}</b>
@@ -315,13 +385,7 @@ const MeasureBody = ({ tools, wide, dark, nameOf }: { tools: StudioTools; wide: 
           {pending !== null ? <li className={cx('text-sm', dark ? 'opacity-80' : 'text-text-2')}>{t('tools.measure.pending')}</li> : null}
         </ol>
       )}
-      <Choice
-        dark={dark}
-        label={t('tools.measure.unit')}
-        value={tools.unit}
-        options={[{ value: 'mm', label: 'mm' }, { value: 'in', label: t('tools.measure.inch') }]}
-        onChange={tools.setUnit}
-      />
+      {units}
       <p className={cx('text-sm', dark ? 'opacity-75' : 'text-text-3')}>{t('tools.measure.unitNote')}</p>
     </div>
   )
@@ -332,7 +396,7 @@ const ShotBody = ({ tools, dark }: { tools: StudioTools; dark: boolean }) => {
   const shot = tools.shot
   const set = (patch: Partial<ScreenshotOptions>) => tools.setShot({ ...shot, ...patch })
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
       <Choice
         dark={dark}
         label={t('tools.shot.background')}
@@ -391,27 +455,28 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below }: {
   const footer =
     name === 'section' ? (
       <>
-        <Button onClick={() => tools.section !== null && tools.setSection({ ...tools.section, flipped: !tools.section.flipped })} className={dark ? 'border-white/20 bg-transparent text-canvas-text hover:bg-white/10' : undefined}>
-          <FlipHorizontal2 aria-hidden className="size-4.5" />
-          {t('tools.section.flip')}
-        </Button>
-        <Button
-          variant="ghost"
+        {wide ? (
+          <CardButton dark={dark} onClick={() => tools.section !== null && tools.setSection({ ...tools.section, flipped: !tools.section.flipped })}>
+            <FlipHorizontal2 aria-hidden />
+            {t('tools.section.flip')}
+          </CardButton>
+        ) : null}
+        <CardButton
+          dark={dark}
           onClick={() => {
             tools.setSection(null)
             tools.open(null)
           }}
-          className={dark ? 'text-canvas-text hover:bg-white/10' : undefined}
         >
           {t('tools.section.off')}
-        </Button>
+        </CardButton>
       </>
     ) : name === 'measure' ? (
-      tools.measure.list.length > 0 || tools.measure.pending !== null ? (
-        <Button onClick={tools.clearMeasures} className={dark ? 'border-white/20 bg-transparent text-canvas-text hover:bg-white/10' : undefined}>
-          <Eraser aria-hidden className="size-4.5" />
+      wide && (tools.measure.list.length > 0 || tools.measure.pending !== null) ? (
+        <CardButton dark={dark} onClick={tools.clearMeasures}>
+          <Eraser aria-hidden />
           {t('tools.measure.clear')}
-        </Button>
+        </CardButton>
       ) : null
     ) : (
       <Button variant="primary" loading={busy} onClick={take}>
@@ -424,8 +489,8 @@ export const ToolCard = ({ tools, wide, fileName, nameOf, below }: {
       aria-label={title}
       className={cx(
         wide
-          ? cx('absolute left-3 z-10 grid max-h-[calc(100%-24px)] w-76 gap-3 overflow-y-auto rounded-xl border border-white/10 bg-canvas/95 p-4 text-canvas-text shadow-pop', below ? 'top-16' : 'top-3')
-          : 'fixed inset-x-0 bottom-0 z-30 grid max-h-[58dvh] gap-3 overflow-y-auto rounded-t-xl border-t border-line bg-bg px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-pop',
+          ? cx('absolute left-3 z-10 grid max-h-[calc(100%-24px)] w-72 grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto rounded-xl border border-white/10 bg-canvas/95 p-3.5 text-canvas-text shadow-pop', below ? 'top-16' : 'top-3')
+          : 'fixed inset-x-0 bottom-0 z-30 grid max-h-[58dvh] grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto rounded-t-xl border-t border-line bg-bg px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-pop',
       )}
     >
       <header className="flex items-center gap-2">
