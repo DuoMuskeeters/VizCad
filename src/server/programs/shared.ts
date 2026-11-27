@@ -12,6 +12,7 @@ import {
 } from '../errors'
 import { type DenialReason, decidePermission, type PermissionInput, type WorkspaceRole } from '../permissions'
 import { type Database, Db } from '../services/Db'
+import { fromUnixSeconds, millisToUnixSeconds, toUnixSeconds } from '../time'
 
 /** The signed-in caller, resolved by the HTTP layer from the session. Never carries product permission. */
 export interface Caller {
@@ -50,11 +51,11 @@ export const traceOf = (caller: Caller): Trace => ({ requestId: caller.requestId
 export const internalRoles = ['owner', 'admin', 'member', 'commenter'] as const satisfies ReadonlyArray<WorkspaceRole>
 
 /** UTC Unix seconds from Effect's Clock (TestClock in tests). */
-export const nowSeconds = Clock.currentTimeMillis.pipe(Effect.map((ms) => Math.floor(ms / 1000)))
+export const nowSeconds = Clock.currentTimeMillis.pipe(Effect.map(millisToUnixSeconds))
 /** 2100-01-01T00:00:00Z: the largest timestamp any input may carry (a Date holds far more; stored values stay sane). */
 export const maxUnixSeconds = 4102444800
-export const toDate = (seconds: number) => new Date(seconds * 1000)
-export const toSeconds = (date: Date) => Math.floor(date.getTime() / 1000)
+export const toDate = fromUnixSeconds
+export const toSeconds = toUnixSeconds
 export const newId = Effect.sync(() => crypto.randomUUID())
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
