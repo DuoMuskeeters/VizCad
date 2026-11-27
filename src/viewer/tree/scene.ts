@@ -3,7 +3,7 @@
  * an earlier model's record to a new one by name path (§3.3). Pure, no three.js, no `effect`: the page (app chunk)
  * uses it and Vitest tests it.
  */
-import { SCENE_MAX_NODES, type SceneBody, type SceneFinish, type SceneNode } from '#/shared/scene'
+import { SCENE_MAX_NODES, SCENE_NAME_PATH_MAX, type SceneBody, type SceneFinish, type SceneNode } from '#/shared/scene'
 import { findNode, namePaths, type OutlineNode } from './outline'
 
 export type SceneLook = { readonly color?: string | undefined; readonly finish?: SceneFinish | undefined }
@@ -32,7 +32,9 @@ export type SceneEdit = {
 
 /**
  * The body with one node changed. `null` (or `hidden: false`) removes a field; an entry left with nothing but its name
- * path is dropped, so the body stays sparse. `at` (the node's name path, §3.3) is written with every entry.
+ * path is dropped, so the body stays sparse. `at` (the node's name path, §3.3) is written with every entry, unless it is
+ * longer than the server takes (deep, long names): then the entry goes without it (it cannot be matched later), rather
+ * than the whole body being refused.
  */
 export const editNode = (body: SceneBody, path: string, edit: SceneEdit, at: string | undefined): SceneBody => {
   const current: SceneNode = body.nodes[path] ?? {}
@@ -47,7 +49,7 @@ export const editNode = (body: SceneBody, path: string, edit: SceneEdit, at: str
   }
   const nodes = { ...body.nodes }
   if (Object.keys(next).length === 0) delete nodes[path]
-  else nodes[path] = at === undefined ? next : { ...next, at }
+  else nodes[path] = at === undefined || at.length > SCENE_NAME_PATH_MAX ? next : { ...next, at }
   return { ...body, nodes }
 }
 

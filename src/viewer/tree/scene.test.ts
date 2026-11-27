@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_SCENE, type SceneBody } from '#/shared/scene'
+import { EMPTY_SCENE, SCENE_NAME_PATH_MAX, type SceneBody } from '#/shared/scene'
 import type { OutlineNode } from './outline'
 import { editNode, hiddenOf, looksOf, matchPrevious, namesOf } from './scene'
 
@@ -17,6 +17,13 @@ describe('scene body', () => {
     expect([...looksOf(body)]).toEqual([['0.1', { color: '#b23a2e', finish: 'metal' }], ['0.3', { color: undefined, finish: 'matte' }]])
     expect([...hiddenOf(body)]).toEqual(['0.2'])
     expect([...namesOf(body)]).toEqual([['0.2', 'Volute']])
+  })
+
+  it('leaves out a name path longer than the server takes, so the body is not refused', () => {
+    const long = 'A'.repeat(SCENE_NAME_PATH_MAX + 1)
+    expect(editNode(EMPTY_SCENE, '0.1', { color: '#112233' }, long).nodes['0.1']).toEqual({ color: '#112233' })
+    const edge = 'A'.repeat(SCENE_NAME_PATH_MAX)
+    expect(editNode(EMPTY_SCENE, '0.1', { color: '#112233' }, edge).nodes['0.1']).toEqual({ color: '#112233', at: edge })
   })
 
   it('edits sparsely: fields set, kept, removed; an empty entry is dropped; the name path rides along', () => {
