@@ -6,6 +6,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { spawnSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { noindexHeaders } from './scripts/noindexHeaders'
 
 // Production builds (Faz 9 cutover only) go to their own directory and leave no deploy redirect behind,
 // so a later bare `wrangler deploy` can never pick up a production config. Staging: scripts/staging.ts.
@@ -63,5 +64,7 @@ export default defineConfig(({ command }) => ({
     tanstackStart(),
     viteReact(),
     dropDeployRedirect,
+    // Staging only: X-Robots-Tag for static assets, which never reach the Worker (docs/12 §6.5).
+    noindexHeaders({ production }),
   ],
 }))

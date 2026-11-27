@@ -288,6 +288,23 @@ describe('Auth.live (better-auth 1.4.7 on in-memory D1)', () => {
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect('reports the platform role from user.role (only the exact value admin)', () => {
+    const { d1, layer } = setup()
+    return Effect.gen(function* () {
+      yield* signUp('ada@example.com')
+      yield* verify
+      const headers = new Headers({ cookie: jar(yield* signIn('ada@example.com')) })
+      const role = () => Auth.use((a) => a.readSession(headers)).pipe(Effect.map((s) => Option.getOrThrow(s).platformRole))
+      assert.strictEqual(yield* role(), 'user', 'the default role')
+      d1.sqlite.exec("update user set role = 'admin'")
+      assert.strictEqual(yield* role(), 'admin')
+      d1.sqlite.exec("update user set role = 'user,admin'")
+      assert.strictEqual(yield* role(), 'user')
+      d1.sqlite.exec('update user set role = null')
+      assert.strictEqual(yield* role(), 'user')
+    }).pipe(Effect.provide(layer))
+  })
+
   describe('session read without the SDK', () => {
     const secret = Redacted.value(Option.getOrThrow(AppConfig.testConfig.auth).secret)
     const tokenRows = (d1: MemoryD1) => rows<{ token: string; expiresAt: number }>(d1, 'select token, expiresAt from session')
@@ -646,7 +663,7 @@ describe('Auth (in-memory layer)', () => {
   it.effect('resolves seeded sessions, switches workspaces and records identity requests', () =>
     Effect.gen(function* () {
       const state = yield* MemoryAuth
-      const summary = { sessionId: 's1', userId: 'u1', name: 'A', email: 'a@x.test', emailVerified: true, accountStatus: 'active' as const, activeWorkspaceId: null }
+      const summary = { sessionId: 's1', userId: 'u1', name: 'A', email: 'a@x.test', emailVerified: true, accountStatus: 'active' as const, platformRole: 'user' as const, activeWorkspaceId: null }
       yield* Ref.set(state, { sessions: new Map([['t1', summary]]), workspaces: new Set(['w1']), handled: [] })
       const auth = yield* Auth
       const headers = new Headers({ cookie: 'session=t1' })

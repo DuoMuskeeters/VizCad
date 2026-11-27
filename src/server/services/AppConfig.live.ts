@@ -175,6 +175,7 @@ export const decodeEnv = Effect.fnUntraced(function* (env: object) {
   )
   return AppConfig.of({
     siteUrl: e.SITE_URL,
+    appEnv: e.APP_ENV ?? 'development',
     email: { from: e.EMAIL_FROM, fromName: e.EMAIL_FROM_NAME, allowlist: emailAllowlist(e) },
     trustedOrigins: yield* trustedOrigins(e),
     auth: yield* authSettings(e),

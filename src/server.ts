@@ -10,6 +10,7 @@ import handler from '@tanstack/react-start/server-entry'
 import { type EdgeCacheBinding, marketingCacheKey, serveMarketing } from '#/server/services/EdgeCache'
 import { BUILD_ID } from '#/shared/buildId'
 import { withNoindex } from '#/server/edge/noindex'
+import { localeRedirect } from '#/server/edge/localeRedirect'
 
 export { RateLimiter } from '#/server/durable/RateLimiter'
 
@@ -24,6 +25,9 @@ const siteUrlOf = (raw: string) => {
 }
 
 const serve = (request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> => {
+  // `/en/...` and trailing slashes on marketing paths: a 301 before the cache and the router (docs/12 §1.2).
+  const redirect = localeRedirect(request)
+  if (redirect !== null) return Promise.resolve(redirect)
   const siteUrl = siteUrlOf(env.SITE_URL)
   const key = siteUrl === null ? null : marketingCacheKey(request, siteUrl, BUILD_ID)
   if (key === null) return Promise.resolve(handler.fetch(request))

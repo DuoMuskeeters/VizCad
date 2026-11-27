@@ -1,7 +1,11 @@
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import type { Locale } from '#/i18n/locales'
 import { cmsProbe, type ProbeData } from '../programs/cms/probe'
+import { AppConfig } from '../services/AppConfig'
 import { liveLayers } from '../services/live'
+import { cmsResponse } from './cms'
+import { requestMeta } from './respond'
+import { type SeoFile, seoFileResponse } from './seoFiles'
 
 export type ProbeResult = { readonly ok: true; readonly data: ProbeData } | { readonly ok: false }
 
@@ -18,5 +22,33 @@ export const loadCmsProbe = (env: Cloudflare.Env, locale: Locale): Promise<Probe
         Effect.logError('cms probe failed').pipe(Effect.annotateLogs({ tag: error._tag }), Effect.as<ProbeResult>({ ok: false })),
       ),
       Effect.provide(liveLayers(env).db),
+    ),
+  )
+
+/** `/api/cms/*`: admin CMS API (http/cms.ts). Only the layers its operations read are built. */
+export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Response> => {
+  const live = liveLayers(env)
+  return Effect.runPromise(
+    cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache), requestMeta(request)),
+  )
+}
+
+/** robots.txt and sitemaps (http/seoFiles.ts): config only, no D1 in 6a. */
+export const handleSeoFile = (request: Request, env: Cloudflare.Env, file: SeoFile): Promise<Response> =>
+  Effect.runPromise(seoFileResponse(file, liveLayers(env).config, requestMeta(request)))
+
+/** What every marketing page's head needs from config: the site origin for canonical, hreflang and JSON-LD. */
+export type SiteInfo = { readonly ok: true; readonly siteOrigin: string } | { readonly ok: false }
+
+/**
+ * Loaded by the `{-$locale}` layout's server function. A config failure is `{ ok: false }` (the page then renders without
+ * canonical and opts out of the edge cache), logged by tag only.
+ */
+export const loadSiteInfo = (env: Cloudflare.Env): Promise<SiteInfo> =>
+  Effect.runPromise(
+    AppConfig.pipe(
+      Effect.map(({ siteUrl }): SiteInfo => ({ ok: true, siteOrigin: siteUrl.origin })),
+      Effect.provide(liveLayers(env).config),
+      Effect.catch((error) => Effect.logError('site info failed').pipe(Effect.annotateLogs({ tag: error._tag }), Effect.as<SiteInfo>({ ok: false }))),
     ),
   )

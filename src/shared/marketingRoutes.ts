@@ -25,6 +25,53 @@ export const pagePaths = {
 export const legalKinds = ['privacy', 'terms', 'cookies', 'subprocessors', 'kvkk'] as const
 export type LegalKind = (typeof legalKinds)[number]
 
+/** Locales that take a URL prefix (K1): every locale but `en`. */
+export const prefixLocales = ['tr', 'de', 'es', 'fr'] as const satisfies ReadonlyArray<Locale>
+export type PrefixLocale = (typeof prefixLocales)[number]
+
+const isPrefixLocale = (value: string): value is PrefixLocale => (prefixLocales as ReadonlyArray<string>).includes(value)
+
+/**
+ * `params.parse` of the `{-$locale}` route. No segment is `en`; a lowercase prefix locale is that locale. Anything else
+ * (`en`, `TR`, `xx`, `app`) returns `false`, which makes the router skip the route instead of matching it, so a locale
+ * prefix can never shadow another route. `/en/...` gets its 301 in the Worker (`localeRedirect`).
+ */
+export const parseLocaleParam = (raw: string | undefined): { readonly locale: PrefixLocale | undefined } | false =>
+  raw === undefined ? { locale: undefined } : isPrefixLocale(raw) ? { locale: raw } : false
+
+/** The locale of a URL path: its prefix, or `en` without one. */
+export const localeOfPath = (pathname: string): Locale => {
+  const first = pathname.split('/')[1] ?? ''
+  return isPrefixLocale(first) ? first : 'en'
+}
+
+/** The path without its locale prefix (`/tr/blog` → `/blog`, `/tr` → `/`). */
+export const unprefixedPath = (pathname: string): string => {
+  const locale = localeOfPath(pathname)
+  if (locale === 'en') return pathname
+  const rest = pathname.slice(locale.length + 1)
+  return rest === '' ? '/' : rest
+}
+
+/**
+ * The language switcher's target (docs/12 §1.2): the same page in `target`, or that locale's home page when the page
+ * does not exist there. `alternates` (the page's live locales and their paths, from its head data) wins when given:
+ * posts have a slug per locale. Without it, a page with English route parts everywhere maps by prefix; blog, author
+ * and RSS pages exist only in `blogLocales` (D9) and a post's slug is unknown, so those go to the blog list or home.
+ */
+export const switchLocalePath = (pathname: string, target: Locale, alternates?: Readonly<Partial<Record<Locale, string>>>): string => {
+  const home = localizedPath(target, '/')
+  if (alternates !== undefined) return alternates[target] ?? home
+  if (!isMarketingPath(pathname) || UNLOCALIZED.test(pathname)) return home
+  const path = unprefixedPath(pathname)
+  if (path.startsWith('/blog') || path.startsWith('/authors/')) {
+    if (!blogLocales.includes(target)) return home
+    return path === '/blog' || path.startsWith('/blog/page/') || path === '/blog/rss.xml' ? localizedPath(target, path) : paths.blogList(target)
+  }
+  if (path === '/legal/kvkk' && target !== 'tr') return home
+  return localizedPath(target, path)
+}
+
 /** `en` has no prefix (`/blog/x`), the others do (`/tr/blog/x`). `/` becomes `/tr`, never `/tr/`. */
 export const localizedPath = (locale: Locale, path: string): string =>
   locale === 'en' ? path : path === '/' ? `/${locale}` : `/${locale}${path}`
@@ -68,6 +115,9 @@ const unprefixed = ['/sitemap\\.xml', '/sitemaps/(?:en|tr|de|es|fr)\\.xml', '/ro
 const MARKETING = new RegExp(
   `^(?:(?:/(?:tr|de|es|fr))?(?:${prefixed.join('|')})|${unprefixed.join('|')})$`,
 )
+
+/** Marketing paths that exist once, without a locale (sitemaps, robots, llms, the probe). */
+const UNLOCALIZED = new RegExp(`^(?:${unprefixed.join('|')})$`)
 
 /** Whether a URL path belongs to the edge-cached marketing space. `/` is; `/tr/` (trailing slash) and `/app` are not. */
 export const isMarketingPath = (pathname: string): boolean => (pathname === '/' ? true : pathname !== '' && MARKETING.test(pathname))

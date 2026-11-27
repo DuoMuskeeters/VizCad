@@ -15,8 +15,10 @@ export interface CachePurge {
   readonly token: Redacted.Redacted<string>
 }
 
+export type AppEnv = 'production' | 'staging' | 'development'
+
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkScene', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment', 'derivativeStart'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkScene', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment', 'derivativeStart', 'cmsWrite'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -75,6 +77,8 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   thumbnailPut: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 240, windowSeconds: 60 * 60 } },
   // GLB derivative uploads (docs/11 §2.3): one per file open or upload; a loop of retries stops here.
   derivativeStart: { target: { limit: 60, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
+  // CMS writes (docs/12 §3.2, `/api/cms`): per platform admin and per IP. An editing session saves often; a script stops here.
+  cmsWrite: { target: { limit: 600, windowSeconds: 60 * 60 }, ip: { limit: 600, windowSeconds: 60 * 60 } },
 }
 
 /**
@@ -96,6 +100,11 @@ export class AppConfig extends Context.Service<
   AppConfig,
   {
     readonly siteUrl: URL
+    /**
+     * `APP_ENV`: `production` (env.production), `staging` (top level of wrangler.jsonc), `development` when unset (local).
+     * Only `production` may be indexed: robots.txt opens up and the noindex header drops (docs/12 §6.5).
+     */
+    readonly appEnv: AppEnv
     readonly email: {
       readonly from: string
       readonly fromName: string
@@ -137,6 +146,7 @@ export class AppConfig extends Context.Service<
 /** Fixed values for tests. Override any field with `test({ ... })`. */
 export const testConfig: AppConfig['Service'] = {
   siteUrl: new URL('https://vizcad.test'),
+  appEnv: 'development',
   email: { from: 'noreply@vizcad.test', fromName: 'VizCad', allowlist: Option.none() },
   trustedOrigins: new Set(['https://vizcad.test']),
   auth: Option.some({

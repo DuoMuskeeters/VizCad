@@ -17,7 +17,7 @@ const post = (operation: string, body: unknown, headers: Record<string, string> 
   })
 
 const session = (userId: string, overrides: Partial<SessionSummary> = {}): SessionSummary => ({
-  sessionId: `s-${userId}`, userId, name: userId, email: `${userId}@example.com`, emailVerified: true, accountStatus: 'active', activeWorkspaceId: null, ...overrides,
+  sessionId: `s-${userId}`, userId, name: userId, email: `${userId}@example.com`, emailVerified: true, accountStatus: 'active', platformRole: 'user', activeWorkspaceId: null, ...overrides,
 })
 
 /** Runs the handler against the test's own in-memory services (so seeded rows are visible to it). */
