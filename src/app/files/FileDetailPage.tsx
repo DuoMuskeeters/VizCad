@@ -309,8 +309,6 @@ export const FileDetailPage = () => {
   const preparingModel = shownFile !== null && shownFormat !== null && isConvertFormat(shownFormat) && shownFile.model.kind !== 'derivative' && (preparingHere || held === shownFile.id)
   const modelKey = shownFile === null ? null : `${shownFile.id}:${shownFile.currentVersion.number}${preparingModel ? ':preparing' : ''}`
   if (studioState.key !== modelKey) dispatch({ type: 'reset', key: modelKey })
-  // Section, measure, screenshot (Faz 5d): per open model.
-  const tools = useTools(api, modelKey, wide)
   useEffect(() => () => thumbnails.clear(), [modelKey, thumbnails])
 
   const nodeParam = search.node
@@ -318,6 +316,8 @@ export const FileDetailPage = () => {
   const stale = outline !== null && nodeParam !== undefined && node === null
   const partsView = search.view === 'parts'
   const isolated = !partsView && node !== null && node !== '0' ? node : null
+  // Section, measure, screenshot (Faz 5d): per open model; the section's range fits the isolated part.
+  const tools = useTools(api, modelKey, wide, isolated)
   // The scene record (docs/11 §3): applied for everyone who sees the 3D model, written in scene prep.
   // Read again when the stored model changes (the GLB stored: kind and size); not while Preparing (no model open).
   const scene = useScene(

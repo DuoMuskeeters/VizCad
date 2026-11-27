@@ -24,6 +24,8 @@ const fakeTools = () => {
         dragListener = listener
         return () => {}
       }),
+      setScope: vi.fn(),
+      setCovered: vi.fn(),
     },
     measure: {
       start: vi.fn(),
@@ -47,13 +49,14 @@ const controls: ViewerControls = {
   fit: vi.fn(), view: vi.fn(), toggleWireframe: vi.fn(), toggleEdges: vi.fn(),
 }
 
-const Harness = ({ tools, wide, modelKey = 'f1:1' }: { tools: ToolsApi; wide: boolean; modelKey?: string }) => {
-  const api = useRef<ViewerApi | null>({ tools: async () => tools } as unknown as ViewerApi)
-  const state = useTools(api, modelKey, wide)
+type HarnessProps = { tools: ToolsApi; wide: boolean; modelKey?: string; scope?: string | null; ready?: boolean; load?: () => Promise<ToolsApi | null> }
+const Harness = ({ tools, wide, modelKey = 'f1:1', scope = null, ready = true, load }: HarnessProps) => {
+  const api = useRef<ViewerApi | null>({ tools: load ?? (async () => tools) } as unknown as ViewerApi)
+  const state = useTools(api, modelKey, wide, scope)
   return (
     <>
       <StudioToolbar
-        controls={controls}
+        controls={{ ...controls, ready }}
         wide={wide}
         tools={state}
         desktopOnly={wide ? undefined : [{ key: 'stl', label: 'Download as STL', icon: null, reason: 'Open on a computer to download parts as STL.' }]}
@@ -63,24 +66,18 @@ const Harness = ({ tools, wide, modelKey = 'f1:1' }: { tools: ToolsApi; wide: bo
   )
 }
 
-const mount = (wide: boolean) => {
+const mount = (wide: boolean, props: Partial<Omit<HarnessProps, 'tools' | 'wide'>> = {}) => {
   const fake = fakeTools()
-  const view = render(
+  const tree = (next: Partial<HarnessProps>) => (
     <I18nProvider initialLocale="en">
       <UiProvider>
-        <Harness tools={fake.api} wide={wide} />
+        <Harness tools={fake.api} wide={wide} {...props} {...next} />
       </UiProvider>
-    </I18nProvider>,
+    </I18nProvider>
   )
-  const rerender = (modelKey: string) =>
-    view.rerender(
-      <I18nProvider initialLocale="en">
-        <UiProvider>
-          <Harness tools={fake.api} wide={wide} modelKey={modelKey} />
-        </UiProvider>
-      </I18nProvider>,
-    )
-  return { ...fake, user: userEvent.setup(), rerender }
+  const view = render(tree({}))
+  const rerender = (modelKey: string) => view.rerender(tree({ modelKey }))
+  return { ...fake, user: userEvent.setup(), rerender, update: (next: Partial<HarnessProps>) => view.rerender(tree(next)) }
 }
 
 const toolbar = () => screen.getByRole('toolbar', { name: 'Studio tools' })
@@ -121,13 +118,39 @@ describe('section', () => {
     expect(api.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ flipped: true }))
   })
 
-  it('another model starts the tools over', async () => {
-    const { api, user, rerender } = mount(true)
+  it('another model starts the tools over: no card, no cut, no measurement, the section back at its defaults', async () => {
+    const { api, user, rerender, emit } = mount(true)
     await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    await user.click(within(screen.getByRole('region', { name: 'Section' })).getByRole('button', { name: 'Y' }))
+    emit({ list: [{ id: 1, a: { point: [0, 0, 0], path: '0.1', snap: 'vertex' }, b: { point: [1, 0, 0], path: '0.1', snap: 'vertex' }, distance: 1, delta: [1, 0, 0] }], pending: null })
     rerender('f1:2')
     expect(screen.queryByRole('region', { name: 'Section' })).not.toBeInTheDocument()
     expect(within(toolbar()).getByRole('button', { name: 'Section' })).toHaveAttribute('aria-pressed', 'false')
-    expect(api.section.set).toHaveBeenCalled()
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    expect(api.section.set).toHaveBeenLastCalledWith({ axis: 'x', position: 0.5, flipped: false, hatch: true, handle: true })
+    await user.click(within(toolbar()).getByRole('button', { name: 'Measure' }))
+    expect(within(screen.getByRole('region', { name: 'Measure' })).getByText('No measurement yet.')).toBeInTheDocument()
+  })
+
+  it('the canvas handle is there only on a desktop and only while the card is open; the card says what it covers', async () => {
+    const { api, user, update } = mount(false)
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    expect(api.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ handle: false }))
+    // The same section on a wider screen: the handle follows the screen, not the moment the section was made.
+    update({ wide: true })
+    expect(api.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ handle: true }))
+    expect(api.section.setCovered).toHaveBeenLastCalledWith({ left: 0, top: 0, right: 0, bottom: 0 })
+    await user.click(screen.getByRole('button', { name: 'Close Section' }))
+    expect(api.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ handle: false }))
+    expect(api.section.setCovered).toHaveBeenLastCalledWith(null)
+  })
+
+  it('the range fits the isolated part', async () => {
+    const { api, user, update } = mount(true, { scope: '0.1' })
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    expect(api.section.setScope).toHaveBeenLastCalledWith('0.1')
+    update({ scope: null })
+    expect(api.section.setScope).toHaveBeenLastCalledWith(null)
   })
 })
 
@@ -158,7 +181,7 @@ describe('measure', () => {
     expect(api.measure.stop).toHaveBeenCalled()
   })
 
-  it('phone: touch mode, one measurement at a time', async () => {
+  it('phone: touch mode, one measurement at a time, and what the unit means', async () => {
     const { api, user, emit } = mount(false)
     await user.click(within(toolbar()).getByRole('button', { name: 'Measure' }))
     expect(api.measure.start).toHaveBeenLastCalledWith('touch', true)
@@ -166,6 +189,7 @@ describe('measure', () => {
     const card = screen.getByRole('region', { name: 'Measure' })
     expect(within(card).getByText('104.8 mm')).toBeInTheDocument()
     expect(within(card).getByText('ΔZ -88.3')).toBeInTheDocument()
+    expect(within(card).getByText('Lengths are in the model’s units, read as millimetres.')).toBeInTheDocument()
   })
 })
 
@@ -194,6 +218,77 @@ describe('screenshot (B8)', () => {
     expect(api.screenshot).toHaveBeenCalledWith(expect.objectContaining({ background: 'white' }))
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: [expect.any(File)] }))
   })
+
+  const shareFails = async (error: Error) => {
+    const { user } = mount(false)
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { share: vi.fn(async () => Promise.reject(error)), canShare: () => true }))
+    const created = vi.fn(() => 'blob:x')
+    vi.stubGlobal('URL', Object.assign(Object.create(URL), { createObjectURL: created, revokeObjectURL: () => {} }))
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await user.click(within(toolbar()).getByRole('button', { name: 'Image' }))
+    await user.click(screen.getByRole('button', { name: 'Share or save' }))
+    const saved = clicked.mock.calls.length
+    clicked.mockRestore()
+    return saved
+  }
+
+  it('phone: a share that fails downloads the image instead', async () => {
+    expect(await shareFails(Object.assign(new Error('no share target'), { name: 'NotAllowedError' }))).toBe(1)
+  })
+
+  it('phone: a dismissed share sheet downloads nothing', async () => {
+    expect(await shareFails(Object.assign(new Error('dismissed'), { name: 'AbortError' }))).toBe(0)
+  })
+
+  it('a tap before the tools are in waits for them; a failed shot says so', async () => {
+    const fake = fakeTools()
+    let arrive: (tools: ToolsApi) => void = () => {}
+    const load = vi.fn(() => new Promise<ToolsApi | null>((resolve) => (arrive = resolve)))
+    const user = userEvent.setup()
+    render(
+      <I18nProvider initialLocale="en">
+        <UiProvider>
+          <Harness tools={fake.api} wide load={load} />
+        </UiProvider>
+      </I18nProvider>,
+    )
+    const created = vi.fn(() => 'blob:x')
+    vi.stubGlobal('URL', Object.assign(Object.create(URL), { createObjectURL: created, revokeObjectURL: () => {} }))
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await user.click(within(toolbar()).getByRole('button', { name: 'Screenshot' }))
+    await user.click(screen.getByRole('button', { name: 'Download PNG' }))
+    expect(fake.api.screenshot).not.toHaveBeenCalled()
+    await act(async () => arrive(fake.api))
+    expect(fake.api.screenshot).toHaveBeenCalled()
+    expect(clicked).toHaveBeenCalledTimes(1)
+    clicked.mockRestore()
+    fake.api.screenshot.mockRejectedValueOnce(new Error('context lost'))
+    await user.click(screen.getByRole('button', { name: 'Download PNG' }))
+    expect(await screen.findByText('The screenshot could not be made.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download PNG' })).not.toHaveAttribute('aria-busy')
+  })
+})
+
+describe('the tools chunk', () => {
+  it('did not load: the card says so and tries again', async () => {
+    const fake = fakeTools()
+    const load = vi.fn<() => Promise<ToolsApi | null>>().mockRejectedValueOnce(new Error('chunk')).mockResolvedValue(fake.api)
+    const user = userEvent.setup()
+    render(
+      <I18nProvider initialLocale="en">
+        <UiProvider>
+          <Harness tools={fake.api} wide load={load} />
+        </UiProvider>
+      </I18nProvider>,
+    )
+    await user.click(within(toolbar()).getByRole('button', { name: 'Section' }))
+    const card = screen.getByRole('region', { name: 'Section' })
+    expect(await within(card).findByRole('alert')).toHaveTextContent('The tools could not be loaded.')
+    await user.click(within(card).getByRole('button', { name: 'Try again' }))
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(within(card).queryByRole('alert')).not.toBeInTheDocument()
+    expect(fake.api.section.set).toHaveBeenLastCalledWith(expect.objectContaining({ axis: 'x' }))
+  })
 })
 
 describe('phone toolbar (B5)', () => {
@@ -209,5 +304,14 @@ describe('phone toolbar (B5)', () => {
     const stl = within(screen.getByRole('menu')).getByRole('menuitem', { name: /Download as STL/ })
     expect(stl).toHaveAttribute('aria-disabled', 'true')
     expect(stl).toHaveTextContent('Open on a computer to download parts as STL.')
+  })
+
+  it('a button tapped before the model is ready says why', async () => {
+    const { api, user } = mount(false, { ready: false })
+    const section = within(toolbar()).getByRole('button', { name: 'Section' })
+    expect(section).toHaveAttribute('aria-disabled', 'true')
+    await user.click(section)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Available once the model is open.')
+    expect(api.section.set).not.toHaveBeenCalled()
   })
 })
