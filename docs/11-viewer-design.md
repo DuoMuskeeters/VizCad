@@ -500,6 +500,19 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 - **Testler:** `SceneEdit.test.tsx` (odak + bulanıklık kaydetmez), `StlDialog.test.tsx`, `useScene.test.ts` (kayıt sırasında model değişimi, Hazırlanıyor, sınır, ayrılma uyarısı, keepalive), `scenes.test.ts` (misafir gizliliği, çöpteki dosyayı okuma/yazma, sürüm geri yükleme, okuma ile toplu yazma arasına düşen kayıt, rol kaybı, rol yükselmesi, çöpe atma), `files.test.ts` (UTF-8 istek sınırı), ad yolu ve eşleme testleri. Yarış yardımcısı `server/testing/races.ts`'e taşındı.
 - **Ölçüm:** görüntüleyici chunk'ı **158,6 KB** gzip; STL yazıcısı ayrı 0,8 KB.
 
+### 5c-2 · İkinci kontrol düzeltmeleri (PR #28)
+
+- **Yerinde çeviri bitince** (`uploadDerivative` → `ready`, aynı dosya ve sürüm hâlâ açıksa) sahne kaydı yeniden okunur (`scene.reload`); `file.model` değişmez, görüntüleyici yeniden açılmaz. "Görünümü düzenle" ve önceki renkler bandı sayfa yenilenmeden gelir.
+- **Uzun ad yolu:** `SCENE_NAME_PATH_MAX`'ı aşan `at` yazılmaz (giriş eşlenemez ama gövde reddedilmez, sonraki kayıtlar da).
+- **Yalıtılmış düğümü gizlemek** (ya da üstündeki bir düğümü; seçim çubuğu, ağaç gözü, telefon listesi, düzenleme panelindeki Görünür anahtarı) yalıtımdan çıkar (`?node=` silinir); gizleme görünür olur. Gizli düğümü yalıtınca otomatik gösterme yalnız `isolated` değişince çalışır; düzenlemede yerel "gösterilen" istisnası eklenmez. (5c-1 hatası da.)
+- **`pagehide`** bekleyen değişikliği `flush(session, keepalive)` ile gönderir: bfcache'ten dönüşte cevap revizyonu ve durumu günceller, hata görünür.
+- **Geride kalan modelin kaydı hata verirse** oturum düşer, `beforeunload` artık uyarmaz, sayfa bir kez bildirim gösterir (`studio.save.lost`, `scene.lost` sayacı).
+- **"Çok büyük" iletisi** önceki bir kaydın "Kaydedildi"si ile silinmez; kabul edilen ilk değişikliğe kadar kalır.
+- **Odak** gizli tuvalde (`clientWidth`/`clientHeight` 0) `resize()` çağırmaz; tuval görünür olunca ResizeObserver ölçer. (5c-1.)
+- **Eşleme bandı** tekil/çoğul: "1 part matched" / "1 parça eşleşti".
+- **Testler:** yerinde çeviriden sonra yeniden okuma (sayfa), uzun ad yolu, yalıtılmış düğümü gizleme (iki yol), pagehide cevabı ve hatası, geride kalan modelin hatası, "çok büyük"ün kalması, gizli tuvalde odak; açıklar: uygulamanın gerçek `getRouter`'ı ile `parseSearch`/`stringifySearch` (`src/router.test.ts`), yalnız sol tuşla seçme, görüntüsüz küçük resim (dönmez) ve yeni renklerle yeniden çizim, geç gelen okuma (`!session.live`), düzenlerken gelen teklif (`!offering`), `scene.updated` etiketleri, STL yazıcısının kendi sınırı. Her biri düzeltme geri alınınca kırılıyor (elle denendi).
+- **Ölçüm:** görüntüleyici chunk'ı **158,64 KB** gzip (≤ 160).
+
 ### Açık kalanlar
 
 - **Staging kabulü** (455 parçalı montajda klasör gezinme + renk kaydı + yeni sürümde eşleme) yapılmadı: `0017` staging D1'e uygulanmadı, Worker dağıtılmadı. Sıra: `pnpm db:migrate:staging`, staging dağıtımı, `scripts/shoot-assembly.cjs` ile tekrar.
