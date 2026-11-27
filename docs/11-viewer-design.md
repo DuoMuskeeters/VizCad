@@ -451,3 +451,13 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 2. **Telefonda "Daha" menüsü yok:** 5c'de telefon araç çubuğu Parçalar + mevcut 5a araçları (sığdır, görünümler, tel kafes, kenarlar, ekran görüntüsü). Kesit, Ölçü, Yorum 5d'de gelince B5 sırasına ve "Daha"ya geçilir (henüz olmayan araç gösterilmez, 03 §6).
 3. **Klasör görünümü açık model ister:** ağaç GLB'den okunur; model hazır olmadan Parçalar görünümünde görüntüleyicinin kendi durumu (yükleniyor, hata) gösterilir.
 4. **Tek alt montajlı sarmalayıcı** (CAD dışa aktarımlarında yaygın; Stealthburner'da kök → `SBr2_CW2.5_Assembly`) klasör görünümünde atlanır ve ağaçta açık gelir; yol çubuğundan üst düzeye çıkılabilir.
+
+### 5c-1 · İnceleme düzeltmeleri (PR #27)
+
+- **`?node=` ham metin:** TanStack'in JSON ayrıştırması `0.1`'i sayıya çeviriyordu (`0.10` → `0.1`, uygulama içi link `%220.1%22`). `src/searchParams.ts` `node`'u URLSearchParams'tan ham okur (eski tırnaklı linkler de açılır) ve tırnaksız yazar; diğer parametreler JSON kalır. Test gerçek router + bellek geçmişiyle (`0`, `0.1`, `0.10`).
+- **Parça düzey olamaz:** `levelOf` yaprak düğüm için üst düzeyi verir (klasör görünümü ve telefon sayfası boş kalmaz).
+- **Görüntüleyici:** tel kafes kapanınca önbellekteki vurgu kopyaları da kapanır (`setView` her seferinde atar); gizli düğüm izole edilince çizilir (sayfa gizliden de çıkarır); seçme yalnız sol tuş ve yalnız görünen mesh'leri tarar (kenar çizgileri ve gizliler listede yok); `focus` önce tuvali ölçer (Parçalar görünümünden dönüşte doğru oran); küçük resim kapalı kenarları açmaz, geometrisi olmayan düğüm sonsuza dek dönmez (simge).
+- **Sayfa durumu tek `useReducer`'da** (`studio/state.ts`: ağaç, hazır, seçim, gizliler, telefon sayfası); model anahtarı Hazırlanıyor'da değişir, eski ağaç kalmaz. Küçük resimler `studio/thumbnails.ts` deposunda; her kart kendi girdisine abone, ızgara her resimde yeniden çizilmez.
+- **Erişim ve dokunma:** her durumda atlama linki ve `<main>`; 900 px üstü dokunmatikte ağaç satırları 44 px; "Tümünü göster" izoleyken ve telefonda (sayfa ve Parçalar listesi) de var; 360 px altında 3B/Parçalar seçici ikinci satırda (320 px + yükleme hapı: başlık 88 px, taşma yok); Sürümler sekmesi `grid-cols-1` ile 320 px'te yana kaymaz.
+- **Arama** Türkçe harfleri katlar (ı→i, ş→s, ğ→g, ç→c, ö→o, ü→u; çalışma ortamının diline bağlı değil). **Metinler:** tekil biçimler (`…One`, "1 part", "1 sub-assembly"), kullanılmayan üç anahtar silindi.
+- **Ölçüm:** görüntüleyici chunk'ı **158,5 KB** gzip (bütçe 160).
