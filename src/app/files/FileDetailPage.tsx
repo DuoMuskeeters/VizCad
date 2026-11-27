@@ -18,7 +18,7 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { findNode, isNodePath, outlineShape, soleChain, type OutlineNode } from '#/viewer/tree/outline'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
 import { reportDerivativeFailure, uploadDerivative } from './derivative'
@@ -151,7 +151,7 @@ const Frame = ({ bar, children }: { bar: ReactNode; children: ReactNode }) => (
 const BackLink = ({ file }: { file: AnyFileView | null }) => {
   const { t } = useI18n()
   const project = file !== null && isFullView(file) && file.projectId !== null ? { id: file.projectId, name: file.projectName ?? t('file.back') } : null
-  const className = cx('inline-flex h-11 shrink-0 items-center gap-1 rounded-md px-2 text-base text-text-2 hover:bg-hover hover:text-text app:h-9.5', fastTransition)
+  const className = cx('inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-base text-text-2 hover:bg-hover hover:text-text app:h-9.5', fastTransition)
   const body = (label: string) => (
     <>
       <ChevronLeft aria-hidden className="size-5 shrink-0" />
@@ -485,14 +485,23 @@ export const FileDetailPage = () => {
       {viewSwitch}
       <div className="flex shrink-0 items-center gap-1 app:gap-2">
         <UploadPill />
-        <Button className="hidden app:inline-flex" onClick={() => startDownload(loaded.id)} {...(can.download ? {} : { disabledReason: t('files.reason.download') })}>
-          <Download aria-hidden className="size-4.5" />
-          {t('file.download')}
-        </Button>
-        <Button variant="primary" className="hidden app:inline-flex" onClick={() => setSharing(true)} {...(can.share ? {} : { disabledReason: t('files.reason.share') })}>
-          <Share2 aria-hidden className="size-4.5" />
-          {t('file.share')}
-        </Button>
+        {wide ? (
+          <>
+            <Button onClick={() => startDownload(loaded.id)} {...(can.download ? {} : { disabledReason: t('files.reason.download') })}>
+              <Download aria-hidden className="size-4.5" />
+              {t('file.download')}
+            </Button>
+            <Button variant="primary" onClick={() => setSharing(true)} {...(can.share ? {} : { disabledReason: t('files.reason.share') })}>
+              <Share2 aria-hidden className="size-4.5" />
+              {t('file.share')}
+            </Button>
+          </>
+        ) : (
+          // Phone: Share as an icon; Download stays in the file menu (wireframe 13, 390 px).
+          <IconButton variant="primary" label={t('file.share')} onClick={() => setSharing(true)} {...(can.share ? {} : { disabledReason: t('files.reason.share') })}>
+            <Share2 aria-hidden className="size-4.5" />
+          </IconButton>
+        )}
         <FileMenu file={loaded} handlers={handlers} triggerClassName="size-11 app:size-9.5" />
         {assembly && wide ? (
           <IconButton label={treeOpen ? t('studio.tree.hide') : t('studio.tree.show')} aria-pressed={treeOpen} onClick={() => setTreeOpen((open) => !open)} className="aria-pressed:bg-accent-soft aria-pressed:text-accent">
@@ -522,7 +531,7 @@ export const FileDetailPage = () => {
           onClear={() => setSelected(null)}
         />
       ) : null}
-      {isolated !== null ? <PathBar steps={steps} onGo={(path) => go({ node: path })} bottom={!wide} /> : null}
+      {isolated !== null ? <PathBar steps={steps} onGo={(path) => go({ node: path })} /> : null}
     </>
   ) : null
 
@@ -541,11 +550,11 @@ export const FileDetailPage = () => {
         <FolderView
           outline={outline}
           nameOf={nameOf}
-          level={node ?? '0'}
+          level={node ?? soleChain(outline).path}
           wide={wide}
           selected={selected}
           hidden={hidden}
-          onLevel={(path) => go({ node: path === '0' ? null : path })}
+          onLevel={(path) => go({ node: path })}
           onOpen3d={(path) => go({ view: null, node: path === '0' ? null : path })}
           onShowInAssembly={(path) => {
             setSelected(path)
@@ -587,7 +596,7 @@ export const FileDetailPage = () => {
           hidden={showFolder}
           toolbarStart={
             assembly && !wide ? (
-              <Button variant="ghost" aria-pressed={sheet !== null} onClick={() => setSheet((open) => (open === null ? { level: isolated ?? '0' } : null))} className="aria-pressed:bg-accent-soft aria-pressed:text-accent" {...(studioReady ? {} : { disabledReason: t('viewer.tool.notReady') })}>
+              <Button variant="ghost" aria-pressed={sheet !== null} onClick={() => setSheet((open) => (open === null && outline !== null ? { level: isolated ?? soleChain(outline).path } : null))} className="aria-pressed:bg-accent-soft aria-pressed:text-accent" {...(studioReady ? {} : { disabledReason: t('viewer.tool.notReady') })}>
                 <ListTree aria-hidden className="size-4.5" />
                 {t('studio.view.parts')}
               </Button>

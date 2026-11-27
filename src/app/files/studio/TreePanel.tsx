@@ -7,7 +7,7 @@ import { Box, Boxes, ChevronDown, ChevronRight, Eye, EyeOff, PanelLeftClose, Sea
 import { Button, IconButton } from '#/components/ui/Button'
 import { cx, fastTransition } from '#/components/ui/cx'
 import { useI18n } from '#/i18n'
-import { chainOf, findNode, isAssembly, isUnder, parentOf, searchOutline, visibleRows, type OutlineNode } from '#/viewer/tree/outline'
+import { chainOf, findNode, soleChain, isAssembly, isUnder, parentOf, searchOutline, visibleRows, type OutlineNode } from '#/viewer/tree/outline'
 import { hiddenParts, type Namer } from './names'
 
 export type TreeProps = {
@@ -30,7 +30,7 @@ const rowBase = cx('group grid min-h-9 grid-cols-[28px_minmax(0,1fr)_auto] items
 export const TreePanel = ({ outline, nameOf, selected, isolated, hidden, onSelect, onToggleHidden, onShowAll, onClose }: TreeProps) => {
   const { t, locale } = useI18n()
   const [query, setQuery] = useState('')
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(['0']))
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(chainOf(soleChain(outline).path)))
   const list = useRef<HTMLDivElement>(null)
 
   // A selection made elsewhere (canvas, folder view, URL) opens the way to its row and brings it into view.

@@ -23,9 +23,11 @@ export type PartsListProps = {
   readonly onToggleHidden: (path: string) => void
   /** In the Parts view a tap on a sub-assembly opens it, like a folder. */
   readonly enterOnTap?: boolean
+  /** The level's name and the way up; off where a path bar already shows them (Parts view). */
+  readonly showLevel?: boolean
 }
 
-export const PartsList = ({ outline, nameOf, level, onLevel, selected, hidden, onActivate, onToggleHidden, enterOnTap = false }: PartsListProps) => {
+export const PartsList = ({ outline, nameOf, level, onLevel, selected, hidden, onActivate, onToggleHidden, enterOnTap = false, showLevel = true }: PartsListProps) => {
   const { t, locale } = useI18n()
   const [query, setQuery] = useState('')
   const at = findNode(outline, level) ?? outline
@@ -47,7 +49,7 @@ export const PartsList = ({ outline, nameOf, level, onLevel, selected, hidden, o
           className="h-11 w-full rounded-md border border-line-strong bg-bg pl-9 pr-3 text-lg placeholder:text-text-3"
         />
       </label>
-      {found === null && up !== null ? (
+      {showLevel && found === null && up !== null ? (
         <button type="button" onClick={() => onLevel(up)} className={cx('flex min-h-11 items-center gap-2 rounded-md px-1 text-left text-base text-accent hover:bg-hover', fastTransition)}>
           <ChevronLeft aria-hidden className="size-4.5 shrink-0" />
           <span className="truncate">
@@ -56,7 +58,7 @@ export const PartsList = ({ outline, nameOf, level, onLevel, selected, hidden, o
           </span>
         </button>
       ) : null}
-      {found === null ? <h3 className="px-1 text-sm font-medium text-text-2">{nameOf(at)}</h3> : null}
+      {showLevel && found === null ? <h3 className="px-1 text-sm font-medium text-text-2">{nameOf(at)}</h3> : null}
       {found !== null && found.hits.length === 0 ? (
         <div className="grid justify-items-center gap-2 px-2 py-6 text-center">
           <p className="text-base font-medium">{t('studio.search.empty', { query: query.trim() })}</p>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chainOf, countNodes, findNode, isNodePath, isUnder, namePaths, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
+  soleChain, chainOf, countNodes, findNode, isNodePath, isUnder, namePaths, outlineShape, parentOf, searchOutline, visibleRows, type OutlineNode,
 } from './outline'
 
 const part = (path: string, name: string): OutlineNode => ({ path, name, parts: 1, drawn: true, children: [] })
@@ -33,6 +33,10 @@ describe('outline', () => {
     expect(findNode(pump, 'x')).toBeNull()
     expect(countNodes(pump)).toBe(10)
     expect(outlineShape(pump)).toEqual({ depth: 3, assemblies: 3 })
+    expect(soleChain(pump).path).toBe('0')
+    const wrapped = asm('0', 'File', [asm('0.0', 'Wrapper', [asm('0.0.0', 'Top', [part('0.0.0.0', 'A'), part('0.0.0.1', 'B')])])])
+    expect(soleChain(wrapped).path).toBe('0.0.0')
+    expect(soleChain(asm('0', 'File', [part('0.0', 'Only')])).path).toBe('0')
   })
 
   it('lists rows of expanded nodes only', () => {

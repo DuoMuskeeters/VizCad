@@ -40,7 +40,8 @@ export const SelectionBar = ({ node, name, hidden, isolated, onIsolate, onToggle
     <div
       role="toolbar"
       aria-label={t('studio.selected', { name })}
-      className="absolute inset-x-2 top-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-1 rounded-lg border border-white/10 bg-canvas/92 p-1 text-canvas-text shadow-pop app:top-3"
+      // Clear of the 128 px axes gizmo in the top right corner on a desktop canvas.
+      className="absolute inset-x-2 top-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center app:max-w-[calc(100%-288px)] gap-1 rounded-lg border border-white/10 bg-canvas/92 p-1 text-canvas-text shadow-pop app:top-3"
     >
       <span className="flex min-w-0 items-center gap-2 px-2">
         {assembly ? <Boxes aria-hidden className="size-4 shrink-0 text-brand" /> : <Box aria-hidden className="size-4 shrink-0 text-brand" />}
@@ -64,7 +65,7 @@ export const SelectionBar = ({ node, name, hidden, isolated, onIsolate, onToggle
 }
 
 /** `Pump › Pump unit` with each step a link, and "Whole assembly". The browser's back button walks the same way. */
-export const PathBar = ({ steps, onGo, bottom }: { steps: readonly { path: string; name: string }[]; onGo: (path: string | null) => void; bottom: boolean }) => {
+export const PathBar = ({ steps, onGo }: { steps: readonly { path: string; name: string }[]; onGo: (path: string | null) => void }) => {
   const { t } = useI18n()
   const current = steps.at(-1)
   const parent = steps.at(-2)
@@ -73,8 +74,8 @@ export const PathBar = ({ steps, onGo, bottom }: { steps: readonly { path: strin
     <nav
       aria-label={t('studio.path.label')}
       className={cx(
-        'absolute inset-x-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-1 rounded-lg border border-white/10 bg-canvas/92 p-1 text-canvas-text shadow-pop',
-        bottom ? 'bottom-2' : 'top-16 app:top-15',
+        // At the bottom: the top holds the selection bar and the axes gizmo.
+        'absolute inset-x-2 bottom-2 z-10 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-1 rounded-lg border border-white/10 bg-canvas/92 p-1 text-canvas-text shadow-pop app:bottom-3',
       )}
     >
       {/* Phone: one step back and the current name. Desktop: every step. */}

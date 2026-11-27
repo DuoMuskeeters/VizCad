@@ -52,6 +52,19 @@ export const findNode = (root: OutlineNode, path: string): OutlineNode | null =>
   return node
 }
 
+/**
+ * Where an assembly really starts: from the root down while a level holds a single sub-assembly and nothing else
+ * (CAD exports often wrap everything in one or two nodes). The folder view opens there and the tree expands to it.
+ */
+export const soleChain = (root: OutlineNode): OutlineNode => {
+  let node = root
+  for (;;) {
+    const only = node.children.length === 1 ? node.children[0] : undefined
+    if (only === undefined || !isAssembly(only)) return node
+    node = only
+  }
+}
+
 export const countNodes = (root: OutlineNode): number => {
   let n = 0
   const walk = (node: OutlineNode) => {

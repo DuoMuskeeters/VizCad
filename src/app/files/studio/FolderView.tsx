@@ -125,6 +125,7 @@ export const FolderView = (props: FolderViewProps) => {
           onActivate={(node) => props.onShowInAssembly(node.path)}
           onToggleHidden={props.onToggleHidden}
           enterOnTap
+          showLevel={false}
         />
       )}
     </section>
