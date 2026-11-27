@@ -68,8 +68,8 @@ export function BlogList({ result, locale }: { result: { ok: true; data: PostLis
         <p className="mt-10 text-lg text-text-2">No posts yet.</p>
       ) : (
         <div className="mt-10 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card) => (
-            <PostCardView key={card.slug} post={card} locale={locale} />
+          {cards.map((card, index) => (
+            <PostCardView key={card.slug} post={card} locale={locale} priority={index === 0} />
           ))}
         </div>
       )}

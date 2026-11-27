@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { initials } from '#/components/ui/Avatar'
 import type { Locale } from '#/i18n/locales'
 import type { AuthorRef, ImageRef, PostCard } from '#/shared/blogTypes'
 import { paths } from '#/shared/marketingRoutes'
@@ -16,6 +15,12 @@ import { paths } from '#/shared/marketingRoutes'
 const dateFormat = new Intl.DateTimeFormat('en', { dateStyle: 'long', timeZone: 'UTC' })
 export const formatDate = (seconds: number) => dateFormat.format(new Date(seconds * 1000))
 export const isoDate = (seconds: number) => new Date(seconds * 1000).toISOString()
+
+/** Two initials (first and last word). Local, so blog pages do not load the app's Radix avatar. */
+export const initials = (name: string): string => {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  return `${words[0]?.[0] ?? '?'}${words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : ''}`.toUpperCase()
+}
 
 export const absoluteUrl = (origin: string, url: string) => (url.startsWith('/') ? `${origin}${url}` : url)
 
@@ -60,15 +65,18 @@ export function AuthorAvatar({ author, size = 'md' }: { author: Pick<AuthorRef, 
   )
 }
 
-/** One post in a list: cover, title (the whole card is not a link, the title is; ≥ 44 px), excerpt, meta. */
-export function PostCardView({ post, locale, headingLevel = 2 }: { post: PostCard; locale: Locale; headingLevel?: 2 | 3 }) {
+/**
+ * One post in a list: cover, title (the whole card is not a link, the title is; ≥ 44 px), excerpt, meta. `priority`
+ * for the first card of a page: its cover is the LCP element, so it loads eagerly and first.
+ */
+export function PostCardView({ post, locale, headingLevel = 2, priority = false }: { post: PostCard; locale: Locale; headingLevel?: 2 | 3; priority?: boolean }) {
   const href = paths.post(locale, post.slug)
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
   return (
     <article className="flex flex-col gap-3">
       {post.cover !== null && (
         <a href={href} tabIndex={-1} aria-hidden>
-          <Cover image={post.cover} />
+          <Cover image={post.cover} priority={priority} />
         </a>
       )}
       <div className="flex flex-col gap-1.5">

@@ -91,8 +91,8 @@ function AuthorRoute() {
       )}
       <h2 className="mt-12 text-xl font-heading tracking-heading text-text">Posts</h2>
       <div className="mt-6 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-        {posts.map((post) => (
-          <PostCardView key={post.slug} post={post} locale={locale} headingLevel={3} />
+        {posts.map((post, index) => (
+          <PostCardView key={post.slug} post={post} locale={locale} headingLevel={3} priority={index === 0} />
         ))}
       </div>
     </MarketingShell>
