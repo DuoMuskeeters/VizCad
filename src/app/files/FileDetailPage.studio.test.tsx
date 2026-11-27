@@ -236,7 +236,7 @@ describe('scene prep (5c-2)', () => {
     await user.click(within(panel).getByRole('button', { name: 'Red' }))
     expect(last().studio!.view.looks.get('0.1')).toEqual({ color: '#b23a2e', finish: undefined })
     await waitFor(() => expect(server.writes).toHaveLength(1), { timeout: 3000 })
-    expect(server.writes[0]).toEqual({ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#b23a2e', at: 'Pump group/Motor' } }, views: [] } })
+    expect(server.writes[0]).toEqual({ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#b23a2e', at: 'Motor' } }, views: [] } })
     await waitFor(() => expect(within(panel).getByText('Saved')).toBeInTheDocument())
     // Hidden for everyone: the visible switch writes the record.
     await user.click(within(panel).getByRole('switch', { name: 'Visible' }))
@@ -265,7 +265,7 @@ describe('scene prep (5c-2)', () => {
   it('a new version offers the previous colours by name path: apply writes the matched entries', async () => {
     stubScene({
       ...editable,
-      previous: { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Pump group/Motor' }, '0.5': { color: '#000000', at: 'Pump group/Gone' } }, views: [] } },
+      previous: { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Motor' }, '0.5': { color: '#000000', at: 'Gone' } }, views: [] } },
     })
     const { user } = await open()
     const banner = await screen.findByText('Apply the colours and names of version 3?')
@@ -273,7 +273,7 @@ describe('scene prep (5c-2)', () => {
     await user.click(screen.getByRole('button', { name: 'Unmatched' }))
     expect(screen.getByRole('region', { name: 'Parts that did not match' })).toHaveTextContent('Pump group › Gone')
     await user.click(screen.getByRole('button', { name: 'Apply' }))
-    await waitFor(() => expect(server.writes).toEqual([{ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Pump group/Motor' } }, views: [] } }]))
+    await waitFor(() => expect(server.writes).toEqual([{ version: 4, revision: 0, body: { v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Motor' } }, views: [] } }]))
     await waitFor(() => expect(screen.queryByText('Apply the colours and names of version 3?')).not.toBeInTheDocument())
   })
 

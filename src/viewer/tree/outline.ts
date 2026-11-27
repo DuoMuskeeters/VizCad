@@ -160,13 +160,15 @@ export const searchOutline = (root: OutlineNode, query: string, nameOf: NameOf =
 }
 
 /**
- * The name path of every node (docs/11 §3.3): names from the root down, with `[n]` (1-based) when siblings share a
- * name, e.g. `Pump/Body/Screw M3 [2]`. Stable across versions where indexes are not: the key that matches a scene
- * record to a new version.
+ * The name path of every node (docs/11 §3.3): names from under the root down, with `[n/m]` (1-based, of `m`) when
+ * siblings share a name, e.g. `Body/Screw M3 [2/3]`. The root is `''` and left out: its name is the file's (a new
+ * version uploaded from `pump-v2.step`, or an STL/OBJ/PLY named after the file, must still match). Stable across
+ * versions where indexes are not: the key that matches a scene record to a new version. A group that grew or shrank
+ * no longer matches (which of three screws was the second of two is unknown).
  */
 export const namePaths = (root: OutlineNode): Map<string, string> => {
-  // A `/` inside a name must not read as a level: escaped, like the backslash itself.
-  const esc = (name: string) => name.replace(/[\\/]/g, (c) => `\\${c}`)
+  // `/`, brackets and the backslash inside a name are escaped: they must not read as a level or a group number.
+  const esc = (name: string) => name.replace(/[\\/[\]]/g, (c) => `\\${c}`)
   const out = new Map<string, string>()
   const walk = (node: OutlineNode, prefix: string) => {
     out.set(node.path, prefix)
@@ -176,10 +178,33 @@ export const namePaths = (root: OutlineNode): Map<string, string> => {
     for (const child of node.children) {
       const n = (seen.get(child.name) ?? 0) + 1
       seen.set(child.name, n)
-      const own = (totals.get(child.name) ?? 0) > 1 ? `${esc(child.name)} [${n}]` : esc(child.name)
-      walk(child, `${prefix}/${own}`)
+      const total = totals.get(child.name) ?? 0
+      const own = total > 1 ? `${esc(child.name)} [${n}/${total}]` : esc(child.name)
+      walk(child, prefix === '' ? own : `${prefix}/${own}`)
     }
   }
-  walk(root, esc(root.name))
+  walk(root, '')
   return out
+}
+
+/** A name path as readable steps (`Body`, `Screw M3 [2/3]`): split on unescaped `/` outside a group number, unescaped. */
+export const nameSteps = (namePath: string): string[] => {
+  if (namePath === '') return []
+  const steps: string[] = []
+  let step = ''
+  let group = false
+  for (let i = 0; i < namePath.length; i++) {
+    const c = namePath[i]!
+    if (c === '\\' && i + 1 < namePath.length) step += namePath[++i]
+    else if (c === '/' && !group) {
+      steps.push(step)
+      step = ''
+    } else {
+      if (c === '[') group = true
+      else if (c === ']') group = false
+      step += c
+    }
+  }
+  steps.push(step)
+  return steps
 }

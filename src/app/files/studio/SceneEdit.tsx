@@ -10,7 +10,7 @@ import { cx, fastTransition } from '#/components/ui/cx'
 import { Switch } from '#/components/ui/Switch'
 import { useI18n, type I18nKey } from '#/i18n'
 import type { SceneFinish, SceneNode } from '#/shared/scene'
-import type { OutlineNode } from '#/viewer/tree/outline'
+import { nameSteps, type OutlineNode } from '#/viewer/tree/outline'
 import type { SceneEdit } from '#/viewer/tree/scene'
 import type { SaveStatus } from './useScene'
 
@@ -112,7 +112,7 @@ export const MatchBar = ({ version, matched, unmatched, busy, onApply, onIgnore 
           <ul className="grid gap-1 text-sm text-text-2">
             {unmatched.slice(0, 200).map((name) => (
               <li key={name} className="break-words">
-                {name.split('/').join(' › ')}
+                {nameSteps(name).join(' › ') || t('studio.path.top')}
               </li>
             ))}
           </ul>
@@ -135,11 +135,20 @@ export const NodeEditor = ({ node, entry, fileColor, onEdit }: {
   const [code, setCode] = useState(entry?.color ?? fileColor ?? '')
   useEffect(() => setName(entry?.name ?? node.name), [node.path, entry?.name, node.name])
   useEffect(() => setCode(entry?.color ?? fileColor ?? ''), [node.path, entry?.color, fileColor])
+  // A field saves only when its value differs from what it opened with: focusing and leaving it changes nothing
+  // (the code field opens with the file's own colour, which must not become a scene colour by a blur).
   const commitName = () => {
     const trimmed = name.trim()
+    if (trimmed === (entry?.name ?? node.name).trim()) return
     onEdit({ name: trimmed === '' || trimmed === node.name ? null : trimmed })
   }
   const codeValid = /^#?[0-9a-fA-F]{6}$/.test(code.trim())
+  const hex = (value: string) => `#${value.trim().replace('#', '').toLowerCase()}`
+  const commitCode = () => {
+    const initial = entry?.color ?? fileColor ?? ''
+    if (!codeValid || (initial !== '' && hex(code) === hex(initial))) return
+    onEdit({ color: hex(code) })
+  }
   const color = entry?.color ?? null
   const ids = { name: useId(), code: useId(), finish: useId() }
 
@@ -195,11 +204,9 @@ export const NodeEditor = ({ node, entry, fileColor, onEdit }: {
             maxLength={7}
             spellCheck={false}
             onChange={(event) => setCode(event.target.value)}
-            onBlur={() => {
-              if (codeValid) onEdit({ color: `#${code.trim().replace('#', '').toLowerCase()}` })
-            }}
+            onBlur={commitCode}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && codeValid) onEdit({ color: `#${code.trim().replace('#', '').toLowerCase()}` })
+              if (event.key === 'Enter') commitCode()
             }}
             aria-invalid={code !== '' && !codeValid}
             className="h-11 w-full rounded-md border border-line-strong bg-bg px-3 font-mono text-lg uppercase aria-invalid:border-danger app:h-10 app:text-base"

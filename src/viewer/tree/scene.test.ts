@@ -37,21 +37,28 @@ describe('scene body', () => {
     const previous: SceneBody = {
       v: 1,
       nodes: {
-        '0.0': { color: '#2f5f99', at: 'Pump/Motor' },
-        '0.0.0': { name: 'M3', at: 'Pump/Motor/Screw [1]' },
-        '0.0.1': { color: '#ffffff', at: 'Pump/Motor/Screw [2]' },
-        '0.1': { color: '#b23a2e', at: 'Pump/Volute' },
+        '0.0': { color: '#2f5f99', at: 'Motor' },
+        '0.0.0': { name: 'M3', at: 'Motor/Screw [1/2]' },
+        '0.0.1': { color: '#ffffff', at: 'Motor/Screw [2/2]' },
+        '0.1': { color: '#b23a2e', at: 'Volute' },
         '0.9': { color: '#000000' },
       },
       views: [{ id: 'a', name: 'A', camera: { position: [1, 1, 1], target: [0, 0, 0], up: [0, 0, 1], fov: 35 } }],
     }
     const match = matchPrevious(previous, v4)
-    expect(match.body).toEqual({ v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Pump/Motor' } }, views: [] })
+    expect(match.body).toEqual({ v: 1, nodes: { '0.1': { color: '#2f5f99', at: 'Motor' } }, views: [] })
     expect(match.matched).toBe(1)
     // A single screw has no [n] any more; the old two-screw names do not match it.
-    expect(match.unmatched).toEqual(['Pump/Motor/Screw [1]', 'Pump/Motor/Screw [2]', 'Pump/Volute', '0.9'])
-    const same = matchPrevious(previous, asm('0', 'Pump', [asm('0.0', 'Motor', [part('0.0.0', 'Screw'), part('0.0.1', 'Screw')]), part('0.1', 'Volute')]))
+    expect(match.unmatched).toEqual(['Motor/Screw [1/2]', 'Motor/Screw [2/2]', 'Volute', '0.9'])
+    // Another root name (the new version came from another file name): still matched.
+    const same = matchPrevious(previous, asm('0', 'pump-v5.step', [asm('0.0', 'Motor', [part('0.0.0', 'Screw'), part('0.0.1', 'Screw')]), part('0.1', 'Volute')]))
     expect(same.matched).toBe(4)
     expect(same.unmatched).toEqual(['0.9'])
+  })
+
+  it('does not match a same-named sibling when the group size changed', () => {
+    const previous: SceneBody = { v: 1, nodes: { '0.1': { color: '#ffffff', at: 'Screw [2/2]' } }, views: [] }
+    const three = asm('0', 'Pump', [part('0.0', 'Screw'), part('0.1', 'Screw'), part('0.2', 'Screw')])
+    expect(matchPrevious(previous, three)).toMatchObject({ matched: 0, unmatched: ['Screw [2/2]'] })
   })
 })
