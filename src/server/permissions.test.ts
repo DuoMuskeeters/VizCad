@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canManageContent,
+  type ContentActor,
+  decideContent,
   decidePermission,
+  platformRoleOf,
   type AccessLevel,
   type PermissionAction,
   type PermissionActor,
@@ -539,5 +543,36 @@ describe('manageProjectAccess', () => {
     ['guest', 'restricted', false, 'PROJECT_MANAGER_REQUIRED'],
   ] as const)('%s on a %s project (creator: %s) -> %s', (role, mode, creator, reason) => {
     expect(decide(role, mode, creator)).toBe(reason)
+  })
+})
+
+const admin: ContentActor = { platformRole: 'admin', accountStatus: 'active', emailVerified: true }
+
+describe('platformRoleOf', () => {
+  it('only the exact legacy value makes an admin', () => {
+    expect(platformRoleOf('admin')).toBe('admin')
+    for (const role of ['user', 'Admin', 'ADMIN', ' admin', 'admin ', 'user,admin', 'admin,user', 'superadmin', '', null, undefined]) {
+      expect(platformRoleOf(role), String(role)).toBe('user')
+    }
+  })
+})
+
+describe('canManageContent', () => {
+  it('allows an active, verified platform admin', () => {
+    expect(canManageContent(admin)).toBe(true)
+    expect(decideContent(admin)).toEqual({ allowed: true })
+  })
+
+  it('denies when any one of the three conditions drops', () => {
+    expect(decideContent({ ...admin, platformRole: 'user' })).toEqual({ allowed: false, reason: 'NOT_PLATFORM_ADMIN' })
+    expect(decideContent({ ...admin, accountStatus: 'suspended' })).toEqual({ allowed: false, reason: 'ACCOUNT_SUSPENDED' })
+    expect(decideContent({ ...admin, emailVerified: false })).toEqual({ allowed: false, reason: 'EMAIL_UNVERIFIED' })
+  })
+
+  it('is allowed for exactly one of the eight combinations', () => {
+    const combos = (['admin', 'user'] as const).flatMap((platformRole) =>
+      (['active', 'suspended'] as const).flatMap((accountStatus) => [true, false].map((emailVerified) => ({ platformRole, accountStatus, emailVerified }))),
+    )
+    expect(combos.filter(canManageContent)).toEqual([admin])
   })
 })

@@ -17,7 +17,7 @@ const meta = { requestId: 'ray-1' }
 const CONTENT = 'ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n'
 
 const session = (userId: string): SessionSummary => ({
-  sessionId: `s-${userId}`, userId, name: userId, email: `${userId}@example.com`, emailVerified: true, accountStatus: 'active', activeWorkspaceId: null,
+  sessionId: `s-${userId}`, userId, name: userId, email: `${userId}@example.com`, emailVerified: true, accountStatus: 'active', platformRole: 'user', activeWorkspaceId: null,
 })
 
 const get = (path: string, headers: Record<string, string> = {}) =>

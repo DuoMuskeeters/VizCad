@@ -6,6 +6,7 @@ import { passwordResetEmail, localeFromHeader, verificationEmail, type RenderedE
 import { AuthError, ConfigError, Unauthenticated, WorkspaceUnavailable } from '../errors'
 import { AppConfig } from './AppConfig'
 import { Auth, type SessionSummary } from './Auth'
+import { platformRoleOf } from '../permissions'
 import { isBanned } from './accountStatus'
 import type { AuthMailer } from './authOptions'
 import { Email } from './Email'
@@ -96,6 +97,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
         readonly refreshed: boolean
         readonly user: { readonly id: string; readonly name: string; readonly email: string; readonly emailVerified: boolean }
         readonly accountStatus: SessionSummary['accountStatus']
+        readonly platformRole: SessionSummary['platformRole']
       }
 
       /**
@@ -124,6 +126,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
                   emailVerified: schema.user.emailVerified,
                   banned: schema.user.banned,
                   banExpires: schema.user.banExpires,
+                  role: schema.user.role,
                 })
                 .from(schema.session)
                 .innerJoin(schema.user, eq(schema.session.userId, schema.user.id))
@@ -167,6 +170,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
             refreshed,
             user: { id: row.userId, name: row.name, email: row.email, emailVerified: row.emailVerified },
             accountStatus: isBanned(row, now) ? 'suspended' : 'active',
+            platformRole: platformRoleOf(row.role),
           })
         })
 
@@ -221,6 +225,7 @@ export const layer = (d1: D1Database, defer: Defer = detached) =>
                   email: found.user.email,
                   emailVerified: found.user.emailVerified,
                   accountStatus: found.accountStatus,
+                  platformRole: found.platformRole,
                   activeWorkspaceId: found.activeWorkspaceId,
                 }),
               ),

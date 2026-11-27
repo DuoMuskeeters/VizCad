@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { AuthError, Unauthenticated, WorkspaceUnavailable } from '../errors'
+import type { PlatformRole } from '../permissions'
 
 /** What the rest of the app learns about a session. No session token, no product permission (those come from permissions.ts). */
 export interface SessionSummary {
@@ -10,6 +11,8 @@ export interface SessionSummary {
   readonly emailVerified: boolean
   /** `suspended` when the platform has banned the account (user.banned, unexpired). */
   readonly accountStatus: 'active' | 'suspended'
+  /** `admin` only for `user.role = 'admin'` (permissions.ts `platformRoleOf`). Content rights come from `canManageContent`. */
+  readonly platformRole: PlatformRole
   /** The session's selected workspace, or null (the caller then falls back to the personal workspace). */
   readonly activeWorkspaceId: string | null
 }

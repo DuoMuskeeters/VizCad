@@ -423,3 +423,36 @@ export function decidePermission(input: PermissionInput): PermissionDecision {
       return deny('RESOURCE_UNAVAILABLE')
   }
 }
+
+/**
+ * Platform-wide role, separate from workspace roles (docs/12 §3.2). `user.role = 'admin'` is the better-auth admin
+ * plugin's legacy field; the legacy app compared it with `=== 'admin'` too, so nothing else (no `"user,admin"` list,
+ * no other casing) makes an admin.
+ */
+export type PlatformRole = 'admin' | 'user'
+
+export const platformRoleOf = (role: string | null | undefined): PlatformRole => (role === 'admin' ? 'admin' : 'user')
+
+/** What the content decision reads from the session summary. */
+export interface ContentActor {
+  readonly platformRole: PlatformRole
+  readonly accountStatus: 'active' | 'suspended'
+  readonly emailVerified: boolean
+}
+
+export type ContentDenialReason = 'NOT_PLATFORM_ADMIN' | 'ACCOUNT_SUSPENDED' | 'EMAIL_UNVERIFIED'
+
+export type ContentDecision = { readonly allowed: true } | { readonly allowed: false; readonly reason: ContentDenialReason }
+
+/**
+ * Who may manage CMS content (posts, texts, SEO, legal, assets, cache): a platform admin with an active account and a
+ * verified email. All three must hold; the first failing one is the reason. CMS never reads workspaces (D2).
+ */
+export function decideContent(actor: ContentActor): ContentDecision {
+  if (actor.platformRole !== 'admin') return { allowed: false, reason: 'NOT_PLATFORM_ADMIN' }
+  if (actor.accountStatus !== 'active') return { allowed: false, reason: 'ACCOUNT_SUSPENDED' }
+  if (!actor.emailVerified) return { allowed: false, reason: 'EMAIL_UNVERIFIED' }
+  return { allowed: true }
+}
+
+export const canManageContent = (actor: ContentActor): boolean => decideContent(actor).allowed
