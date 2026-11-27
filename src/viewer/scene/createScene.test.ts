@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { BufferGeometry, Material } from 'three'
+import { BufferGeometry, Material, Mesh } from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { normaliseTree } from '../tree/tree'
 import type { MeshData, ParsedModel, Stats } from '../worker/protocol'
@@ -139,5 +139,28 @@ describe('createScene', () => {
     canvas.dispatchEvent(new Event('webglcontextrestored'))
     nextFrame()
     expect(renderer.render).not.toHaveBeenCalled()
+  })
+
+  it('turns wireframe off on every material the studio swapped in, cached highlight clones too', () => {
+    const scene = createScene(document.createElement('div'), 'label')
+    const root = buildModel(model())
+    scene.setModel(root, stats)
+    const meshes: Mesh[] = []
+    root.traverse((object) => {
+      if (object instanceof Mesh) meshes.push(object)
+    })
+    const wire = () => meshes.map((m) => (m.material as Material & { wireframe: boolean }).wireframe)
+    const selected = { selected: '0', isolated: null, hidden: new Set<string>(), looks: new Map() }
+    const cleared = { ...selected, selected: null }
+    scene.setWireframe(true)
+    scene.setView(selected)
+    expect(wire().every(Boolean)).toBe(true)
+    scene.setWireframe(false)
+    scene.setView(cleared)
+    expect(wire().some(Boolean)).toBe(false)
+    // The highlight clones made while wireframe was on come back without it.
+    scene.setView(selected)
+    expect(wire().some(Boolean)).toBe(false)
+    scene.dispose()
   })
 })

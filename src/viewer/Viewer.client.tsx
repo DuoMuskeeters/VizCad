@@ -3,7 +3,7 @@
  * the lazy viewer chunk: three.js is loaded only through this file, never during SSR. The scene lives in a ref; React
  * state is the pure `viewerReducer`.
  */
-import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Axis3d, Camera, Cuboid, Focus, Grid3x3, Loader2 } from 'lucide-react'
 import { Button, IconButton } from '#/components/ui/Button'
 import { cx } from '#/components/ui/cx'
@@ -15,6 +15,8 @@ import { download, GLB_CONTENT_TYPE, parseInWorker } from './pipeline'
 import { buildModel } from './scene/build'
 import { createScene, WebGlUnavailable, type SceneHandle } from './scene/createScene'
 import { VIEW_NAMES, type ViewName } from './scene/fit'
+import type { StudioView } from './scene/studio'
+import type { OutlineNode } from './tree/outline'
 import {
   edgesAvailable, errorActions, errorTextKey, initialViewerState, viewerReducer, type LoadStage, type ViewerError, type ViewerStart, type ViewerState,
 } from './state'
@@ -22,6 +24,29 @@ import { classifyError, formatOfExtension, isConvertFormat, ParseFailure, type E
 
 /** GLTFLoader loads only when `model` answers with a GLB; a source file never pulls it in. */
 const loadGlbModule = () => import('./scene/loadGlb')
+/** The STL writer loads only when someone downloads a part (B7). */
+const loadStlModule = () => import('./scene/stl')
+
+/** What the page may ask the open model (docs/11 §4): no three.js object leaves the viewer. */
+export type ViewerApi = {
+  /** A small PNG of one node on its own; only while the canvas is hidden (folder view), else it would flicker. */
+  readonly thumbnail: (path: string, width: number, height: number) => Promise<Blob | null>
+  /** World size of a node in model units (mm unless the file says otherwise). */
+  readonly sizeOf: (path: string) => readonly [number, number, number] | null
+  readonly triangles: (path: string) => Promise<number>
+  /** Binary STL of a node (B7): in its place in the assembly, or centred on the origin. */
+  readonly exportStl: (path: string, centered: boolean, name: string) => Promise<Blob | null>
+}
+
+/** The assembly studio (docs/11 §4.2): the page owns selection, isolation, hidden nodes and looks; the viewer applies them. */
+export type ViewerStudio = {
+  readonly view: StudioView
+  readonly onOutline: (outline: OutlineNode | null) => void
+  readonly onPick: (path: string | null) => void
+  readonly api: RefObject<ViewerApi | null>
+  /** Ready, or not (the page shows the folder view only over an open model). */
+  readonly onReady?: ((ready: boolean) => void) | undefined
+}
 
 /** The conversion limit in whole binary megabytes, as the plan states it ("50 MB"). */
 const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
@@ -70,6 +95,15 @@ export type ViewerProps = {
   readonly onUploadVersion?: (() => void) | undefined
   /** The page's download button, repeated next to error texts when the caller may download. */
   readonly downloadAction?: ReactNode
+  readonly studio?: ViewerStudio | undefined
+  /** Classes of the canvas box; the default is the file page's fixed height. */
+  readonly frameClassName?: string | undefined
+  /** Floats over the ready canvas (selection bar, path bar). */
+  readonly overlay?: ReactNode
+  /** First items of the toolbar (the phone's "Parts" button). */
+  readonly toolbarStart?: ReactNode
+  /** Hides the canvas (folder view) without unmounting the open model. */
+  readonly hidden?: boolean | undefined
 }
 
 const viewKey: Record<ViewName, I18nKey> = { iso: 'viewer.view.iso', front: 'viewer.view.front', top: 'viewer.view.top', right: 'viewer.view.right' }
@@ -246,7 +280,7 @@ const StatusPanel = ({ state, format, onCancel, onStart, onRebuild, onUploadVers
 
 const Viewer = ({
   name, extension, size, url, thumbnailUrl, start, source: sourceProp, modelBytes, maxConvertBytes, onThumbnail, onDerivative, onConvertFailed, retryAlways,
-  rebuildUrl, onUploadVersion, downloadAction,
+  rebuildUrl, onUploadVersion, downloadAction, studio, frameClassName, overlay, toolbarStart, hidden,
 }: ViewerProps) => {
   const { t, locale } = useI18n()
   const [state, dispatch] = useReducer(viewerReducer, start, initialViewerState)
@@ -271,6 +305,8 @@ const Viewer = ({
   // A rename changes the name, not the model: the load reads it from a ref and does not restart.
   const nameRef = useRef(name)
   nameRef.current = name
+  const studioRef = useRef(studio)
+  studioRef.current = studio
   const format = formatOfExtension(extension)
   const label = fileTypeOfExtension(extension)?.label ?? extension.toUpperCase()
   const ready = state.phase.status === 'ready'
@@ -281,7 +317,7 @@ const Viewer = ({
   useEffect(() => {
     if (!host.current) return
     try {
-      scene.current = createScene(host.current, canvasLabel)
+      scene.current = createScene(host.current, canvasLabel, { onPick: (path) => studioRef.current?.onPick(path) })
     } catch (error) {
       if (error instanceof WebGlUnavailable) dispatch({ type: 'fail', code: 'webgl' })
       else throw error
@@ -381,6 +417,44 @@ const Viewer = ({
   useEffect(() => {
     if (ready) scene.current?.setWireframe(state.wireframe)
   }, [ready, state.wireframe])
+
+  // The studio: the outline once per open model, then the page's view (hide, isolate, selection, looks).
+  const studioView = studio?.view
+  const isolated = studioView?.isolated ?? null
+  useEffect(() => {
+    studioRef.current?.onReady?.(ready)
+    if (!ready || studioRef.current === undefined) return
+    studioRef.current.onOutline(scene.current?.outline() ?? null)
+  }, [ready, state.attempt])
+  useEffect(() => {
+    if (ready && studioView !== undefined) scene.current?.setView(studioView)
+  }, [ready, studioView])
+  useEffect(() => {
+    if (ready && studioRef.current !== undefined) scene.current?.focus(isolated)
+  }, [ready, isolated])
+  useEffect(() => {
+    const api = studio?.api
+    if (api === undefined) return
+    api.current = {
+      thumbnail: (path, width, height) => scene.current?.thumbnail(path, width, height) ?? Promise.resolve(null),
+      sizeOf: (path) => scene.current?.sizeOf(path) ?? null,
+      triangles: async (path) => {
+        const object = scene.current?.objectAt(path)
+        if (!object) return 0
+        return (await loadStlModule()).countTriangles(object)
+      },
+      exportStl: async (path, centered, partName) => {
+        const object = scene.current?.objectAt(path)
+        if (!object) return null
+        const module = await loadStlModule().catch(() => null)
+        if (module === null || scene.current?.objectAt(path) !== object) return null
+        return new Blob([module.writeStl(object, { centered, name: partName })], { type: 'model/stl' })
+      },
+    }
+    return () => {
+      api.current = null
+    }
+  }, [studio?.api])
   useEffect(() => {
     if (ready) scene.current?.setEdges(state.edges)
   }, [ready, state.edges])
@@ -391,13 +465,13 @@ const Viewer = ({
   const number = (n: number) => n.toLocaleString(locale)
 
   return (
-    <section aria-label={t('viewer.region')} className="grid min-w-0 gap-2">
+    <section aria-label={t('viewer.region')} hidden={hidden} className={cx('min-w-0 gap-2', hidden ? 'hidden' : 'grid', frameClassName && 'h-full grid-rows-[minmax(0,1fr)_auto]')}>
       <p role="status" aria-live="polite" className="sr-only">
         {announcement(state, label, t, errorText)}
       </p>
-      <div className="relative h-[min(62dvh,600px)] min-h-72 overflow-hidden rounded-lg bg-canvas">
+      <div className={cx('relative overflow-hidden bg-canvas', frameClassName ?? 'h-[min(62dvh,600px)] min-h-72 rounded-lg')}>
         <div ref={host} className={cx('size-full', !ready && 'invisible')} />
-        {ready ? null : (
+        {ready ? overlay : (
           <>
             {thumbnailUrl ? <img src={thumbnailUrl} alt="" className={cx('absolute inset-0 size-full object-contain', state.phase.status === 'error' && 'opacity-50')} /> : null}
             <StatusPanel
@@ -423,7 +497,8 @@ const Viewer = ({
         )}
       </div>
 
-      <div role="toolbar" aria-label={t('viewer.toolbar')} className="flex flex-wrap items-center gap-1">
+      <div role="toolbar" aria-label={t('viewer.toolbar')} className={cx('flex flex-wrap items-center gap-1', frameClassName && 'px-2 pb-1 app:px-3')}>
+        {toolbarStart}
         <IconButton label={t('viewer.tool.fit')} onClick={() => scene.current?.fit()} {...notReady}>
           <Focus aria-hidden className="size-4.5" />
         </IconButton>

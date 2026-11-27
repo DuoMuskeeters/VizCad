@@ -11,7 +11,9 @@ import {
   LineSegments,
   Mesh,
   PerspectiveCamera,
+  Raycaster,
   Scene,
+  Vector2,
   WebGLRenderer,
   type Material,
   Vector3,
@@ -24,6 +26,8 @@ import type { Stats } from '../worker/protocol'
 import { disposeObject } from './dispose'
 import { fitCamera, MAX_ZOOM_OUT, worldBox, viewDirection, type ViewName } from './fit'
 import { addLights, CANVAS_COLOR } from './lights'
+import { createStudio, EMPTY_VIEW, type Studio, type StudioView } from './studio'
+import type { OutlineNode } from '../tree/outline'
 
 /** The axes gizmo is 128 px; on a narrow canvas it would cover the model. */
 const GIZMO_MIN_WIDTH = 480
@@ -35,6 +39,18 @@ export type SceneHandle = {
   readonly setWireframe: (on: boolean) => void
   readonly setEdges: (on: boolean) => void
   readonly screenshot: () => Promise<Blob | null>
+  /** The model's assembly outline (docs/11 §4), null before a model is set. */
+  readonly outline: () => OutlineNode | null
+  /** Visibility, isolate, selection and scene looks (`studio.ts`). */
+  readonly setView: (view: StudioView) => void
+  /** Fit the camera to this node (isolate) or to the whole model (null). */
+  readonly focus: (path: string | null) => void
+  /** World size of a node in model units, or null. */
+  readonly sizeOf: (path: string) => readonly [number, number, number] | null
+  /** A small image of one node on its own (folder view, docs/11 §4.1), drawn with this renderer while the canvas is hidden. */
+  readonly thumbnail: (path: string, width: number, height: number) => Promise<Blob | null>
+  /** The meshes of a node for an STL export (B7): the node's object, world transforms applied by the exporter. */
+  readonly objectAt: (path: string) => Object3D | null
   /** Draw calls, geometries and textures still alive (dispose check, docs/11 §6). */
   readonly memory: () => { readonly geometries: number; readonly textures: number }
   readonly dispose: () => void
@@ -63,7 +79,16 @@ const materialsOf = (root: Object3D) => {
  * Creates its own canvas inside `container` and removes it on dispose: a lost context (forceContextLoss frees GPU memory
  * at once, docs/11 §6) is never reused, also not by React's double mount in development.
  */
-export const createScene = (container: HTMLElement, label: string): SceneHandle => {
+export type SceneOptions = {
+  /** A click (not a drag) on the canvas: the picked part's node path, or null on empty space. */
+  readonly onPick?: ((path: string | null) => void) | undefined
+}
+
+/** A press that moved less than this many pixels and lasted less than `CLICK_MS` is a click, not an orbit. */
+const CLICK_SLOP = 5
+const CLICK_MS = 500
+
+export const createScene = (container: HTMLElement, label: string, options: SceneOptions = {}): SceneHandle => {
   const canvas = document.createElement('canvas')
   canvas.setAttribute('role', 'img')
   canvas.setAttribute('aria-label', label)
@@ -97,6 +122,10 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
   gizmo.location.right = 8
 
   let model: Object3D | null = null
+  let studio: Studio | null = null
+  let view: StudioView = EMPTY_VIEW
+  let wireframe = false
+  let focusPath: string | null = null
   let grid: GridHelper | null = null
   let edges: LineSegments[] = []
   let triangles = 0
@@ -116,6 +145,30 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
   }
   canvas.addEventListener('webglcontextlost', onLost)
   canvas.addEventListener('webglcontextrestored', onRestored)
+
+  // Picking (docs/11 §4.2): a short press without movement selects; any drag stays an orbit. One pointer only.
+  const raycaster = new Raycaster()
+  let press: { id: number; x: number; y: number; at: number } | null = null
+  // Only the main button selects: a right or middle press pans or opens nothing, and never changes the selection.
+  const onDown = (event: PointerEvent) => {
+    press = event.isPrimary && event.button === 0 ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() } : null
+  }
+  const onUp = (event: PointerEvent) => {
+    const start = press
+    press = null
+    if (start === null || event.button !== 0 || start.id !== event.pointerId || options.onPick === undefined || studio === null) return
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP || performance.now() - start.at > CLICK_MS) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    raycaster.setFromCamera(new Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1), camera)
+    options.onPick(studio.pick(raycaster))
+  }
+  const onCancel = () => {
+    press = null
+  }
+  canvas.addEventListener('pointerdown', onDown)
+  canvas.addEventListener('pointerup', onUp)
+  canvas.addEventListener('pointercancel', onCancel)
 
   const render = (withGizmo = true) => {
     if (lost) return
@@ -147,9 +200,14 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
   observer.observe(container)
   resize()
 
+  const focusBox = () => {
+    const box = focusPath === null ? null : studio?.boundsOf(focusPath)
+    return box ?? worldBox(model!)
+  }
+
   const place = (direction: ReturnType<typeof viewDirection>) => {
     if (model === null) return
-    const box = worldBox(model)
+    const box = focusBox()
     const distance = fitCamera(camera, box, direction)
     controls.target.copy(box.getCenter(new Vector3()))
     controls.maxDistance = distance * MAX_ZOOM_OUT
@@ -168,12 +226,16 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
 
   return {
     setModel: (root, stats) => {
+      studio?.dispose()
       if (model !== null) disposeObject(model)
       clearEdges()
       grid?.removeFromParent()
       grid?.dispose()
       model = root
       triangles = stats.triangles
+      studio = createStudio(root)
+      focusPath = null
+      if (view !== EMPTY_VIEW) studio.apply(view)
       scene.add(root)
       // Grid under the model in world space (the root may be turned for a Y-up source), sized in round steps.
       const box = worldBox(root)
@@ -193,6 +255,7 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
     },
     view: (name) => place(viewDirection(name)),
     setWireframe: (on) => {
+      wireframe = on
       if (model === null) return
       for (const m of materialsOf(model)) if ('wireframe' in m) (m as Material & { wireframe: boolean }).wireframe = on
       dirty = true
@@ -234,6 +297,82 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
         canvas.toBlob((blob) => resolve(blob), 'image/png')
         dirty = true
       }),
+    outline: () => studio?.outline ?? null,
+    setView: (next) => {
+      view = next
+      if (studio === null || model === null) return
+      studio.apply(next)
+      // Materials the studio swapped in (styled ones, cached highlight clones made while it was on) follow the toggle.
+      for (const m of materialsOf(model)) if ('wireframe' in m) (m as Material & { wireframe: boolean }).wireframe = wireframe
+      dirty = true
+    },
+    focus: (path) => {
+      focusPath = path
+      // The canvas may have just been shown or resized (leaving the Parts view, the tree toggled) in the same commit;
+      // the ResizeObserver reports that only later, so measure now and fit with the new aspect.
+      resize()
+      const direction = camera.position.clone().sub(controls.target)
+      place(direction.lengthSq() > 0 ? direction : viewDirection('iso'))
+    },
+    sizeOf: (path) => {
+      const box = studio?.boundsOf(path)
+      if (!box) return null
+      // The world is Z-up in model units; a Y-up source was turned at the root, so the box is already in file axes.
+      return [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]
+    },
+    objectAt: (path) => studio?.objectAt(path) ?? null,
+    thumbnail: (path, width, height) =>
+      new Promise((resolve) => {
+        const target = studio?.objectAt(path)
+        if (lost || model === null || studio === null || !target) return resolve(null)
+        const box = studio.boundsOf(path)
+        if (box === null) return resolve(null)
+        // No selection tint in a thumbnail.
+        const selected = view.selected !== null
+        if (selected) studio.apply({ ...view, selected: null })
+        // Only the node: layer 1 for it, its ancestors (transforms) and the lights; forced visible while drawn.
+        const shown: Array<[Object3D, boolean]> = []
+        const edgeLines = new Set<Object3D>(edges)
+        const mark = (object: Object3D) => {
+          // Edge lines keep their own switch: off stays off in a thumbnail.
+          if (edgeLines.has(object) && !object.visible) return
+          shown.push([object, object.visible])
+          object.visible = true
+          object.layers.enable(1)
+        }
+        target.traverse(mark)
+        for (let at = target.parent; at !== null; at = at.parent) mark(at)
+        // The headlight rides on the camera, which is in the scene: one traversal finds every light.
+        const lights: Object3D[] = []
+        scene.traverse((object) => {
+          if ((object as { isLight?: boolean }).isLight) lights.push(object)
+        })
+        lights.forEach((light) => light.layers.enable(1))
+        const saved = { position: camera.position.clone(), quaternion: camera.quaternion.clone(), near: camera.near, far: camera.far, aspect: camera.aspect }
+        const ratio = renderer.getPixelRatio()
+        renderer.setPixelRatio(1)
+        renderer.setSize(width, height, false)
+        camera.aspect = width / height
+        camera.layers.set(1)
+        fitCamera(camera, box, viewDirection('iso'), 1.04)
+        renderer.clear()
+        renderer.render(scene, camera)
+        // Read in the same task as the draw (no preserveDrawingBuffer).
+        canvas.toBlob((blob) => resolve(blob), 'image/png')
+        camera.layers.set(0)
+        lights.forEach((light) => light.layers.disable(1))
+        for (const [object, visible] of shown) {
+          object.visible = visible
+          object.layers.disable(1)
+        }
+        if (selected) studio.apply(view)
+        camera.position.copy(saved.position)
+        camera.quaternion.copy(saved.quaternion)
+        camera.near = saved.near
+        camera.far = saved.far
+        renderer.setPixelRatio(ratio)
+        resize()
+      }),
     memory: () => ({ geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }),
     dispose: () => {
       if (disposed) return
@@ -241,10 +380,15 @@ export const createScene = (container: HTMLElement, label: string): SceneHandle 
       cancelAnimationFrame(frame)
       canvas.removeEventListener('webglcontextlost', onLost)
       canvas.removeEventListener('webglcontextrestored', onRestored)
+      canvas.removeEventListener('pointerdown', onDown)
+      canvas.removeEventListener('pointerup', onUp)
+      canvas.removeEventListener('pointercancel', onCancel)
       observer.disconnect()
       controls.dispose()
       gizmo.dispose()
       clearEdges()
+      studio?.dispose()
+      studio = null
       if (model !== null) disposeObject(model)
       grid?.dispose()
       renderer.renderLists.dispose()
