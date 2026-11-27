@@ -149,13 +149,14 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
   // Picking (docs/11 §4.2): a short press without movement selects; any drag stays an orbit. One pointer only.
   const raycaster = new Raycaster()
   let press: { id: number; x: number; y: number; at: number } | null = null
+  // Only the main button selects: a right or middle press pans or opens nothing, and never changes the selection.
   const onDown = (event: PointerEvent) => {
-    press = event.isPrimary ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() } : null
+    press = event.isPrimary && event.button === 0 ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() } : null
   }
   const onUp = (event: PointerEvent) => {
     const start = press
     press = null
-    if (start === null || start.id !== event.pointerId || options.onPick === undefined || studio === null) return
+    if (start === null || event.button !== 0 || start.id !== event.pointerId || options.onPick === undefined || studio === null) return
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP || performance.now() - start.at > CLICK_MS) return
     const rect = canvas.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return
@@ -301,12 +302,15 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
       view = next
       if (studio === null || model === null) return
       studio.apply(next)
-      // Materials the studio swapped in follow the wireframe toggle too.
-      if (wireframe) for (const m of materialsOf(model)) if ('wireframe' in m) (m as Material & { wireframe: boolean }).wireframe = true
+      // Materials the studio swapped in (styled ones, cached highlight clones made while it was on) follow the toggle.
+      for (const m of materialsOf(model)) if ('wireframe' in m) (m as Material & { wireframe: boolean }).wireframe = wireframe
       dirty = true
     },
     focus: (path) => {
       focusPath = path
+      // The canvas may have just been shown or resized (leaving the Parts view, the tree toggled) in the same commit;
+      // the ResizeObserver reports that only later, so measure now and fit with the new aspect.
+      resize()
       const direction = camera.position.clone().sub(controls.target)
       place(direction.lengthSq() > 0 ? direction : viewDirection('iso'))
     },
@@ -328,7 +332,10 @@ export const createScene = (container: HTMLElement, label: string, options: Scen
         if (selected) studio.apply({ ...view, selected: null })
         // Only the node: layer 1 for it, its ancestors (transforms) and the lights; forced visible while drawn.
         const shown: Array<[Object3D, boolean]> = []
+        const edgeLines = new Set<Object3D>(edges)
         const mark = (object: Object3D) => {
+          // Edge lines keep their own switch: off stays off in a thumbnail.
+          if (edgeLines.has(object) && !object.visible) return
           shown.push([object, object.visible])
           object.visible = true
           object.layers.enable(1)

@@ -65,6 +65,18 @@ export const soleChain = (root: OutlineNode): OutlineNode => {
   }
 }
 
+/**
+ * The level a folder view or the phone list opens for `path`: the node itself when it has children, its parent for a
+ * part (a part has no level of its own: shown empty, the view would look broken), the sole-chain start when the path
+ * is missing.
+ */
+export const levelOf = (root: OutlineNode, path: string | null): string => {
+  const node = path === null ? null : findNode(root, path)
+  if (node === null) return soleChain(root).path
+  if (isAssembly(node)) return node.path
+  return parentOf(node.path) ?? node.path
+}
+
 export const countNodes = (root: OutlineNode): number => {
   let n = 0
   const walk = (node: OutlineNode) => {
@@ -110,7 +122,12 @@ export const visibleRows = (root: OutlineNode, expanded: ReadonlySet<string>): T
   return rows
 }
 
-const fold = (text: string) => text.toLocaleLowerCase().normalize('NFKD').replace(/\p{M}/gu, '')
+/** Turkish letters without a decomposition (`ı`) and with one map to their base letter, so `ısı` finds `Isı` and `cark` finds `Çark`. */
+const TURKISH: Record<string, string> = { ı: 'i', ş: 's', ğ: 'g', ç: 'c', ö: 'o', ü: 'u' }
+
+/** Case and accent folded, independent of the runtime's locale (`toLocaleLowerCase` in tr maps `I` to `ı`). */
+export const fold = (text: string) =>
+  text.toLowerCase().replace(/[ışğçöü]/g, (c) => TURKISH[c] ?? c).normalize('NFKD').replace(/\p{M}/gu, '')
 
 export type SearchHit = { readonly node: OutlineNode; readonly parentPath: string | null }
 
