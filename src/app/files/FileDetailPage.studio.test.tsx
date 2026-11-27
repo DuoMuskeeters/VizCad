@@ -216,6 +216,18 @@ describe('assembly studio on the file page', () => {
     expect(last().studio!.view.hidden.size).toBe(0)
   })
 
+  it('hiding the isolated part leaves the isolation and stays hidden (no local override)', async () => {
+    router.search = { node: '0.2' }
+    const { user } = await open()
+    await waitFor(() => expect(last().studio!.view.isolated).toBe('0.2'))
+    act(() => last().studio!.onPick('0.2'))
+    const bar = await screen.findByRole('toolbar', { name: /Pump unit/ })
+    await user.click(within(bar).getByRole('button', { name: /^Hide/ }))
+    expect(router.navigate).toHaveBeenLastCalledWith(expect.objectContaining({ search: {} }))
+    // Still isolated until the URL changes: the hide is not undone meanwhile.
+    expect(last().studio!.view.hidden.has('0.2')).toBe(true)
+  })
+
   it('has a skip link and a main region while the file loads', async () => {
     renderApp(<UploadProvider><FileDetailPage /></UploadProvider>, 'admin', (op) => (op === 'getFile' ? new Promise<Response>(() => {}) : undefined))
     const skip = await screen.findByRole('link', { name: 'Skip to content' })
@@ -248,6 +260,18 @@ describe('scene prep (5c-2)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('region', { name: 'Edit appearance' })).not.toBeInTheDocument()
   }, 10_000)
+
+  it('hiding the isolated part for everyone leaves the isolation; no local "shown" override is added', async () => {
+    stubScene(editable)
+    router.search = { node: '0.1' }
+    const { user } = await open()
+    await waitFor(() => expect(server.reads).toBe(1))
+    act(() => last().studio!.onPick('0.1'))
+    await user.click(screen.getByRole('button', { name: 'Edit appearance' }))
+    await user.click(within(screen.getByRole('region', { name: 'Edit appearance' })).getByRole('switch', { name: 'Visible' }))
+    expect(router.navigate).toHaveBeenLastCalledWith(expect.objectContaining({ search: {} }))
+    expect(last().studio!.view.hidden.has('0.1')).toBe(true)
+  })
 
   it('a stale revision stops saving and offers a reload of the current record', async () => {
     stubScene(editable)

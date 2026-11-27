@@ -19,7 +19,7 @@ import { useI18n } from '#/i18n'
 import { canMakeThumbnail, deferOpen, isPhone, readDeviceHints } from '#/viewer/device'
 import type { StudioView } from '#/viewer/scene/studio'
 import type { ViewerStart } from '#/viewer/state'
-import { findNode, isNodePath, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
+import { findNode, isNodePath, isUnder, levelOf, namePaths, outlineShape, type OutlineNode } from '#/viewer/tree/outline'
 import { editNode, hiddenOf, looksOf, matchPrevious, namesOf, type SceneEdit } from '#/viewer/tree/scene'
 import type { ViewerApi } from '#/viewer/Viewer.client'
 import { converterOf, ERROR_CODES, formatOfExtension, isConvertFormat, type ErrorCode, type Stats } from '#/viewer/worker/protocol'
@@ -330,9 +330,13 @@ export const FileDetailPage = () => {
   useEffect(() => thumbnails.clear(), [looks, thumbnails])
   const { localHidden, localShown } = studioState
   const hidden = useMemo(() => hiddenOn({ localHidden, localShown }, sceneHidden), [localHidden, localShown, sceneHidden])
-  // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank).
+  // Isolating a hidden node shows it again (the viewer draws it anyway: an isolated node is never blank). Only when the
+  // isolation starts: hiding the isolated node leaves the isolation (`toggleHidden`), and in between it must stay hidden.
   const isolatedHidden = isolated !== null && hidden.has(isolated)
+  const unhidFor = useRef<string | null>(null)
   useEffect(() => {
+    if (unhidFor.current === isolated) return
+    unhidFor.current = isolated
     if (isolated !== null && isolatedHidden) dispatch({ type: 'toggleHidden', path: isolated, hiddenNow: true })
   }, [isolated, isolatedHidden])
   // In scene prep the selection is not tinted: the editor must see the colour being chosen.
@@ -367,7 +371,19 @@ export const FileDetailPage = () => {
     },
     [navigate, id, search],
   )
-  const toggleHidden = useCallback((path: string) => dispatch({ type: 'toggleHidden', path, hiddenNow: hidden.has(path) }), [hidden])
+  // Hiding the isolated node (or one above it) would change nothing on the canvas (the isolated node always draws):
+  // it leaves the isolation, so the hide shows.
+  const leaveIsolationFor = useCallback((path: string) => {
+    if (isolated !== null && isUnder(isolated, path)) go({ node: null })
+  }, [isolated, go])
+  const toggleHidden = useCallback(
+    (path: string) => {
+      const hiding = !hidden.has(path)
+      dispatch({ type: 'toggleHidden', path, hiddenNow: !hiding })
+      if (hiding) leaveIsolationFor(path)
+    },
+    [hidden, leaveIsolationFor],
+  )
   const showAll = useCallback(() => dispatch({ type: 'showAll', sceneHidden }), [sceneHidden])
   const setStlPath = useCallback((path: string | null) => dispatch({ type: 'stl', path }), [])
   const setEditing = useCallback((on: boolean) => dispatch({ type: 'editing', editing: on }), [])
@@ -402,8 +418,9 @@ export const FileDetailPage = () => {
     (path: string, edit: SceneEdit) => {
       if (edit.hidden !== undefined) dispatch({ type: 'forget', path })
       scene.change(editNode(scene.body, path, edit, names?.get(path)))
+      if (edit.hidden === true) leaveIsolationFor(path)
     },
-    [scene, names],
+    [scene, names, leaveIsolationFor],
   )
 
   // The phone sheet closes with Escape.
