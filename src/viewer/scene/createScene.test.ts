@@ -145,6 +145,31 @@ describe('createScene', () => {
     expect(renderer.render).not.toHaveBeenCalled()
   })
 
+  it('only a main-button click picks: a right or middle click never changes the selection', () => {
+    const container = document.createElement('div')
+    const onPick = vi.fn()
+    const scene = createScene(container, 'label', { onPick })
+    scene.setModel(buildModel(model()), stats)
+    const canvas = container.querySelector('canvas')!
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect
+    // The orbit controls capture the pointer, which jsdom lacks.
+    canvas.setPointerCapture = () => {}
+    canvas.releasePointerCapture = () => {}
+    const click = (button: number) => {
+      for (const type of ['pointerdown', 'pointerup']) {
+        const event = new MouseEvent(type, { button, clientX: 50, clientY: 50 })
+        Object.defineProperties(event, { isPrimary: { value: true }, pointerId: { value: 1 } })
+        canvas.dispatchEvent(event)
+      }
+    }
+    click(2)
+    click(1)
+    expect(onPick).not.toHaveBeenCalled()
+    click(0)
+    expect(onPick).toHaveBeenCalledTimes(1)
+    scene.dispose()
+  })
+
   it('focus measures a shown canvas, never a hidden one (0 × 0 would fit with a broken aspect)', () => {
     const container = document.createElement('div')
     const box = { width: 800, height: 400 }

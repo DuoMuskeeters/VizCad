@@ -122,6 +122,24 @@ describe('useScene', () => {
     expect(result.current.body).toEqual(body('#999999'))
   })
 
+  it('a read that answers after the model changed is ignored', async () => {
+    const reads: Array<(color: string) => void> = []
+    const fetcher = vi.fn(
+      (_url: string) =>
+        new Promise<Response>((resolve) =>
+          reads.push((color) => resolve(new Response(JSON.stringify({ ok: true, data: { scene: { revision: 3, body: body(color), updatedAt: 1, updatedBy: null }, previous: null, canEdit: true, maxViews: 20 } })))),
+        ),
+    ) as unknown as typeof fetch
+    const { result, rerender } = renderHook(({ model }) => useScene('f1', 4, model, true, fetcher), { initialProps: { model: 'source:10' } })
+    await waitFor(() => expect(reads).toHaveLength(1))
+    rerender({ model: 'derivative:4' })
+    await waitFor(() => expect(reads).toHaveLength(2))
+    await act(async () => reads[1]!('#222222'))
+    await waitFor(() => expect(result.current.body).toEqual(body('#222222')))
+    await act(async () => reads[0]!('#111111'))
+    expect(result.current.body).toEqual(body('#222222'))
+  })
+
   it('does not read while disabled (Preparing) and reads when enabled', async () => {
     const api = server()
     const { result, rerender } = renderHook(({ enabled }) => useScene('f1', 4, 'source:10', enabled, api.fetcher), { initialProps: { enabled: false } })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BoxGeometry, BufferAttribute, BufferGeometry, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three'
-import { STL_CHUNK_TRIANGLES } from '../../shared/stl'
+import { STL_CHUNK_TRIANGLES, STL_MAX_BYTES } from '../../shared/stl'
 import { countTriangles, stlBytes, writeStl } from './stl'
 
 const join = (pieces: ArrayBuffer[] | null) => {
@@ -27,6 +27,19 @@ const read = (buffer: ArrayBuffer) => {
 }
 
 describe('writeStl', () => {
+  it('refuses a part past its own cap, before writing anything', () => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute('position', new BufferAttribute(new Float32Array(9), 3))
+    const index = new BufferAttribute(new Uint32Array(3), 1)
+    // Claims just over the cap without allocating it.
+    index.count = 3 * (Math.floor((STL_MAX_BYTES - 84) / 50) + 1)
+    geometry.setIndex(index)
+    const mesh = new Mesh(geometry, new MeshStandardMaterial())
+    expect(writeStl(mesh, { centered: false, name: 'big' })).toBeNull()
+    index.count = 3
+    expect(writeStl(mesh, { centered: false, name: 'small' })).not.toBeNull()
+  })
+
   const assembly = () => {
     const root = new Group()
     root.rotation.x = Math.PI / 2

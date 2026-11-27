@@ -13,13 +13,17 @@ vi.mock('@tanstack/react-router', async () => {
   return { ...routerMock, useSearch: () => router.search, useNavigate: () => router.navigate }
 })
 
-const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][] }))
+const seen = vi.hoisted(() => ({ props: [] as ViewerProps[], stl: [] as unknown[][], thumbs: [] as string[] }))
 vi.mock('#/viewer/Viewer.client', () => ({
   default: (props: ViewerProps) => {
     seen.props.push(props)
     if (props.studio) {
       props.studio.api.current = {
-        thumbnail: async () => null,
+        // No image (as for a node without geometry): the card must not spin.
+        thumbnail: async (path: string) => {
+          seen.thumbs.push(path)
+          return null
+        },
         sizeOf: () => [420, 248, 372],
         colorOf: () => '#888888',
         triangles: async () => 48210,
@@ -92,6 +96,7 @@ beforeEach(() => {
   server.writeStatus = 200
   server.reads = 0
   seen.stl = []
+  seen.thumbs = []
   seen.props = []
   router.search = {}
   router.navigate.mockReset()
@@ -300,6 +305,22 @@ describe('scene prep (5c-2)', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit appearance' })).not.toHaveAttribute('aria-disabled'))
   })
 
+  it('an offer that turns up while editing (the record read again) closes the editor until it is answered', async () => {
+    stubScene(editable)
+    server.writeStatus = 409
+    const { user } = await open()
+    await user.click(within(screen.getByRole('tree', { name: 'Parts tree' })).getByText('Motor'))
+    await waitFor(() => expect(server.reads).toBe(1))
+    await user.click(screen.getByRole('button', { name: 'Edit appearance' }))
+    await user.click(within(screen.getByRole('region', { name: 'Edit appearance' })).getByRole('button', { name: 'Blue' }))
+    const alert = await screen.findByRole('alert', {}, { timeout: 3000 })
+    server.answer = { ...editable, previous: { versionNumber: 3, body: { v: 1, nodes: { '0.4': { color: '#2f5f99', at: 'Motor' } }, views: [] } } }
+    await user.click(within(alert).getByRole('button', { name: 'Reload' }))
+    await screen.findByText('Apply the colours and names of version 3?')
+    expect(screen.queryByText('You are editing the appearance.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Edit appearance' })).not.toBeInTheDocument()
+  }, 10_000)
+
   it('a change that did not save stays visible after Done, with a retry', async () => {
     stubScene(editable)
     server.writeStatus = 500
@@ -374,6 +395,23 @@ describe('scene prep (5c-2)', () => {
     expect(last().source).toBe('source')
     await user.click(screen.getByRole('button', { name: 'Ignore' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit appearance' })).not.toHaveAttribute('aria-disabled'))
+  })
+
+  it('folder thumbnails: a part without an image never spins, and the record\'s colours draw them again', async () => {
+    let releaseRead = () => {}
+    const read = new Promise<void>((resolve) => (releaseRead = resolve))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (!url.endsWith('/scene')) return new Response('{}', { status: 404 })
+      await read
+      return answer({ scene: { revision: 1, body: { v: 1, nodes: { '0.0': { color: '#ffffff' } }, views: [] }, updatedAt: 1, updatedBy: null }, previous: null, canEdit: false, maxViews: 20 })
+    }))
+    router.search = { view: 'parts' }
+    await open()
+    const folder = screen.getByRole('region', { name: 'Parts' })
+    await waitFor(() => expect(seen.thumbs).toEqual(['0.0', '0.1', '0.2']))
+    await waitFor(() => expect(within(folder).queryByText(/Drawing/)).not.toBeInTheDocument())
+    releaseRead()
+    await waitFor(() => expect(seen.thumbs).toEqual(['0.0', '0.1', '0.2', '0.0', '0.1', '0.2']))
   })
 
   it('downloads a part as STL in its place by default, centred on request (B7)', async () => {
