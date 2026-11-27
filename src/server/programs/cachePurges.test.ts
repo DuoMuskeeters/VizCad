@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest'
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Logger, Ref } from 'effect'
 import { TestClock } from 'effect/testing'
 import { affectedUrls } from '../cms/affectedUrls'
 import { CacheError } from '../errors'
@@ -65,9 +65,17 @@ describe('enqueuePurges', () => {
 })
 
 describe('drainCachePurges', () => {
-  it.effect('without purge config (K5 open): skips with a reason, makes no call and leaves the queue as it is', () =>
+  it.effect('without purge config (K5 open): skips with a reason, makes no call and leaves the queue as it is; warns only when rows wait', () =>
     within({ configured: false })(Effect.gen(function* () {
+      const warnings: Array<string> = []
+      const logger = Logger.make(({ message }) => void warnings.push(JSON.stringify(message)))
+      const drain = drainCachePurges().pipe(Effect.provide(Logger.layer([logger])))
+      assert.deepStrictEqual(yield* drain, { skipped: 'not-configured', done: 0, failed: 0, dropped: 0, queued: 0, calls: 0 })
+      assert.deepStrictEqual(warnings, [])
       yield* enqueue({ urls: urls(3) })
+      yield* drain
+      assert.strictEqual(warnings.length, 1)
+      assert.include(warnings[0], 'cache purge skipped')
       const summary = yield* drainCachePurges()
       assert.deepStrictEqual(summary, { skipped: 'not-configured', done: 0, failed: 0, dropped: 0, queued: 6, calls: 0 })
       assert.deepStrictEqual(yield* calls, [])

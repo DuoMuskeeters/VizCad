@@ -68,7 +68,7 @@ type Row = typeof schema.cachePurges.$inferSelect
  * Purges due queue rows with at most `maxCalls` API calls (docs/12 §7.4 steps 2–5). A due `host` row goes first: one
  * hostname purge also covers every due URL row. The rest go 100 URLs per call; a target due twice is sent once.
  * Successful rows are deleted; failed rows get `attempts + 1`, the error reason and `notBefore + 60 s`.
- * Without purge config (K5 open) it logs the reason and leaves the queue untouched.
+ * Without purge config (K5 open) it leaves the queue untouched and logs the reason when rows are waiting.
  */
 export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options: { readonly maxCalls?: number } = {}) {
   const db = yield* Db
@@ -79,7 +79,10 @@ export const drainCachePurges = Effect.fn('drainCachePurges')(function* (options
 
   if (!cache.configured) {
     const waiting = yield* queued
-    yield* Effect.logWarning('cache purge skipped').pipe(Effect.annotateLogs({ reason: CacheErrorReason.notConfigured, queued: waiting }))
+    // Only worth a warning when something waits: the cron runs every 10 minutes even with an empty queue.
+    if (waiting > 0) {
+      yield* Effect.logWarning('cache purge skipped').pipe(Effect.annotateLogs({ reason: CacheErrorReason.notConfigured, queued: waiting }))
+    }
     return { skipped: 'not-configured', done: 0, failed: 0, dropped: 0, queued: waiting, calls: 0 } satisfies DrainSummary
   }
 
