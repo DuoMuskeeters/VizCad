@@ -342,11 +342,14 @@ export const FileDetailPage = () => {
   // isolation starts: hiding the isolated node leaves the isolation (`toggleHidden`), and in between it must stay hidden.
   const isolatedHidden = isolated !== null && hidden.has(isolated)
   const unhidFor = useRef<string | null>(null)
+  // Not handled before the scene record is read (or failed to): a record hiding the node may still come after the tree.
+  const sceneRead = scene.read
   useEffect(() => {
     if (unhidFor.current === isolated) return
+    if (isolated !== null && !sceneRead) return
     unhidFor.current = isolated
     if (isolated !== null && isolatedHidden) dispatch({ type: 'toggleHidden', path: isolated, hiddenNow: true })
-  }, [isolated, isolatedHidden])
+  }, [isolated, isolatedHidden, sceneRead])
   // In scene prep the selection is not tinted: the editor must see the colour being chosen.
   const tinted = editing ? null : selected
   const view = useMemo<StudioView>(() => ({ selected: tinted, isolated, hidden, looks }), [tinted, isolated, hidden, looks])

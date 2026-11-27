@@ -521,8 +521,8 @@ Branch `rewrite-faz5c` (5c-1) ve `rewrite-faz5c-2` (5c-2), 27 Kasım 2026. Göre
 - **A3 ölçümü:** parça küçük resmi yerelde (M serisi, GPU) Stealthburner'ın 4 alt montajında kare başına bir çizimle anlık; 455 parçalık tek düzeyde ve orta sınıf cihazda ölçülmedi. Yavaş kalırsa atlas (A3) ya da yalnız görünür kartlar.
 - Seçme BVH'sız (5c-1 sapması 1); §6 "< 5 ms" ölçümü 5d'de.
 
-#### 5c-2 · Son kontrolden kalanlar (PR #28 birleşti, 2026-11-27; 5d'de kapatılacak)
-- `?node=X` ile açılan ve sahnede gizli olan parça, sahne kaydı ağaçtan sonra gelirse görünür yapılmıyor (FileDetailPage.tsx ~344): kayıt okunmadan izolasyon "işlendi" sayılmamalı.
-- Bırakılan modelde `conflict`/`version` cevabı değişikliği bildirim göstermeden düşürüyor (useScene.ts ~139): `lost` sayacı artmalı. Dosya sayfasından tamamen çıkılınca bildirim için sayfanın üstünde bir geri çağırma gerekir.
-- `tooLarge` açıkken uçan kaydın hatası gizleniyor, "Yeniden dene" çıkmıyor (useScene.ts ~117): `error` `tooLarge`'ı ezmeli.
-- Bırakılan oturumda uçan istek başarısız olunca bekleyen yeni değişiklik denenmeden düşüyor (useScene.ts ~146): bir deneme daha.
+#### 5c-2 · Son kontrolden kalanlar (PR #28 birleşti, 2026-11-27; hepsi kapandı)
+- [x] `?node=X` ile açılan ve sahnede gizli olan parça, sahne kaydı ağaçtan sonra gelirse görünür yapılmıyordu: izolasyon kayıt okunmadan (`useScene().read`; okuma başarısız olsa da `true` olur) "işlendi" sayılmıyor.
+- [x] Bırakılan modelde `conflict`/`version` cevabı artık `lost` sayacını artırıyor (bildirim çıkıyor). Dosya sayfasından tamamen çıkılınca bildirim için sayfanın üstünde bir geri çağırma hâlâ gerekir.
+- [x] `error` artık `tooLarge`'ı eziyor ("Yeniden dene" çıkıyor); `tooLarge` yalnızca `saving` ve `saved`'i bastırıyor.
+- [x] Bırakılan oturumda uçan istek başarısız olunca bekleyen yeni değişiklik bir kez deneniyor, sonra düşüyor.

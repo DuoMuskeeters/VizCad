@@ -217,4 +217,68 @@ describe('useScene', () => {
     act(() => result.current.change(body('#9a9a9a')))
     expect(result.current.status).toBe('pending')
   })
+
+  it('a conflict on a model left behind counts as a lost change', async () => {
+    const api = server(409)
+    const { result, rerender } = renderHook(({ version }) => useScene('f1', version, 'derivative:1', true, api.fetcher), { initialProps: { version: 4 } })
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#a1a1a1')))
+    rerender({ version: 5 })
+    await waitFor(() => expect(result.current.lost).toBe(1))
+    expect(api.writes).toHaveLength(1)
+    expect(result.current.status).toBe('idle')
+    expect(leavingIsBlocked()).toBe(false)
+  })
+
+  it('a failed save shows over a size refusal, so Retry is offered; Retry sends the change', async () => {
+    const answers: Array<(ok: boolean) => void> = []
+    const writes: Array<Record<string, unknown>> = []
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method !== 'POST') return new Response(JSON.stringify({ ok: true, data: { scene: null, previous: null, canEdit: true, maxViews: 20 } }))
+      writes.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      const ok = await new Promise<boolean>((resolve) => answers.push(resolve))
+      return ok ? new Response(JSON.stringify({ ok: true, data: { revision: writes.length, updatedAt: 1 } })) : new Response(JSON.stringify({ ok: false, error: 'Internal' }), { status: 500 })
+    }) as unknown as typeof fetch
+    const { result } = renderHook(() => useScene('f1', 4, 'derivative:1', true, fetcher))
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#b2b2b2'), true))
+    await waitFor(() => expect(writes).toHaveLength(1))
+    const nodes = Object.fromEntries(Array.from({ length: 2001 }, (_, i) => [`0.${i}`, { color: '#111111' }]))
+    act(() => result.current.change({ v: 1, nodes, views: [] }, true))
+    expect(result.current.status).toBe('tooLarge')
+    await act(async () => answers.shift()!(false))
+    // UnsavedBar offers Retry for `error` only.
+    await waitFor(() => expect(result.current.status).toBe('error'))
+    act(() => result.current.retry())
+    await waitFor(() => expect(writes).toEqual([{ version: 4, revision: 0, body: body('#b2b2b2') }, { version: 4, revision: 0, body: body('#b2b2b2') }]))
+    await act(async () => answers.shift()!(true))
+    await waitFor(() => expect(result.current.answer?.scene?.revision).toBe(2))
+    // The retried change saved; the refused one is still not applied, so the refusal shows again (not a stale error).
+    await waitFor(() => expect(result.current.status).toBe('tooLarge'))
+  })
+
+  it('on a model left behind, a newer change waiting behind a failed request is tried once before it is dropped', async () => {
+    const answers: Array<(ok: boolean) => void> = []
+    const writes: Array<Record<string, unknown>> = []
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method !== 'POST') return new Response(JSON.stringify({ ok: true, data: { scene: null, previous: null, canEdit: true, maxViews: 20 } }))
+      writes.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      const ok = await new Promise<boolean>((resolve) => answers.push(resolve))
+      return ok ? new Response(JSON.stringify({ ok: true, data: { revision: writes.length, updatedAt: 1 } })) : new Response(JSON.stringify({ ok: false, error: 'Internal' }), { status: 500 })
+    }) as unknown as typeof fetch
+    const { result, rerender } = renderHook(({ version }) => useScene('f1', version, 'derivative:1', true, fetcher), { initialProps: { version: 4 } })
+    await waitFor(() => expect(result.current.answer).not.toBeNull())
+    act(() => result.current.change(body('#c3c3c3'), true))
+    await waitFor(() => expect(writes).toHaveLength(1))
+    act(() => result.current.change(body('#d4d4d4')))
+    rerender({ version: 5 })
+    await act(async () => answers.shift()!(false))
+    await waitFor(() => expect(writes).toHaveLength(2))
+    expect(writes[1]).toEqual({ version: 4, revision: 0, body: body('#d4d4d4') })
+    expect(result.current.lost).toBe(0)
+    await act(async () => answers.shift()!(false))
+    await waitFor(() => expect(result.current.lost).toBe(1))
+    expect(writes).toHaveLength(2)
+    expect(leavingIsBlocked()).toBe(false)
+  })
 })

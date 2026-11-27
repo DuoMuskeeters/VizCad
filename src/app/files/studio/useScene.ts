@@ -61,6 +61,8 @@ export const overLimits = (body: SceneBody) => !fitsLimits(body) || JSON.stringi
 export type SceneState = {
   /** The answer as read (null while loading or when it could not be read: the model shows as in the file). */
   readonly answer: SceneAnswer | null
+  /** The read has answered for this model (with a record, none, or a failure): false while it is on its way. */
+  readonly read: boolean
   /** What is applied: the record, with this editor's unsaved changes. */
   readonly body: SceneBody
   readonly status: SaveStatus
@@ -87,8 +89,10 @@ type Session = {
   inFlight: boolean
   stopped: boolean
   failed: boolean
-  /** The last change was refused for its size: the notice stays until a change is accepted. */
+  /** The last change was refused for its size: the notice stays until a change is accepted (an error still shows). */
   tooLarge: boolean
+  /** Left behind with a newer change waiting when its request failed: that change gets one try before it is dropped. */
+  lastTry: boolean
   timer: ReturnType<typeof setTimeout> | null
 }
 
@@ -101,6 +105,7 @@ const busy = (session: Session) => !session.stopped && (session.dirty || session
  */
 export const useScene = (fileId: string, version: number, model: string, enabled: boolean, fetcher?: Fetch): SceneState => {
   const [answer, setAnswer] = useState<SceneAnswer | null>(null)
+  const [read, setRead] = useState(false)
   const [body, setBody] = useState<SceneBody>(EMPTY_SCENE)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -113,9 +118,10 @@ export const useScene = (fileId: string, version: number, model: string, enabled
   const flush = useCallback(async (session: Session, keepalive = false): Promise<void> => {
     session.timer = null
     if (session.inFlight || !session.dirty || session.stopped) return
-    // The page's save state: a size refusal stays shown until the next accepted change.
+    // The page's save state: a size refusal stays shown over saving and saved until the next accepted change; an
+    // error replaces it, so Retry shows for the change that did not save.
     const show = (next: SaveStatus) => {
-      if (session.live && !session.tooLarge) setStatus(next)
+      if (session.live) setStatus(session.tooLarge && next !== 'error' ? 'tooLarge' : next)
     }
     session.inFlight = true
     session.dirty = false
@@ -140,10 +146,17 @@ export const useScene = (fileId: string, version: number, model: string, enabled
       session.stopped = true
       sessions.current.delete(session)
       if (session.live) setStatus(result.error)
+      // Left behind, the change is lost all the same: the page says so.
+      else setLost((n) => n + 1)
       return
     }
-    // A model left behind has no next edit and no Retry: its change is dropped (leaving stops warning) and the page says so.
+    // A model left behind has no next edit and no Retry: a newer change waiting behind the failed one is tried once;
+    // then the change is dropped (leaving stops warning) and the page says so.
     if (!session.live) {
+      if (session.dirty && !session.lastTry) {
+        session.lastTry = true
+        return flush(session)
+      }
       session.stopped = true
       sessions.current.delete(session)
       setLost((n) => n + 1)
@@ -157,17 +170,19 @@ export const useScene = (fileId: string, version: number, model: string, enabled
 
   useEffect(() => {
     if (!enabled) return
-    const session: Session = { fileId, version, fetcher, live: true, revision: 0, latest: EMPTY_SCENE, dirty: false, inFlight: false, stopped: false, failed: false, tooLarge: false, timer: null }
+    const session: Session = { fileId, version, fetcher, live: true, revision: 0, latest: EMPTY_SCENE, dirty: false, inFlight: false, stopped: false, failed: false, tooLarge: false, lastTry: false, timer: null }
     current.current = session
     sessions.current.add(session)
     setAnswer(null)
+    setRead(false)
     setBody(EMPTY_SCENE)
     setStatus('idle')
-    void fetchScene(fileId, fetcher).then((read) => {
+    void fetchScene(fileId, fetcher).then((found) => {
       if (!session.live) return
-      setAnswer(read)
-      const next = read?.scene?.body ?? EMPTY_SCENE
-      session.revision = read?.scene?.revision ?? 0
+      setAnswer(found)
+      setRead(true)
+      const next = found?.scene?.body ?? EMPTY_SCENE
+      session.revision = found?.scene?.revision ?? 0
       session.latest = next
       setBody(next)
     })
@@ -221,7 +236,8 @@ export const useScene = (fileId: string, version: number, model: string, enabled
       // Over the limits: shown, never sent (the server would refuse it and every later change with it).
       if (overLimits(next)) {
         session.tooLarge = true
-        setStatus('tooLarge')
+        // A change that already failed keeps its Retry: the refusal does not hide it.
+        setStatus(session.failed && session.dirty ? 'error' : 'tooLarge')
         return
       }
       session.tooLarge = false
@@ -243,5 +259,5 @@ export const useScene = (fileId: string, version: number, model: string, enabled
   }, [flush])
   const reload = useCallback(() => setReadKey((n) => n + 1), [])
 
-  return { answer, body, status, savedAt, change, retry, reload, lost }
+  return { answer, read, body, status, savedAt, change, retry, reload, lost }
 }
