@@ -350,4 +350,16 @@ describe('POST /api/cms/<operation>', () => {
       assert.sameDeepMembers(left, [[`${ORIGIN}/blog`, 0], [`${ORIGIN}/pricing`, 2]])
       assert.strictEqual((yield* call(post('retryPurges', { ids: [] }))).status, 400)
     })))
+
+  it.effect('clearPurges and retryPurges handle more failed rows than one D1 statement can bind (ids in chunks)', () =>
+    run(Effect.gen(function* () {
+      const db = yield* Db
+      const many = Array.from({ length: 150 }, (_, i) => ({ kind: 'url' as const, target: `${ORIGIN}/blog/page/${i + 2}`, reason: 'publish', createdAt: fromUnixSeconds(T0), notBefore: fromUnixSeconds(T0), attempts: MAX_ATTEMPTS, lastError: 'api-error' }))
+      for (let i = 0; i < many.length; i += 10) yield* db.use((d) => d.insert(schema.cachePurges).values(many.slice(i, i + 10)))
+      const ids = (yield* rows('cachePurges')).map((r) => r.id)
+      assert.strictEqual(ids.length, 150)
+      const cleared = yield* call(post('clearPurges', { ids }))
+      assert.strictEqual((cleared.body.data as { cleared: number }).cleared, 150)
+      assert.strictEqual((yield* rows('cachePurges')).length, 0)
+    })))
 })

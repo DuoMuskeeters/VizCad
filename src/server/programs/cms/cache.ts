@@ -5,7 +5,7 @@ import * as schema from '../../db/schema'
 import { CacheError, ValidationError } from '../../errors'
 import { AppConfig } from '../../services/AppConfig'
 import { Cache, CacheErrorReason, siteUrlOf } from '../../services/Cache'
-import { Db } from '../../services/Db'
+import { type Database, Db } from '../../services/Db'
 import { toUnixSeconds } from '../../time'
 import { DRAIN_MAX_CALLS, drainCachePurges, enqueuePurges, MAX_ATTEMPTS, PUBLISH_MAX_CALLS } from '../cachePurges'
 import { nowSeconds, runBatch } from '../shared'
@@ -100,13 +100,25 @@ export const purgeSiteHost = Effect.fn('purgeSiteHost')(function* () {
   return { hostname: siteUrl.hostname, purge: yield* drainCachePurges({ maxCalls: 1 }) }
 })
 
+/** D1 binds at most 100 parameters per statement: ids go in chunks well under it (one more for `attempts`). */
+export const IDS_PER_QUERY = 90
+export const chunks = <A>(all: ReadonlyArray<A>): Array<Array<A>> => {
+  const out: Array<Array<A>> = []
+  for (let i = 0; i < all.length; i += IDS_PER_QUERY) out.push(all.slice(i, i + IDS_PER_QUERY))
+  return out
+}
+
 /** Rows out of automatic retries (`attempts >= MAX_ATTEMPTS`) among the given ids; others are left alone. */
 const failedRows = Effect.fnUntraced(function* (ids: ReadonlyArray<number>) {
   const db = yield* Db
-  return yield* db.use((d) =>
-    d.select().from(schema.cachePurges).where(and(inArray(schema.cachePurges.id, [...ids]), gte(schema.cachePurges.attempts, MAX_ATTEMPTS))),
+  const found = yield* Effect.forEach(chunks(ids), (part) =>
+    db.use((d) => d.select().from(schema.cachePurges).where(and(inArray(schema.cachePurges.id, part), gte(schema.cachePurges.attempts, MAX_ATTEMPTS)))),
   )
+  return found.flat()
 })
+
+/** The deletes of the given rows, one statement per chunk (for the same batch as what replaces them). */
+const deleteRows = (d: Database, ids: ReadonlyArray<number>) => chunks(ids).map((part) => d.delete(schema.cachePurges).where(inArray(schema.cachePurges.id, part)))
 
 /**
  * `retryPurges(ids)`: failed rows (out of retries) go back to the queue as fresh targets, now and 60 s later like any
@@ -121,7 +133,7 @@ export const retryPurges = Effect.fn('retryPurges')(function* (input: { readonly
   const urls = rows.filter((r) => r.kind === 'url').map((r) => r.target)
   const host = rows.some((r) => r.kind === 'host')
   yield* runBatch((d) => [
-    d.delete(schema.cachePurges).where(inArray(schema.cachePurges.id, rows.map((r) => r.id))),
+    ...deleteRows(d, rows.map((r) => r.id)),
     ...enqueuePurges(d, { targets: { urls, host }, hostname: siteUrl.hostname, reason: 'retry', now }),
   ])
   return { retried: rows.length, purge: yield* drainCachePurges({ maxCalls: PUBLISH_MAX_CALLS }) }
@@ -130,6 +142,6 @@ export const retryPurges = Effect.fn('retryPurges')(function* (input: { readonly
 /** `clearPurges(ids)`: drops failed rows (out of retries) the admin gave up on. Rows still retrying stay. */
 export const clearPurges = Effect.fn('clearPurges')(function* (input: { readonly ids: ReadonlyArray<number> }) {
   const rows = yield* failedRows(input.ids)
-  if (rows.length > 0) yield* runBatch((d) => [d.delete(schema.cachePurges).where(inArray(schema.cachePurges.id, rows.map((r) => r.id)))])
+  if (rows.length > 0) yield* runBatch((d) => deleteRows(d, rows.map((r) => r.id)))
   return { cleared: rows.length }
 })

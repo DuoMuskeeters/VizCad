@@ -86,6 +86,17 @@ describe('saveAuthor', () => {
       assert.strictEqual(yield* tagOf(saveAuthor(input({ userId: 'nobody', slug: 'x' }))), 'AuthorUnavailable')
     })))
 
+  it.effect('a new profile for a user who already has public posts purges those posts and the author page', () =>
+    run(Effect.gen(function* () {
+      yield* seedUser('bob')
+      yield* seedPost({ id: 'pb', slug: 'bob-post', authorId: 'bob' })
+      const saved = yield* saveAuthor(input({ userId: 'bob', name: 'Bob', slug: 'bob' }))
+      assert.isAbove(saved.purgeTargets, 0)
+      const targets = yield* queued
+      assert.include(targets, `${SITE}/blog/bob-post`)
+      assert.include(targets, `${SITE}/authors/bob`)
+    })))
+
   it.effect('updates under the lock; a stale copy is ContentConflict, and two saves in one second still move the lock', () =>
     run(Effect.gen(function* () {
       const row = yield* ada

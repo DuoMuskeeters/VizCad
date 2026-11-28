@@ -217,7 +217,8 @@ export const saveAuthor = Effect.fn('saveAuthor')(function* (input: AuthorInput)
   const keepLegacyAvatar = input.avatarAssetId === null && (current?.avatarAssetId ?? null) === null && input.removeAvatar !== true
   const avatarUrl = avatarKey !== null ? blogImagePath(avatarKey) : keepLegacyAvatar ? (current?.avatarUrl ?? null) : null
 
-  const posts = current === undefined ? [] : yield* authorPosts(current.userId)
+  // A new profile too: the user may already have public posts (a byline and JSON-LD that now change).
+  const posts = yield* authorPosts(current?.userId ?? input.userId)
   const isPublic = posts.length > 0
   if (isPublic) yield* requireConfigured
   const { siteUrl } = yield* AppConfig
