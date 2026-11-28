@@ -214,6 +214,12 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
     const present = isDraft ? drafts.has(post.id) || existing.has(post.id) : existing.has(post.id) && (existing.get(post.id)?.readTimeMin ?? 0) > 0
     const found = existing.get(post.id)
     const repair = !isDraft && found !== undefined && found.readTimeMin === WRITING
+    // A half-written row the repair will not finish (the post became a draft, or it is rejected below): removed, so
+    // the `halfWritten` check does not fail every later run.
+    const dropHalf = () => {
+      if (found !== undefined && found.readTimeMin === WRITING) statements.push(`DELETE FROM "post_translations" WHERE ${where(post.id)} AND "readTimeMin" = ${WRITING};`)
+    }
+    if (isDraft) dropHalf()
     const update = !isDraft && options.sourceWins === true && found !== undefined && found.readTimeMin > 0
     if (present && !update) {
       report.alreadyPresent.push(post.id)
@@ -230,6 +236,7 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
     }
     if (!isDraft && ([...post.title].length > 120 || [...post.excerpt].length > 300)) {
       report.rejected.push({ postId: post.id, reason: [...post.title].length > 120 ? 'title longer than 120' : 'excerpt longer than 300' })
+      dropHalf()
       continue
     }
 
@@ -338,14 +345,16 @@ export const materializeVia = (deps: {
   return { report: plan.report, counts, failed: failedChecks(counts) }
 }
 
-/** Prints the report and ends the process: exit 1 when a verification count is not 0. */
-export const finish = (result: MaterializeResult): never => {
+/** Prints the report and sets the exit code: 1 when a verification count is not 0. `exitCode`, not `exit()`: an immediate
+ * exit cuts piped output (64 KB on macOS) before the report is written. */
+export const finish = (result: MaterializeResult): void => {
   console.log(JSON.stringify(result.report, null, 2))
   if (result.failed.length > 0) {
     console.error(`verification failed: ${result.failed.join(', ')}`)
-    process.exit(1)
+    process.exitCode = 1
+    return
   }
-  process.exit(0)
+  process.exitCode = 0
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

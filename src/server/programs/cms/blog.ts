@@ -20,6 +20,9 @@ import { AuthorUnavailable, PageUnavailable, PostGone, PostUnavailable } from '.
 import { Db } from '../../services/Db'
 import { toUnixSeconds } from '../../time'
 
+/** `$RX(` and `<!--$!-->` in stored post HTML, as entities: they render the same, but no longer look like a failed render. */
+export const neutraliseRenderMarkers = (html: string): string => html.replaceAll('$RX(', '&#36;RX(').replaceAll('<!--$!-->', '&#x3C;!--$!-->')
+
 export const POSTS_PER_PAGE = 12
 export const RELATED_POSTS = 3
 /** Newest candidates scored for "related posts" (the legacy algorithm scored all; the list is small). */
@@ -260,7 +263,9 @@ export const getPublicPost = Effect.fn('getPublicPost')(function* (locale: Local
   const author = card.author
   const view: PostView = {
     ...card,
-    contentHtml: row.contentHtml,
+    // Post text that spells React's failed-render markers would make the edge cache refuse every render of the page
+    // (services/EdgeCache.ts): neutralised here, which also covers rows stored before.
+    contentHtml: neutraliseRenderMarkers(row.contentHtml),
     toc: row.toc,
     showToc: row.tableOfContents && row.toc.length > 1,
     tags,
