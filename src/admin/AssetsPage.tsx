@@ -270,7 +270,7 @@ const AssetDetail = ({ asset, onClose, onChanged, onDeleted }: { asset: AdminAss
                 ))}
                 {usage.posts.map((post) => (
                   <li key={post.id}>
-                    <a className="underline" href={`/admin/cms/posts/${encodeURIComponent(post.id)}`}>
+                    <a className="inline-flex min-h-11 items-center underline [overflow-wrap:anywhere]" href={`/admin/cms/posts/${encodeURIComponent(post.id)}`}>
                       {post.title}
                     </a>
                   </li>
