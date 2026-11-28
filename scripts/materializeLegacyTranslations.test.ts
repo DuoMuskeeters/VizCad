@@ -137,9 +137,48 @@ describe('materializeLegacyTranslations', () => {
     expect(await tagOf(getPublicPost('en', 'big'))).toBe('PostUnavailable')
     expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(1)
     const again = runPlan(d1.sqlite)
-    expect(again.report.translationsInserted).toContain('p9')
+    expect(again.report.halfWrittenRepaired).toEqual(['p9'])
     expect(d1.sqlite.prepare("SELECT contentMd FROM post_translations WHERE postId = 'p9'").get()?.['contentMd']).toBe(big)
     expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(0)
+  })
+
+  it('an interrupted --source-wins is repaired in place: publishedAt, coverAlt and ogAssetId survive', async () => {
+    const big = `# Big\n\n${'word '.repeat(40_000)}`
+    seedLegacy(d1.sqlite, [{ id: 'p9', slug: 'big', status: 'published', content: 'v1' }])
+    runPlan(d1.sqlite)
+    // Set after the first copy by the editor (6c): not in the legacy posts row, so only the translation row holds them.
+    d1.sqlite.exec(`INSERT INTO cms_assets (id, r2Key, mime, bytes, width, height, sha256, createdAt) VALUES ('og1', 'blog/a/og1.png', 'image/png', 1, 1200, 630, 'h', ${T})`)
+    d1.sqlite.exec(`UPDATE post_translations SET coverAlt = 'Cover alt', ogAssetId = 'og1', publishedAt = ${T - 500} WHERE postId = 'p9'`)
+    d1.sqlite.prepare("UPDATE posts SET content = ?, updatedAt = ? WHERE id = 'p9'").run(big, T + 1)
+    const plan = planMaterialize(exportOf(d1.sqlite), { sourceWins: true })
+    const headAt = plan.statements.findIndex((s) => s.startsWith('UPDATE "post_translations"') && s.includes("'p9'"))
+    d1.sqlite.exec(plan.statements.slice(0, headAt + 2).join('\n'))
+    expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(1)
+
+    const again = runPlan(d1.sqlite, { sourceWins: true })
+    expect(again.report.halfWrittenRepaired).toEqual(['p9'])
+    expect(again.report.translationsInserted).toEqual([])
+    const row = d1.sqlite.prepare("SELECT contentMd, coverAlt, ogAssetId, publishedAt, updatedAt, readTimeMin FROM post_translations WHERE postId = 'p9'").get()
+    expect(row?.['contentMd']).toBe(big)
+    expect([row?.['coverAlt'], row?.['ogAssetId'], row?.['publishedAt'], row?.['updatedAt']]).toEqual(['Cover alt', 'og1', T - 500, T + 1])
+    expect(Number(row?.['readTimeMin'])).toBeGreaterThan(0)
+    expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(0)
+  })
+
+  it('a draft that the legacy site published later: the copied draft goes, an edited one is kept and listed', () => {
+    seedLegacy(d1.sqlite, [{ id: 'p6', slug: 'draft-two', status: 'draft', content: 'Draft two' }])
+    runPlan(d1.sqlite)
+    expect(count(d1.sqlite, "SELECT count(*) AS n FROM post_drafts WHERE postId IN ('p3', 'p6')")).toBe(2)
+    // An editor touched p6's draft; then the legacy site (after a rollback) published both.
+    d1.sqlite.exec("UPDATE post_drafts SET revision = 1, updatedByUserId = 'ada' WHERE postId = 'p6'")
+    d1.sqlite.prepare("UPDATE posts SET status = 'published', publishedAt = ?, updatedAt = ? WHERE id IN ('p3', 'p6')").run(T + 5, T + 5)
+    const plan = runPlan(d1.sqlite)
+    expect(plan.report.translationsInserted).toEqual(['p3', 'p6'])
+    expect(plan.report.supersededDraftsRemoved).toEqual(['p3'])
+    expect(plan.report.supersededDraftsKept).toEqual(['p6'])
+    expect(d1.sqlite.prepare("SELECT postId FROM post_drafts WHERE locale = 'en' ORDER BY postId").all()).toEqual([{ postId: 'p6' }])
+    // A further run has nothing left to remove.
+    expect(runPlan(d1.sqlite).report.supersededDraftsRemoved).toEqual([])
   })
 
   it('rejects a post whose title breaks the table check, and reports it', () => {
