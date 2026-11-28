@@ -1,5 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, ImagePlus, Trash2 } from 'lucide-react'
+// No Copy/Trash2 icons here: importing them into the admin chunk reshuffled the shared chunks and grew the public
+// marketing JS by 1.8 kB gzip (measured, docs/12 6c-2 notes). Text buttons say the same.
+import { ImagePlus } from 'lucide-react'
 import { Badge } from '#/components/ui/Badge'
 import { Button } from '#/components/ui/Button'
 import { Dialog, DialogContent, DialogFooter } from '#/components/ui/Dialog'
@@ -253,11 +255,9 @@ const AssetDetail = ({ asset, onClose, onChanged, onDeleted }: { asset: AdminAss
               {text.assets.saveAlt}
             </Button>
             <Button onClick={() => void copy()}>
-              <Copy aria-hidden className="size-4" />
               {text.assets.copy}
             </Button>
             <Button variant="danger-quiet" onClick={() => setConfirmDelete(true)} {...(used ? { disabledReason: text.assets.inUseReason } : {})}>
-              <Trash2 aria-hidden className="size-4" />
               {text.assets.delete}
             </Button>
           </div>
