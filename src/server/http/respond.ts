@@ -61,6 +61,11 @@ export const STATUS: Record<AppError['_tag'], number> = {
   PostGone: 410,
   AuthorUnavailable: 404,
   PageUnavailable: 404,
+  ContentConflict: 409,
+  SlugConflict: 409,
+  PublishBlocked: 422,
+  TextTooLong: 422,
+  AssetUnavailable: 404,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */
@@ -99,6 +104,9 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
     // Link answers the page needs: who shared an expired link, and whether the next password try needs Turnstile.
     const extra = error._tag === 'LinkExpired' ? { sharer: error.sharer }
       : error._tag === 'LinkPasswordInvalid' ? { captchaRequired: error.captchaRequired }
+      // CMS editor hints: fixed codes and limits, never content (errors.ts).
+      : error._tag === 'PublishBlocked' ? { reason: error.reason, ...(error.fields === undefined ? {} : { fields: error.fields }) }
+      : error._tag === 'TextTooLong' ? { field: error.field, max: error.max }
       : {}
     return Response.json({ ok: false, error: error._tag, ...reason, ...extra }, { status, headers })
   })

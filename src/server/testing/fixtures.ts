@@ -134,6 +134,13 @@ const tables = {
   fileScenes: schema.fileScenes,
   storageDeletions: schema.storageDeletions,
   securityLog: schema.securityLog,
+  posts: schema.posts,
+  postTranslations: schema.postTranslations,
+  postDrafts: schema.postDrafts,
+  postSlugRedirects: schema.postSlugRedirects,
+  authorProfiles: schema.authorProfiles,
+  authorTranslations: schema.authorTranslations,
+  cmsAssets: schema.cmsAssets,
 } as const
 
 

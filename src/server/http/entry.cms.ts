@@ -4,18 +4,14 @@ import { AppConfig } from '../services/AppConfig'
 import { liveLayers } from '../services/live'
 import { blogImageResponse } from './blogImage'
 import { authorPage, blogListPage, type PageResult, postPage } from './blogPages'
-import { cmsResponse } from './cms'
 import { legacyAuthorResponse } from './legacyAuthor'
 import { requestMeta } from './respond'
 import { type SeoFile, seoFileResponse } from './seoFiles'
 
-/** `/api/cms/*`: admin CMS API (http/cms.ts). Only the layers its operations read are built. */
-export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Response> => {
-  const live = liveLayers(env)
-  return Effect.runPromise(
-    cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache), requestMeta(request)),
-  )
-}
+/**
+ * Public CMS reads: marketing page data, SEO files, blog images. The admin API lives in entry.cmsAdmin.ts, so a public
+ * cache miss never loads the admin programs or the markdown renderer.
+ */
 
 /** robots.txt, sitemaps, RSS and llms.txt (http/seoFiles.ts): config and D1 (robots reads no D1). */
 export const handleSeoFile = (request: Request, env: Cloudflare.Env, file: SeoFile): Promise<Response> => {

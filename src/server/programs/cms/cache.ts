@@ -60,7 +60,7 @@ export const listPurges = Effect.fn('listPurges')(function* (input: { readonly l
 })
 
 /** A purge without config would only pretend (docs/12 rule 2): refused before anything is queued. */
-const requireConfigured = Effect.gen(function* () {
+export const requireConfigured = Effect.gen(function* () {
   const cache = yield* Cache
   if (!cache.configured) return yield* new CacheError({ reason: CacheErrorReason.notConfigured })
 })

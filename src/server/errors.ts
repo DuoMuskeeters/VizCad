@@ -213,6 +213,32 @@ export class AuthorUnavailable extends Data.TaggedError('AuthorUnavailable')<{}>
 /** A public list page outside its range (`/blog/page/9` with two pages), or a locale without that page. */
 export class PageUnavailable extends Data.TaggedError('PageUnavailable')<{}> {}
 
+/** The admin's copy is behind: someone saved this draft or the post's fields since it was loaded (docs/12 §3.2). Reload. */
+export class ContentConflict extends Data.TaggedError('ContentConflict')<{}> {}
+
+/** The slug is used by another post in this locale (or, for `en`, by another post's legacy `posts.slug`), docs/12 §1.5. */
+export class SlugConflict extends Data.TaggedError('SlugConflict')<{}> {}
+
+/**
+ * The translation cannot go live (or come down) as asked. `reason` and `fields` are fixed codes the editor shows next to
+ * the cause; they carry no content. Reasons: `locale-closed` (D9: blog not open in this locale), `en-not-live` (K3),
+ * `archived`, `no-draft`, `invalid-fields` (with `fields`), `not-live`, `other-locales-live` (unpublishing `en` without
+ * the confirm flag; `fields` lists the locales), `published-before` (only a never-published post can be deleted).
+ */
+export class PublishBlocked extends Data.TaggedError('PublishBlocked')<{
+  readonly reason: 'locale-closed' | 'en-not-live' | 'archived' | 'no-draft' | 'invalid-fields' | 'not-live' | 'other-locales-live' | 'published-before'
+  readonly fields?: ReadonlyArray<string>
+}> {}
+
+/** A CMS text is over its limit. `field` and `max` (characters, or bytes for `contentMd`) are shown under the field. */
+export class TextTooLong extends Data.TaggedError('TextTooLong')<{
+  readonly field: string
+  readonly max: number
+}> {}
+
+/** No CMS asset with this id (cover, OG image, avatar). */
+export class AssetUnavailable extends Data.TaggedError('AssetUnavailable')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -273,3 +299,8 @@ export type AppError =
   | PostGone
   | AuthorUnavailable
   | PageUnavailable
+  | ContentConflict
+  | SlugConflict
+  | PublishBlocked
+  | TextTooLong
+  | AssetUnavailable

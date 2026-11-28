@@ -20,7 +20,7 @@ const img = (name: string) => `/api/blog/image/${encodeURIComponent(`blog/fixtur
 
 export const IMAGES = ['cover-step.png', 'step-tree.png'] as const
 
-const STEP_POST = `STEP and IGES are the two neutral formats most CAD tools can write. This guide shows what each keeps, what each loses and how to open both in the browser.
+export const STEP_POST = `STEP and IGES are the two neutral formats most CAD tools can write. This guide shows what each keeps, what each loses and how to open both in the browser.
 
 ## What a STEP file keeps
 
