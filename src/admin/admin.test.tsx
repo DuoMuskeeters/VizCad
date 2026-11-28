@@ -191,6 +191,19 @@ describe('post editor', () => {
     await waitFor(() => expect(calls.find((c) => c.operation === 'saveDraft')?.body).toMatchObject({ fields: { title: 'STEP mi IGES mi? typed' }, revision: 4 }))
   })
 
+  it('typing, then the editor’s own Unpublish: the next Save takes the new revision (no false conflict)', async () => {
+    const { calls, user } = mount(<PostEditor postId="post-1" locale="en" />)
+    const title = await screen.findByRole('textbox', { name: 'Title' })
+    await user.type(title, ' typed')
+    await user.click(screen.getByRole('button', { name: 'Unpublish' }))
+    await waitFor(() => expect(calls.filter((c) => c.operation === 'getPostAdmin')).toHaveLength(2))
+    expect((screen.getByRole('textbox', { name: 'Title' }) as HTMLInputElement).value.endsWith(' typed')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Unpublish moved the revision by one; the text it started from is unchanged, so the new revision is the right one.
+    await waitFor(() => expect(calls.find((c) => c.operation === 'saveDraft')?.body).toMatchObject({ revision: 1_795_514_400 - 2 * 86_400 + 1 }))
+    expect(screen.queryByText('Someone else changed this post. Reload to see their version.')).not.toBeInTheDocument()
+  })
+
   it('a title over the limit is refused under the field (TextTooLong)', async () => {
     const { user } = mount(<PostEditor postId="post-1" locale="tr" />)
     const title = await screen.findByRole('textbox', { name: 'Title' })

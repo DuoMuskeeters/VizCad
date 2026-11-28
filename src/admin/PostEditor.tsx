@@ -218,7 +218,11 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
       const working = now.forms[l]
       if (working === undefined) return []
       const was = l === saved?.locale ? saved.fields : (now.baseline[l] ?? sourceFields(now.post, l))
-      return sameFields(working, was) ? [] : [{ l, working, was, revision: l === saved?.locale ? saved.revision : now.revisions[l] }]
+      if (sameFields(working, was)) return []
+      // The server text is still what this locale's edit started from (its revision moved only through this editor's own
+      // publish or unpublish): the new revision is safe to take. Text someone else changed keeps the old one (a conflict).
+      const unchanged = sameFields(sourceFields(result.data, l), was)
+      return [{ l, working, was, revision: unchanged ? result.data.locales[l].revision : l === saved?.locale ? saved.revision : now.revisions[l] }]
     })
     setPost(result.data)
     setRevisions(Object.fromEntries(LOCALES.map((l) => [l, kept.find((k) => k.l === l)?.revision ?? result.data.locales[l].revision])) as Record<Locale, number>)
