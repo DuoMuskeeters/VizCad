@@ -835,3 +835,22 @@ Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alı
   - tail filtresi `/blog` listesini de alır.
 - **Rota testi** (`src/routes.test.ts`): üretilen döngü her rotanın örnek URL'sinde `legacyRedirectTarget(...) === null` olduğunu da denetler. Worker'ın legacy 301'i ileride eklenecek bir rotayı gölgeleyemez. Test, `/blog` için sahte bir yönlendirme eklenerek denendi ve kırıldı.
 - **`/author/{userId}` testi:** kullanıcı kimliği ile slug artık farklı (`u1` → `ada`). `/author/u1` → `/authors/ada` ve `/author/ada` → `/blog`. Sorgu kimlik yerine slug'a bakacak şekilde bozulunca test kırıldı; eski test bunu yakalamıyordu.
+
+### 6b staging kabulü (28 Kasım 2026, 5839336, staging.viz-cad.com)
+- **Örnek veri:** 17 yazı (75 satır) ve iki görsel R2'ye yüklendi. Script öncesi `/blog/step-vs-iges` 404 döndü.
+- **`pnpm db:materialize:staging`:** çıkış kodu 0. Sonuçlar:
+  - 16 çeviri, 1 taslak.
+  - `rawHtml` = `legacy-raw-html` (`div`, `script`), `nonconformingSlugs` = `Legacy_Odd_Slug`.
+  - `rejected` 0; `publishedWithoutEn` 0, `halfWritten` 0.
+- **Deploy sonrası adresler:**
+  - `/blog`, `/blog/page/2`, `/blog/step-vs-iges`, `/blog/Legacy_Odd_Slug`, `/blog/legacy-raw-html`, `/authors/deniz-fixture`, RSS, `/sitemaps/en.xml` (18 `<loc>`) ve `/llms.txt`: 200.
+  - `/blog/page/1` → `/blog`: 301.
+  - `/blog/page/3`, `/blog/fixture-draft`, `/tr/blog`, `/api/blog/image/users%2Fx` ve `/api/blog`: 404.
+  - `/blog/fixture-archived`: 410.
+- **Görseller ve ham HTML:** Yazıdaki iki görsel 200 dönüyor. Ham HTML'li yazıda `&#x3C;script>` kaçışlı, `<script>alert` yok.
+- **Eski yönlendirmeler:** hepsi 301: `/dashboard` → `/app`, `/login` → `/sign-in`, `/signup` → `/sign-up`, `/file/01ABC` → `/app/files/01ABC`, `/ModelSnap` → `/`.
+- **304:** `Last-Modified` Cloudflare'den geçiyor. Aynı tarihle `If-Modified-Since` 304 döndü, eski tarihle 200. Email Obfuscation kuralına gerek kalmadı. (ETag bu cevapta da görünüyor.)
+- **Bekleyenler:**
+  - Iska `cpuTime`, gerçek temizleme ve alan adı temizleme: `/api/cms` için staging test hesabının admin yapılmasını bekliyor; kullanıcı onayı lazım.
+  - Staging'de Lighthouse ve Rich Results.
+  - JS kapalı ve 320/390/1280 görsel kontrol.
