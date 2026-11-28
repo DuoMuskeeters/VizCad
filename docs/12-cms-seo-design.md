@@ -988,3 +988,13 @@ Bölünme görev metnindeki gibi: **6c-1** yazı listesi ve editörü, yayın, t
   - Önizleme penceresi Safari'de engelleniyor (`window.open` `await`'ten sonra).
   - iOS'ta editör yazı tipi 16 px'in altında (odakta yakınlaştırma).
   - Araç çubuğu etiketleri çevrilmemiş (`Bold`, `Link`… sabit İngilizce).
+
+### 6a/6b staging kabulü · admin oturumlu adımlar (28 Kasım 2026, 83fde7b)
+Staging test hesabı (`staging-uploader@vizcad.test`) yalnız staging'de `role='admin'` yapıldı. Hesabın parolası yenilendi ve yalnız oturum scratchpad'inde tutuluyor.
+- **Gerçek URL temizleme:** `purgeUrls` (`/tr`) sonucu `done:1, queued:1, calls:1`. Ardından `/tr` miss döndü. 60 sn sonra `drainPurges` ile `done:1, queued:0`; kuyruk boş. Başka alan adına ait URL (`https://viz-cad.com/`) 400 `ValidationError` ile reddedildi.
+- **Alan adı temizleme:** `purgeHost` sonucu `hostname: staging.viz-cad.com, done:1`; ardından `/` ve `/blog` miss döndü. Arka arkaya 7 çağrı yapıldı ve hiç 429 gelmedi. Belgede yazan "dakikada 5" sınırı Free planda bu hesapta görülmedi. Her çağrı 60 sn sonrası için ikinci bir satır kuyruğa ekliyor.
+- **Önbellek yazımı:** `put` `waitUntil` ile yapıldığından, ıskadan hemen sonraki istek bazen yine miss alıyor. 2 sn sonra hit dönüyor. Bu beklenen davranış.
+- **CPU (`wrangler tail`, `/blog/step-vs-iges`, 8 miss + 8 hit):**
+  - **hit:** medyan 1 ms, en çok 23 ms (ilk istek).
+  - **miss:** medyan **36 ms**, en çok 216 ms (25, 116, 37, 20, 216, 35, 34, 60).
+  - **Sonuç: §7.5 bütçesi (miss ≤ 8 ms) aşılıyor.** Workers Free'nin 10 ms sınırında production'da her miss `exceededCpu` riski taşıyor; staging şimdilik burst kredisiyle 200 dönüyor. Yalnız hit yolu bütçe içinde. Karar kullanıcıda (K6): Workers Paid (ayda 5 $) ya da miss yolunun ciddi biçimde hafifletilmesi (SSR, Effect katmanı, D1 sorgu sayısı). Geçişten önce çözülmeli.
