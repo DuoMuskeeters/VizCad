@@ -201,6 +201,18 @@ export class InvalidDerivative extends Data.TaggedError('InvalidDerivative')<{}>
 /** The scene record moved on since the caller read it (another editor saved), docs/11 §3.1: reload, then apply again. */
 export class SceneConflict extends Data.TaggedError('SceneConflict')<{}> {}
 
+/** No public post at this URL in this locale (missing, draft, not translated, or the locale has no blog), docs/12 §2. */
+export class PostUnavailable extends Data.TaggedError('PostUnavailable')<{}> {}
+
+/** The post was archived: its URLs answer 410 (docs/12 §2). */
+export class PostGone extends Data.TaggedError('PostGone')<{}> {}
+
+/** No public author page at this URL (no author, no slug, no published post in this locale). */
+export class AuthorUnavailable extends Data.TaggedError('AuthorUnavailable')<{}> {}
+
+/** A public list page outside its range (`/blog/page/9` with two pages), or a locale without that page. */
+export class PageUnavailable extends Data.TaggedError('PageUnavailable')<{}> {}
+
 /** Every error a route handler may have to map to a response. */
 export type AppError =
   | ValidationError
@@ -257,3 +269,7 @@ export type AppError =
   | CommentUnavailable
   | VersionChanged
   | InvalidDerivative
+  | PostUnavailable
+  | PostGone
+  | AuthorUnavailable
+  | PageUnavailable

@@ -57,6 +57,10 @@ export const STATUS: Record<AppError['_tag'], number> = {
   VersionChanged: 409,
   SceneConflict: 409,
   InvalidDerivative: 422,
+  PostUnavailable: 404,
+  PostGone: 410,
+  AuthorUnavailable: 404,
+  PageUnavailable: 404,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */

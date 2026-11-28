@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -47,10 +48,16 @@ import { Route as STokenContentRouteImport } from './routes/s/$token/content'
 import { Route as STokenModelRouteImport } from './routes/s/$token/model'
 import { Route as STokenSceneRouteImport } from './routes/s/$token/scene'
 import { Route as STokenThumbnailRouteImport } from './routes/s/$token/thumbnail'
+import { Route as Char123LocaleChar125AuthorsSlugRouteImport } from './routes/{-$locale}/authors/$slug'
+import { Route as Char123LocaleChar125BlogIndexRouteImport } from './routes/{-$locale}/blog/index'
+import { Route as Char123LocaleChar125BlogSlugRouteImport } from './routes/{-$locale}/blog/$slug'
+import { Route as Char123LocaleChar125BlogRssDotxmlRouteImport } from './routes/{-$locale}/blog/rss[.]xml'
+import { Route as ApiBlogImageKeyRouteImport } from './routes/api/blog/image/$key'
 import { Route as ApiFilesFileIdContentRouteImport } from './routes/api/files/$fileId/content'
 import { Route as ApiFilesFileIdModelRouteImport } from './routes/api/files/$fileId/model'
 import { Route as ApiFilesFileIdSceneRouteImport } from './routes/api/files/$fileId/scene'
 import { Route as ApiFilesFileIdThumbnailRouteImport } from './routes/api/files/$fileId/thumbnail'
+import { Route as Char123LocaleChar125BlogPagePageRouteImport } from './routes/{-$locale}/blog/page.$page'
 import { Route as ApiFilesFileIdDerivativeStepRouteImport } from './routes/api/files/$fileId/derivative/$step'
 
 const AppRoute = AppRouteImport.update({
@@ -66,6 +73,11 @@ const EmailVerifiedRoute = EmailVerifiedRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -246,6 +258,35 @@ const STokenThumbnailRoute = STokenThumbnailRouteImport.update({
   path: '/s/$token/thumbnail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char123LocaleChar125AuthorsSlugRoute =
+  Char123LocaleChar125AuthorsSlugRouteImport.update({
+    id: '/authors/$slug',
+    path: '/authors/$slug',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
+const Char123LocaleChar125BlogIndexRoute =
+  Char123LocaleChar125BlogIndexRouteImport.update({
+    id: '/blog/',
+    path: '/blog/',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
+const Char123LocaleChar125BlogSlugRoute =
+  Char123LocaleChar125BlogSlugRouteImport.update({
+    id: '/blog/$slug',
+    path: '/blog/$slug',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
+const Char123LocaleChar125BlogRssDotxmlRoute =
+  Char123LocaleChar125BlogRssDotxmlRouteImport.update({
+    id: '/blog/rss.xml',
+    path: '/blog/rss.xml',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
+const ApiBlogImageKeyRoute = ApiBlogImageKeyRouteImport.update({
+  id: '/api/blog/image/$key',
+  path: '/api/blog/image/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesFileIdContentRoute = ApiFilesFileIdContentRouteImport.update({
   id: '/api/files/$fileId/content',
   path: '/api/files/$fileId/content',
@@ -266,6 +307,12 @@ const ApiFilesFileIdThumbnailRoute = ApiFilesFileIdThumbnailRouteImport.update({
   path: '/api/files/$fileId/thumbnail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char123LocaleChar125BlogPagePageRoute =
+  Char123LocaleChar125BlogPagePageRouteImport.update({
+    id: '/blog/page/$page',
+    path: '/blog/page/$page',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
 const ApiFilesFileIdDerivativeStepRoute =
   ApiFilesFileIdDerivativeStepRouteImport.update({
     id: '/api/files/$fileId/derivative/$step',
@@ -278,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -309,18 +357,25 @@ export interface FileRoutesByFullPath {
   '/s/$token/model': typeof STokenModelRoute
   '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/{-$locale}/authors/$slug': typeof Char123LocaleChar125AuthorsSlugRoute
+  '/{-$locale}/blog/$slug': typeof Char123LocaleChar125BlogSlugRoute
+  '/{-$locale}/blog/rss.xml': typeof Char123LocaleChar125BlogRssDotxmlRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
+  '/{-$locale}/blog/': typeof Char123LocaleChar125BlogIndexRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/scene': typeof ApiFilesFileIdSceneRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/{-$locale}/blog/page/$page': typeof Char123LocaleChar125BlogPagePageRoute
   '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRoutesByTo {
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -352,13 +407,19 @@ export interface FileRoutesByTo {
   '/s/$token/model': typeof STokenModelRoute
   '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/{-$locale}/authors/$slug': typeof Char123LocaleChar125AuthorsSlugRoute
+  '/{-$locale}/blog/$slug': typeof Char123LocaleChar125BlogSlugRoute
+  '/{-$locale}/blog/rss.xml': typeof Char123LocaleChar125BlogRssDotxmlRoute
   '/app/projects': typeof AppProjectsIndexRoute
   '/dev/ui': typeof DevUiIndexRoute
   '/s/$token': typeof STokenIndexRoute
+  '/{-$locale}/blog': typeof Char123LocaleChar125BlogIndexRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/scene': typeof ApiFilesFileIdSceneRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/{-$locale}/blog/page/$page': typeof Char123LocaleChar125BlogPagePageRoute
   '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRoutesById {
@@ -367,6 +428,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/email-verified': typeof EmailVerifiedRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -398,13 +460,19 @@ export interface FileRoutesById {
   '/s/$token/model': typeof STokenModelRoute
   '/s/$token/scene': typeof STokenSceneRoute
   '/s/$token/thumbnail': typeof STokenThumbnailRoute
+  '/{-$locale}/authors/$slug': typeof Char123LocaleChar125AuthorsSlugRoute
+  '/{-$locale}/blog/$slug': typeof Char123LocaleChar125BlogSlugRoute
+  '/{-$locale}/blog/rss.xml': typeof Char123LocaleChar125BlogRssDotxmlRoute
   '/app/projects/': typeof AppProjectsIndexRoute
   '/dev/ui/': typeof DevUiIndexRoute
   '/s/$token/': typeof STokenIndexRoute
+  '/{-$locale}/blog/': typeof Char123LocaleChar125BlogIndexRoute
+  '/api/blog/image/$key': typeof ApiBlogImageKeyRoute
   '/api/files/$fileId/content': typeof ApiFilesFileIdContentRoute
   '/api/files/$fileId/model': typeof ApiFilesFileIdModelRoute
   '/api/files/$fileId/scene': typeof ApiFilesFileIdSceneRoute
   '/api/files/$fileId/thumbnail': typeof ApiFilesFileIdThumbnailRoute
+  '/{-$locale}/blog/page/$page': typeof Char123LocaleChar125BlogPagePageRoute
   '/api/files/$fileId/derivative/$step': typeof ApiFilesFileIdDerivativeStepRoute
 }
 export interface FileRouteTypes {
@@ -414,6 +482,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/email-verified'
     | '/forgot-password'
+    | '/llms.txt'
     | '/onboarding'
     | '/reset-password'
     | '/robots.txt'
@@ -445,18 +514,25 @@ export interface FileRouteTypes {
     | '/s/$token/model'
     | '/s/$token/scene'
     | '/s/$token/thumbnail'
+    | '/{-$locale}/authors/$slug'
+    | '/{-$locale}/blog/$slug'
+    | '/{-$locale}/blog/rss.xml'
     | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
+    | '/{-$locale}/blog/'
+    | '/api/blog/image/$key'
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/scene'
     | '/api/files/$fileId/thumbnail'
+    | '/{-$locale}/blog/page/$page'
     | '/api/files/$fileId/derivative/$step'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/email-verified'
     | '/forgot-password'
+    | '/llms.txt'
     | '/onboarding'
     | '/reset-password'
     | '/robots.txt'
@@ -488,13 +564,19 @@ export interface FileRouteTypes {
     | '/s/$token/model'
     | '/s/$token/scene'
     | '/s/$token/thumbnail'
+    | '/{-$locale}/authors/$slug'
+    | '/{-$locale}/blog/$slug'
+    | '/{-$locale}/blog/rss.xml'
     | '/app/projects'
     | '/dev/ui'
     | '/s/$token'
+    | '/{-$locale}/blog'
+    | '/api/blog/image/$key'
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/scene'
     | '/api/files/$fileId/thumbnail'
+    | '/{-$locale}/blog/page/$page'
     | '/api/files/$fileId/derivative/$step'
   id:
     | '__root__'
@@ -502,6 +584,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/email-verified'
     | '/forgot-password'
+    | '/llms.txt'
     | '/onboarding'
     | '/reset-password'
     | '/robots.txt'
@@ -533,13 +616,19 @@ export interface FileRouteTypes {
     | '/s/$token/model'
     | '/s/$token/scene'
     | '/s/$token/thumbnail'
+    | '/{-$locale}/authors/$slug'
+    | '/{-$locale}/blog/$slug'
+    | '/{-$locale}/blog/rss.xml'
     | '/app/projects/'
     | '/dev/ui/'
     | '/s/$token/'
+    | '/{-$locale}/blog/'
+    | '/api/blog/image/$key'
     | '/api/files/$fileId/content'
     | '/api/files/$fileId/model'
     | '/api/files/$fileId/scene'
     | '/api/files/$fileId/thumbnail'
+    | '/{-$locale}/blog/page/$page'
     | '/api/files/$fileId/derivative/$step'
   fileRoutesById: FileRoutesById
 }
@@ -548,6 +637,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   EmailVerifiedRoute: typeof EmailVerifiedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -572,6 +662,7 @@ export interface RootRouteChildren {
   STokenThumbnailRoute: typeof STokenThumbnailRoute
   DevUiIndexRoute: typeof DevUiIndexRoute
   STokenIndexRoute: typeof STokenIndexRoute
+  ApiBlogImageKeyRoute: typeof ApiBlogImageKeyRoute
   ApiFilesFileIdContentRoute: typeof ApiFilesFileIdContentRoute
   ApiFilesFileIdModelRoute: typeof ApiFilesFileIdModelRoute
   ApiFilesFileIdSceneRoute: typeof ApiFilesFileIdSceneRoute
@@ -600,6 +691,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -847,6 +945,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenThumbnailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/{-$locale}/authors/$slug': {
+      id: '/{-$locale}/authors/$slug'
+      path: '/authors/$slug'
+      fullPath: '/{-$locale}/authors/$slug'
+      preLoaderRoute: typeof Char123LocaleChar125AuthorsSlugRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
+    '/{-$locale}/blog/': {
+      id: '/{-$locale}/blog/'
+      path: '/blog'
+      fullPath: '/{-$locale}/blog/'
+      preLoaderRoute: typeof Char123LocaleChar125BlogIndexRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
+    '/{-$locale}/blog/$slug': {
+      id: '/{-$locale}/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/{-$locale}/blog/$slug'
+      preLoaderRoute: typeof Char123LocaleChar125BlogSlugRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
+    '/{-$locale}/blog/rss.xml': {
+      id: '/{-$locale}/blog/rss.xml'
+      path: '/blog/rss.xml'
+      fullPath: '/{-$locale}/blog/rss.xml'
+      preLoaderRoute: typeof Char123LocaleChar125BlogRssDotxmlRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
+    '/api/blog/image/$key': {
+      id: '/api/blog/image/$key'
+      path: '/api/blog/image/$key'
+      fullPath: '/api/blog/image/$key'
+      preLoaderRoute: typeof ApiBlogImageKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/$fileId/content': {
       id: '/api/files/$fileId/content'
       path: '/api/files/$fileId/content'
@@ -875,6 +1008,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesFileIdThumbnailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/{-$locale}/blog/page/$page': {
+      id: '/{-$locale}/blog/page/$page'
+      path: '/blog/page/$page'
+      fullPath: '/{-$locale}/blog/page/$page'
+      preLoaderRoute: typeof Char123LocaleChar125BlogPagePageRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
     '/api/files/$fileId/derivative/$step': {
       id: '/api/files/$fileId/derivative/$step'
       path: '/api/files/$fileId/derivative/$step'
@@ -887,11 +1027,23 @@ declare module '@tanstack/react-router' {
 
 interface Char123LocaleChar125RouteRouteChildren {
   Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
+  Char123LocaleChar125AuthorsSlugRoute: typeof Char123LocaleChar125AuthorsSlugRoute
+  Char123LocaleChar125BlogSlugRoute: typeof Char123LocaleChar125BlogSlugRoute
+  Char123LocaleChar125BlogRssDotxmlRoute: typeof Char123LocaleChar125BlogRssDotxmlRoute
+  Char123LocaleChar125BlogIndexRoute: typeof Char123LocaleChar125BlogIndexRoute
+  Char123LocaleChar125BlogPagePageRoute: typeof Char123LocaleChar125BlogPagePageRoute
 }
 
 const Char123LocaleChar125RouteRouteChildren: Char123LocaleChar125RouteRouteChildren =
   {
     Char123LocaleChar125IndexRoute: Char123LocaleChar125IndexRoute,
+    Char123LocaleChar125AuthorsSlugRoute: Char123LocaleChar125AuthorsSlugRoute,
+    Char123LocaleChar125BlogSlugRoute: Char123LocaleChar125BlogSlugRoute,
+    Char123LocaleChar125BlogRssDotxmlRoute:
+      Char123LocaleChar125BlogRssDotxmlRoute,
+    Char123LocaleChar125BlogIndexRoute: Char123LocaleChar125BlogIndexRoute,
+    Char123LocaleChar125BlogPagePageRoute:
+      Char123LocaleChar125BlogPagePageRoute,
   }
 
 const Char123LocaleChar125RouteRouteWithChildren =
@@ -930,6 +1082,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   EmailVerifiedRoute: EmailVerifiedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -955,6 +1108,7 @@ const rootRouteChildren: RootRouteChildren = {
   STokenThumbnailRoute: STokenThumbnailRoute,
   DevUiIndexRoute: DevUiIndexRoute,
   STokenIndexRoute: STokenIndexRoute,
+  ApiBlogImageKeyRoute: ApiBlogImageKeyRoute,
   ApiFilesFileIdContentRoute: ApiFilesFileIdContentRoute,
   ApiFilesFileIdModelRoute: ApiFilesFileIdModelRoute,
   ApiFilesFileIdSceneRoute: ApiFilesFileIdSceneRoute,

@@ -15,20 +15,22 @@ import { LanguageLinks, LanguageMenu } from './LanguageSwitcher'
 export function MarketingShell({ children, alternates }: { children: ReactNode; alternates?: Readonly<Partial<Record<Locale, string>>> }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const home = localizedPath(localeOfPath(pathname), '/')
-  const link = 'inline-flex min-h-11 items-center rounded-md px-3 text-sm text-text-2 hover:bg-hover hover:text-text'
+  const linkBase = 'inline-flex min-h-11 items-center whitespace-nowrap rounded-md text-sm text-text-2 hover:bg-hover hover:text-text'
+  const link = `${linkBase} px-3`
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-text">
       <header className="border-b border-line">
-        <nav aria-label="Main" className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2">
+        <nav aria-label="Main" className="mx-auto flex max-w-5xl items-center justify-between gap-1 px-4 py-2 sm:gap-2">
           <a href={home} className="inline-flex min-h-11 items-center">
             <Logo />
           </a>
-          <div className="flex items-center gap-1">
+          {/* Tight below `sm`: logo, language, sign in and start free must fit 320 px with the 16 px gutters. */}
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <LanguageMenu {...(alternates === undefined ? {} : { alternates })} />
-            <a href="/sign-in" className={link}>
+            <a href="/sign-in" className={`${linkBase} px-2 sm:px-3`}>
               Sign in
             </a>
-            <a href="/sign-up" className="inline-flex min-h-11 items-center rounded-md bg-accent px-3 text-sm font-medium text-on-accent hover:bg-accent-hover">
+            <a href="/sign-up" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-md bg-accent px-2 text-sm sm:px-3 font-medium text-on-accent hover:bg-accent-hover">
               Start free
             </a>
           </div>

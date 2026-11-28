@@ -384,7 +384,7 @@ istek → src/server.ts fetch
 - **Anahtar:** `https://{siteUrl hostu}{yol}?v={BUILD_ID}`. İsteğin sorgu dizgisi atılır (utm ve benzeri önbelleği delip CPU harcatmasın). `BUILD_ID` build anında Vite `define` ile koda gömülür (git kısa SHA + build zamanı). Deploy Cache API kayıtlarını silmez; eski kayıtlar artık var olmayan hash'li JS/CSS dosyalarına bağlanır. Her build kendi anahtar alanını kullandığı için eski HTML deploy'dan sonra bir daha eşleşmez ve `s-maxage` ile düşer. Temizleme (§7.4) URL'leri API'ye aynı `?v=` ekiyle gönderir. Yol normalleştirilmez; normalleştirme gerekiyorsa 301 verilir, 301 de önbelleğe girer.
 - **Temizlenmiş istek (`sanitizeForSsr`, saf).** Iskada handler'a orijinal istek gitmez: `new Request(origin + yol, { method: 'GET', headers: { accept: 'text/html' } })`. Sorgu, `Cookie`, `Authorization`, `Accept-Language` ve diğer bütün başlıklar düşer. Böylece önbelleğe giren yanıt yalnız yola bağlıdır: sorgu ya da çerez yanıtı değiştirip (ör. bir 301 ya da oturuma özel içerik) o yolun anahtarına yazamaz. Hiçbir pazarlama sayfası sorgu dizgisi okumaz. `/blog?category=x` `/blog` ile aynı yanıtı alır (200, canonical sorgusuz), yönlendirme yok (§6.9).
 - **`isCacheable`:** istek `GET`, durum 200 ya da 301, `Set-Cookie` yok, yanıtta `x-vizcad-no-store` yok. `HEAD` hiçbir zaman `put` çağırmaz: gövdesiz bir yanıt anahtarı doldurursa sonraki `GET`'ler boş sayfa alır. `HEAD` isabeti, kaydın başlıklarını gövdesiz döner. 404 ve 410 önbelleğe girmez (rastgele URL'ler önbelleği doldurmasın; 410 yalnız var olan yazı için ve D1'de ucuz).
-- **Başlıklar ve ETag.** Kenar kopyası `Cache-Control: public, s-maxage=86400` (güvenlik ağı: temizleme kaçarsa en geç bir günde yenilenir) ve `ETag: W/"{BUILD_ID}.{put zamanı, base36}"` taşır. ETag ıskada üretilir, gövde hash'lenmez (CPU). Tarayıcıya giden yanıtta, ıskada da isabette de, `Cache-Control` `public, max-age=0, must-revalidate` ile değiştirilir (yayın anında görünsün) ve ETag aynen gider. İstekteki `If-None-Match` kaydın ETag'iyle eşleşiyorsa 304 (gövdesiz). Farklı veri merkezleri farklı ETag üretir; bunun bedeli yalnız fazladan bir indirmedir. Görseller ve fontlar `immutable`.
+- **Başlıklar ve ETag.** Kenar kopyası `Cache-Control: public, s-maxage=86400` (güvenlik ağı: temizleme kaçarsa en geç bir günde yenilenir) ve `ETag: W/"{BUILD_ID}.{put zamanı, base36}"` taşır. ETag ıskada üretilir, gövde hash'lenmez (CPU). Tarayıcıya giden yanıtta, ıskada da isabette de, `Cache-Control` `public, max-age=0, must-revalidate` ile değiştirilir (yayın anında görünsün) ve ETag aynen gider. İstekteki `If-None-Match` kaydın ETag'iyle eşleşiyorsa 304 (gövdesiz). Kenar kopyası ayrıca `Last-Modified` (put zamanı, saniye) taşır: Cloudflare HTML yanıtlarındaki ETag'i atıyor (6b notu). İstekte `If-None-Match` varsa yalnız o karar verir; yoksa `If-Modified-Since` ≥ `Last-Modified` ise 304. Yalnız isabet 304 döner, ıska hiçbir zaman. Farklı veri merkezleri farklı ETag üretir; bunun bedeli yalnız fazladan bir indirmedir. Görseller ve fontlar `immutable`.
 - **Önbellek hatası ıskadır.** `match` istisna atarsa istek ıska yoluna gider. `put` hatası yalnız etiketle günlüğe yazılır ve yanıtı etkilemez. Bozuk önbellek sayfayı kırmaz.
 - **Alternatif (deploy).** Her deploy'dan sonra hostname temizleme. Deploy yollarının hepsine (elle staging, ileride Workers Builds) bir adım ekler ve adım unutulursa site kırılır. Reddedildi. Kalan risk: kademeli dağıtım sürerken eski sürümdeki isolate'ler eski anahtarlarla hizmet verir ve o arada yapılan yayının temizliği onlara ulaşmayabilir. Pencere dağıtım süresi kadardır.
 - **Pazarlama HTML'i çerez okumaz.** Üst çubukta her zaman "Giriş yap" ve "Ücretsiz başla" vardır; oturumu açık kişi `/sign-in`'den uygulamaya yönlenir (bugünkü davranış). İletişim formu Turnstile'ı istemcide yükler.
@@ -654,3 +654,139 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
   - **Varlıklar:** Sayfadaki bütün `/assets/*` adresleri deploydan sonra 200 dönüyor ve CSS'te `X-Robots-Tag` var.
 - **Bulgu:** Önbellekten gelen sayfada `ETag` başlığı yok, `If-None-Match` ile 304 dönmüyor (tam 200 geliyor). `edgeCopy` zayıf ETag yazıyor ama bu ETag hit cevabına ulaşmıyor. Muhtemel sebep: Cloudflare, Cache API ya da sıkıştırma katmanında zayıf ETag'i atıyor. Doğruluğu bozmuyor; sadece tarayıcı yeniden doğrulamasını pahalı kılıyor. 6b başında incelenecek. Seçenek: ETag'i ayrı bir başlıkta taşımak ya da `Last-Modified` + `If-Modified-Since` kullanmak.
 - **Bekleyenler:** Gerçek temizleme, alan adı temizleme ve hız sınırları, CPU süresi (`wrangler tail`) için staging'de platform admini bir oturum gerekiyor. Bunun için staging test hesabının `role='admin'` yapılması lazım; kullanıcı onayını bekliyor. Deploy sonrası ilk isteğin miss olduğu bir sonraki deployda ayrıca ölçülecek.
+
+## Uygulama notları · Faz 6b
+
+### 6b-1 (PR: `rewrite-faz6b`)
+
+**ETag hatası (6a kabulündeki bulgu).**
+- **Sebep.** Staging'de `/robots.txt` ve `/sitemap.xml` (metin, XML) isabette `etag` taşıyor. HTML sayfaların hiçbiri taşımıyor; ıskada da, `accept-encoding: identity` ile de yok. Yani sıkıştırma değil. Cloudflare'in HTML'i değiştirebilen zone özellikleri (Email Obfuscation varsayılan açık, Automatic HTTPS Rewrites) `text/html` yanıttaki ETag'i siliyor (developers.cloudflare.com/cache/reference/etag-headers: zayıf ETag'in korunması için bu özellikler kapatılmalı). Kod ETag'i doğru yazıyordu.
+- **Düzeltme** (`services/EdgeCache.ts`). Kenar kopyası `ETag`'in yanında `Last-Modified` (put zamanı, saniye) da taşır.
+  - `isNotModified`: istekte `If-None-Match` varsa yalnız o karar verir (RFC 9110 §13.2.2). Yoksa `If-Modified-Since` ≥ `Last-Modified` ise 304.
+  - Yalnız isabet 304 döner. Iska kendi doğrulayıcısını yeni ürettiği için 304 vermez; aksi hâlde temizleme ve yeniden çizim aynı saniyede olursa eski sayfa onaylanırdı (test bunu yakaladı).
+  - Kalan risk: tarayıcının aldığı kopya ile temizleme sonrası yeni kopya aynı saniyede yazılırsa tarayıcı bir sonraki temizlemeye (+60 s ikinci temizleme) kadar eski sayfayı tutar.
+  - ETag'i ayrı bir başlıkta taşımak işe yaramaz: tarayıcı `If-None-Match`'i yalnız `ETag` başlığından üretir.
+- **Alternatif (kullanıcı onayı gerekir).** Zone'da pazarlama yolları için Email Obfuscation'ı kapatan bir Configuration Rule. ETag'i de geri getirir. `Last-Modified` buna gerek bırakmıyor; ancak staging doğrulamasında `Last-Modified` de silinirse tek yol bu olur.
+- **Staging doğrulaması** (deploy'dan sonra; `S=https://staging.viz-cad.com`):
+  1. `curl -s -o /dev/null -D - $S/tr | grep -iE '^(x-vizcad-cache|etag|last-modified)'` iki kez çalıştırılır. İkincisinde `x-vizcad-cache: hit` ve `last-modified: …` olmalı; `etag` yine olmayabilir.
+  2. `LM=$(curl -s -o /dev/null -D - $S/tr | awk -F': ' 'tolower($1)=="last-modified"{print $2}' | tr -d '\r'); curl -s -o /dev/null -w '%{http_code}\n' -H "If-Modified-Since: $LM" $S/tr` → `304`.
+  3. Eski tarih tam sayfa verir: `curl -s -o /dev/null -w '%{http_code}\n' -H 'If-Modified-Since: Thu, 01 Jan 2026 00:00:00 GMT' $S/tr` → `200`.
+  4. Tarayıcıda: geliştirici araçları → Network → `/tr` iki kez yenilenir. İkinci istek `If-Modified-Since` gönderir ve 304 alır.
+  5. `last-modified` de gelmiyorsa zone kuralı gerekir (yukarıdaki alternatif). Sonuç buraya not edilir.
+
+**Kapsam kararları.**
+- **Kategori ve etiket sayfaları yapılmadı.** §0 bunları "Yok (sonra)" sütununa koyuyor (zayıf içerik; kategori yalnız etiket olarak görünür). Orkestratörün görev metninde 6b'de sayılmışlardı; doküman kazanır. Kategori kartlarda ve yazıda etiket olarak görünür, etiketler yazının altında listelenir (bağlantısız).
+- **Okuma yedeği yok (§1.5).** Görev metni "çeviri satırı olmayan yazı `en` okunur" diyordu; doküman tersini söylüyor ve test de buna göre: `post_translations(en)` satırı olmayan legacy yazı genel tarafta 404. Staging'de veri script'le gelir.
+- **Migration yok.** 0016'nın tabloları yetti; sıradaki numara (0019) boş kaldı.
+
+**Yapılanlar.**
+- **`renderMarkdown`** (`server/cms/markdown.ts`) §4.3'teki kurallarla çalışır.
+  - Ham HTML kaçışlanmış metin olur; blok düzeyindeki HTML kendi paragrafını alır.
+  - Bağlantılar yalnız `https:`, `mailto:` ve göreli; `javascript:`, `data:`, `http:` ve `//host` metin kalır. Referans bağlantıları aynı kurallardan geçer.
+  - Görseller yalnız `blog/` anahtarı ya da `https://viz-cad.com`; `cms_assets`'ten bilinen boyut ve `srcset` eklenir.
+  - h1 h2'ye iner (sayfada tek h1 yazı başlığıdır). `toc` h2–h3'ten çıkar. Okuma süresi dil hızıyla hesaplanır.
+  - Uyarılar: ham HTML etiketleri, düşen bağlantılar, dış görseller.
+  - Yalnız kayıtta ve script'te çalışır: Worker sunucu paketinde mdast/micromark yok (build'de doğrulandı).
+- **`slug.ts`** §4.2: 5 dilin harfleri, ayrılmış `page` ve `rss.xml`, 96 karakterde kelime sınırı, `-2`/`-3` tekilleştirme.
+- **Genel programlar** (`programs/cms/blog.ts`): `listPublicPosts`, `getPublicPost`, `getPublicAuthor`, `latestPosts`, `sitemapPosts`.
+  - Sayfa başına en çok 3 sorgu, tek `db.batch`'te. Görünürlük §2'deki gibi. Eski slug 301 alır, arşiv 410, `blogLocales` dışı 404.
+  - İlgili yazılar legacy puanıyla seçilir (kategori +2, ortak etiket +1); eşitlikte en yeni öndedir, adaylar son 60 yazı.
+- **Bulgu: D1 batch satırları nesne olarak döner.** Birleştirilen tablolarda aynı adlı iki sütun (`slug`, `r2Key`, `width`…) tek alana çöküyor ve sonraki her alan kayıyordu (bellek D1 testinde JSON sütunu `undefined` okundu). Birleşik sütunlar artık kendi SQL adlarıyla seçiliyor (`named`). Yeni sorgularda aynı kural geçerli.
+- **Sayfalar** (`routes/{-$locale}/blog/*`, `authors/$slug`): SSR, edge cache, mobil öncelikli, JS'siz okunur.
+  - `/blog/page/1` → `/blog` 301. Sayfa sayısı dışı 404. `0`, baştaki sıfır ya da fazladan parça 404.
+  - 410'u sunucu fonksiyonu `setResponseStatus` ile verir (yerelde doğrulandı). 404 `notFound()`. 500 `x-vizcad-no-store` taşır.
+  - Kapak boyutu biliniyorsa `width`/`height` yazılır, yoksa 1200:630 kutusu kullanılır (CLS 0). Listedeki ilk kapak ve yazı kapağı `fetchpriority="high"`.
+  - Yazı gövdesi `.blog-prose` (`styles.css`): 17 px, ≤ 75 karakterlik satır. Tablo ve kod kendi içinde kayar.
+  - Görünüm tipleri `shared/blogTypes.ts`'te tutulur; istemci `#/server`'a hiç bağlanmaz.
+- **Head ve JSON-LD.** `BlogPosting` (`author` → `Person @id`, `publisher` → org, `isPartOf` → `Blog`), `Blog`, `ProfilePage` + `Person`, `BreadcrumbList`, `Organization`. OG `article:*` etiketleri ve RSS `alternate` bağlantısı eklendi. `HeadImage` boyutu artık isteğe bağlı (legacy kapakların boyutu bilinmiyor).
+- **RSS, sitemap, llms.txt.**
+  - `/blog/rss.xml`: son 20 yazı, `description` = özet.
+  - `en` sitemap: landing, `/blog` (yalnız ilk sayfa), yayındaki yazılar (`lastmod` = çeviri `updatedAt`) ve yazısı olan yazarlar. Geçiş öncesi madde 3'ün blog kısmı böylece kapandı.
+  - `/llms.txt`: yalnız var olan sayfalar (landing, blog), son 30 yazı, dil ana sayfaları.
+  - Hepsi önbellekli; Db hatası 500 döner ve önbelleğe girmez.
+- **`/api/blog/image/{key}`** (`http/blogImage.ts`):
+  - Anahtar ham yoldan bir kez çözülür, legacy gibi. Yalnız `blog/` kabul edilir; `..` ve bozuk kaçış 404 olur.
+  - `immutable` bir yıl, R2 ETag'i ve `nosniff`. SVG ve raster olmayan her tür `CSP: sandbox` alır. Türü olmayan nesne legacy gibi `image/jpeg` verilir.
+  - Görseller Cloudflare önbelleğine girmiyor, legacy de girmiyordu. Her istek Worker ve R2'den geçer; trafik artarsa sonraki iş.
+- **Legacy JSON uçları** (`/api/blog`, `/api/blog/{id}`, `/api/blog/slug/x`, `/api/blog/upload`) ve `/media/*` yeni Worker'da yok; rota testi 404'ü denetliyor.
+- **`materializeLegacyTranslations`** (`scripts/`, Node).
+  - Yayındaki ve arşivdeki yazılar `post_translations(en)`'e, taslaklar `post_drafts(en)`'e yazılır (revision 0, görünmez). `INSERT … ON CONFLICT DO NOTHING` ile idempotent.
+  - `--source-wins` yalnız `posts.updatedAt` daha yeni olan satırları günceller ve `publishedAt`'e dokunmaz. Aynı saniye olup metni farklı olan satırlar (başlık, özet, slug, içerik uzunluğu) raporda ayrı listelenir.
+  - **D1 ifade sınırı (100 KB).** Uzun yazı parçalı yazılır. Satır `readTimeMin = -1` ile başlar (taslakta `revision = 2147483647`), içerik ≤ 60 KB'lık parçalarla eklenir, son ifade gerçek değeri koyar. Var olan bir satır bu korumayla hiç eşleşmez. Yarıda kalan çalışmanın çeviri satırı bir sonraki çalışmada UPDATE ile yerinde tamamlanır (inceleme düzeltmesi 7); yarım taslak satırı silinip yeniden yazılır. Genel okumalar `readTimeMin > 0` şartı arar, yarım satır görünmez.
+  - Başlık > 120 ya da özet > 300 olan yazı kopyalanmaz, `rejected` olarak raporlanır (tablo kontrolü).
+  - Yazar slug'ları addan üretilir (`-2` çakışmada), yalnız `slug IS NULL` satırlara.
+  - Rapor: ham HTML etiketleri, kuraldışı slug'lar, düşen bağlantılar, dış görseller. Doğrulama sorguları `publishedWithoutEn` ve `halfWritten` 0 olmalı (cutover kapısı).
+  - Komutlar: `pnpm db:materialize:staging` (`scripts/staging.ts materialize`, staging koruması ile) ve `pnpm db:materialize:local`.
+- **Örnek veri** (`scripts/fixtures/blogLegacySample.ts`): legacy biçimli 17 yazı (`fixture-` önekli). İçinde legacy görsel URL'li ve kapaklı bir yazı, ham HTML'li bir yazı, kuraldışı slug'lı bir yazı, bir taslak, bir arşiv ve ikinci liste sayfası için 12 yazı var. Görseller R2'de `blog/fixture/cover-step.png` (1200×630) ve `blog/fixture/step-tree.png`.
+- **Pazarlama başlığı 320 px.** 6a kabuğu 320 px'te 6 px taşıyordu ("Sign in" ve "Start free" iki satıra iniyordu). `sm` altında aralıklar daraltıldı; sağ kenar 16 px boşlukta.
+
+**Ölçümler.**
+- **Worker giriş boyutu** (aynı yöntem: `dist/server/index.js` ve statik chunk'lar). Önce 944,8 kB (gzip 214,2 kB), sonra 946,1 kB (gzip 215,0 kB): +1,3 kB (gzip +0,8 kB). Girişte Effect, Drizzle ya da `entry.*` yok.
+- **Lighthouse** (13.6.0, mobil). Yerelde `pnpm build` + `wrangler dev`, yerel D1/R2, `APP_ENV=production`, örnek veri ve script sonrası; iki koşu:
+
+  | Sayfa | Performans | Erişilebilirlik | En iyi uygulamalar | SEO |
+  |---|---|---|---|---|
+  | `/blog` | 88 / 88 | 100 | 100 | 100 |
+  | `/blog/step-vs-iges` | 91 / 88 | 100 | 100 | 100 |
+  | `/authors/deniz-fixture` | 90 / 93 | 100 | 100 | 100 |
+  | `/` (karşılaştırma, 6a) | 95 / 92 | 100 | 100 | 100 |
+
+  - CLS 0, TBT 0. Gözlenen LCP 90 ms.
+  - Simüle LCP 3,5–4 s. Sebep blog değil, pazarlama kabuğunun ilk JS'i: her pazarlama sayfası (landing dahil) 271 KiB gzip JS yüklüyor. Yalnız `index` chunk'ı 155 KiB gzip (528 KB ham, Radix içinde), ayrıca `i18n` 34 KiB ve `Button` 19 KiB.
+  - §7.5 bütçesi ≤ 120 KB. Blog sayfalarında LCP bir kapak görseli olduğu için bu JS ile bant genişliğini paylaşıyor.
+  - Blog tarafında yapılanlar: ilk kapak `eager` + `fetchpriority="high"`, Radix avatar çıkarıldı.
+- **320/390/1280, açık ve koyu.** Yatay kaydırma yok, başlık 16 px kenar boşluğunda. Metin içi bağlantılar dışında her dokunma hedefi ≥ 44 px (metin içi bağlantılar WCAG 2.5.8 istisnası).
+
+**Staging adımları (orkestratör, onaylı uzak komutlarla).**
+1. `pnpm db:migrate:staging` (yeni migration yok; denetim için).
+2. Örnek veri:
+   - `node scripts/fixtures/blogLegacySample.ts .wrangler/blog-fixture.sql`
+   - `pnpm exec wrangler d1 execute vizcad-staging --remote --file=.wrangler/blog-fixture.sql`
+   - İki görsel: `pnpm exec wrangler r2 object put vizcad-files-staging/blog/fixture/cover-step.png --file <1200×630 png> --content-type image/png --remote`, `step-tree.png` için de aynısı.
+3. Script öncesi: `curl -s -o /dev/null -w '%{http_code}\n' $S/blog/step-vs-iges` → 404, `/blog` "No posts yet".
+4. `pnpm db:materialize:staging`. Rapor kullanıcıya gösterilir. Beklenen: `rawHtml` = `legacy-raw-html`, `nonconformingSlugs` = `Legacy_Odd_Slug`, iki doğrulama sayısı 0.
+5. `pnpm deploy:staging`. Yeni `BUILD_ID`, script öncesi önbelleğe girmiş boş `/blog`'u geçersiz kılar; alternatif `cms purgeHost`.
+6. Kontroller:
+   - `/blog` 200 ve 2 sayfa; `/blog/page/2` 200; `/blog/page/1` → `/blog` 301; `/blog/page/3` 404.
+   - `/blog/step-vs-iges` 200 ve görseller 200: `curl -s $S/blog/step-vs-iges | grep -o '/api/blog/image/[^"]*' | sort -u | while read u; do curl -s -o /dev/null -w "%{http_code} $u\n" "$S$u"; done`.
+   - `/blog/Legacy_Odd_Slug` 200. `/blog/legacy-raw-html` 200 ve gövdede `&#x3C;script>` var, `<script>alert` yok.
+   - `/blog/fixture-draft` 404, `/blog/fixture-archived` 410, `/authors/deniz-fixture` 200, `/tr/blog` 404.
+   - `/blog/rss.xml`, `/sitemaps/en.xml` (blog, yazılar, yazar) ve `/llms.txt` 200.
+   - `/api/blog/image/users%2Fx` 404, `/api/blog` 404.
+7. JS kapalıyken yazı okunuyor (Chrome → Ayarlar → JavaScript kapalı). Ekran 320/390/1280, açık ve koyu.
+8. Iska `cpuTime`: 6a adım 5'teki `wrangler tail` filtresi `/blog/step-vs-iges|/blog$` ile. Her turda `cms purgeUrls` ve `h`. Sonuç §7.5 bütçesiyle (≤ 8 ms ıska, ≤ 2 ms isabet) karşılaştırılır.
+9. Lighthouse performans staging'de (staging `noindex` olduğu için SEO orada 100 olamaz; SEO yukarıda yerelde ölçüldü). Rich Results Test'e yazı ve yazar sayfasının HTML'i kod olarak yapıştırılır.
+10. ETag ve `Last-Modified` doğrulaması yukarıda.
+
+**Açık.**
+- Pazarlama ilk JS'i 271 KiB gzip, bütçe 120 KB. Kabuk işi (6f ya da ayrı PR).
+- Staging ölçümleri: ıska `cpuTime`, Lighthouse performans ve Rich Results.
+- `renderMarkdown` CPU kapısı ölçümü (§7.5 madde 1) admin uçlarıyla 6c'de; Worker içinde ilk kez orada çalışacak.
+- Blog görselleri Cloudflare önbelleğinde değil.
+- 6b-2: uygulama yönlendirmeleri (`/dashboard`, `/file/{id}`, `/login`, `/signup`, `/ModelSnap`, `/author/{userId}`), router'dan üretilen rota gölgeleme testi, `/dev/cms-probe`'un kaldırılması.
+
+### 6b-1 · İnceleme düzeltmeleri (PR #33)
+Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alınarak denendi).
+
+1. **Bozuk sosyal bağlantı yazar sayfasını boşaltıyordu.** `{"web":"https://exa mple.com"}` önek kontrolünden geçiyor, SSR'da `new URL` atıyordu; 200 ve boş gövde önbelleğe girebiliyordu.
+   - `httpsLinks` artık `URL.canParse` da istiyor (`programs/cms/blog.ts`).
+   - **Genel koruma** (`services/EdgeCache.ts`, `isCompleteHtml`): ıskada HTML 200'ün gövdesi tamamen okunur. Yalnız `</html>` ile biten ve React'in hatalı sınır işareti taşımayan (`<!--$!-->`, `$RX("`) belge saklanır. Akış hata verirse, gövde boş ya da yarımsa ziyaretçi `500` + `no-store` alır, hiçbir şey saklanmaz, log `edge-cache.render-incomplete`.
+   - Yerelde doğrulandı (`pnpm build` + `vite preview`, yerel D1): gerçek sayfalar `</body></html>` ile bitiyor, işaret yok, ikinci istek `hit`. Bozuk bağlantılı yazar sayfası 200 dönüyor ve yalnız `x.com` listeleniyor.
+   - Bedel: ıskada HTML akışla değil, tamamı okunduktan sonra gider (sayfalar ~15 KB). İsabet değişmedi.
+2. **Sunucu hatası 200 "Something broke" veriyordu.** `markGone` yerine `markStatus` (`components/marketing/blog/data.ts`): 410 ve 500 SSR yanıtına yazılır; 404 rotanın `notFound()`'u olarak kalır. Hata sonucu `x-vizcad-no-store` + `no-store` taşır; edge cache yalnız 200/301 saklar. Yerelde ConfigError artık 500 döndü.
+3. **İlgili yazılar ve temizleme uyuşmuyordu.** `pickRelated` yalnız puanı > 0 olanları alır (ortak kategori ya da etiket), `affectedUrls`'in `sharesTopic` kuralıyla aynı. Ortak konusu olmayan yazı ilgili listesine girmez; liste 3'ten kısa olabilir.
+4. **Script doğrulama başarısızken 0 ile çıkıyordu.** `materializeVia` sayıları ve başarısız kontrolleri döner (`failedChecks`: tam 0 olmayan her sayı, NaN dahil). `--local` ve `staging.ts materialize` raporu basar ve başarısızlıkta 1 ile çıkar.
+5. **Kötü niyetli girdi 404 alıyor, 500 değil.**
+   - `BLOG_PAGE_MAX = 10000` ve `BLOG_SLUG_MAX = 1024` (`shared/marketingRoutes.ts`) rota ve sunucu tarafından ortak kullanılır.
+   - `/blog/page/$page` her sayfa numarasıyla eşleşir; sınır dışında loader `notFound()` atar (10001–99999 artık 404). Slug sınırı yazı ve yazar loader'larında da aynı.
+   - El yazısı doğrulayıcılar (`throw`) kaldırıldı. Sunucu fonksiyonları ham veriyi `http/blogPages.ts`'e verir; orada `Schema` (`ListInput`, `SlugInput`) çözer, geçersiz girdi D1'e gitmeden 404 olur. `data.ts` istemciye ulaştığı için Effect içermez.
+   - Legacy slug sınırı 200'den 1024'e çıktı: listelenen uzun legacy slug artık açılıyor.
+6. **Bozuk UTF-8 kaçışı `URIError` atıyordu.** `server/uri.ts` `decodeComponent`: hiç atmaz, sonuçta U+FFFD varsa null. `blogImageKey` (markdown, script) ve `blogImageKeyOf` (görsel rotası) bunu kullanır. `![x](/api/blog/image/blog%2F%FF.png)` artık script'i durdurmuyor; rota 500 vermiyor (HTTP'de çerçeve bozuk kaçışı daha önce 400 ile reddediyor, kodun kendisi 404 döner).
+7. **Script yeniden çalıştırma durumları.**
+   - Yarım çeviri satırı (`readTimeMin = -1`) artık silinip yeniden eklenmiyor; `repair` kipindeki UPDATE ile tamamlanıyor (`halfWrittenRepaired`). Yarıda kalan `--source-wins` böylece `publishedAt`, `coverAlt` ve `ogAssetId`'yi koruyor.
+   - Önceki çalışmanın kopyaladığı taslak (revision 0, `updatedByUserId IS NULL`) legacy'de sonradan yayınlandıysa `en` satırı yazıldıktan sonra silinir (`supersededDraftsRemoved`). Editörün dokunduğu taslak kalır ve raporlanır (`supersededDraftsKept`). Dışa aktarma sorgusu `scriptCopy` sütununu da okur.
+8. **`fitsInOne` kaçışlanmış boyutu ölçüyor.** Tırnak yoğun yazı (2×28 000 tırnak) artık tek ifadeye sığdırılmıyor; her ifade < 100 KB.
+9. **`/tr/blog` 404 sayfası kendine bağlanıyordu.** `blogHomePath`: `blogLocales` dışındaki dilde `en` blog listesine bağlanır.
+10. **Arşivlenmiş yazının eski slug'ı 404 veriyordu.** Yönlendirme sorgusu artık durumu da okur: arşiv → 410 (`PostGone`), görünür → 301, diğerleri 404.
+11. **Önbellekteki 301 304 verebiliyordu.** `browserResponse` yalnız `status === 200` iken 304 döner.
+

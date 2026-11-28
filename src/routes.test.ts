@@ -61,12 +61,38 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
     ['/robots.txt', '/robots.txt'],
     ['/sitemap.xml', '/sitemap.xml'],
     ['/sitemaps/en.xml', '/sitemaps/{$locale}.xml'],
+    ['/llms.txt', '/llms.txt'],
+    ['/api/blog/image/blog%2Fa.png', '/api/blog/image/$key'],
   ])('%s → %s', async (path, route) => {
     expect(await leaf(path)).toBe(route)
   })
 
-  // Legacy URLs keep their own handling: `/shared/x` its 302, the rest a 404 today and a Worker 301 in 6b (docs/12 §6.9).
-  it.each(['/shared/abc', '/dashboard', '/file/abc', '/login', '/signup', '/ModelSnap', '/modelsnap', '/author/u1', '/blog', '/blog/old-post'])(
+  // The public blog (6b, `en` only: other locales resolve here too and the program answers 404, D9/K14).
+  it.each([
+    ['/blog', '/{-$locale}/blog/'],
+    ['/blog/page/2', '/{-$locale}/blog/page/$page'],
+    ['/blog/page/1', '/{-$locale}/blog/page/$page'],
+    ['/blog/rss.xml', '/{-$locale}/blog/rss.xml'],
+    ['/blog/old-post', '/{-$locale}/blog/$slug'],
+    ['/blog/page', '/{-$locale}/blog/$slug'],
+    ['/authors/ada', '/{-$locale}/authors/$slug'],
+    ['/tr/blog', '/{-$locale}/blog/'],
+  ])('%s → %s', async (path, route) => {
+    expect(await leaf(path)).toBe(route)
+  })
+
+  // Not a page number: `0`, leading zeros and extra segments are 404 (one URL per list page).
+  it.each(['/blog/page/0', '/blog/page/01', '/blog/page/x', '/blog/a/b', '/authors/a/b'])('%s is 404', async (path) => {
+    expect(await leaf(path)).toBe('404')
+  })
+
+  // The legacy JSON endpoints (unauthenticated drafts, docs/12 rule 3) do not exist in the new Worker.
+  it.each(['/api/blog', '/api/blog/abc', '/api/blog/slug/x', '/api/blog/upload', '/media/x.png'])('%s is 404', async (path) => {
+    expect(await leaf(path)).toBe('404')
+  })
+
+  // Legacy URLs keep their own handling: `/shared/x` its 302, the rest a 404 today and a Worker 301 in 6b-2 (docs/12 §6.9).
+  it.each(['/shared/abc', '/dashboard', '/file/abc', '/login', '/signup', '/ModelSnap', '/modelsnap', '/author/u1'])(
     'legacy %s is never a locale page',
     async (path) => {
       const route = await leaf(path)
@@ -74,4 +100,39 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
       expect(route).toBe(path === '/shared/abc' ? '/shared/$token' : '404')
     },
   )
+})
+
+// Hostile input never reaches the server function: past the limits the loaders throw notFound() (docs/12 §2).
+describe('blog route limits (BLOG_PAGE_MAX, BLOG_SLUG_MAX)', () => {
+  const thrown = async (run: () => unknown): Promise<unknown> => {
+    try {
+      await run()
+    } catch (error) {
+      return error
+    }
+    return undefined
+  }
+  type Loader = (ctx: { params: Record<string, unknown> }) => unknown
+  const loaderOf = (route: { options: { loader?: unknown } }) => route.options.loader as Loader
+
+  it('a page number past BLOG_PAGE_MAX still matches the route and its loader answers 404', async () => {
+    const { BLOG_PAGE_MAX } = await import('#/shared/marketingRoutes')
+    const { isNotFound } = await import('@tanstack/react-router')
+    const { Route } = await import('./routes/{-$locale}/blog/page.$page')
+    for (const page of [BLOG_PAGE_MAX + 1, 99_999, 1e400]) {
+      expect(isNotFound(await thrown(() => loaderOf(Route)({ params: { page } })))).toBe(true)
+    }
+    expect(await leaf('/blog/page/99999')).toBe('/{-$locale}/blog/page/$page')
+    expect(await leaf('/blog/page/123456789')).toBe('/{-$locale}/blog/page/$page')
+  })
+
+  it('a slug longer than BLOG_SLUG_MAX is 404 on post and author pages', async () => {
+    const { BLOG_SLUG_MAX } = await import('#/shared/marketingRoutes')
+    const { isNotFound } = await import('@tanstack/react-router')
+    const post = (await import('./routes/{-$locale}/blog/$slug')).Route
+    const author = (await import('./routes/{-$locale}/authors/$slug')).Route
+    const slug = 'x'.repeat(BLOG_SLUG_MAX + 1)
+    expect(isNotFound(await thrown(() => loaderOf(post)({ params: { slug } })))).toBe(true)
+    expect(isNotFound(await thrown(() => loaderOf(author)({ params: { slug } })))).toBe(true)
+  })
 })
