@@ -11,6 +11,6 @@ import { requestMeta } from './respond'
 export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Response> => {
   const live = liveLayers(env)
   return Effect.runPromise(
-    cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache), requestMeta(request)),
+    cmsResponse(request, Layer.mergeAll(live.db, live.auth, live.rateLimit, live.config, live.cache, live.storage), requestMeta(request)),
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blogImageKey, blogImageUrl, classifyLink, renderMarkdown } from './markdown'
+import { blogImageKey, blogImageUrl, classifyLink, RENDER_LIMITS, renderMarkdown } from './markdown'
 
 const render = (md: string, assets?: Parameters<typeof renderMarkdown>[1]['assets']) => renderMarkdown(md, { locale: 'en', ...(assets ? { assets } : {}) })
 
@@ -127,5 +127,30 @@ describe('renderMarkdown: read time', () => {
     expect(render('one two').readTimeMin).toBe(1)
     expect(renderMarkdown('word '.repeat(460), { locale: 'en' }).readTimeMin).toBe(2)
     expect(renderMarkdown('kelime '.repeat(570), { locale: 'tr' }).readTimeMin).toBe(3)
+  })
+})
+
+describe('render caps', () => {
+  it('refuses nesting deeper than the cap (walked without recursion) and keeps ordinary nesting', () => {
+    expect(render(`${'> '.repeat(RENDER_LIMITS.depth + 5)}deep`)).toMatchObject({ exceeded: 'depth', html: '' })
+    expect(render(`${'- '.repeat(60)}x`).exceeded).toBe('depth')
+    // A marker run the parser would need seconds for (or overflow on) is refused before parsing, fast.
+    const started = performance.now()
+    expect(render(`${'- '.repeat(10_000)}x`).exceeded).toBe('depth')
+    expect(render(`${'1. > '.repeat(3000)}x`).exceeded).toBe('depth')
+    expect(performance.now() - started).toBeLessThan(200)
+    // Thematic breaks, emphasis and numbers that are not markers are fine.
+    expect(render('- - -\n\n* * *\n\n*a* -b 1.5 2)x').exceeded).toBeUndefined()
+    const ok = render('> - a\n>   - b\n>     > c')
+    expect(ok.exceeded).toBeUndefined()
+    expect(ok.html).toContain('<blockquote>')
+  })
+
+  it('refuses output over the HTML cap (one long reference URL repeated) and keeps normal posts', () => {
+    const url = `https://example.com/${'a'.repeat(1900)}`
+    const md = `${'[x][r] '.repeat(2500)}\n\n[r]: ${url}`
+    expect(md.length).toBeLessThan(20 * 1024)
+    expect(render(md)).toMatchObject({ exceeded: 'output', html: '' })
+    expect(render('# Title\n\nText.').exceeded).toBeUndefined()
   })
 })

@@ -1,4 +1,4 @@
-import { asc, count, gte } from 'drizzle-orm'
+import { and, asc, count, gte, inArray } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { isMarketingPath } from '#/shared/marketingRoutes'
 import * as schema from '../../db/schema'
@@ -98,4 +98,38 @@ export const purgeSiteHost = Effect.fn('purgeSiteHost')(function* () {
   const now = yield* nowSeconds
   yield* runBatch((d) => enqueuePurges(d, { targets: { urls: [], host: true }, hostname: siteUrl.hostname, reason: 'manual', now }))
   return { hostname: siteUrl.hostname, purge: yield* drainCachePurges({ maxCalls: 1 }) }
+})
+
+/** Rows out of automatic retries (`attempts >= MAX_ATTEMPTS`) among the given ids; others are left alone. */
+const failedRows = Effect.fnUntraced(function* (ids: ReadonlyArray<number>) {
+  const db = yield* Db
+  return yield* db.use((d) =>
+    d.select().from(schema.cachePurges).where(and(inArray(schema.cachePurges.id, [...ids]), gte(schema.cachePurges.attempts, MAX_ATTEMPTS))),
+  )
+})
+
+/**
+ * `retryPurges(ids)`: failed rows (out of retries) go back to the queue as fresh targets, now and 60 s later like any
+ * purge, and the queue drains with the publish budget. Rows still retrying on their own are not touched.
+ */
+export const retryPurges = Effect.fn('retryPurges')(function* (input: { readonly ids: ReadonlyArray<number> }) {
+  yield* requireConfigured
+  const rows = yield* failedRows(input.ids)
+  if (rows.length === 0) return { retried: 0, purge: null }
+  const { siteUrl } = yield* AppConfig
+  const now = yield* nowSeconds
+  const urls = rows.filter((r) => r.kind === 'url').map((r) => r.target)
+  const host = rows.some((r) => r.kind === 'host')
+  yield* runBatch((d) => [
+    d.delete(schema.cachePurges).where(inArray(schema.cachePurges.id, rows.map((r) => r.id))),
+    ...enqueuePurges(d, { targets: { urls, host }, hostname: siteUrl.hostname, reason: 'retry', now }),
+  ])
+  return { retried: rows.length, purge: yield* drainCachePurges({ maxCalls: PUBLISH_MAX_CALLS }) }
+})
+
+/** `clearPurges(ids)`: drops failed rows (out of retries) the admin gave up on. Rows still retrying stay. */
+export const clearPurges = Effect.fn('clearPurges')(function* (input: { readonly ids: ReadonlyArray<number> }) {
+  const rows = yield* failedRows(input.ids)
+  if (rows.length > 0) yield* runBatch((d) => [d.delete(schema.cachePurges).where(inArray(schema.cachePurges.id, rows.map((r) => r.id)))])
+  return { cleared: rows.length }
 })

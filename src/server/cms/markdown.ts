@@ -60,6 +60,11 @@ export interface RenderWarnings {
 }
 
 export interface Rendered {
+  /**
+   * Set when the input is over a render cap (`RENDER_LIMITS`): `depth` (nesting, which would recurse the tree walkers
+   * without bound) or `output` (HTML larger than a stored row should hold). `html` is then empty: nothing may go live.
+   */
+  readonly exceeded?: 'depth' | 'output'
   readonly html: string
   readonly toc: ReadonlyArray<TocEntry>
   readonly readTimeMin: number
@@ -229,8 +234,60 @@ const countWords = (value: string) => value.split(/\s+/).filter((word) => /[\p{L
 /** Footnote back-reference labels and the section heading are English by default; the page language is set here. */
 const FOOTNOTE_LABEL: Readonly<Record<Locale, string>> = { en: 'Footnotes', tr: 'Dipnotlar', de: 'Fußnoten', es: 'Notas', fr: 'Notes' }
 
+/**
+ * Caps on what a render may produce. Real posts nest a few levels (a list in a quote in a list); 32 leaves room while
+ * keeping the recursive walkers (ours, mdast-util-to-hast, hast-util-to-html) far from the stack limit. 512 KiB of
+ * HTML is far above any post (reference links can repeat one long URL many times) and well under D1's row limit.
+ */
+export const RENDER_LIMITS = { depth: 32, htmlBytes: 512 * 1024 } as const
+
+/** The deepest nesting of the tree, walked without recursion (the input may be built to be deep). */
+const treeDepth = (root: Nodes) => {
+  let max = 0
+  const stack: Array<readonly [Nodes, number]> = [[root, 0]]
+  for (let item = stack.pop(); item !== undefined; item = stack.pop()) {
+    const [node, depth] = item
+    if (depth > max) max = depth
+    if (max > RENDER_LIMITS.depth) return max
+    if ('children' in node) for (const child of node.children as ReadonlyArray<Nodes>) stack.push([child, depth + 1])
+  }
+  return max
+}
+
+/**
+ * The most container markers (`>`, `-`, `*`, `+`, `1.`, `1)`) one line opens before its text. micromark's nesting cost
+ * grows with the square of this run (`- - - … x`: 2000 levels ≈ 0.7 s, 5000 overflow the stack), so an input over
+ * the cap is refused before it is parsed. Nesting by indentation needs two spaces per level and stays small.
+ */
+const markerDepth = (markdown: string) => {
+  let max = 0
+  for (const line of markdown.split('\n')) {
+    let depth = 0
+    let i = 0
+    for (;;) {
+      while (line[i] === ' ' || line[i] === '\t') i++
+      const c = line[i]
+      if (c === '>') i++
+      else if ((c === '-' || c === '*' || c === '+') && (i + 1 >= line.length || line[i + 1] === ' ' || line[i + 1] === '\t')) i++
+      else {
+        let j = i
+        while (j < line.length && j - i < 9 && line[j]! >= '0' && line[j]! <= '9') j++
+        if (j === i || (line[j] !== '.' && line[j] !== ')') || (j + 1 < line.length && line[j + 1] !== ' ' && line[j + 1] !== '\t')) break
+        i = j + 1
+      }
+      if (++depth > RENDER_LIMITS.depth) return depth
+    }
+    if (depth > max) max = depth
+  }
+  return max
+}
+
+const exceeded = (kind: 'depth' | 'output'): Rendered => ({ exceeded: kind, html: '', toc: [], readTimeMin: 1, warnings: { rawHtmlTags: [], droppedLinks: [], externalImages: [] } })
+
 export const renderMarkdown = (markdown: string, options: RenderOptions): Rendered => {
+  if (markerDepth(markdown) > RENDER_LIMITS.depth) return exceeded('depth')
   const tree: Root = fromMarkdown(markdown, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] })
+  if (treeDepth(tree) > RENDER_LIMITS.depth) return exceeded('depth')
   const definitions = new Map<string, Definition>()
   collectDefinitions(tree, definitions)
   const ctx: Context = {
@@ -246,6 +303,8 @@ export const renderMarkdown = (markdown: string, options: RenderOptions): Render
   const safe: Root = { type: 'root', children: transformChildren(ctx, tree.children, true) }
   const hast = toHast(safe, { allowDangerousHtml: false, footnoteLabel: FOOTNOTE_LABEL[options.locale] }) as HastRoot | HastElement
   const html = toHtml(hast, { allowDangerousHtml: false })
+  // Characters × 3 bounds the UTF-8 size; only a long result pays for the exact count.
+  if (html.length * 3 > RENDER_LIMITS.htmlBytes && new TextEncoder().encode(html).length > RENDER_LIMITS.htmlBytes) return exceeded('output')
   return {
     html,
     toc: ctx.toc,

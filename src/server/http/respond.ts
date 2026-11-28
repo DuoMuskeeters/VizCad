@@ -66,6 +66,9 @@ export const STATUS: Record<AppError['_tag'], number> = {
   PublishBlocked: 422,
   TextTooLong: 422,
   AssetUnavailable: 404,
+  AssetInUse: 409,
+  InvalidAsset: 422,
+  AuthorHasPosts: 409,
 }
 
 /** Denial reasons the UI may show ("disabled + why", docs/08 §4). Everything else stays a server diagnostic. */
@@ -107,6 +110,8 @@ export const errorResponse = (error: AppError, meta: RequestMeta) =>
       // CMS editor hints: fixed codes and limits, never content (errors.ts).
       : error._tag === 'PublishBlocked' ? { reason: error.reason, ...(error.fields === undefined ? {} : { fields: error.fields }) }
       : error._tag === 'TextTooLong' ? { field: error.field, max: error.max }
+      : error._tag === 'AssetInUse' ? { fields: error.places }
+      : error._tag === 'InvalidAsset' ? { reason: error.reason }
       : {}
     return Response.json({ ok: false, error: error._tag, ...reason, ...extra }, { status, headers })
   })
