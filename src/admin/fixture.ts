@@ -85,6 +85,7 @@ const fail = (status: number, error: string, extra: Record<string, unknown> = {}
 export const fixtureCmsFetch = (scenario: AdminScenario): typeof fetch => {
   const posts = scenario === 'admin-empty' ? new Map<string, AdminPost>() : seedPosts()
   let queued = 0
+  let drains = 0
   let created = 0
   return async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -98,6 +99,9 @@ export const fixtureCmsFetch = (scenario: AdminScenario): typeof fetch => {
       case 'listPurges':
         return ok({ configured: scenario !== 'admin-nopurge', total: queued, failed: 0, rows: [] })
       case 'drainPurges':
+        // The late (+60 s) rows are not due at the first drain: the queue answers unchanged, then empties.
+        drains += 1
+        if (drains % 2 === 1) return ok({ purge: { done: 0, failed: 0, dropped: 0, queued, calls: 0 } })
         queued = 0
         return ok({ purge: { done: 1, failed: 0, dropped: 0, queued: 0, calls: 1 } })
       case 'listPostsAdmin':

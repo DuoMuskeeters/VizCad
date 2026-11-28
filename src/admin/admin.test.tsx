@@ -111,6 +111,28 @@ describe('post editor', () => {
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
   })
 
+  it('keeps draining the late purge rows while the queue stays the same, until it is empty', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const { calls } = mount(<PostEditor postId="post-1" locale="en" />)
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const title = await screen.findByRole('textbox', { name: 'Title' })
+      await user.type(title, '!')
+      await user.click(screen.getByRole('button', { name: 'Publish' }))
+      expect(await screen.findByText('Purging the cache · 8 left')).toBeInTheDocument()
+      // First drain: the rows are not due yet, the queue answers 8 again.
+      await vi.advanceTimersByTimeAsync(20_000)
+      await waitFor(() => expect(calls.filter((c) => c.operation === 'drainPurges')).toHaveLength(1))
+      expect(screen.getByText('Purging the cache · 8 left')).toBeInTheDocument()
+      await vi.advanceTimersByTimeAsync(20_000)
+      await waitFor(() => expect(calls.filter((c) => c.operation === 'drainPurges')).toHaveLength(2))
+      expect(await screen.findByText('Cache purged')).toBeInTheDocument()
+      expect(screen.queryByText(/Purging the cache/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('a missing field is marked under the field (PublishBlocked invalid-fields)', async () => {
     const { user } = mount(<PostEditor postId="post-2" locale="en" />)
     await user.click(await screen.findByRole('button', { name: 'Publish' }))

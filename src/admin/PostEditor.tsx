@@ -142,6 +142,8 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
   const [warnings, setWarnings] = useState<RenderWarnings | null>(null)
   const [confirmUnpublish, setConfirmUnpublish] = useState<ReadonlyArray<string> | null>(null)
   const [purging, setPurging] = useState<number | null>(null)
+  // Bumped by every drain, so an unchanged `queued` still schedules the next one.
+  const [drains, setDrains] = useState(0)
 
   const base = baseline[locale] ?? sourceFields(post, locale)
   const form = forms[locale] ?? base
@@ -263,11 +265,12 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
       void cmsCall<{ purge: { queued: number } }>('drainPurges').then((result) => {
         if (!result.ok) return setPurging(null)
         setPurging(result.data.purge.queued)
+        setDrains((n) => n + 1)
         if (result.data.purge.queued === 0) toast({ title: text.editor.purged, tone: 'success' })
       })
     }, 20_000)
     return () => clearTimeout(id)
-  }, [purging, toast, text])
+  }, [purging, drains, toast, text])
 
   const publishReason = !publishable
     ? text.blocked['locale-closed']
