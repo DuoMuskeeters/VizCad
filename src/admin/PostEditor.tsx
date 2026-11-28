@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { createClientOnlyFn } from '@tanstack/react-start'
 import { ArrowLeft, Eye } from 'lucide-react'
@@ -189,14 +189,29 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
     if (revision !== null) window.open(adminPaths.preview(post.id, locale), '_blank', 'noopener')
   }
 
-  const refresh = async () => {
+  // The latest committed state, read by `refresh` after its await (its own closure is from before the request).
+  const latest = useRef({ post, forms, baseline, revisions })
+  latest.current = { post, forms, baseline, revisions }
+
+  /**
+   * Re-reads the post. A locale moves to the server's copy only when its working copy is clean (unchanged, or equal to
+   * `saved`, the text this handler just saved or published). A dirty locale keeps its text, baseline and revision, so a
+   * later save of it meets `ContentConflict` instead of overwriting the newer server copy.
+   */
+  const refresh = async (saved?: { locale: Locale; fields: TranslationFields; revision: number }) => {
     const result = await cmsCall<AdminPost>('getPostAdmin', { postId: post.id })
     if (!result.ok) return
+    const now = latest.current
+    const kept = LOCALES.flatMap((l) => {
+      const working = now.forms[l]
+      if (working === undefined) return []
+      const was = l === saved?.locale ? saved.fields : (now.baseline[l] ?? sourceFields(now.post, l))
+      return sameFields(working, was) ? [] : [{ l, working, was, revision: l === saved?.locale ? saved.revision : now.revisions[l] }]
+    })
     setPost(result.data)
-    setRevisions(Object.fromEntries(LOCALES.map((l) => [l, result.data.locales[l].revision])) as Record<Locale, number>)
-    // Saved locales re-read from the server; unsaved working copies of other locales stay.
-    setBaseline({})
-    setForms((all) => Object.fromEntries(Object.entries(all).filter(([l]) => l !== locale)))
+    setRevisions(Object.fromEntries(LOCALES.map((l) => [l, kept.find((k) => k.l === l)?.revision ?? result.data.locales[l].revision])) as Record<Locale, number>)
+    setBaseline(Object.fromEntries(kept.map((k) => [k.l, k.was])))
+    setForms(Object.fromEntries(kept.map((k) => [k.l, k.working])))
   }
 
   const purgeDone = (result: PublishResult, success: (n: number) => string) => {
@@ -215,7 +230,7 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
     setBusy(null)
     if (!result.ok) return fail(result)
     purgeDone(result.data, text.editor.published)
-    await refresh()
+    await refresh({ locale, fields: form, revision })
   }
 
   const unpublish = async (confirm: boolean) => {
@@ -362,8 +377,8 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
               >
                 <Input value={form.slug} maxLength={96} autoCapitalize="none" spellCheck={false} onChange={(e) => set('slug', e.target.value)} />
               </Field>
-              <MetaPanel post={post} onSaved={refresh} onConflict={() => setConflict(true)} />
-              <Lifecycle post={post} onChanged={refresh} onDeleted={() => void navigate({ href: adminPaths.posts() })} />
+              <MetaPanel post={post} onSaved={() => refresh()} onConflict={() => setConflict(true)} />
+              <Lifecycle post={post} onChanged={() => refresh()} onDeleted={() => void navigate({ href: adminPaths.posts() })} />
             </TabsContent>
             <TabsContent value="seo" className="grid gap-4 pt-4">
               <Field label={text.editor.metaTitle} error={errors['metaTitle']} hint={<Counter value={form.metaTitle ?? ''} hint={SEO_HINTS.metaTitle} max={POST_LIMITS.metaTitle} />}>

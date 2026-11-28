@@ -139,6 +139,21 @@ describe('post editor', () => {
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
   })
 
+  it('Save details keeps unsaved text of the translation, with its old revision', async () => {
+    const { calls, user } = mount(<PostEditor postId="post-1" locale="tr" />)
+    const title = await screen.findByRole('textbox', { name: 'Title' })
+    await user.type(title, ' typed')
+    const category = screen.getByRole('textbox', { name: 'Category' })
+    await user.clear(category)
+    await user.type(category, 'Guides')
+    await user.click(screen.getByRole('button', { name: 'Save details' }))
+    await waitFor(() => expect(calls.filter((c) => c.operation === 'getPostAdmin')).toHaveLength(2))
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('STEP mi IGES mi? typed')
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(calls.find((c) => c.operation === 'saveDraft')?.body).toMatchObject({ fields: { title: 'STEP mi IGES mi? typed' }, revision: 4 }))
+  })
+
   it('a title over the limit is refused under the field (TextTooLong)', async () => {
     const { user } = mount(<PostEditor postId="post-1" locale="tr" />)
     const title = await screen.findByRole('textbox', { name: 'Title' })
