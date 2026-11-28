@@ -155,7 +155,13 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
     setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
-  useBlocker({ shouldBlockFn: () => dirty && !window.confirm(text.editor.leave), enableBeforeUnload: () => dirty })
+  // Set once the post is deleted: its unsaved text is gone with it, so leaving asks nothing.
+  const leaving = useRef(false)
+  // Language tabs stay on this path (`?locale=`) and keep every working copy, so only leaving the post asks.
+  useBlocker({
+    shouldBlockFn: ({ current, next }) => dirty && !leaving.current && current.pathname !== next.pathname && !window.confirm(text.editor.leave),
+    enableBeforeUnload: () => dirty && !leaving.current,
+  })
 
   const fail = (failure: CmsFailure) => {
     if (failure.error === 'ContentConflict') return setConflict(true)
@@ -382,7 +388,10 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
                 <Input value={form.slug} maxLength={96} autoCapitalize="none" spellCheck={false} onChange={(e) => set('slug', e.target.value)} />
               </Field>
               <MetaPanel post={post} onSaved={() => refresh()} onConflict={() => setConflict(true)} />
-              <Lifecycle post={post} onChanged={() => refresh()} onDeleted={() => void navigate({ href: adminPaths.posts() })} />
+              <Lifecycle post={post} onChanged={() => refresh()} onDeleted={() => {
+                  leaving.current = true
+                  void navigate({ href: adminPaths.posts() })
+                }} />
             </TabsContent>
             <TabsContent value="seo" className="grid gap-4 pt-4">
               <Field label={text.editor.metaTitle} error={errors['metaTitle']} hint={<Counter value={form.metaTitle ?? ''} hint={SEO_HINTS.metaTitle} max={POST_LIMITS.metaTitle} />}>
