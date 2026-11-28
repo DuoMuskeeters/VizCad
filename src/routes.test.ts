@@ -59,6 +59,8 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
   // resolves to that route, so no route (above all the optional `{-$locale}` prefix) shadows another. Locale routes
   // also resolve with a prefix; no other route does (`/tr/app`, `/tr/api/...` are 404).
   it('every route in the tree resolves to itself, with and without a locale prefix where it has one', async () => {
+    // The Worker answers legacy redirects before the router: one on a route's URL would shadow that route forever.
+    const { legacyRedirectTarget } = await import('#/server/edge/legacyRedirect')
     const ids = await leafRoutes()
     expect(ids.length).toBeGreaterThan(45)
     const wrong: Array<string> = []
@@ -68,6 +70,7 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
         const path = samplePath(id, locale)
         const got = await leaf(path)
         if (got !== id) wrong.push(`${path} → ${got} (expected ${id})`)
+        if (legacyRedirectTarget(path) !== null) wrong.push(`${path} is shadowed by a Worker legacy redirect`)
       }
       if (!localized) {
         const prefixed = samplePath(id, '').replace(/^\//, '/tr/').replace(/\/$/, '')
