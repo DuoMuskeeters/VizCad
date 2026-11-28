@@ -979,3 +979,12 @@ Bölünme görev metnindeki gibi: **6c-1** yazı listesi ve editörü, yayın, t
 - Tel kafes onayı (`14-cms.html`).
 - **6c-2:** yazarlar, görsel yükleme ve kitaplık (kapak ve OG seçici), önbellek ekranı, OG şablon kartı, son 50 yayının temizleme sonucu.
 - CodeMirror chunk'ı 171 kB gzip (admin, tembel). Gerekirse `lang-markdown` yerine yalnız `@lezer/markdown` ile hafifletilir.
+- **PR #35 incelemesinin küçük bulguları** (önemli beşi düzeltildi: kirli dil yenilemede korunur, "Yeniden yükle" gerçekten yükler, dil sekmeleri ve silme çıkış uyarısı sormaz, temizleme yoklaması aynı `queued`'da sürer, liste ızgarası `xl`'den başlar):
+  - Arşivdeki yazıda Yayından kaldır, arşivi kaldırıyor (`en` → `draft`).
+  - Yayından kaldırıp yeniden yayınlanınca eski URL için yönlendirme kalmıyor.
+  - Geri al (undo) diller arasında geçiyor; editör `key={locale}` ile yeniden kurulmalı.
+  - Ayrıntılar alanları (kategori, etiketler…) sekme değişince kayboluyor.
+  - Çevirici çıktısı için boyut ve iç içe derinlik tavanı yok.
+  - Önizleme penceresi Safari'de engelleniyor (`window.open` `await`'ten sonra).
+  - iOS'ta editör yazı tipi 16 px'in altında (odakta yakınlaştırma).
+  - Araç çubuğu etiketleri çevrilmemiş (`Bold`, `Link`… sabit İngilizce).
