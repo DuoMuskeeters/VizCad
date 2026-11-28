@@ -5,7 +5,10 @@ import { getPublicPost, listPublicPosts } from '../src/server/programs/cms/blog'
 import { Db, make } from '../src/server/services/Db'
 import { type MemoryD1, openMemoryD1 } from '../src/server/testing/memoryD1'
 import { fixtureStatements } from './fixtures/blogLegacySample'
-import { CHUNK_BYTES, chunks, EXPORT_QUERIES, type LegacyExport, planMaterialize, rowsOf, sqlString, VERIFY_QUERIES, WRITING } from './materializeLegacyTranslations'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { CHUNK_BYTES, chunks, EXPORT_QUERIES, failedChecks, type LegacyExport, materializeVia, planMaterialize, rowsOf, sqlString, VERIFY_QUERIES, WRITING } from './materializeLegacyTranslations'
 
 const T = 1_700_000_000
 
@@ -159,6 +162,39 @@ describe('staging sample fixture (scripts/fixtures/blogLegacySample.ts)', () => 
     expect(plan.report.authorSlugs).toEqual([{ authorId: 'fixture-author-profile', slug: 'deniz-fixture' }])
     expect((await program(listPublicPosts('en', 1))).pages).toBe(2)
     expect(await tagOf(getPublicPost('en', 'fixture-archived'))).toBe('PostGone')
+  })
+})
+
+describe('materializeVia verification', () => {
+  /** A wrangler stand-in on the memory D1: `--json` queries and the SQL file run against it. */
+  const via = (verify?: (query: string) => unknown) => {
+    const dir = mkdtempSync(join(tmpdir(), 'materialize-'))
+    const verifyQueries = new Set(Object.values(VERIFY_QUERIES))
+    const result = materializeVia({
+      execJson: (query) => (verify !== undefined && verifyQueries.has(query) ? verify(query) : [{ results: d1.sqlite.prepare(query).all() }]),
+      execFile: () => d1.sqlite.exec(planMaterialize(exportOf(d1.sqlite)).statements.join('\n')),
+      sqlFile: join(dir, 'out.sql'),
+      sourceWins: false,
+    })
+    rmSync(dir, { recursive: true, force: true })
+    return result
+  }
+
+  it('a clean run has no failed check', () => {
+    seedLegacy(d1.sqlite)
+    const result = via()
+    expect(result.counts).toEqual({ publishedWithoutEn: 0, halfWritten: 0 })
+    expect(result.failed).toEqual([])
+  })
+
+  it('a count above 0, or one that cannot be read (NaN), fails the run (the CLI exits 1)', () => {
+    seedLegacy(d1.sqlite, [{ id: 'p8', slug: 'long', status: 'published', content: 'x', title: 'T'.repeat(121) }])
+    expect(via().failed).toEqual(['publishedWithoutEn'])
+    d1.close()
+    d1 = openMemoryD1()
+    seedLegacy(d1.sqlite)
+    expect(via(() => [{ results: [{ n: 'oops' }] }]).failed).toEqual(['publishedWithoutEn', 'halfWritten'])
+    expect(failedChecks({ a: 0, b: Number.NaN, c: 2 })).toEqual(['b', 'c'])
   })
 })
 

@@ -269,6 +269,17 @@ export const rowsOf = (json: unknown): ReadonlyArray<unknown> => {
   return json
 }
 
+/** The verification counts that fail the run: anything but exactly 0 (a missing or unreadable count is NaN, a failure). */
+export const failedChecks = (counts: Readonly<Record<string, number>>): ReadonlyArray<string> =>
+  Object.entries(counts).flatMap(([name, n]) => (n === 0 ? [] : [name]))
+
+export interface MaterializeResult {
+  readonly report: Report
+  readonly counts: Readonly<Record<string, number>>
+  /** Names of the VERIFY_QUERIES whose count is not 0. The CLI exits non-zero when this is not empty. */
+  readonly failed: ReadonlyArray<string>
+}
+
 /**
  * Export → plan → SQL file → execute → verify, through a `wrangler d1 execute` runner (staging.ts passes the staging
  * database with `--remote`; `--local` below uses the local one). `execJson` returns the parsed `--json` output.
@@ -278,18 +289,30 @@ export const materializeVia = (deps: {
   readonly execFile: (file: string) => void
   readonly sqlFile: string
   readonly sourceWins: boolean
-}): Report => {
+}): MaterializeResult => {
   const data = Object.fromEntries(
     Object.entries(EXPORT_QUERIES).map(([key, query]) => [key, rowsOf(deps.execJson(query))]),
   ) as unknown as LegacyExport
   const plan = planMaterialize(data, { sourceWins: deps.sourceWins })
   writeFileSync(deps.sqlFile, `${plan.statements.join('\n')}\n`)
   deps.execFile(deps.sqlFile)
+  const counts: Record<string, number> = {}
   for (const [name, query] of Object.entries(VERIFY_QUERIES)) {
     const n = Number((rowsOf(deps.execJson(query))[0] as { n?: unknown } | undefined)?.n)
+    counts[name] = n
     console.log(`verify ${name}: ${n}${n === 0 ? '' : '  <-- must be 0'}`)
   }
-  return plan.report
+  return { report: plan.report, counts, failed: failedChecks(counts) }
+}
+
+/** Prints the report and ends the process: exit 1 when a verification count is not 0. */
+export const finish = (result: MaterializeResult): never => {
+  console.log(JSON.stringify(result.report, null, 2))
+  if (result.failed.length > 0) {
+    console.error(`verification failed: ${result.failed.join(', ')}`)
+    process.exit(1)
+  }
+  process.exit(0)
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -308,13 +331,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       return result.stdout
     }
     mkdirSync('.wrangler', { recursive: true })
-    const report = materializeVia({
-      execJson: (command) => JSON.parse(wrangler(['--json', `--command=${command}`])),
-      execFile: (file) => void wrangler([`--file=${file}`, '--yes']),
-      sqlFile: '.wrangler/materialize-legacy-translations.sql',
-      sourceWins,
-    })
-    console.log(JSON.stringify(report, null, 2))
+    finish(
+      materializeVia({
+        execJson: (command) => JSON.parse(wrangler(['--json', `--command=${command}`])),
+        execFile: (file) => void wrangler([`--file=${file}`, '--yes']),
+        sqlFile: '.wrangler/materialize-legacy-translations.sql',
+        sourceWins,
+      }),
+    )
   } else {
     const reportAt = args.indexOf('--report')
     const reportFile = reportAt >= 0 ? args[reportAt + 1] : undefined
