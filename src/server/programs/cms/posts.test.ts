@@ -418,6 +418,16 @@ describe('updatePostMeta', () => {
       assert.isNull((yield* rows('posts')).find((r) => r.id === postId)?.coverImage)
     })))
 
+  it.effect('a legacy URL-only cover survives saving other fields; removeCover clears it', () =>
+    run(Effect.gen(function* () {
+      yield* seedPost({ id: 'legacy', slug: 'legacy', coverImage: '/api/blog/image/blog%2Fold%2Fcover.png' })
+      const meta = { postId: 'legacy', category: 'news', tags: [], authorId: 'ada', coverAssetId: null, featured: false, tableOfContents: true, revision: 0 }
+      yield* updatePostMeta(meta, actor)
+      assert.strictEqual((yield* rows('posts'))[0]?.coverImage, '/api/blog/image/blog%2Fold%2Fcover.png')
+      yield* updatePostMeta({ ...meta, revision: 1, removeCover: true }, actor)
+      assert.isNull((yield* rows('posts'))[0]?.coverImage)
+    })))
+
   it.effect('conflicts, unknown author (a user without an author profile) and unknown cover', () =>
     run(Effect.gen(function* () {
       yield* seedUser('nobody')

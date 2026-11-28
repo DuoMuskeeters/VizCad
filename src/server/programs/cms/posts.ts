@@ -477,6 +477,11 @@ export interface MetaInput {
   readonly tags: ReadonlyArray<string>
   readonly authorId: string
   readonly coverAssetId: string | null
+  /**
+   * Also clear a legacy URL-only cover (`posts.coverImage` without an asset). Without it, `coverAssetId: null` on a post
+   * that never had an asset keeps the legacy cover, so saving other fields never drops it.
+   */
+  readonly removeCover?: boolean | undefined
   readonly featured: boolean
   readonly tableOfContents: boolean
   readonly revision: number
@@ -501,6 +506,7 @@ export const updatePostMeta = Effect.fn('updatePostMeta')(function* (input: Meta
   const author = authors[0]
   if (author === undefined) return yield* new AuthorUnavailable()
   const cover = input.coverAssetId === null ? null : yield* requireAsset(input.coverAssetId)
+  const keepLegacyCover = input.coverAssetId === null && state.post.coverAssetId === null && input.removeCover !== true
   const slugs = visibleSlugs(state.post.status, state.translations)
   const isPublic = Object.keys(slugs).length > 0
   if (isPublic) yield* requireConfigured
@@ -528,7 +534,7 @@ export const updatePostMeta = Effect.fn('updatePostMeta')(function* (input: Meta
         tags,
         authorId: input.authorId,
         coverAssetId: input.coverAssetId,
-        coverImage: cover === null ? null : blogImagePath(cover.r2Key),
+        coverImage: cover !== null ? blogImagePath(cover.r2Key) : keepLegacyCover ? state.post.coverImage : null,
         featured: input.featured,
         tableOfContents: input.tableOfContents,
         revision,

@@ -122,6 +122,7 @@ const operations: Readonly<Record<string, Operation>> = {
       tags: Schema.Array(Text(1000)).check(Schema.isMaxLength(100)),
       authorId: Id,
       coverAssetId: Schema.NullOr(Id),
+      removeCover: Schema.optional(Schema.Boolean),
       featured: Schema.Boolean,
       tableOfContents: Schema.Boolean,
       revision: Revision,

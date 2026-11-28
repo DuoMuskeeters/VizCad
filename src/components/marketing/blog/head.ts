@@ -8,6 +8,10 @@ export const BLOG_NAME = 'VizCad Blog'
 export const BLOG_DESCRIPTION = 'Guides and notes on viewing, sharing and reviewing 3D CAD files.'
 const TITLE_SUFFIX = ' · VizCad Blog'
 
+/** An image URL for head tags: site-relative becomes absolute on `origin`. Here, not in BlogParts: route `head()`s run in the
+ * main chunk, and BlogParts (page components) must stay out of it. */
+export const absoluteUrl = (origin: string, url: string) => (url.startsWith('/') ? `${origin}${url}` : url)
+
 /** `{title} · VizCad Blog` (docs/12 §6.1), unless the title already names the blog. */
 export const blogTitle = (title: string) => (title.endsWith(TITLE_SUFFIX) || title === BLOG_NAME ? title : `${title}${TITLE_SUFFIX}`)
 
