@@ -453,6 +453,8 @@ Sınırlar sonuca göre konur ve bu dokümana yazılır: `contentMd` ve yükleme
 - **Markdown aşarsa:** sınır düşer; aşan yazı kaydedilirken `TextTooLong` ile reddedilir ve editör yazıyı bölmeyi önerir. Canlıdaki en uzun yazı bile sınıra sığmıyorsa (o yazı admin'de yeniden kaydedilemezdi) K6 sorulur. Cutover script'i Node'da koştuğu için bundan etkilenmez.
 - **SHA-256 aşarsa:** sunucu hash'i bırakılır. Tekilleştirme R2'nin kendi hesapladığı değerle yapılır: tek parça `put` sonucundaki `etag` içeriğin MD5'idir ve Worker CPU'su harcamaz. Aynı değerli kayıt varsa yeni nesne silinir ve var olan `cms_assets` satırı döner; `sha256` sütunu `md5` olur.
 
+**CPU kapısı sonucu (Faz 6c, yerel ölçüm; staging `cpuTime` ölçümü açık).** Ayrıntı ve sayılar "Uygulama notları · Faz 6c"te. Markdown sınırı `POST_LIMITS.contentMd = 20 KB` (`src/shared/cmsTypes.ts`), yükleme gövdesi 5 MB. Kuralın kendisi markdown için uygulanamadı: en kötü girdide 8 ms'nin altında kalan en büyük boyut yaklaşık 12 KB, yarısı 6 KB; canlıdaki en uzun yazı 13,4 KB. Bu yüzden K6 kullanıcıya sorulmalı (aşağıdaki not).
+
 ## 8. Pazarlama sayfaları ve yasal metinler
 
 ### 8.1 Sayfalar
@@ -854,3 +856,126 @@ Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alı
   - Iska `cpuTime`, gerçek temizleme ve alan adı temizleme: `/api/cms` için staging test hesabının admin yapılmasını bekliyor; kullanıcı onayı lazım.
   - Staging'de Lighthouse ve Rich Results.
   - JS kapalı ve 320/390/1280 görsel kontrol.
+
+## Uygulama notları · Faz 6c
+
+### 6c-1 (PR: `rewrite-faz6c`)
+
+Bölünme görev metnindeki gibi: **6c-1** yazı listesi ve editörü, yayın, temizleme, markdown, CPU kapısı (bu PR). **6c-2** yazarlar (dil başına bio, kullanıcıya bağlı, K13), görsel yükleme (R2, SHA tekilleştirme, boyut ve piksel sınırları, kullanım denetimiyle silme), önbellek ekranı ve admin cilası (OG şablon kartı, kapak ve OG seçici) ayrı PR'da.
+
+- **Tel kafes.** `design/mockups/v2/14-cms.html` hazırlanmadı (§9 "6c başlamadan onaya sunulur"). Ekranlar §9 tablosuna ve 03 §2.15'e göre yapıldı. Onay açık; ekran görüntüleri staging'de alınabilir.
+- **Migration yok.** 0016'nın tabloları yetti. Sıradaki numara (0019) boş.
+
+**Programlar** (`programs/cms/posts.ts`, testleri `posts.test.ts`). Hepsi `/api/cms` dağıtıcısından (CSRF → oturum → `canManageContent` → yazımlarda `cmsWrite` → `Schema`).
+- **İşlemler:** `listPostsAdmin`, `getPostAdmin`, `createPost`, `saveDraft`, `updatePostMeta`, `previewDraft`, `publishTranslation`, `unpublishTranslation`, `archivePost`, `restorePost`, `deletePost`.
+  - `previewDraft` markdown çevirdiği için (CPU) yazım gibi hız sınırına girer.
+  - `saveDraft` gövdesi 192 KiB'a kadar okunur, diğerleri 16 KiB. İçerik sınırı aşan ama gövdeye sığan istek `TextTooLong` döner (alan altında gösterilir), gövdeyi aşan 413.
+- **Revizyon kilidi.** Her çevirinin kendi kilidi vardır. Değeri sırayla: taslağın `revision`'ı; taslak yoksa yayındaki satırın `updatedAt`'i (saniye); o da yoksa 0. Batch'in ilk ifadesi `batch_guard` ile aynı değeri SQL'de yeniden denetler; eski kopya `ContentConflict` (409) alır. `updatePostMeta` için `posts.revision` (NULL = 0) kullanılır.
+  - Kalan risk (ABA): yayından sonra kilit yayın saniyesine döner. Eski bir kopya yalnız tam o sayıyı taşıyorsa geçer. Pratikte olmaz; tek yazar platform admini.
+- **Yayın batch'i** (`publishTranslation`). Tek `db.batch`'te şunlar yazılır:
+  - kilit denetimi;
+  - yeni slug'ı tutan yönlendirme satırının silinmesi (slug artık bu yazının);
+  - çevirinin upsert'i (`contentHtml` = `renderMarkdown` + `neutraliseRenderMarkers`, yani saklanan HTML zaten güvenli; `toc`; `readTimeMin`);
+  - taslağın silinmesi;
+  - slug değiştiyse eski slug için yönlendirme;
+  - `en` için `posts` aynası (`slug/title/excerpt/content/metaTitle/metaDescription/keywords/readTime/status/publishedAt/updatedAt/updatedByUserId`);
+  - `affectedUrls` hedefleri (şimdi ve +60 s).
+
+  Batch'ten sonra kuyruk `PUBLISH_MAX_CALLS` ile hemen boşaltılır. Boşaltma hatası (D1 ya da API) yanıtı bozmaz: içerik yayındadır, `purge: null` döner, kuyruk ve cron tamamlar.
+  - **Ret sırası:** `blogLocales` dışı dil `PublishBlocked locale-closed` (D9/K14). Arşiv `archived`. Taslak yok `no-draft`. `en` yayında değilken başka dil `en-not-live` (K3; bugün `locale-closed` önce geldiği için ulaşılamaz). Eksik ya da geçersiz alan `invalid-fields` (+ alan listesi). Slug çakışması `SlugConflict`: aynı dildeki başka çeviri ya da `en` için başka yazının `posts.slug`'ı (çeviri satırı olmayan legacy yazı ve taslaklar dahil). Yarış hâlinde aynı iki `UNIQUE` kısıtı da `SlugConflict`'e eşlenir. Temizleme yapılandırılmamışsa `CacheError`; o durumda hiçbir şey yazılmaz (kural 2).
+  - Legacy slug (`Legacy_Odd_Slug`) değiştirilmedikçe yeniden yayınlanabilir. Legacy yazının ilk yayın tarihi (`posts.publishedAt`) korunur.
+- **Yayından kaldırma.** Metin taslağa döner (taslak zaten varsa o kalır), çeviri satırı silinir. `en` kaldırılınca `posts.status = 'draft'` olur (ayna; tüm diller 404). Başka dil yayındaysa `confirm` bayrağı ister (`PublishBlocked other-locales-live`, dil listesiyle).
+  - Not: `en` dışı bir dil kaldırılıp yeniden yayınlanırsa o dilin ilk yayın tarihi kaybolur (çeviri satırı silindiği için). `en` tarihi `posts.publishedAt`'te korunur.
+- **Arşiv ve geri alma.** Arşiv yazıyı 410 yapar, geri alma `en` yayındaysa `published`, değilse `draft`'a döndürür. İkisi de ayna. `deletePost` yalnız hiç yayınlanmamış yazıyı siler (taslakları cascade ile gider); diğerleri `PublishBlocked published-before`.
+- **`updatePostMeta`.** Kategori, etiketler, yazar (yazar profili olan kullanıcı, yoksa `AuthorUnavailable`), kapak (`AssetUnavailable`), öne çıkan, içindekiler. Anında yayındadır; yazı genelde görünüyorsa önce temizleme yapılandırması istenir, eski ve yeni kategori/etiket ile eski ve yeni yazar `affectedUrls`'e girer.
+  - Ayna: `coverImage` = `/api/blog/image/{encodeURIComponent(r2Key)}`.
+  - **Düzeltme:** yalnız URL'li legacy kapak (varlığı olmayan `coverImage`) başka alanlar kaydedilince silinmez. Kaldırmak için açık `removeCover` bayrağı gerekir (testi var).
+- **Önizleme.** Taslaktan (yoksa yayındaki metinden), yayınla aynı çeviriciyle `PostView` kurulur, hiçbir şey yazılmaz. İlgili yazılar boş.
+- **Yeni hatalar** (`errors.ts`, `respond.ts` `STATUS`): `ContentConflict` 409, `SlugConflict` 409, `PublishBlocked` 422, `TextTooLong` 422, `AssetUnavailable` 404. `PublishBlocked` yanıtı `reason` ve `fields`, `TextTooLong` yanıtı `field` ve `max` taşır. Bunlar sabit kodlardır, içerik yoktur. `AssetInUse` ve `InvalidAsset` 6c-2'de gelir.
+- **Admin girişi ayrı chunk.** `/api/cms/*` artık `http/entry.cmsAdmin.ts`'i yükler. `entry.cms.ts` yalnız genel okumalar için kaldı, böylece blog ıskası markdown çeviricisini (mdast/micromark) hiç yüklemez. Build'de doğrulandı: `entry.cms` 18 kB ve çevirici içermiyor; `entry.cmsAdmin` 546 kB ham, 121 kB gzip.
+
+**Admin arayüzü** (`src/admin/*`).
+- **Tek rota.** `src/routes/admin.$.tsx`: `ssr: false`, `noindex`. İçerideki yönlendirme `admin/routes.ts` ile yapılır: `/admin/cms/posts`, `/admin/cms/posts/{id}?locale=tr` ve `/admin/cms/preview/post/{id}/{locale}`. Gerekçe: TanStack her rotanın kaydını, her pazarlama sayfasının yüklediği ana pakete koyar. Beş ayrı rota ana paketi 0,7 kB gzip büyütüyordu, tek rota 0,19 kB.
+- **Erişim.** İlk çağrı (`listPurges`) kapıdır. 401 gelirse giriş bağlantısı (`next` ile), 403 gelirse "yalnız platform yöneticileri" gösterilir. Temizleme yapılandırılmamışsa kırmızı bant çıkar ve Yayınla devre dışı kalır, nedeni yazılıdır (03 §1).
+- **Yazılar listesi.** Durum rozeti ve dil kapsaması (`EN ●`, `TR ◐`, `DE –`; ekran okuyucuya sözle), yazar, son yayın, legacy görüntülenme sayısı (K7). Filtreler: durum, çevirisi eksik dil, başlık araması (300 ms bekler). Sayfalama imleçle, 50'şer. Boş durum: "Henüz yazı yok. İlk yazıyı oluştur."
+- **Editör.**
+  - Üst çubuk: geri, başlık, durum, Kaydet, Önizle, Yayından kaldır, Yayınla. Devre dışı düğme nedenini söyler.
+  - Dil sekmeleri durum işaretlidir. Kaydedilmemiş metin sekmeler arasında korunur.
+  - Sol: başlık ve özet sayaçlı. Metin CodeMirror 6 markdown modunda (`MarkdownEditor.client.tsx`, `createClientOnlyFn` ile tembel; araç çubuğu: başlık, kalın, bağlantı, görsel, kod). Altta KB sayacı var.
+  - Sağ sekmeler: **Ayrıntılar** (slug ve ipuçları; yazı alanları ayrı kaydedilir; arşiv, geri alma, silme onaylı). **SEO** (meta başlık ve açıklama önerilen ve en çok uzunluk sayaçlı, anahtar kelimeler, kapak alt metni, arama sonucu ve sosyal kart önizlemesi). **Çeviri** (çeviri yok uyarısı, "İngilizce N gün sonra güncellendi", İngilizce metni yan yana açma).
+  - Kaydedilmemiş değişiklik uyarısı var (`useBlocker` + `beforeunload`).
+  - `ContentConflict` gelince "Başkası bu yazıyı değiştirdi. Yeniden yükle" gösterilir.
+  - Slug çakışması ve geçersiz alanlar alan altında gösterilir.
+  - Yayın bildirimi: "Yayınlandı · önbellek temizlendi: N URL" ya da "N URL temizlenemedi, yeniden denenecek". Kuyruk boşalana kadar 20 s'de bir `drainPurges` çağrılır ("Önbellek temizleniyor · kalan N").
+- **Önizleme.** Genel `MarketingShell` ve `PostArticle` ile, üstte "Önizleme · yayınlanmadı" bandıyla gösterilir (§7.2).
+- **Metinler.** Admin metinleri `src/admin/text.ts`'tedir: İngilizce varsayılan, Türkçe tam, diğer diller İngilizceye düşer. Ortak i18n sözlüğüne girmedi, çünkü o sözlük her pazarlama sayfasında yükleniyor.
+- **Geliştirme fikstürü.** `?fixture=admin` (ayrıca `admin-empty`, `admin-denied`, `admin-anon`, `admin-nopurge`) yalnız `vite dev`'de çalışır ve production build'den düşer. Admin ekran testleri (`admin.test.tsx`) aynı fikstürü kullanır.
+
+**CPU kapısı (§7.5 madde 1, yerel; `node bench/cms/cpu-gate.ts`, Node 24 / V8, Apple M serisi).** Sayılar ısınmış koşu medyanı ve p95'idir.
+
+| Girdi | Medyan / p95 |
+|---|---|
+| Fikstürdeki en uzun yazı (`STEP_POST`, 1,2 KB) | 0,66 / 0,84 ms |
+| Sentetik en kötü girdi (her ~1,1 KB'da başlık, tablo, bağlantı, görsel, liste, kod), 8 KB | 4,9 / 5,7 ms |
+| aynı, 16 KB | 10,1 / 10,9 ms |
+| aynı, 24 KB | 16,7 / 18,3 ms |
+| aynı, 32 KB | 22,4 / 24,5 ms |
+| aynı, 64 KB | 49,7 / 54,2 ms |
+| aynı, 200 KB | 167,8 / 175,9 ms |
+| Canlıdaki 9 yazı (genel sayfalardan alındı; production D1'e komut yok), 8,0–13,4 KB | 2,6–4,7 ms (en uzun 13,4 KB: 4,65 ms) |
+| Düz metin ağırlıklı 32 KB | 8,2 ms (bunun 7,5 ms'si GFM ayrıştırma) |
+| Yükleme kontrolü (sihirli bayt + boyut + SHA-256), 1 / 3 / 5 MB | 0,34 / 1,0 / 1,68 ms |
+
+- **Görsel.** 5 MB'ta 1,7 ms. Kural (8 ms altındaki en büyük boyutun yarısı) 5 MB üst sınırının üstünde kalıyor. Sınır **5 MB**, SHA-256 kalır, MD5/etag yedeğine gerek yok.
+- **Markdown.** Kural uygulanamadı. En kötü girdide 8 ms'nin altında kalan en büyük boyut yaklaşık 12 KB, yarısı 6 KB. Canlıya benzer metinde 8 ms yaklaşık 23 KB, yarısı yaklaşık 12 KB. İkisi de canlıdaki en uzun yazının (13,4 KB) altında; §7.5'e göre bu **K6 sorusudur** (Workers Paid). Cevap gelene kadar sınır `POST_LIMITS.contentMd = 20 KB` (UTF-8 bayt):
+  - canlıdaki her yazı sığıyor (en uzunu 1,5 kat payla);
+  - canlıya benzer 20 KB yerelde yaklaşık 6,5 ms;
+  - en kötü biçimli 20 KB yerelde yaklaşık 14 ms. Bu Free planda 1102 hatası verebilir. Hata yazımdan önce olur, çünkü çeviri batch'ten önce koşar: yarım yayın olmaz, admin yeniden dener ya da yazıyı böler.
+  - Edge sunucusu yerel makineden yavaşsa sayılar kötüleşir. Staging ölçümü (aşağıda) kesin sonucu verir. K6 "Paid" derse sınır 200 KB'a çıkar; "hayır" derse ölçümle 12 KB'a iner ve canlıdaki 13,4 KB'lık yazı bölünmelidir.
+- **İlk istek.** Admin chunk'ının ilk yüklemesi de CPU harcar. Node'da markdown modülünü içe aktarmak 37 ms sürüyor (dosya okuma dahil, Worker'da paketlenmiş hâli daha ucuz). Staging'de izolatın ilk admin isteği ayrıca ölçülür.
+
+**Paket boyutları** (6a'dan beri aynı yöntem; `vite build` sonrası).
+- **Worker girişi** (`dist/server/index.js` + statik chunk'lar): önce 950,2 kB / 215,5 kB gzip, sonra aynı. Girişte Effect, Drizzle ya da `entry.*` yok.
+- **Pazarlama ilk JS'i** (manifestteki kök, `{-$locale}` ve sayfa preload'ları):
+  - Landing: önce 894,0 / 275,1 kB gzip, sonra 894,4 / 275,4 kB gzip (+0,3).
+  - Yazı sayfası: önce 898,2 / 276,4, sonra 898,8 / 276,9 (+0,5).
+  - Artışın 0,19 kB'ı ana paketteki tek `/admin/$` rota kaydı, kalanı chunk sınırları. Önizleme `PostArticle`'ı paylaştığı için o modül ve `BlogParts` kendi chunk'larına ayrıldı.
+  - Admin kodu, CodeMirror ve markdown çeviricisi genel sayfalarda yüklenmiyor (manifestle doğrulandı).
+  - `absoluteUrl`, `BlogParts`'tan `blog/head.ts`'e taşındı: rota `head()`'leri ana paketin içinde çalışır ve `BlogParts`'ı oraya çekiyordu.
+- **Yalnız admin'de yüklenenler:** `admin.$` chunk'ı 44,8 kB (14,4 kB gzip), CodeMirror chunk'ı 500 kB (171 kB gzip; `lang-markdown` gömülü HTML için `lang-html`/`css`/`javascript`'i de getiriyor), sunucuda `entry.cmsAdmin` 546 kB (121 kB gzip).
+
+**Kontroller.**
+- `pnpm check` (147 dosya, 9617 test) ve `pnpm build` yeşil.
+- **Ekran** (`vite dev --port 3047`, `?fixture=admin`): 1280 koyu; 390 koyu; 320 açık. Liste, editör (`en` ve `tr`) ve önizlemede yatay kaydırma yok. Bunu sağlamak için editör ızgarası `minmax(0,1fr)` sütun aldı; önceden 320 px'te 4 px taşıyordu.
+  - Dokunma hedefleri ≥ 44 px. İstisnalar: anahtarlar (satırın tamamı etiket, 60 px), önizlemedeki genel şablonun metin içi kırıntı bağlantıları (6b'de kabul edildi).
+  - Yayın akışı fikstürle denendi: kaydet → yayınla → bildirim → temizleme sayacı.
+- **Yeni testler:** `posts.test.ts` (31), `cms.test.ts` (HTTP üzerinden yayın ve editör ipuçları, gövde sınırları, işlem listesi), `admin.test.tsx` (12 ekran testi), `routes.test.ts` (admin yönlendirmesi).
+
+**Staging adımları** (orkestratör; uzak komutlar onaylı, `S=https://staging.viz-cad.com`).
+1. Migration yok. `pnpm deploy:staging`.
+2. Platform admini oturumu gerekir: staging test hesabında `role = 'admin'` (uzak D1 komutu, kullanıcı onayı). 6a/6b'den beri bekleyen adım bu.
+3. `$S/admin` → yazılar listesinde 6b fikstür yazıları ve dil kapsaması görünmeli.
+4. **Yayın akışı.**
+   - "Yeni yazı" ile yazı oluştur, metin yaz, Kaydet, Önizle (yeni sekmede bant ve genel şablon), Yayınla.
+   - Bildirimde "önbellek temizlendi: N URL" çıkar.
+   - `curl -s -o /dev/null -w '%{http_code} %header{x-vizcad-cache}\n' $S/blog/{slug}` iki kez: `200 miss`, sonra `200 hit`. `/blog` listesinde yazı görünür.
+5. **Slug değişimi.** Yazıda slug'ı değiştir, Yayınla. `curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' $S/blog/{eski}` → 301 yeni adrese.
+6. **Hatalar.**
+   - Başka yazının slug'ını ver: Yayınla alan altında "başka bir yazı" der.
+   - `tr` sekmesinde Yayınla devre dışı ve nedeni yazılı.
+   - İki sekmede aynı taslağı kaydet: ikincisi çakışma bandı gösterir.
+7. **Arşiv.** Yazıyı arşivle: adresi 410. Geri al: 200.
+8. **Ayna.** `pnpm exec wrangler d1 execute vizcad-staging --remote --command "SELECT slug,status,title FROM posts WHERE id='{id}'"` (onaylı, salt okunur). Değerler yayındaki `en` ile aynı olmalı.
+9. **Admin olmayan hesap.** Normal bir test hesabıyla `$S/admin` "yalnız platform yöneticileri" der. `cms listPostsAdmin` (6a kısaltması, admin olmayan çerezle) 403 döner. Oturumsuz 401.
+10. **CPU.** `wrangler tail` (6a adım 5 filtresi `/api/cms/(publishTranslation|previewDraft)` ile).
+    - İzolatın ilk admin isteği ayrı yazılır.
+    - (a) Canlıdaki en uzun yazının metni (13,4 KB) ile önizle ve yayınla.
+    - (b) Sentetik 20 KB en kötü girdi: `node -e` ile `bench/cms/cpu-gate.ts`'teki `block()` tekrarlanır, editöre yapıştırılır.
+    - `cpuTime` buraya yazılır ve K6 kararına girer.
+11. **Ekran.** 390 px'te editör (açık ve koyu), JS'siz gerekmez (admin istemcide çizilir).
+
+**Açık.**
+- **K6:** markdown sınırı, kural ve canlı içerikle çelişiyor (yukarıda). Kullanıcıya sorulacak. Staging `cpuTime` (adım 10) sonucu soruya eklenmeli.
+- Tel kafes onayı (`14-cms.html`).
+- **6c-2:** yazarlar, görsel yükleme ve kitaplık (kapak ve OG seçici), önbellek ekranı, OG şablon kartı, son 50 yayının temizleme sonucu.
+- CodeMirror chunk'ı 171 kB gzip (admin, tembel). Gerekirse `lang-markdown` yerine yalnız `@lezer/markdown` ile hafifletilir.
