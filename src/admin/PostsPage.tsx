@@ -149,7 +149,7 @@ export const PostsPage = () => {
               <li key={row.id}>
                 <AdminLink
                   href={adminPaths.post(row.id)}
-                  className="grid min-h-11 gap-x-6 gap-y-1.5 px-4 py-3 hover:bg-hover app:grid-cols-[minmax(0,1fr)_7rem_13rem_9rem_7rem_5rem] app:items-center"
+                  className="grid min-h-11 gap-x-6 gap-y-1.5 px-4 py-3 hover:bg-hover xl:grid-cols-[minmax(0,1fr)_7rem_13rem_9rem_7rem_5rem] xl:items-center"
                 >
                   <span className="min-w-0 font-medium text-text [overflow-wrap:anywhere]">{row.title}</span>
                   <span>
@@ -158,11 +158,11 @@ export const PostsPage = () => {
                   <CoverageList coverage={row.coverage} />
                   <span className="text-sm text-text-2">{row.authorName ?? '–'}</span>
                   <span className="text-sm text-text-2">
-                    <span className="app:sr-only">{`${text.list.colPublished}: `}</span>
+                    <span className="xl:sr-only">{`${text.list.colPublished}: `}</span>
                     {row.lastPublishedAt === null ? text.list.never : formatDay(row.lastPublishedAt)}
                   </span>
                   <span className="text-sm tabular-nums text-text-3">
-                    <span className="app:sr-only">{`${text.list.colViews}: `}</span>
+                    <span className="xl:sr-only">{`${text.list.colViews}: `}</span>
                     {row.views}
                   </span>
                 </AdminLink>

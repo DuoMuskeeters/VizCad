@@ -78,6 +78,10 @@ describe('posts list', () => {
     expect(within(row).getByText('Published')).toBeInTheDocument()
     expect(row.textContent).toContain(': live')
     expect(row.textContent).toContain(': draft')
+    // The six columns need ~776 px besides the title: a row lays them out only from xl (1280), stacked below (no
+    // horizontal scroll at 1024 with the sidebar).
+    expect(row.className).toMatch(/(^| )xl:grid-cols-/)
+    expect(row.className).not.toMatch(/(^| )(app|lg|md):grid-cols-/)
   })
 
   it('an empty CMS invites the first post', async () => {
