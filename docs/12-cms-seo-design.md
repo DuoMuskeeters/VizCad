@@ -1118,3 +1118,13 @@ Kapsam: yazarlar, görsel yükleme ve kitaplık (kapak, OG, avatar ve metin içi
 - **Dil izi:** `en` dışı dilde yayından kaldır, sonra yeni slug'la yeniden yayınla akışında eski URL izi yok. Bugün D9 yüzünden ulaşılamıyor.
 - **Ortak chunk:** admin'e yeni ortak bileşen ya da ikon eklemek pazarlama chunk'larını yeniden bölebiliyor (yukarıda). Ölçüm her PR'da tekrarlanmalı.
 - **K6 ve tel kafes:** önceki notlardaki gibi açık.
+
+#### 6c-2 · İncelemeden açık kalanlar (PR #36 birleşti, 28 Kasım 2026)
+- **İç içe liste koruması atlatılabiliyor.** Başta BOM, yalnız `\r` satır sonu ya da `[^a]: ` dipnot önekiyle 3000 `- ` işareti ayrıştırıcıya ulaşıyor. Yerelde 1,1–1,4 sn CPU harcayıp `RangeError` veriyor; sonuç 422 ve bu yalnız admin için açık. Düzeltme: BOM'u sil, satırları `/\r\n?|\n/` ile böl, `[^etiket]:` önekini kap işareti say.
+- **Görsel silme ile kaydetme yarışıyor.** Kullanım kontrolü ve silme ayrı adımlar. Arada yapılan bir kayıt kırık görsele ya da boşalan bir FK'ye yol açabiliyor. Düzeltme: silme batch'ine kullanım koşullarının değilini `guard` olarak ekle.
+- **Küçük notlar:**
+  - Yinelenen yüklemede `inUse` alanı `false` dönüyor.
+  - 1600 px ve altındaki JPEG'ler olduğu gibi yükleniyor. EXIF GPS verisi açığa çıkıyor ve EXIF dönüşü genişlik ile yüksekliği ters gösteriyor. Düzeltme: her JPEG'i istemcide yeniden kodla.
+  - `cms_assets` ekleme başka bir sebeple başarısız olursa R2'de sahipsiz nesne kalıyor.
+  - Kullanım araması büyük/küçük harfe duyarlı; `%2f` ile yazılmış bir URL'yi kaçırıyor.
+  - `site_texts` kullanım aramasına 6d'de eklenecek.
