@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Locale } from '#/i18n/locales'
 import type { AuthorRef, ImageRef, PostCard } from '#/shared/blogTypes'
-import { paths } from '#/shared/marketingRoutes'
+import { blogLocales, paths } from '#/shared/marketingRoutes'
 
 /**
  * Public blog building blocks (docs/03 §2.17: readable lines ≤ 75 characters, author box, related posts). Mobile
@@ -130,6 +130,9 @@ export function Pagination({ locale, page, pages }: { locale: Locale; page: numb
   )
 }
 
+/** The blog list a message links to: this locale's, or `en` where the locale has no blog (`/tr/blog` is itself a 404). */
+export const blogHomePath = (locale: Locale): string => paths.blogList(blogLocales.includes(locale) ? locale : 'en')
+
 /** System messages inside the marketing frame (404, 410, 500), docs/03 §2.19, in the page's language (en for the blog). */
 export function BlogMessage({ title, body, locale }: { title: string; body: string; locale: Locale }) {
   return (
@@ -137,7 +140,7 @@ export function BlogMessage({ title, body, locale }: { title: string; body: stri
       <h1 className="text-2xl font-heading tracking-heading text-text">{title}</h1>
       <p className="text-lg text-text-2">{body}</p>
       <p>
-        <a href={paths.blogList(locale)} className="-mx-1 inline-flex min-h-11 items-center px-1 font-medium text-accent hover:underline">
+        <a href={blogHomePath(locale)} className="-mx-1 inline-flex min-h-11 items-center px-1 font-medium text-accent hover:underline">
           Go to the blog
         </a>
       </p>
