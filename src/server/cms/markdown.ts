@@ -25,6 +25,7 @@ import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { toHast } from 'mdast-util-to-hast'
 import { gfm } from 'micromark-extension-gfm'
 import type { Locale } from '#/i18n/locales'
+import { decodeComponent } from '../uri.ts'
 import { slugify } from './slug.ts'
 
 export interface TocEntry {
@@ -79,14 +80,8 @@ export const blogImageKey = (url: string, origins: ReadonlyArray<string> = DEFAU
   const path = origins.reduce((p, origin) => (p.startsWith(`${origin}/`) ? p.slice(origin.length) : p), url)
   if (!path.startsWith(BLOG_IMAGE_PREFIX)) return null
   const encoded = path.slice(BLOG_IMAGE_PREFIX.length).split(/[?#]/)[0] ?? ''
-  const key = safeDecode(encoded)
+  const key = decodeComponent(encoded)
   return key !== null && key.startsWith('blog/') && !key.includes('..') ? key : null
-}
-
-const safeDecode = (value: string): string | null => {
-  // decodeURIComponent throws on a malformed escape; checked first so no exception is needed.
-  if (/%(?![0-9a-fA-F]{2})/.test(value)) return null
-  return decodeURIComponent(value)
 }
 
 const SCHEME = /^([a-zA-Z][a-zA-Z0-9+.-]*):/

@@ -1,6 +1,7 @@
 import { Effect, type Layer, Option } from 'effect'
 import { ResourceUnavailable, type AppError } from '../errors'
 import { Storage } from '../services/Storage'
+import { decodeComponent } from '../uri'
 import { handle, type RequestMeta } from './respond'
 
 /**
@@ -20,9 +21,10 @@ const RASTER = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'i
 export const blogImageKeyOf = (pathname: string): string | null => {
   if (!pathname.startsWith(BLOG_IMAGE_PATH)) return null
   const encoded = pathname.slice(BLOG_IMAGE_PATH.length)
-  if (encoded === '' || encoded.includes('/') || /%(?![0-9a-fA-F]{2})/.test(encoded)) return null
-  const key = decodeURIComponent(encoded)
-  if (!key.startsWith('blog/') || key.split('/').some((part) => part === '..' || part === '.' || part === '') || key.includes('\\')) return null
+  if (encoded === '' || encoded.includes('/')) return null
+  // Malformed or non-UTF-8 escapes (`%FF`) are null, never a URIError.
+  const key = decodeComponent(encoded)
+  if (key === null || !key.startsWith('blog/') || key.split('/').some((part) => part === '..' || part === '.' || part === '') || key.includes('\\')) return null
   return key
 }
 

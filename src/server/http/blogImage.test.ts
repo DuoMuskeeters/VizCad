@@ -22,6 +22,9 @@ describe('blogImageKeyOf', () => {
     assert.isNull(blogImageKeyOf('/api/blog/image/blog%2F%2Fx'))
     assert.isNull(blogImageKeyOf('/api/blog/image/blog/x.png'))
     assert.isNull(blogImageKeyOf('/api/blog/image/%E0%A4%A'))
+    // Well-formed escapes that are not UTF-8: null (404), not a URIError (500).
+    assert.isNull(blogImageKeyOf('/api/blog/image/blog%2F%FF.png'))
+    assert.isNull(blogImageKeyOf('/api/blog/image/blog%2F%E2%82.png'))
     assert.isNull(blogImageKeyOf('/api/blog/image/'))
   })
 })
