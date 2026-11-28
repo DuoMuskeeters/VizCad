@@ -100,9 +100,6 @@ export const paths = {
 /** A page sets this response header to keep its response out of the edge cache (e.g. a failed data read). */
 export const NO_STORE_HEADER = 'x-vizcad-no-store'
 
-/** Temporary CPU-gate page (docs/12 §7.5, staging only, removed in 6b). Cached like a marketing page so hit/miss can be measured. */
-export const CMS_PROBE_PATH = '/dev/cms-probe'
-
 const segment = '[^/]+'
 const prefixed = [
   '', // landing: `/` (en) or `/tr`
@@ -117,14 +114,14 @@ const prefixed = [
   `/legal/${segment}`,
   `/legal/${segment}/v/[1-9][0-9]*`,
 ]
-const unprefixed = ['/sitemap\\.xml', '/sitemaps/(?:en|tr|de|es|fr)\\.xml', '/robots\\.txt', '/llms\\.txt', CMS_PROBE_PATH]
+const unprefixed = ['/sitemap\\.xml', '/sitemaps/(?:en|tr|de|es|fr)\\.xml', '/robots\\.txt', '/llms\\.txt']
 
 // `en` is never a prefix (`/en/...` is a 301 elsewhere, not a cached page); an uppercase prefix is not a locale.
 const MARKETING = new RegExp(
   `^(?:(?:/(?:tr|de|es|fr))?(?:${prefixed.join('|')})|${unprefixed.join('|')})$`,
 )
 
-/** Marketing paths that exist once, without a locale (sitemaps, robots, llms, the probe). */
+/** Marketing paths that exist once, without a locale (sitemaps, robots, llms). */
 const UNLOCALIZED = new RegExp(`^(?:${unprefixed.join('|')})$`)
 
 /** Whether a URL path belongs to the edge-cached marketing space. `/` is; `/tr/` (trailing slash) and `/app` are not. */

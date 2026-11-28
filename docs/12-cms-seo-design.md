@@ -536,7 +536,7 @@ Her PR `rewrite`'a. Ortak kabul: `pnpm check` ve `pnpm build` yeşil, yeni progr
 
 | Alt faz | İçerik | Kabul |
 |---|---|---|
-| **6a** Altyapı | `0016_cms` (tablolar, legacy sütunlar, `user` ve `account` trigger'ları), `{-$locale}` rota iskeleti ve dil seçici, `blogLocales`, `EdgeCache` isabet yolu + `put`, `sanitizeForSsr`, `BUILD_ID` anahtarı, `isCacheable`, ETag/304, `Cache.live` değişiklikleri (yapılandırma zorunlu, yerel silme yok, 100 URL, `purgeHost`), `cache_purges` + `affectedUrls` + ayrı temizleme cron'u, `head.ts`, `Organization`/`WebSite` JSON-LD, `buildRobotsTxt`, sitemap dizini iskeleti, staging `noindex` (yanıt başlığı ve `_headers`), `platformRole`, `canManageContent`, `/api/cms` dağıtıcısı, `toUnixSeconds`. Geçici ölçüm sayfası `/dev/cms-probe` (pazarlama kabuğu + 3 D1 sorgusu, yalnız staging, 6b'de silinir). CPU kapısı ölçümleri (§7.5) | **Kapı: K5.** Alan adı ve token gelmeden 6a'nın kodu birleşebilir ama 6a kapanmaz; 6c (yayın) de başlamaz. Migration denetimi, zaman birimi, legacy yazar ve trigger testleri (gerçek silme sırası). Staging özel alan adında `hit`/`miss`, `?v=` anahtarıyla gerçek API temizlemesi, deploy sonrası `miss`, hostname temizleme; 100 URL ve hostname sınırları API'yle doğrulandı ve not edildi. Iska `cpuTime` `/dev/cms-probe` ile ölçüldü, §7.5 bütçesiyle karşılaştırıldı. CPU kapısı sonuçları, konan sınırlar ve gerekirse seçilen yedek bu dokümana yazıldı. Rota gölgeleme testi |
+| **6a** Altyapı | `0016_cms` (tablolar, legacy sütunlar, `user` ve `account` trigger'ları), `{-$locale}` rota iskeleti ve dil seçici, `blogLocales`, `EdgeCache` isabet yolu + `put`, `sanitizeForSsr`, `BUILD_ID` anahtarı, `isCacheable`, ETag/304, `Cache.live` değişiklikleri (yapılandırma zorunlu, yerel silme yok, 100 URL, `purgeHost`), `cache_purges` + `affectedUrls` + ayrı temizleme cron'u, `head.ts`, `Organization`/`WebSite` JSON-LD, `buildRobotsTxt`, sitemap dizini iskeleti, staging `noindex` (yanıt başlığı ve `_headers`), `platformRole`, `canManageContent`, `/api/cms` dağıtıcısı, `toUnixSeconds`. Geçici ölçüm sayfası `/dev/cms-probe` (pazarlama kabuğu + 3 D1 sorgusu, yalnız staging, 6b'de silinir). CPU kapısı ölçümleri (§7.5) | **Kapı: K5.** Alan adı ve token gelmeden 6a'nın kodu birleşebilir ama 6a kapanmaz; 6c (yayın) de başlamaz. Migration denetimi, zaman birimi, legacy yazar ve trigger testleri (gerçek silme sırası). Staging özel alan adında `hit`/`miss`, `?v=` anahtarıyla gerçek API temizlemesi, deploy sonrası `miss`, hostname temizleme; 100 URL ve hostname sınırları API'yle doğrulandı ve not edildi. Iska `cpuTime` `/blog/step-vs-iges` ile ölçüldü (`/dev/cms-probe` 6b-2'de kaldırıldı; adım 5), §7.5 bütçesiyle karşılaştırıldı. CPU kapısı sonuçları, konan sınırlar ve gerekirse seçilen yedek bu dokümana yazıldı. Rota gölgeleme testi |
 | **6b** Genel blog (`en`, D9) | `renderMarkdown`, slug, `getPublicPost`/`listPublicPosts`/`getPublicAuthor`, yazı/liste/yazar sayfaları (03 §2.17, mobil öncelikli), `BlogPosting`/`Blog`/`ProfilePage`/`BreadcrumbList`, dil başına sitemap (blog yalnız `en`), RSS, `llms.txt`, `/api/blog/image` ucu, yönlendirmeler (§6.9, uygulama ve giriş yönlendirmeleri dahil), legacy JSON uçlarının kaldırılması, `materializeLegacyTranslations` script'i ve staging'de koşturulması | Staging'deki legacy biçimli örnek yazılar script'ten sonra eski URL'lerinde açılıyor, görselleri geliyor; script öncesi genel uç onları göstermiyor (404). Ham HTML kaçışlı. Yazı sayfasının ıska `cpuTime`'ı ölçüldü (§7.5). Rich Results Test (kod yapıştırarak) ve Lighthouse SEO yerelde production başlıklarıyla; Lighthouse performans staging'de. JS kapalı okuma. `/dashboard`, `/file/{id}`, `/login`, `/signup` yönlendirme testleri. 320/390/1280 açık/koyu |
 | **6c** Admin: yazılar, yazarlar, görseller | Tel kafes onayı (`14-cms.html`), yazı listesi ve editörü (CodeMirror, dil sekmeleri, önizleme, SEO paneli, OG şablon kartı), yazarlar, görsel yükleme (istemcide küçültme), önbellek ekranı, yayın bildirimi | Staging'de: yazı oluştur → taslak → önizle → yayınla → genel sayfada birkaç saniyede görünür ve `hit` olur; slug değiştir → eski URL 301; çakışma ve slug hataları ekranda; admin olmayan hesapla tüm uçlar 403. Ekran 390 px'te çalışıyor |
 | **6d** Site metinleri, sayfa SEO'su, sayfalar | `marketing.ts` kaydı, `resolveText`, taslak/yayın, `page_seo`, `setPageLive`, admin ekranları (Sayfalar, Site metinleri, Ayarlar), fiyatlandırma iskeleti, SSS + `FAQPage`, iletişim formu (`submitContactMessage`, Turnstile, e-posta, cron) | Bir metni `tr` için değiştir → yayınla → `/tr/...` güncel, `en` değişmedi; eksik çeviride `live` açılamıyor; kapalı dil sayfasında canonical `en` ve hreflang yok; iletişim formu staging izin listesindeki adrese ulaşıyor; Lighthouse SSS ve iletişim |
@@ -601,7 +601,7 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
   - Yapılandırma yokken `cache purge skipped` uyarısı yalnız kuyrukta satır varken yazılır.
 - **Cutover maddesi: cron sınırı.** Workers Free planda hesap başına en çok 5 Cron Trigger var (developers.cloudflare.com/workers/platform/limits, "Number of Cron Triggers per account": Free 5, Paid 1.000). 2026-11-27'de hesapta yalnız `vizcad-rewrite`'ın 2 cron'u var (`0 * * * *`, `30 3 * * *`); bu PR ile 3 olur. Production cutover'da aynı 3 ifade gelirse toplam 6 olur ve deploy reddedilir. Cutover'dan önce biri seçilmeli: (a) Worker başına tek tetik `*/10 * * * *`, `runCron` `scheduledTime`'a göre dağıtır (dakika 0 saatlik işler, 03:30 günlük işler, diğerleri temizleme). Her çağrı yine tek iş sınıfı koşar, ama o iki dilimde temizleme 10 dakika kayar. (b) Cutover'da staging cron'larını kapatmak. (c) Workers Paid. Bu PR cron'ları değiştirmedi.
 
-**Açık (K5 bekleniyor, staging özel alan adı ve temizleme token'ı):** staging alan adında `hit`/`miss`; `?v=` anahtarıyla gerçek API temizlemesi; deploy sonrası ilk isteğin `miss` olması ve `/assets/*` adreslerinin 200 dönmesi; hostname temizleme; 100 URL ve hostname hız sınırlarının API yanıtıyla doğrulanıp buraya not edilmesi; `/dev/cms-probe` ıska `cpuTime`'ının ölçülüp §7.5 bütçesiyle karşılaştırılması. CPU kapısının `renderMarkdown` ve görsel ucu ölçümleri de açık, çünkü o kodlar 6b/6c'de yazılıyor.
+**Açık (K5 bekleniyor, staging özel alan adı ve temizleme token'ı):** staging alan adında `hit`/`miss`; `?v=` anahtarıyla gerçek API temizlemesi; deploy sonrası ilk isteğin `miss` olması ve `/assets/*` adreslerinin 200 dönmesi; hostname temizleme; 100 URL ve hostname hız sınırlarının API yanıtıyla doğrulanıp buraya not edilmesi; ıska `cpuTime`'ının `/blog/step-vs-iges` ile ölçülüp (`/dev/cms-probe` 6b-2'de kaldırıldı; staging kabul adımı 5) §7.5 bütçesiyle karşılaştırılması. CPU kapısının `renderMarkdown` ve görsel ucu ölçümleri de açık, çünkü o kodlar 6b/6c'de yazılıyor.
 
 **Açık (6a satırında olup bu PR'a girmeyenler):** 6a-2 PR'ında kapandı (aşağıda), zone'daki AI bot ayarlarının salt okunur kontrolü hariç.
 
@@ -632,7 +632,14 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 2. **Deploy sonrası ilk istek ıska.** Deploy'dan önce `h /` → `hit`. `pnpm deploy:staging`. Sonra `h /` → `miss` (yeni `BUILD_ID` anahtarı), ikinci `h /` → `hit`. Varlıklar: `curl -s $S/ | grep -o '/assets/[^"]*' | sort -u | while read a; do curl -s -o /dev/null -w "%{http_code} $a\n" "$S$a"; done` (hepsi 200).
 3. **Kuyruk üzerinden gerçek temizleme.** `h /tr` iki kez (`hit`) → `cms purgeUrls "{\"urls\":[\"$S/tr\"]}"` (beklenen `"purge":{"done":1,"failed":0,"dropped":0,"queued":1,"calls":1}`) → `h /tr` (`miss`) → `cms listPurges` (yalnız +60 s satırı) → 60 s bekle → `cms drainPurges` (`done:1, queued:0`) → `cms listPurges` (`total:0`). Yabancı host reddi: `cms purgeUrls '{"urls":["https://viz-cad.com/"]}'` (400 `ValidationError`, API çağrısı yok). 100 URL sınırı: `U=$(for i in $(seq 2 101); do printf '"%s/blog/page/%d",' "$S" $i; done); cms purgeUrls "{\"urls\":[${U%,}]}"` (beklenen `done:100, calls:1`; API'nin 100 URL'yi tek çağrıda kabul ettiğini gösterir; sonra 60 s ve `cms drainPurges`).
 4. **Hostname temizleme.** `h /` ve `h /tr` (`hit`) → `cms purgeHost` (beklenen `"hostname":"staging.viz-cad.com"`, `done:1, calls:1`) → `h /` ve `h /tr` (ikisi de `miss`). Hız sınırı: `for i in 1 2 3 4 5 6; do cms purgeHost; done` (dakikada 5; 429 gelirse yanıtta `failed:1`, `cms listPurges` satırında `lastError: "rate-limited"`, `notBefore` +60 s). Sonuçlar (100 URL, hostname dakikada 5 / kova 25) buraya not edilir.
-5. **Iska `cpuTime`.** Bir terminalde: `pnpm wrangler tail vizcad-rewrite --format json | jq -c 'select(.event.request.url? // "" | test("/dev/cms-probe|staging\\.viz-cad\\.com/(tr)?$")) | {url: .event.request.url, cpu: .cpuTime, wall: .wallTime, outcome}'`. Diğerinde 10 kez: `cms purgeUrls "{\"urls\":[\"$S/dev/cms-probe\",\"$S/\"]}" >/dev/null; h /dev/cms-probe; h /` (her tur önce temizler, sonra `miss` ister). İzolatın ilk isteği (modül değerlendirmesi) ayrı yazılır; medyan ve en yüksek `cpu` §7.5'teki ≤ 8 ms ıska ve ≤ 2 ms isabet bütçesiyle karşılaştırılır (isabet için `h /` bir kez daha).
+5. **Iska ve isabet `cpuTime`.** `/dev/cms-probe` 6b-2'de kaldırıldı; ölçüm gerçek yazı sayfasıyla yapılır (§7.5'in 6b satırı).
+   - **Önce:** 6b staging adımları 1–5 (6b-1 notları: örnek veri, görseller, `pnpm db:materialize:staging`, `pnpm deploy:staging`). Bunlar olmadan `/blog/step-vs-iges` 404 döner ve ölçüm anlamsızdır.
+   - **Terminal 1 (tail):** `pnpm wrangler tail vizcad-rewrite --format json | jq --unbuffered -c 'select(.event.request.url? // "" | test("/blog(/step-vs-iges)?$|staging\\.viz-cad\\.com/(tr)?$")) | {url: .event.request.url, status: .event.response.status, cpu: .cpuTime, wall: .wallTime, outcome}' | tee .wrangler/cpu-tail.jsonl`. Filtre `/blog` listesini de alır.
+   - **Terminal 2:** `m() { curl -s -o /dev/null -w "%{http_code} %header{x-vizcad-cache} $1\n" "$S$1"; }` (curl ≥ 7.84).
+   - **Iska turu (10 kez):** `for i in $(seq 10); do for p in /blog/step-vs-iges /blog /; do cms purgeUrls "{\"urls\":[\"$S$p\"]}" >/dev/null; m $p; done; done | tee .wrangler/cpu-miss.txt`. Her istekten önce o adres temizlenir.
+   - **İsabet turu (ayrı döngü, yaklaşık 10 örnek):** önce bir kez `for p in /blog/step-vs-iges /blog /; do m $p; done` (doldurur), sonra `for i in $(seq 10); do for p in /blog/step-vs-iges /blog /; do m $p; done; done | tee .wrangler/cpu-hit.txt`.
+   - **Sayma kuralı:** istekler sırayla gittiği için tail satırları curl satırlarıyla sırayla eşleşir. Satır sayıları tutmazsa tur tekrarlanır. Iska örneği yalnız curl satırı `200 miss` ise, isabet örneği yalnız `200 hit` ise sayılır. Diğerleri (404, 5xx, beklenmeyen `hit`/`miss`) atılır ve not edilir.
+   - İzolatın ilk isteği (modül değerlendirmesi) ayrı yazılır. Sayfa başına medyan ve en yüksek `cpu`, §7.5'teki ≤ 8 ms ıska ve ≤ 2 ms isabet bütçesiyle karşılaştırılır.
 6. **Zone AI bot ayarları (salt okunur).** Cloudflare panosu → viz-cad.com → Security → Bots: "Block AI bots" ve "Manage your robots.txt" durumu not edilir; açıksa değişiklik kullanıcı onayıyla (K11).
 
 ### 6a-2 · İnceleme düzeltmeleri ve geçiş öncesi açıklar (PR #32)
@@ -763,7 +770,34 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 - Staging ölçümleri: ıska `cpuTime`, Lighthouse performans ve Rich Results.
 - `renderMarkdown` CPU kapısı ölçümü (§7.5 madde 1) admin uçlarıyla 6c'de; Worker içinde ilk kez orada çalışacak.
 - Blog görselleri Cloudflare önbelleğinde değil.
-- 6b-2: uygulama yönlendirmeleri (`/dashboard`, `/file/{id}`, `/login`, `/signup`, `/ModelSnap`, `/author/{userId}`), router'dan üretilen rota gölgeleme testi, `/dev/cms-probe`'un kaldırılması.
+- 6b-2 ayrı PR'da (aşağıda).
+
+### 6b-2 (PR: `rewrite-faz6b-2`, 6b-1'in üstünde)
+
+- **Uygulama ve giriş yönlendirmeleri** (`server/edge/legacyRedirect.ts`, Effect'siz, `src/server.ts`'te `localeRedirect`'ten sonra, önbellekten ve router'dan önce):
+  - `/dashboard` → `/app`, `/file/{id}` → `/app/files/{id}`, `/login` → `/sign-in`, `/signup` → `/sign-up`. 301, `private, no-store`, pazarlama önbelleğine girmez.
+  - `/ModelSnap` ve `/modelsnap` → `/` (K12). 301, `public, max-age=86400`.
+  - Sorgu her zaman atılır (`/signup?invite=x` → `/sign-up`). Sondaki `/` kabul edilir.
+  - `/file/{id}` yalnız tek parçalı `[A-Za-z0-9_-]{1,64}` kimlik alır. `/file/a/b`, `/file/` ve `.` içeren kimlik router'a gider ve 404 olur.
+  - Yalnız GET ve HEAD.
+- **`/author/{userId}`** (`routes/author/$userId.ts`, `http/legacyAuthor.ts`, `legacyAuthorPath`): D1 gerektiği için rota.
+  - Yazarın slug'ı ve yayında bir `en` yazısı varsa `/authors/{slug}`, yoksa `/blog`. 301, `private, no-store` (slug değişebilir).
+  - Kullanıcı kimliği yanıtta hiç görünmez.
+- **Rota gölgeleme testi router'dan üretiliyor** (`src/routes.test.ts`, 6a-2'den devir).
+  - `routesById`'deki her yaprak rota için yolundan örnek bir URL üretilir: `$page` → `2`, `{$locale}` → `en`, splat → iki parça, diğer parametreler `x1`.
+  - Her URL kendi rotasına çözülmeli. `{-$locale}` rotaları `/tr` önekiyle de çözülmeli, diğer rotalar önekle 404 olmalı.
+  - Yeni rota bu dosya değişmeden kapsanır; en az 45 rota şartı listenin boş kalmasını engeller.
+  - Elle yazılmış uygulama/API listesi kalktı. Dil öneki, blog ve legacy durumları için açık testler duruyor.
+  - Mutasyon denemesi: `parseLocaleParam` `app` ve `sign-in`'i dil saysa bile test geçiyor. TanStack statik rotaları isteğe bağlı parametreden önce sıralıyor, yani önek bu rotaları gölgeleyemiyor. Asıl koruma bu sıralama; test, her rotanın hâlâ kendine çözüldüğünü denetliyor.
+- **`/dev/cms-probe` kaldırıldı** (rota, `programs/cms/probe.ts` ve testi, `entry.cms.loadCmsProbe`, `CMS_PROBE_PATH` ve önbellek yolu listesindeki yeri).
+  - 6a kabulünün 5. adımı (ıska `cpuTime`) henüz koşmadı ve probe'u kullanıyordu. §7.5 ölçümü 6b'de gerçek yazı sayfasıyla yapmayı öngörüyor ve yazı sayfası aynı biçimde (pazarlama kabuğu + tek batch'te ≤ 3 sorgu) daha gerçekçi. Bu yüzden 5. adım `/blog/step-vs-iges` ile yeniden yazıldı (yukarıda).
+  - Adımı probe ile koşmak isteyen 6b-1'i (bu PR'dan önce) deploy edebilir; 6b-1'de probe duruyor.
+  - `devOnly` (`components/dev/guard.ts`) artık kullanılmıyor, ama genel bir yardımcı ve testi var; kaldı.
+- **Worker giriş boyutu.** 6b-1'e göre 946,1 kB → 947,9 kB (gzip 215,0 → 215,3 kB). Artış yönlendirme modülü ve yeni rota kaydından geliyor.
+- **Yerel doğrulama** (production build, `wrangler dev`, `APP_ENV=production`):
+  - 301: `/dashboard` → `/app`, `/file/abc123` → `/app/files/abc123`, `/login?next=x` → `/sign-in`, `/signup?invite=abc` → `/sign-up`, `/ModelSnap` → `/`, `/author/fixture-author` → `/authors/deniz-fixture`, `/author/nobody` → `/blog`.
+  - 404: `/file/a/b` ve `/dev/cms-probe`.
+- **Staging kontrolü:** `for p in /dashboard /file/abc123 /file/a/b '/login?next=x' '/signup?invite=x' /ModelSnap /author/fixture-author /author/nobody /dev/cms-probe; do curl -s -o /dev/null -w "%{http_code} %{redirect_url} <- $p\n" "$S$p"; done`. Beklenen sonuçlar yerel doğrulamadakiyle aynı.
 
 ### 6b-1 · İnceleme düzeltmeleri (PR #33)
 Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alınarak denendi).
@@ -790,3 +824,14 @@ Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alı
 10. **Arşivlenmiş yazının eski slug'ı 404 veriyordu.** Yönlendirme sorgusu artık durumu da okur: arşiv → 410 (`PostGone`), görünür → 301, diğerleri 404.
 11. **Önbellekteki 301 304 verebiliyordu.** `browserResponse` yalnız `status === 200` iken 304 döner.
 
+
+### 6b-2 · İnceleme düzeltmeleri (PR #34)
+- PR #33'ün düzeltmeleri bu dala birleştirildi. Birleştirmede tek değişiklik: `entry.cms`'te kullanılmayan `Locale` içe aktarması silindi (probe 6b-2'de kalkmıştı).
+- **docs/12:** 6a kabul ölçütü ve 6a açıkları artık ıska `cpuTime`'ını `/blog/step-vs-iges` ile ölçüyor. `/dev/cms-probe` yok.
+- **CPU ölçüm adımı** (6a staging kabul adımı 5) yeniden yazıldı:
+  - önce 6b staging adımları 1–5 yapılır;
+  - ıska ve isabet ayrı döngülerde ölçülür, isabet için yaklaşık 10 örnek alınır;
+  - örnek yalnız `200` + `x-vizcad-cache: miss` (ya da `hit`) ise sayılır;
+  - tail filtresi `/blog` listesini de alır.
+- **Rota testi** (`src/routes.test.ts`): üretilen döngü her rotanın örnek URL'sinde `legacyRedirectTarget(...) === null` olduğunu da denetler. Worker'ın legacy 301'i ileride eklenecek bir rotayı gölgeleyemez. Test, `/blog` için sahte bir yönlendirme eklenerek denendi ve kırıldı.
+- **`/author/{userId}` testi:** kullanıcı kimliği ile slug artık farklı (`u1` → `ada`). `/author/u1` → `/authors/ada` ve `/author/ada` → `/blog`. Sorgu kimlik yerine slug'a bakacak şekilde bozulunca test kırıldı; eski test bunu yakalamıyordu.

@@ -5,12 +5,12 @@ describe('marketing routes', () => {
   it.each([
     '/', '/tr', '/de', '/blog', '/blog/page/2', '/blog/rss.xml', '/blog/my-post', '/tr/blog/benim-yazim', '/authors/ada',
     '/pricing', '/fr/faq', '/contact', '/legal/privacy', '/legal/terms/v/2', '/tr/legal/kvkk',
-    '/sitemap.xml', '/sitemaps/en.xml', '/sitemaps/tr.xml', '/robots.txt', '/llms.txt', '/dev/cms-probe',
+    '/sitemap.xml', '/sitemaps/en.xml', '/sitemaps/tr.xml', '/robots.txt', '/llms.txt',
   ])('%s is a marketing page', (path) => expect(isMarketingPath(path)).toBe(true))
 
   it.each([
     '', '/tr/', '/blog/', '/en', '/en/blog', '/TR', '/xx/blog', '/app', '/app/files/1', '/s/token', '/sign-in', '/api/health',
-    '/api/blog/image/blog%2Fa.png', '/blog/a/b', '/blog/page/0', '/admin/cms/posts', '/dev/ui', '/sitemaps/xx.xml', '/tr/sitemap.xml',
+    '/api/blog/image/blog%2Fa.png', '/blog/a/b', '/blog/page/0', '/admin/cms/posts', '/dev/ui', '/dev/cms-probe', '/dashboard', '/file/x', '/author/u1', '/sitemaps/xx.xml', '/tr/sitemap.xml',
     '/shared/abc', '/onboarding',
   ])('%s is not', (path) => expect(isMarketingPath(path)).toBe(false))
 
@@ -71,7 +71,6 @@ describe('switchLocalePath (language switcher)', () => {
   it('KVKK exists only in tr; unlocalized and non-marketing paths go to the locale home', () => {
     expect(switchLocalePath('/tr/legal/kvkk', 'en')).toBe('/')
     expect(switchLocalePath('/tr/legal/kvkk', 'tr')).toBe('/tr/legal/kvkk')
-    expect(switchLocalePath('/dev/cms-probe', 'tr')).toBe('/tr')
     expect(switchLocalePath('/sitemap.xml', 'de')).toBe('/de')
     expect(switchLocalePath('/app', 'fr')).toBe('/fr')
   })
@@ -84,7 +83,7 @@ describe('switchLocalePath (language switcher)', () => {
   })
 
   it('every target is itself a marketing path', () => {
-    for (const from of ['/', '/tr', '/pricing', '/blog', '/blog/x', '/tr/legal/kvkk', '/dev/cms-probe']) {
+    for (const from of ['/', '/tr', '/pricing', '/blog', '/blog/x', '/tr/legal/kvkk', '/sitemap.xml']) {
       for (const to of ['en', 'tr', 'de', 'es', 'fr'] as const) expect(isMarketingPath(switchLocalePath(from, to)), `${from} → ${to}`).toBe(true)
     }
   })

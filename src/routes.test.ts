@@ -16,6 +16,27 @@ const leaf = async (pathname: string): Promise<string> => {
 
 const LOCALE_ROUTES = ['/{-$locale}', '/{-$locale}/']
 
+/** Every leaf route of the real route tree (id = full path), generated: a new route is covered without editing this file. */
+const leafRoutes = async (): Promise<ReadonlyArray<string>> => {
+  const { getRouter } = await import('./router')
+  return (Object.values(getRouter().routesById) as ReadonlyArray<{ id: string; children?: unknown }>)
+    .filter((route) => route.id !== '__root__')
+    .filter((route) => route.children === undefined || (Array.isArray(route.children) ? route.children.length === 0 : Object.keys(route.children as object).length === 0))
+    .map((route) => route.id)
+}
+
+/** Param values every route accepts (`$page` is a page number, the sitemap locale a real locale, a splat two segments). */
+const SAMPLE: Readonly<Record<string, string>> = { page: '2' }
+const samplePath = (id: string, locale: '' | 'tr'): string => {
+  const path = id
+    .replace('{-$locale}', locale)
+    .replace('{$locale}', 'en')
+    .replace(/\/\$$/, '/a/b')
+    .replace(/\$([A-Za-z]+)/g, (_, name: string) => SAMPLE[name] ?? 'x1')
+    .replace(/\/+/g, '/')
+  return path.length > 1 ? path.replace(/\/$/, '') : path
+}
+
 describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
   it.each([
     ['/', '/{-$locale}/'],
@@ -34,37 +55,30 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
     },
   )
 
-  // Static app, auth, API and token routes win over the optional prefix: none of them may resolve to a locale page.
-  it.each([
-    ['/app', '/app/'],
-    ['/app/files/f1', '/app/files/$id'],
-    ['/app/projects/p1', '/app/projects/$id'],
-    ['/app/settings', '/app/settings'],
-    ['/s/token123', '/s/$token/'],
-    ['/s/token123/scene', '/s/$token/scene'],
-    ['/sign-in', '/sign-in'],
-    ['/sign-up', '/sign-up'],
-    ['/verify-email', '/verify-email'],
-    ['/email-verified', '/email-verified'],
-    ['/forgot-password', '/forgot-password'],
-    ['/reset-password', '/reset-password'],
-    ['/onboarding', '/onboarding'],
-    ['/invite/abc', '/invite/$id'],
-    ['/guest-invite/abc', '/guest-invite/$token'],
-    ['/api/health', '/api/health'],
-    ['/api/app/listFiles', '/api/app/$'],
-    ['/api/cms/listPurges', '/api/cms/$'],
-    ['/api/auth/get-session', '/api/auth/$'],
-    ['/api/s/x', '/api/s/$'],
-    ['/api/files/f1/content', '/api/files/$fileId/content'],
-    ['/dev/cms-probe', '/dev/cms-probe'],
-    ['/robots.txt', '/robots.txt'],
-    ['/sitemap.xml', '/sitemap.xml'],
-    ['/sitemaps/en.xml', '/sitemaps/{$locale}.xml'],
-    ['/llms.txt', '/llms.txt'],
-    ['/api/blog/image/blog%2Fa.png', '/api/blog/image/$key'],
-  ])('%s → %s', async (path, route) => {
-    expect(await leaf(path)).toBe(route)
+  // Generated from the router's route list (docs/12 §11 "Rota", moved here from 6a): each leaf route's own sample URL
+  // resolves to that route, so no route (above all the optional `{-$locale}` prefix) shadows another. Locale routes
+  // also resolve with a prefix; no other route does (`/tr/app`, `/tr/api/...` are 404).
+  it('every route in the tree resolves to itself, with and without a locale prefix where it has one', async () => {
+    // The Worker answers legacy redirects before the router: one on a route's URL would shadow that route forever.
+    const { legacyRedirectTarget } = await import('#/server/edge/legacyRedirect')
+    const ids = await leafRoutes()
+    expect(ids.length).toBeGreaterThan(45)
+    const wrong: Array<string> = []
+    for (const id of ids) {
+      const localized = id.startsWith('/{-$locale}')
+      for (const locale of localized ? (['', 'tr'] as const) : ([''] as const)) {
+        const path = samplePath(id, locale)
+        const got = await leaf(path)
+        if (got !== id) wrong.push(`${path} → ${got} (expected ${id})`)
+        if (legacyRedirectTarget(path) !== null) wrong.push(`${path} is shadowed by a Worker legacy redirect`)
+      }
+      if (!localized) {
+        const prefixed = samplePath(id, '').replace(/^\//, '/tr/').replace(/\/$/, '')
+        const got = await leaf(prefixed)
+        if (got !== '404') wrong.push(`${prefixed} → ${got} (expected 404)`)
+      }
+    }
+    expect(wrong).toEqual([])
   })
 
   // The public blog (6b, `en` only: other locales resolve here too and the program answers 404, D9/K14).
@@ -91,13 +105,14 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
     expect(await leaf(path)).toBe('404')
   })
 
-  // Legacy URLs keep their own handling: `/shared/x` its 302, the rest a 404 today and a Worker 301 in 6b-2 (docs/12 §6.9).
+  // Legacy URLs (docs/12 §6.9): `/shared/x` and `/author/x` have routes; the rest are Worker 301s before the router
+  // (server/edge/legacyRedirect.ts), so the router itself has nothing there.
   it.each(['/shared/abc', '/dashboard', '/file/abc', '/login', '/signup', '/ModelSnap', '/modelsnap', '/author/u1'])(
     'legacy %s is never a locale page',
     async (path) => {
       const route = await leaf(path)
       expect(LOCALE_ROUTES).not.toContain(route)
-      expect(route).toBe(path === '/shared/abc' ? '/shared/$token' : '404')
+      expect(route).toBe(path === '/shared/abc' ? '/shared/$token' : path === '/author/u1' ? '/author/$userId' : '404')
     },
   )
 })

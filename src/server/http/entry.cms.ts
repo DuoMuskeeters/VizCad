@@ -1,32 +1,13 @@
 import { Effect, Layer } from 'effect'
-import type { Locale } from '#/i18n/locales'
 import type { AuthorPage, PostList, PostResult } from '#/shared/blogTypes'
-import { cmsProbe, type ProbeData } from '../programs/cms/probe'
 import { AppConfig } from '../services/AppConfig'
 import { liveLayers } from '../services/live'
 import { blogImageResponse } from './blogImage'
 import { authorPage, blogListPage, type PageResult, postPage } from './blogPages'
 import { cmsResponse } from './cms'
+import { legacyAuthorResponse } from './legacyAuthor'
 import { requestMeta } from './respond'
 import { type SeoFile, seoFileResponse } from './seoFiles'
-
-export type ProbeResult = { readonly ok: true; readonly data: ProbeData } | { readonly ok: false }
-
-/**
- * Data for the temporary `/dev/cms-probe` page (docs/12 §7.5, removed in 6b). Loaded by the route's server function
- * with dynamic `import()`; only the Db layer is built. A D1 failure is `{ ok: false }` (the page then opts out of the
- * edge cache), logged by tag only.
- */
-export const loadCmsProbe = (env: Cloudflare.Env, locale: Locale): Promise<ProbeResult> =>
-  Effect.runPromise(
-    cmsProbe(locale).pipe(
-      Effect.map((data): ProbeResult => ({ ok: true, data })),
-      Effect.catchTag('DbError', (error) =>
-        Effect.logError('cms probe failed').pipe(Effect.annotateLogs({ tag: error._tag }), Effect.as<ProbeResult>({ ok: false })),
-      ),
-      Effect.provide(liveLayers(env).db),
-    ),
-  )
 
 /** `/api/cms/*`: admin CMS API (http/cms.ts). Only the layers its operations read are built. */
 export const handleCms = (request: Request, env: Cloudflare.Env): Promise<Response> => {
@@ -82,3 +63,7 @@ export const loadAuthor = (env: Cloudflare.Env, input: unknown): Promise<PageRes
 /** `/api/blog/image/*` (http/blogImage.ts): R2 only. */
 export const handleBlogImage = (request: Request, env: Cloudflare.Env): Promise<Response> =>
   Effect.runPromise(blogImageResponse(request, liveLayers(env).storage, requestMeta(request)))
+
+/** `/author/{userId}` (http/legacyAuthor.ts): D1 only. */
+export const handleLegacyAuthor = (request: Request, env: Cloudflare.Env): Promise<Response> =>
+  Effect.runPromise(legacyAuthorResponse(request, liveLayers(env).db, requestMeta(request)))
