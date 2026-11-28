@@ -166,11 +166,16 @@ export const listPublicPosts = Effect.fn('listPublicPosts')(function* (locale: L
 export const relatedScore = (post: { readonly category: string; readonly tags: ReadonlyArray<string> }, other: { readonly category: string; readonly tags: ReadonlyArray<string> }) =>
   (other.category === post.category ? 2 : 0) + other.tags.filter((tag) => post.tags.includes(tag)).length
 
-/** Top `RELATED_POSTS` by score; ties keep the newest first (the candidates arrive newest first). */
+/**
+ * Top `RELATED_POSTS` by score; ties keep the newest first (the candidates arrive newest first). Only posts that share
+ * the category or a tag (score > 0): the purge (affectedUrls `sharesTopic`) refreshes exactly those pages when a post
+ * changes, so a zero-score filler would show a stale card for a day.
+ */
 type Scored = { readonly category: string; readonly tags: ReadonlyArray<string> }
 export const pickRelated = <C extends Scored>(post: Scored, candidates: ReadonlyArray<C>): ReadonlyArray<C> =>
   candidates
     .map((candidate, index) => ({ candidate, index, score: relatedScore(post, candidate) }))
+    .filter((entry) => entry.score > 0)
     .sort((x, y) => y.score - x.score || x.index - y.index)
     .slice(0, RELATED_POSTS)
     .map((entry) => entry.candidate)

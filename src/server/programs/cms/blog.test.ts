@@ -210,10 +210,13 @@ describe('sitemapPosts and latestPosts', () => {
 })
 
 describe('pure helpers', () => {
-  it('pickRelated keeps candidate order on ties', () => {
-    const post = { category: 'x', tags: [] }
-    const c = (slug: string, category: string) => ({ slug, category, tags: [] as ReadonlyArray<string> })
-    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('b', 'x'), c('c', 'y'), c('d', 'y')]).map((r) => r.slug), ['b', 'a', 'c'])
+  it('pickRelated keeps candidate order on ties and never fills with posts that share no topic', () => {
+    const post = { category: 'x', tags: ['t'] }
+    const c = (slug: string, category: string, tags: ReadonlyArray<string> = []) => ({ slug, category, tags })
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y', ['t']), c('b', 'x'), c('c', 'y', ['t']), c('d', 'y', ['t'])]).map((r) => r.slug), ['b', 'a', 'c'])
+    // Score 0 (no shared category or tag) is never shown: the purge only refreshes posts that share a topic.
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('b', 'x'), c('c', 'y')]).map((r) => r.slug), ['b'])
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('c', 'z', ['u'])]), [])
   })
 
   it('safeImageUrl keeps https and site-relative URLs only', () => {
