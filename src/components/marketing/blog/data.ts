@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { LOCALES, type Locale } from '#/i18n/locales'
+import type { Locale } from '#/i18n/locales'
 import { NO_STORE_HEADER } from '#/shared/marketingRoutes'
 
 /**
@@ -8,22 +8,13 @@ import { NO_STORE_HEADER } from '#/shared/marketingRoutes'
  * the route turns 404 into `notFound()`, 410 into a "gone" page with status 410, and 500 into an error page with
  * status 500 (`markStatus`) that is never cached (`x-vizcad-no-store`, and the edge cache stores 200/301 only).
  */
-const isLocale = (value: unknown): value is Locale => typeof value === 'string' && (LOCALES as ReadonlyArray<string>).includes(value)
 
-/** Route params are already parsed by the router; this rejects anything else that reaches the RPC endpoint. */
-const slugInput = (input: unknown): { readonly locale: Locale; readonly slug: string } => {
-  const value = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
-  const { locale, slug } = value
-  if (!isLocale(locale) || typeof slug !== 'string' || slug.length === 0 || slug.length > 200) throw new Error('invalid input')
-  return { locale, slug }
-}
-
-const pageInput = (input: unknown): { readonly locale: Locale; readonly page: number } => {
-  const value = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
-  const { locale, page } = value
-  if (!isLocale(locale) || typeof page !== 'number' || !Number.isInteger(page) || page < 1 || page > 10_000) throw new Error('invalid input')
-  return { locale, page }
-}
+/**
+ * The inputs' types for callers. Nothing is checked here (this module reaches the client, so no Effect): whatever
+ * reaches the RPC endpoint is decoded with Schema on the server (http/blogPages.ts) and is a 404 when invalid.
+ */
+const pageInput = (input: { readonly locale: Locale; readonly page: number }) => input
+const slugInput = (input: { readonly locale: Locale; readonly slug: string }) => input
 
 /**
  * The status a failed result sets on the SSR response: 410 (archived post) and 500 (D1, config). The router itself
@@ -47,21 +38,21 @@ export const loadBlogList = createServerFn({ method: 'GET' })
   .validator(pageInput)
   .handler(async ({ data }) => {
     const [{ env }, entry] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
-    return markStatus(await entry.loadBlogList(env, data.locale, data.page))
+    return markStatus(await entry.loadBlogList(env, data))
   })
 
 export const loadPost = createServerFn({ method: 'GET' })
   .validator(slugInput)
   .handler(async ({ data }) => {
     const [{ env }, entry] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
-    return markStatus(await entry.loadPost(env, data.locale, data.slug))
+    return markStatus(await entry.loadPost(env, data))
   })
 
 export const loadAuthor = createServerFn({ method: 'GET' })
   .validator(slugInput)
   .handler(async ({ data }) => {
     const [{ env }, entry] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
-    return markStatus(await entry.loadAuthor(env, data.locale, data.slug))
+    return markStatus(await entry.loadAuthor(env, data))
   })
 
 /** Only a 200 page may be stored at the edge for a day. A 404 is never stored anyway (isCacheable); 410 and 500 opt out. */

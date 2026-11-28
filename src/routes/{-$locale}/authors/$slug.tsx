@@ -3,7 +3,7 @@ import { MarketingShell } from '#/components/marketing/MarketingShell'
 import { absoluteUrl, AuthorAvatar, BlogMessage, PostCardView } from '#/components/marketing/blog/BlogParts'
 import { loadAuthor, pageHeaders } from '#/components/marketing/blog/data'
 import { blogHead, blogTitle, organizationNode } from '#/components/marketing/blog/head'
-import { blogLocales, paths } from '#/shared/marketingRoutes'
+import { BLOG_SLUG_MAX, blogLocales, paths } from '#/shared/marketingRoutes'
 import { sameAlternates } from '#/shared/seo/head'
 import { breadcrumbList, profilePage } from '#/shared/seo/jsonld'
 import { BlogNotFound } from '../blog/-list'
@@ -11,6 +11,8 @@ import { BlogNotFound } from '../blog/-list'
 /** `/authors/$slug` (D5, E-E-A-T): who writes, their role and their posts. Only authors with a public post exist. */
 export const Route = createFileRoute('/{-$locale}/authors/$slug')({
   loader: async ({ params }) => {
+    // Same limit as the server's Schema: a longer slug is 404 without a call.
+    if (params.slug.length > BLOG_SLUG_MAX) throw notFound()
     const result = await loadAuthor({ data: { locale: params.locale ?? 'en', slug: params.slug } })
     if (!result.ok && result.status === 404) throw notFound()
     return result

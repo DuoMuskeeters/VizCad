@@ -1,7 +1,8 @@
-import { Effect, type Layer } from 'effect'
-import type { Locale } from '#/i18n/locales'
-import type { AppError } from '../errors'
+import { Effect, type Layer, Schema } from 'effect'
+import { LOCALES } from '#/i18n/locales'
+import { type AppError, AuthorUnavailable, PageUnavailable, PostUnavailable } from '../errors'
 import type { AuthorPage, PostList, PostResult } from '#/shared/blogTypes'
+import { BLOG_PAGE_MAX, BLOG_SLUG_MAX } from '#/shared/marketingRoutes'
 import { getPublicAuthor, getPublicPost, listPublicPosts } from '../programs/cms/blog'
 import { AppConfig } from '../services/AppConfig'
 import type { Db } from '../services/Db'
@@ -15,6 +16,17 @@ import type { Db } from '../services/Db'
 export type PageResult<A> =
   | { readonly ok: true; readonly siteOrigin: string; readonly data: A }
   | { readonly ok: false; readonly status: 404 | 410 | 500 }
+
+/**
+ * The server function inputs (route params, or anything posted to the RPC endpoint). Input outside these limits is a
+ * 404, never a 500: the routes check the same limits (`BLOG_PAGE_MAX`, `BLOG_SLUG_MAX`) before they call.
+ */
+const LocaleParam = Schema.Literals(LOCALES)
+export const ListInput = Schema.Struct({ locale: LocaleParam, page: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: BLOG_PAGE_MAX })) })
+export const SlugInput = Schema.Struct({ locale: LocaleParam, slug: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(BLOG_SLUG_MAX)) })
+
+const decode = <S extends Schema.Top & { readonly DecodingServices: never }, E>(schema: S, input: unknown, missing: () => E) =>
+  Schema.decodeUnknownEffect(schema)(input).pipe(Effect.mapError(missing))
 
 const page = <A, R extends Db | AppConfig>(operation: string, program: Effect.Effect<A, AppError, R>, layer: Layer.Layer<R | AppConfig, AppError>) =>
   Effect.gen(function* () {
@@ -38,11 +50,23 @@ const page = <A, R extends Db | AppConfig>(operation: string, program: Effect.Ef
     }),
   )
 
-export const blogListPage = (locale: Locale, n: number, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<PostList>> =>
-  page('listPublicPosts', listPublicPosts(locale, n), layer)
+export const blogListPage = (input: unknown, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<PostList>> =>
+  page(
+    'listPublicPosts',
+    decode(ListInput, input, () => new PageUnavailable()).pipe(Effect.flatMap(({ locale, page: n }) => listPublicPosts(locale, n))),
+    layer,
+  )
 
-export const postPage = (locale: Locale, slug: string, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<PostResult>> =>
-  page('getPublicPost', getPublicPost(locale, slug), layer)
+export const postPage = (input: unknown, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<PostResult>> =>
+  page(
+    'getPublicPost',
+    decode(SlugInput, input, () => new PostUnavailable()).pipe(Effect.flatMap(({ locale, slug }) => getPublicPost(locale, slug))),
+    layer,
+  )
 
-export const authorPage = (locale: Locale, slug: string, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<AuthorPage>> =>
-  page('getPublicAuthor', getPublicAuthor(locale, slug), layer)
+export const authorPage = (input: unknown, layer: Layer.Layer<Db | AppConfig, AppError>): Effect.Effect<PageResult<AuthorPage>> =>
+  page(
+    'getPublicAuthor',
+    decode(SlugInput, input, () => new AuthorUnavailable()).pipe(Effect.flatMap(({ locale, slug }) => getPublicAuthor(locale, slug))),
+    layer,
+  )

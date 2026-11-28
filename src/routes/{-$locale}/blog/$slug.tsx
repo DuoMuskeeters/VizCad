@@ -4,7 +4,7 @@ import { absoluteUrl, BlogMessage } from '#/components/marketing/blog/BlogParts'
 import { loadPost, pageHeaders } from '#/components/marketing/blog/data'
 import { blogHead, blogTitle, organizationNode } from '#/components/marketing/blog/head'
 import { PostArticle } from '#/components/marketing/blog/PostArticle'
-import { paths } from '#/shared/marketingRoutes'
+import { BLOG_SLUG_MAX, paths } from '#/shared/marketingRoutes'
 import { blogPosting, breadcrumbList, person } from '#/shared/seo/jsonld'
 import { BlogNotFound } from './-list'
 
@@ -16,6 +16,8 @@ import { BlogNotFound } from './-list'
 export const Route = createFileRoute('/{-$locale}/blog/$slug')({
   loader: async ({ params }) => {
     const locale = params.locale ?? 'en'
+    // Same limit as the server's Schema: a longer slug is 404 without a call.
+    if (params.slug.length > BLOG_SLUG_MAX) throw notFound()
     const result = await loadPost({ data: { locale, slug: params.slug } })
     if (!result.ok && result.status === 404) throw notFound()
     if (result.ok && result.data.kind === 'redirect') throw redirect({ href: result.data.path, statusCode: 301 })

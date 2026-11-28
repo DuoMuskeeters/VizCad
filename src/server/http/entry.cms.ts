@@ -65,16 +65,19 @@ const publicLayer = (env: Cloudflare.Env) => {
   return Layer.mergeAll(live.config, live.db)
 }
 
-/** Blog list page `n` (http/blogPages.ts): config and D1 only. */
-export const loadBlogList = (env: Cloudflare.Env, locale: Locale, n: number): Promise<PageResult<PostList>> =>
-  Effect.runPromise(blogListPage(locale, n, publicLayer(env)))
+/**
+ * Blog list page `{ locale, page }` (http/blogPages.ts): config and D1 only. Inputs are the server functions' raw data,
+ * decoded with Schema in blogPages.ts (invalid input is a 404).
+ */
+export const loadBlogList = (env: Cloudflare.Env, input: unknown): Promise<PageResult<PostList>> =>
+  Effect.runPromise(blogListPage(input, publicLayer(env)))
 
-/** One post, or a 301 to its current slug. */
-export const loadPost = (env: Cloudflare.Env, locale: Locale, slug: string): Promise<PageResult<PostResult>> =>
-  Effect.runPromise(postPage(locale, slug, publicLayer(env)))
+/** One post `{ locale, slug }`, or a 301 to its current slug. */
+export const loadPost = (env: Cloudflare.Env, input: unknown): Promise<PageResult<PostResult>> =>
+  Effect.runPromise(postPage(input, publicLayer(env)))
 
-export const loadAuthor = (env: Cloudflare.Env, locale: Locale, slug: string): Promise<PageResult<AuthorPage>> =>
-  Effect.runPromise(authorPage(locale, slug, publicLayer(env)))
+export const loadAuthor = (env: Cloudflare.Env, input: unknown): Promise<PageResult<AuthorPage>> =>
+  Effect.runPromise(authorPage(input, publicLayer(env)))
 
 /** `/api/blog/image/*` (http/blogImage.ts): R2 only. */
 export const handleBlogImage = (request: Request, env: Cloudflare.Env): Promise<Response> =>

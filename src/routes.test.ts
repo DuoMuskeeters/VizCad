@@ -101,3 +101,38 @@ describe('locale prefixes (K1, docs/12 §1.2 and §11 "Rota")', () => {
     },
   )
 })
+
+// Hostile input never reaches the server function: past the limits the loaders throw notFound() (docs/12 §2).
+describe('blog route limits (BLOG_PAGE_MAX, BLOG_SLUG_MAX)', () => {
+  const thrown = async (run: () => unknown): Promise<unknown> => {
+    try {
+      await run()
+    } catch (error) {
+      return error
+    }
+    return undefined
+  }
+  type Loader = (ctx: { params: Record<string, unknown> }) => unknown
+  const loaderOf = (route: { options: { loader?: unknown } }) => route.options.loader as Loader
+
+  it('a page number past BLOG_PAGE_MAX still matches the route and its loader answers 404', async () => {
+    const { BLOG_PAGE_MAX } = await import('#/shared/marketingRoutes')
+    const { isNotFound } = await import('@tanstack/react-router')
+    const { Route } = await import('./routes/{-$locale}/blog/page.$page')
+    for (const page of [BLOG_PAGE_MAX + 1, 99_999, 1e400]) {
+      expect(isNotFound(await thrown(() => loaderOf(Route)({ params: { page } })))).toBe(true)
+    }
+    expect(await leaf('/blog/page/99999')).toBe('/{-$locale}/blog/page/$page')
+    expect(await leaf('/blog/page/123456789')).toBe('/{-$locale}/blog/page/$page')
+  })
+
+  it('a slug longer than BLOG_SLUG_MAX is 404 on post and author pages', async () => {
+    const { BLOG_SLUG_MAX } = await import('#/shared/marketingRoutes')
+    const { isNotFound } = await import('@tanstack/react-router')
+    const post = (await import('./routes/{-$locale}/blog/$slug')).Route
+    const author = (await import('./routes/{-$locale}/authors/$slug')).Route
+    const slug = 'x'.repeat(BLOG_SLUG_MAX + 1)
+    expect(isNotFound(await thrown(() => loaderOf(post)({ params: { slug } })))).toBe(true)
+    expect(isNotFound(await thrown(() => loaderOf(author)({ params: { slug } })))).toBe(true)
+  })
+})
