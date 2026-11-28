@@ -10,6 +10,14 @@ export { LOCALES, type Locale }
 /** Locales with blog, author and RSS routes (D9, K14). Other locales answer 404 there and are never purged. */
 export const blogLocales: ReadonlyArray<Locale> = ['en']
 
+/** Highest blog list page a URL may ask for; beyond it the page is 404 without a D1 read (route and server agree). */
+export const BLOG_PAGE_MAX = 10_000
+/**
+ * Longest post or author slug a URL may carry. New slugs stop at 96 (cms/slug.ts), but legacy slugs are kept as they
+ * were (§1.5), so the read limit is far above that: a listed legacy post must open. Longer is 404 without a D1 read.
+ */
+export const BLOG_SLUG_MAX = 1024
+
 /** Pages whose texts and SEO come from the CMS (`page_seo.pageKey`, `site_texts` groups). */
 export const pageKeys = ['landing', 'pricing', 'faq', 'contact', 'blog', 'legal'] as const
 export type PageKey = (typeof pageKeys)[number]

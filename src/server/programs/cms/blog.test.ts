@@ -116,21 +116,27 @@ describe('getPublicPost', () => {
     ),
   )
 
-  it.effect('an old slug answers a redirect to the current URL; a redirect to an unpublished post is 404', () =>
+  it.effect('an old slug answers a redirect to the current URL; an archived post\'s old slug is 410; a draft\'s 404', () =>
     run(
       Effect.gen(function* () {
         yield* seedAuthor('ada')
         yield* seedPost({ id: 'p1', slug: 'new-name' })
         yield* seedPost({ id: 'p2', slug: 'archived-now', status: 'archived' })
+        yield* seedPost({ id: 'p3', slug: 'draft-now', status: 'draft' })
         const db = yield* Db
         yield* db.use((d) =>
           d.insert(schema.postSlugRedirects).values([
             { locale: 'en', slug: 'old-name', postId: 'p1', createdAt: new Date(1_700_000_000_000) },
             { locale: 'en', slug: 'old-archived', postId: 'p2', createdAt: new Date(1_700_000_000_000) },
+            { locale: 'en', slug: 'old-draft', postId: 'p3', createdAt: new Date(1_700_000_000_000) },
           ]),
         )
         assert.deepStrictEqual(yield* getPublicPost('en', 'old-name'), { kind: 'redirect', path: '/blog/new-name' })
-        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-archived')), 'PostUnavailable')
+        // Same answer as the archived post's current slug.
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'archived-now')), 'PostGone')
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-archived')), 'PostGone')
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-draft')), 'PostUnavailable')
+        assert.strictEqual(yield* tagOf(getPublicPost('tr', 'old-name')), 'PostUnavailable')
       }),
     ),
   )
@@ -173,6 +179,21 @@ describe('getPublicAuthor', () => {
       }),
     ),
   )
+
+  it.effect('a social link that passes the https prefix but does not parse is dropped (the page renders its hostname)', () =>
+    run(
+      Effect.gen(function* () {
+        yield* seedAuthor('ada', { socialLinks: { web: 'https://exa mple.com', x: 'https://x.com/ada', bad: 'https://[::1' } })
+        yield* seedPost({ id: 'p1', slug: 'by-ada', authorId: 'ada' })
+        const page = yield* getPublicAuthor('en', 'ada')
+        assert.deepStrictEqual(page.author.sameAs, ['https://x.com/ada'])
+        // Every kept link renders: the author page calls `new URL(href).hostname` during SSR.
+        assert.deepStrictEqual(page.author.sameAs.map((href) => new URL(href).hostname), ['x.com'])
+        const post = yield* getPublicPost('en', 'by-ada')
+        assert.deepStrictEqual(post.kind === 'post' ? post.post.authorDetail?.sameAs : null, ['https://x.com/ada'])
+      }),
+    ),
+  )
 })
 
 describe('sitemapPosts and latestPosts', () => {
@@ -195,10 +216,13 @@ describe('sitemapPosts and latestPosts', () => {
 })
 
 describe('pure helpers', () => {
-  it('pickRelated keeps candidate order on ties', () => {
-    const post = { category: 'x', tags: [] }
-    const c = (slug: string, category: string) => ({ slug, category, tags: [] as ReadonlyArray<string> })
-    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('b', 'x'), c('c', 'y'), c('d', 'y')]).map((r) => r.slug), ['b', 'a', 'c'])
+  it('pickRelated keeps candidate order on ties and never fills with posts that share no topic', () => {
+    const post = { category: 'x', tags: ['t'] }
+    const c = (slug: string, category: string, tags: ReadonlyArray<string> = []) => ({ slug, category, tags })
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y', ['t']), c('b', 'x'), c('c', 'y', ['t']), c('d', 'y', ['t'])]).map((r) => r.slug), ['b', 'a', 'c'])
+    // Score 0 (no shared category or tag) is never shown: the purge only refreshes posts that share a topic.
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('b', 'x'), c('c', 'y')]).map((r) => r.slug), ['b'])
+    assert.deepStrictEqual(pickRelated(post, [c('a', 'y'), c('c', 'z', ['u'])]), [])
   })
 
   it('safeImageUrl keeps https and site-relative URLs only', () => {

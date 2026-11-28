@@ -6,12 +6,16 @@
  * - Published and archived posts → `post_translations(en)`; draft posts → `post_drafts(en)` (revision 0), so they stay
  *   invisible and the editor (6c) shows them as drafts.
  * - Idempotent: `INSERT … ON CONFLICT (postId, locale) DO NOTHING`. Re-running changes nothing.
+ * - A draft copied by an earlier run (revision 0, never edited: `updatedByUserId IS NULL`) whose legacy post has since
+ *   been published is superseded: it is deleted once the `en` row exists. A draft an editor touched is kept and listed.
  * - `--source-wins` (after a rollback to the legacy Worker): only `en` rows with `posts.updatedAt > translation.updatedAt`
  *   are rewritten. Equal seconds count as equal: not updated, listed in the report.
  * - D1 accepts at most 100 KB per statement. A long post is written in parts: the row starts with `readTimeMin = -1`
  *   (a sentinel no public read accepts), the content is appended in ≤ 60 KB pieces guarded by that sentinel, the last
  *   statement sets the real read time. A row that already existed never matches the guard, so nothing is appended to
- *   it. A run that stopped half-way leaves a sentinel row, which the next run deletes first.
+ *   it. A run that stopped half-way leaves a sentinel row. The next run repairs a translation row with an UPDATE (an
+ *   interrupted `--source-wins` must keep `publishedAt`, `coverAlt` and `ogAssetId`); a half draft row is deleted and
+ *   copied again (the script wrote all of it).
  * - Authors without a slug get one from their name (§4.2, `-2` on a clash). Only `slug IS NULL` rows are touched.
  * - Posts whose title (> 120) or excerpt (> 300) break the table checks are not copied and are listed as `rejected`.
  *
@@ -55,7 +59,8 @@ export interface ExistingTranslation {
 export interface LegacyExport {
   readonly posts: ReadonlyArray<LegacyPost>
   readonly translations: ReadonlyArray<ExistingTranslation>
-  readonly drafts: ReadonlyArray<{ readonly postId: string; readonly revision: number }>
+  /** `scriptCopy`: 1 when the row is still the copy an earlier run wrote (revision 0, no editor). */
+  readonly drafts: ReadonlyArray<{ readonly postId: string; readonly revision: number; readonly scriptCopy: number }>
   readonly authors: ReadonlyArray<{ readonly id: string; readonly name: string; readonly slug: string | null }>
   readonly assets: ReadonlyArray<{ readonly r2Key: string; readonly width: number; readonly height: number; readonly variants: string | null }>
 }
@@ -64,7 +69,7 @@ export interface LegacyExport {
 export const EXPORT_QUERIES: Readonly<Record<keyof LegacyExport, string>> = {
   posts: 'SELECT id, slug, title, excerpt, content, metaTitle, metaDescription, keywords, status, publishedAt, createdAt, updatedAt FROM posts ORDER BY id',
   translations: "SELECT postId, updatedAt, readTimeMin, slug, title, excerpt, length(contentMd) AS contentLength FROM post_translations WHERE locale = 'en' ORDER BY postId",
-  drafts: "SELECT postId, revision FROM post_drafts WHERE locale = 'en' ORDER BY postId",
+  drafts: "SELECT postId, revision, (revision = 0 AND updatedByUserId IS NULL) AS scriptCopy FROM post_drafts WHERE locale = 'en' ORDER BY postId",
   authors: 'SELECT id, name, slug FROM author_profiles ORDER BY createdAt, id',
   assets: 'SELECT r2Key, width, height, variants FROM cms_assets ORDER BY r2Key',
 }
@@ -77,6 +82,12 @@ export interface Report {
   readonly sourceWinsUpdated: ReadonlyArray<string>
   /** `--source-wins`: same second on both sides but different text: left as is, check by hand. */
   readonly sourceWinsEqual: ReadonlyArray<string>
+  /** Translation rows a stopped run left behind (sentinel), finished in place with an UPDATE. */
+  readonly halfWrittenRepaired: ReadonlyArray<string>
+  /** Script-copied drafts of posts that are published now: deleted. */
+  readonly supersededDraftsRemoved: ReadonlyArray<string>
+  /** Drafts of published posts that an editor touched: kept, check by hand. */
+  readonly supersededDraftsKept: ReadonlyArray<string>
   readonly rejected: ReadonlyArray<{ readonly postId: string; readonly reason: string }>
   readonly rawHtml: ReadonlyArray<{ readonly postId: string; readonly slug: string; readonly tags: ReadonlyArray<string> }>
   readonly nonconformingSlugs: ReadonlyArray<{ readonly postId: string; readonly slug: string }>
@@ -135,21 +146,23 @@ const writeRow = (
   table: 'post_translations' | 'post_drafts',
   columns: ReadonlyArray<readonly [string, string | number | null]>,
   long: ReadonlyArray<readonly [string, string]>,
-  mode: { readonly kind: 'insert' } | { readonly kind: 'update'; readonly olderThan: number },
+  mode: { readonly kind: 'insert' } | { readonly kind: 'update'; readonly olderThan: number } | { readonly kind: 'repair' },
   finish: readonly [string, number],
 ): ReadonlyArray<string> => {
   const sentinel = table === 'post_drafts' ? WRITING_REVISION : WRITING
   const pieces = long.map(([name, value]) => [name, chunks(value)] as const)
-  const fitsInOne = pieces.every(([, parts]) => parts.length === 1) && long.reduce((n, [, v]) => n + Buffer.byteLength(v), 0) < CHUNK_BYTES
+  // Measured as written: the escaped literals (a quote doubles), not the raw text.
+  const fitsInOne = pieces.every(([, parts]) => parts.length === 1) && long.reduce((n, [, v]) => n + Buffer.byteLength(sqlString(v)), 0) < CHUNK_BYTES
   const first: ReadonlyArray<readonly [string, string | number | null]> = [
     ...columns,
     ...pieces.map(([name, parts]) => [name, fitsInOne ? (parts[0] ?? '') : ''] as const),
     [finish[0], fitsInOne ? finish[1] : sentinel],
   ]
+  const condition = mode.kind === 'update' ? `"updatedAt" < ${mode.olderThan}` : `"${finish[0]}" = ${sentinel}`
   const head =
     mode.kind === 'insert'
       ? `INSERT INTO "${table}" (${first.map(([n]) => `"${n}"`).join(', ')}) VALUES (${first.map(([, v]) => sqlValue(v)).join(', ')}) ON CONFLICT ("postId", "locale") DO NOTHING;`
-      : `UPDATE "${table}" SET ${first.filter(([n]) => n !== 'postId' && n !== 'locale').map(([n, v]) => `"${n}" = ${sqlValue(v)}`).join(', ')} WHERE ${where(String(columns.find(([n]) => n === 'postId')?.[1]))} AND "updatedAt" < ${mode.olderThan};`
+      : `UPDATE "${table}" SET ${first.filter(([n]) => n !== 'postId' && n !== 'locale').map(([n, v]) => `"${n}" = ${sqlValue(v)}`).join(', ')} WHERE ${where(String(columns.find(([n]) => n === 'postId')?.[1]))} AND ${condition};`
   if (fitsInOne) return [head]
   const postId = String(columns.find(([n]) => n === 'postId')?.[1])
   const guard = `${where(postId)} AND "${finish[0]}" = ${sentinel}`
@@ -163,14 +176,17 @@ const writeRow = (
 export const planMaterialize = (data: LegacyExport, options: { readonly sourceWins?: boolean } = {}): Plan => {
   const assets = new Map<string, KnownAsset>(data.assets.map((a) => [a.r2Key, { width: a.width, height: a.height, variants: parseVariants(a.variants) }]))
   const existing = new Map(data.translations.map((t) => [t.postId, t]))
-  // Half-written rows (sentinel) are deleted by the first statements below, so they do not count as present.
-  const drafts = new Set(data.drafts.filter((d) => d.revision !== WRITING_REVISION).map((d) => d.postId))
+  // Half-written draft rows (sentinel) are deleted by the first statement below, so they do not count as present.
+  const drafts = new Map(data.drafts.filter((d) => d.revision !== WRITING_REVISION).map((d) => [d.postId, d]))
   const report = {
     translationsInserted: [] as Array<string>,
     draftsInserted: [] as Array<string>,
     alreadyPresent: [] as Array<string>,
     sourceWinsUpdated: [] as Array<string>,
     sourceWinsEqual: [] as Array<string>,
+    halfWrittenRepaired: [] as Array<string>,
+    supersededDraftsRemoved: [] as Array<string>,
+    supersededDraftsKept: [] as Array<string>,
     rejected: [] as Array<{ postId: string; reason: string }>,
     rawHtml: [] as Array<{ postId: string; slug: string; tags: ReadonlyArray<string> }>,
     nonconformingSlugs: [] as Array<{ postId: string; slug: string }>,
@@ -178,20 +194,30 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
     externalImages: [] as Array<{ postId: string; urls: ReadonlyArray<string> }>,
     authorSlugs: [] as Array<{ authorId: string; slug: string }>,
   }
-  // A run that stopped half-way: its sentinel rows are rewritten from scratch.
-  const statements: Array<string> = [
-    `DELETE FROM "post_translations" WHERE "locale" = 'en' AND "readTimeMin" = ${WRITING};`,
-    `DELETE FROM "post_drafts" WHERE "locale" = 'en' AND "revision" = ${WRITING_REVISION};`,
-  ]
+  // A run that stopped half-way: its half draft rows are copied again; half translation rows are repaired below.
+  const statements: Array<string> = [`DELETE FROM "post_drafts" WHERE "locale" = 'en' AND "revision" = ${WRITING_REVISION};`]
+  /** After the `en` row of a published post is written: its superseded script-copied draft goes, an edited one is listed. */
+  const supersede = (postId: string) => {
+    const draft = drafts.get(postId)
+    if (draft === undefined) return
+    if (draft.scriptCopy !== 1) {
+      report.supersededDraftsKept.push(postId)
+      return
+    }
+    statements.push(`DELETE FROM "post_drafts" WHERE ${where(postId)} AND "revision" = 0 AND "updatedByUserId" IS NULL;`)
+    report.supersededDraftsRemoved.push(postId)
+  }
 
   for (const post of data.posts) {
     if (!isValidSlug(post.slug)) report.nonconformingSlugs.push({ postId: post.id, slug: post.slug })
     const isDraft = post.status === 'draft'
     const present = isDraft ? drafts.has(post.id) || existing.has(post.id) : existing.has(post.id) && (existing.get(post.id)?.readTimeMin ?? 0) > 0
     const found = existing.get(post.id)
+    const repair = !isDraft && found !== undefined && found.readTimeMin === WRITING
     const update = !isDraft && options.sourceWins === true && found !== undefined && found.readTimeMin > 0
     if (present && !update) {
       report.alreadyPresent.push(post.id)
+      if (!isDraft) supersede(post.id)
       continue
     }
     if (update && found !== undefined && post.updatedAt <= found.updatedAt) {
@@ -199,6 +225,7 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
         found.slug !== post.slug || found.title !== post.title || found.excerpt !== post.excerpt || found.contentLength !== [...post.content].length
       if (post.updatedAt === found.updatedAt && differs) report.sourceWinsEqual.push(post.id)
       else report.alreadyPresent.push(post.id)
+      supersede(post.id)
       continue
     }
     if (!isDraft && ([...post.title].length > 120 || [...post.excerpt].length > 300)) {
@@ -233,7 +260,12 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
       ['contentHtml', rendered.html],
       ['toc', JSON.stringify(rendered.toc)],
     ]
-    if (update && found !== undefined) {
+    if (repair) {
+      // The row a stopped run left (an insert or a --source-wins update): finished in place, so publishedAt, coverAlt
+      // and ogAssetId stay. A stopped insert already holds every short column of `columns`.
+      statements.push(...writeRow('post_translations', base, long, { kind: 'repair' }, ['readTimeMin', rendered.readTimeMin]))
+      report.halfWrittenRepaired.push(post.id)
+    } else if (update && found !== undefined) {
       // publishedAt stays the first publish of this locale (§1.3): the update leaves it alone.
       statements.push(...writeRow('post_translations', base, long, { kind: 'update', olderThan: post.updatedAt }, ['readTimeMin', rendered.readTimeMin]))
       report.sourceWinsUpdated.push(post.id)
@@ -241,6 +273,7 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
       statements.push(...writeRow('post_translations', columns, long, { kind: 'insert' }, ['readTimeMin', rendered.readTimeMin]))
       report.translationsInserted.push(post.id)
     }
+    supersede(post.id)
   }
 
   const taken = new Set(data.authors.flatMap((a) => (a.slug === null ? [] : [a.slug])))
@@ -269,6 +302,17 @@ export const rowsOf = (json: unknown): ReadonlyArray<unknown> => {
   return json
 }
 
+/** The verification counts that fail the run: anything but exactly 0 (a missing or unreadable count is NaN, a failure). */
+export const failedChecks = (counts: Readonly<Record<string, number>>): ReadonlyArray<string> =>
+  Object.entries(counts).flatMap(([name, n]) => (n === 0 ? [] : [name]))
+
+export interface MaterializeResult {
+  readonly report: Report
+  readonly counts: Readonly<Record<string, number>>
+  /** Names of the VERIFY_QUERIES whose count is not 0. The CLI exits non-zero when this is not empty. */
+  readonly failed: ReadonlyArray<string>
+}
+
 /**
  * Export → plan → SQL file → execute → verify, through a `wrangler d1 execute` runner (staging.ts passes the staging
  * database with `--remote`; `--local` below uses the local one). `execJson` returns the parsed `--json` output.
@@ -278,18 +322,30 @@ export const materializeVia = (deps: {
   readonly execFile: (file: string) => void
   readonly sqlFile: string
   readonly sourceWins: boolean
-}): Report => {
+}): MaterializeResult => {
   const data = Object.fromEntries(
     Object.entries(EXPORT_QUERIES).map(([key, query]) => [key, rowsOf(deps.execJson(query))]),
   ) as unknown as LegacyExport
   const plan = planMaterialize(data, { sourceWins: deps.sourceWins })
   writeFileSync(deps.sqlFile, `${plan.statements.join('\n')}\n`)
   deps.execFile(deps.sqlFile)
+  const counts: Record<string, number> = {}
   for (const [name, query] of Object.entries(VERIFY_QUERIES)) {
     const n = Number((rowsOf(deps.execJson(query))[0] as { n?: unknown } | undefined)?.n)
+    counts[name] = n
     console.log(`verify ${name}: ${n}${n === 0 ? '' : '  <-- must be 0'}`)
   }
-  return plan.report
+  return { report: plan.report, counts, failed: failedChecks(counts) }
+}
+
+/** Prints the report and ends the process: exit 1 when a verification count is not 0. */
+export const finish = (result: MaterializeResult): never => {
+  console.log(JSON.stringify(result.report, null, 2))
+  if (result.failed.length > 0) {
+    console.error(`verification failed: ${result.failed.join(', ')}`)
+    process.exit(1)
+  }
+  process.exit(0)
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -308,13 +364,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       return result.stdout
     }
     mkdirSync('.wrangler', { recursive: true })
-    const report = materializeVia({
-      execJson: (command) => JSON.parse(wrangler(['--json', `--command=${command}`])),
-      execFile: (file) => void wrangler([`--file=${file}`, '--yes']),
-      sqlFile: '.wrangler/materialize-legacy-translations.sql',
-      sourceWins,
-    })
-    console.log(JSON.stringify(report, null, 2))
+    finish(
+      materializeVia({
+        execJson: (command) => JSON.parse(wrangler(['--json', `--command=${command}`])),
+        execFile: (file) => void wrangler([`--file=${file}`, '--yes']),
+        sqlFile: '.wrangler/materialize-legacy-translations.sql',
+        sourceWins,
+      }),
+    )
   } else {
     const reportAt = args.indexOf('--report')
     const reportFile = reportAt >= 0 ? args[reportAt + 1] : undefined

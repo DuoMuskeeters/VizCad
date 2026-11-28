@@ -166,21 +166,30 @@ export const listPublicPosts = Effect.fn('listPublicPosts')(function* (locale: L
 export const relatedScore = (post: { readonly category: string; readonly tags: ReadonlyArray<string> }, other: { readonly category: string; readonly tags: ReadonlyArray<string> }) =>
   (other.category === post.category ? 2 : 0) + other.tags.filter((tag) => post.tags.includes(tag)).length
 
-/** Top `RELATED_POSTS` by score; ties keep the newest first (the candidates arrive newest first). */
+/**
+ * Top `RELATED_POSTS` by score; ties keep the newest first (the candidates arrive newest first). Only posts that share
+ * the category or a tag (score > 0): the purge (affectedUrls `sharesTopic`) refreshes exactly those pages when a post
+ * changes, so a zero-score filler would show a stale card for a day.
+ */
 type Scored = { readonly category: string; readonly tags: ReadonlyArray<string> }
 export const pickRelated = <C extends Scored>(post: Scored, candidates: ReadonlyArray<C>): ReadonlyArray<C> =>
   candidates
     .map((candidate, index) => ({ candidate, index, score: relatedScore(post, candidate) }))
+    .filter((entry) => entry.score > 0)
     .sort((x, y) => y.score - x.score || x.index - y.index)
     .slice(0, RELATED_POSTS)
     .map((entry) => entry.candidate)
 
-const httpsLinks = (links: Readonly<Record<string, string>> | null): ReadonlyArray<string> =>
-  Object.values(links ?? {}).filter((url) => typeof url === 'string' && /^https:\/\/[^/\\]/i.test(url))
+/**
+ * The author's https profile links (`sameAs`). A link must also parse as a URL: the page shows its hostname, and a
+ * legacy value such as `https://exa mple.com` passes the prefix check but makes `new URL` throw while rendering.
+ */
+export const httpsLinks = (links: Readonly<Record<string, string>> | null): ReadonlyArray<string> =>
+  Object.values(links ?? {}).filter((url) => typeof url === 'string' && /^https:\/\/[^/\\]/i.test(url) && URL.canParse(url))
 
 const authorTranslation = alias(schema.authorTranslations, 'author_tr')
 
-/** `getPublicPost(locale, slug)` (§3.1): the post, a 301 for an old slug, 404, or 410 for an archived post. */
+/** `getPublicPost(locale, slug)` (§3.1): the post, a 301 for an old slug, 404, or 410 for an archived post (old slugs too). */
 export const getPublicPost = Effect.fn('getPublicPost')(function* (locale: Locale, slug: string) {
   if (!requireBlogLocale(locale)) return yield* new PostUnavailable()
   const db = yield* Db
@@ -219,12 +228,13 @@ export const getPublicPost = Effect.fn('getPublicPost')(function* (locale: Local
         .leftJoin(ogAsset, eq(ogAsset.id, t.ogAssetId))
         .where(and(eq(t.locale, locale), eq(t.slug, slug), gt(t.readTimeMin, 0)))
         .limit(1),
+      // The old slug's post, whatever its status: a public one is a 301, an archived one 410 (like its current slug).
       d
-        .select({ slug: t.slug })
+        .select({ slug: t.slug, status: p.status, isVisible: sql<number>`CASE WHEN ${visible(locale)} THEN 1 ELSE 0 END`.as('isVisible') })
         .from(schema.postSlugRedirects)
         .innerJoin(t, and(eq(t.postId, schema.postSlugRedirects.postId), eq(t.locale, schema.postSlugRedirects.locale)))
         .innerJoin(p, eq(p.id, t.postId))
-        .where(and(eq(schema.postSlugRedirects.locale, locale), eq(schema.postSlugRedirects.slug, slug), visible(locale)))
+        .where(and(eq(schema.postSlugRedirects.locale, locale), eq(schema.postSlugRedirects.slug, slug), gt(t.readTimeMin, 0)))
         .limit(1),
       cardQuery(d).where(and(visible(locale), ne(t.slug, slug))).orderBy(desc(t.publishedAt), t.postId).limit(RELATED_CANDIDATES),
     ]),
@@ -232,7 +242,10 @@ export const getPublicPost = Effect.fn('getPublicPost')(function* (locale: Local
   const row = found[0]
   if (row === undefined) {
     const target = redirects[0]
-    if (target !== undefined && target.slug !== slug) return { kind: 'redirect', path: paths.post(locale, target.slug) } satisfies PostResult
+    if (target !== undefined && target.slug !== slug) {
+      if (target.status === 'archived') return yield* new PostGone()
+      if (target.isVisible === 1) return { kind: 'redirect', path: paths.post(locale, target.slug) } satisfies PostResult
+    }
     return yield* new PostUnavailable()
   }
   if (row.status === 'archived') return yield* new PostGone()

@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { backfillStatements, verifyQueries } from './backfillPersonalWorkspaces.ts'
-import { materializeVia } from './materializeLegacyTranslations.ts'
+import { finish, materializeVia } from './materializeLegacyTranslations.ts'
 import { checkStagingConfig, STAGING } from './stagingGuard.ts'
 
 const childEnv = { ...process.env }
@@ -84,13 +84,14 @@ if (command === 'migrate') {
     if (result.status !== 0) process.exit(result.status ?? 1)
     return result.stdout
   }
-  const report = materializeVia({
-    execJson: (query) => JSON.parse(d1(['--json', `--command=${query}`])),
-    execFile: (file) => void d1([`--file=${file}`, '--yes']),
-    sqlFile: resolve('.wrangler/materialize-legacy-translations.sql'),
-    sourceWins: process.argv.includes('--source-wins'),
-  })
-  console.log(JSON.stringify(report, null, 2))
+  finish(
+    materializeVia({
+      execJson: (query) => JSON.parse(d1(['--json', `--command=${query}`])),
+      execFile: (file) => void d1([`--file=${file}`, '--yes']),
+      sqlFile: resolve('.wrangler/materialize-legacy-translations.sql'),
+      sourceWins: process.argv.includes('--source-wins'),
+    }),
+  )
 } else {
   stop('usage: node scripts/staging.ts <migrate|deploy|backfill|materialize>')
 }

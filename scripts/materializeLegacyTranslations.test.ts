@@ -5,7 +5,10 @@ import { getPublicPost, listPublicPosts } from '../src/server/programs/cms/blog'
 import { Db, make } from '../src/server/services/Db'
 import { type MemoryD1, openMemoryD1 } from '../src/server/testing/memoryD1'
 import { fixtureStatements } from './fixtures/blogLegacySample'
-import { CHUNK_BYTES, chunks, EXPORT_QUERIES, type LegacyExport, planMaterialize, rowsOf, sqlString, VERIFY_QUERIES, WRITING } from './materializeLegacyTranslations'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { CHUNK_BYTES, chunks, EXPORT_QUERIES, failedChecks, type LegacyExport, materializeVia, planMaterialize, rowsOf, sqlString, VERIFY_QUERIES, WRITING } from './materializeLegacyTranslations'
 
 const T = 1_700_000_000
 
@@ -123,6 +126,16 @@ describe('materializeLegacyTranslations', () => {
     expect((await program(getPublicPost('en', 'big'))).kind).toBe('post')
   })
 
+  it('a quote-heavy post is measured escaped: no statement reaches the D1 limit', async () => {
+    // 28 000 quotes: 56 KB raw for contentMd and contentHtml together, but each doubles when escaped.
+    const quotes = "'".repeat(28_000)
+    seedLegacy(d1.sqlite, [{ id: 'p7', slug: 'quotes', status: 'published', content: quotes }])
+    const plan = runPlan(d1.sqlite)
+    for (const statement of plan.statements) expect(Buffer.byteLength(statement)).toBeLessThan(100_000)
+    expect(d1.sqlite.prepare("SELECT contentMd FROM post_translations WHERE postId = 'p7'").get()?.['contentMd']).toBe(quotes)
+    expect((await program(getPublicPost('en', 'quotes'))).kind).toBe('post')
+  })
+
   it('a run that stopped half-way is finished by the next run; the half row is never public', async () => {
     const big = `# Big\n\n${'word '.repeat(40_000)}`
     seedLegacy(d1.sqlite, [{ id: 'p9', slug: 'big', status: 'published', content: big }])
@@ -134,9 +147,48 @@ describe('materializeLegacyTranslations', () => {
     expect(await tagOf(getPublicPost('en', 'big'))).toBe('PostUnavailable')
     expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(1)
     const again = runPlan(d1.sqlite)
-    expect(again.report.translationsInserted).toContain('p9')
+    expect(again.report.halfWrittenRepaired).toEqual(['p9'])
     expect(d1.sqlite.prepare("SELECT contentMd FROM post_translations WHERE postId = 'p9'").get()?.['contentMd']).toBe(big)
     expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(0)
+  })
+
+  it('an interrupted --source-wins is repaired in place: publishedAt, coverAlt and ogAssetId survive', async () => {
+    const big = `# Big\n\n${'word '.repeat(40_000)}`
+    seedLegacy(d1.sqlite, [{ id: 'p9', slug: 'big', status: 'published', content: 'v1' }])
+    runPlan(d1.sqlite)
+    // Set after the first copy by the editor (6c): not in the legacy posts row, so only the translation row holds them.
+    d1.sqlite.exec(`INSERT INTO cms_assets (id, r2Key, mime, bytes, width, height, sha256, createdAt) VALUES ('og1', 'blog/a/og1.png', 'image/png', 1, 1200, 630, 'h', ${T})`)
+    d1.sqlite.exec(`UPDATE post_translations SET coverAlt = 'Cover alt', ogAssetId = 'og1', publishedAt = ${T - 500} WHERE postId = 'p9'`)
+    d1.sqlite.prepare("UPDATE posts SET content = ?, updatedAt = ? WHERE id = 'p9'").run(big, T + 1)
+    const plan = planMaterialize(exportOf(d1.sqlite), { sourceWins: true })
+    const headAt = plan.statements.findIndex((s) => s.startsWith('UPDATE "post_translations"') && s.includes("'p9'"))
+    d1.sqlite.exec(plan.statements.slice(0, headAt + 2).join('\n'))
+    expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(1)
+
+    const again = runPlan(d1.sqlite, { sourceWins: true })
+    expect(again.report.halfWrittenRepaired).toEqual(['p9'])
+    expect(again.report.translationsInserted).toEqual([])
+    const row = d1.sqlite.prepare("SELECT contentMd, coverAlt, ogAssetId, publishedAt, updatedAt, readTimeMin FROM post_translations WHERE postId = 'p9'").get()
+    expect(row?.['contentMd']).toBe(big)
+    expect([row?.['coverAlt'], row?.['ogAssetId'], row?.['publishedAt'], row?.['updatedAt']]).toEqual(['Cover alt', 'og1', T - 500, T + 1])
+    expect(Number(row?.['readTimeMin'])).toBeGreaterThan(0)
+    expect(count(d1.sqlite, VERIFY_QUERIES.halfWritten ?? '')).toBe(0)
+  })
+
+  it('a draft that the legacy site published later: the copied draft goes, an edited one is kept and listed', () => {
+    seedLegacy(d1.sqlite, [{ id: 'p6', slug: 'draft-two', status: 'draft', content: 'Draft two' }])
+    runPlan(d1.sqlite)
+    expect(count(d1.sqlite, "SELECT count(*) AS n FROM post_drafts WHERE postId IN ('p3', 'p6')")).toBe(2)
+    // An editor touched p6's draft; then the legacy site (after a rollback) published both.
+    d1.sqlite.exec("UPDATE post_drafts SET revision = 1, updatedByUserId = 'ada' WHERE postId = 'p6'")
+    d1.sqlite.prepare("UPDATE posts SET status = 'published', publishedAt = ?, updatedAt = ? WHERE id IN ('p3', 'p6')").run(T + 5, T + 5)
+    const plan = runPlan(d1.sqlite)
+    expect(plan.report.translationsInserted).toEqual(['p3', 'p6'])
+    expect(plan.report.supersededDraftsRemoved).toEqual(['p3'])
+    expect(plan.report.supersededDraftsKept).toEqual(['p6'])
+    expect(d1.sqlite.prepare("SELECT postId FROM post_drafts WHERE locale = 'en' ORDER BY postId").all()).toEqual([{ postId: 'p6' }])
+    // A further run has nothing left to remove.
+    expect(runPlan(d1.sqlite).report.supersededDraftsRemoved).toEqual([])
   })
 
   it('rejects a post whose title breaks the table check, and reports it', () => {
@@ -159,6 +211,39 @@ describe('staging sample fixture (scripts/fixtures/blogLegacySample.ts)', () => 
     expect(plan.report.authorSlugs).toEqual([{ authorId: 'fixture-author-profile', slug: 'deniz-fixture' }])
     expect((await program(listPublicPosts('en', 1))).pages).toBe(2)
     expect(await tagOf(getPublicPost('en', 'fixture-archived'))).toBe('PostGone')
+  })
+})
+
+describe('materializeVia verification', () => {
+  /** A wrangler stand-in on the memory D1: `--json` queries and the SQL file run against it. */
+  const via = (verify?: (query: string) => unknown) => {
+    const dir = mkdtempSync(join(tmpdir(), 'materialize-'))
+    const verifyQueries = new Set(Object.values(VERIFY_QUERIES))
+    const result = materializeVia({
+      execJson: (query) => (verify !== undefined && verifyQueries.has(query) ? verify(query) : [{ results: d1.sqlite.prepare(query).all() }]),
+      execFile: () => d1.sqlite.exec(planMaterialize(exportOf(d1.sqlite)).statements.join('\n')),
+      sqlFile: join(dir, 'out.sql'),
+      sourceWins: false,
+    })
+    rmSync(dir, { recursive: true, force: true })
+    return result
+  }
+
+  it('a clean run has no failed check', () => {
+    seedLegacy(d1.sqlite)
+    const result = via()
+    expect(result.counts).toEqual({ publishedWithoutEn: 0, halfWritten: 0 })
+    expect(result.failed).toEqual([])
+  })
+
+  it('a count above 0, or one that cannot be read (NaN), fails the run (the CLI exits 1)', () => {
+    seedLegacy(d1.sqlite, [{ id: 'p8', slug: 'long', status: 'published', content: 'x', title: 'T'.repeat(121) }])
+    expect(via().failed).toEqual(['publishedWithoutEn'])
+    d1.close()
+    d1 = openMemoryD1()
+    seedLegacy(d1.sqlite)
+    expect(via(() => [{ results: [{ n: 'oops' }] }]).failed).toEqual(['publishedWithoutEn', 'halfWritten'])
+    expect(failedChecks({ a: 0, b: Number.NaN, c: 2 })).toEqual(['b', 'c'])
   })
 })
 

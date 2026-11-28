@@ -83,6 +83,9 @@ describe('renderMarkdown: images', () => {
 
   it('reads the key from an image URL, only under blog/', () => {
     expect(blogImageKey('/api/blog/image/blog%2Fa%2Fb.png')).toBe('blog/a/b.png')
+    // A non-UTF-8 escape is not a key (it threw URIError and aborted the whole script run).
+    expect(blogImageKey('/api/blog/image/blog%2F%FF.png')).toBeNull()
+    expect(() => render('![x](/api/blog/image/blog%2F%FF.png)')).not.toThrow()
     expect(blogImageKey('https://viz-cad.com/api/blog/image/blog%2Fx.png?w=1')).toBe('blog/x.png')
     expect(blogImageKey('/api/blog/image/files%2Fsecret')).toBeNull()
     expect(blogImageKey('/api/blog/image/blog%2F..%2Ffiles')).toBeNull()
