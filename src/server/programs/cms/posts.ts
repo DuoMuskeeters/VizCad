@@ -203,7 +203,13 @@ const coverOf = (state: PostState): AdminPost['cover'] => {
 export const getPostAdmin = Effect.fn('getPostAdmin')(function* (postId: string) {
   const state = yield* loadPost(postId)
   const db = yield* Db
-  const authors = yield* db.use((d) => d.select({ userId: a.userId, name: a.name }).from(a).orderBy(a.name))
+  const ogIds = [...new Set([...state.translations.values(), ...state.drafts.values()].flatMap((r) => (r.ogAssetId === null ? [] : [r.ogAssetId])))]
+  const [authors, ogAssets] = yield* db.use((d) =>
+    d.batch([
+      d.select({ userId: a.userId, name: a.name }).from(a).orderBy(a.name),
+      d.select({ id: schema.cmsAssets.id, r2Key: schema.cmsAssets.r2Key }).from(schema.cmsAssets).where(inArray(schema.cmsAssets.id, ogIds.length === 0 ? [''] : ogIds)),
+    ]),
+  )
   const locales = {} as Record<Locale, LocaleState>
   for (const locale of LOCALES) {
     const live = state.translations.get(locale)
@@ -230,6 +236,7 @@ export const getPostAdmin = Effect.fn('getPostAdmin')(function* (postId: string)
     locales,
     authors,
     publishable: blogLocales,
+    images: Object.fromEntries(ogAssets.map((r) => [r.id, blogImagePath(r.r2Key)])),
   } satisfies AdminPost
 })
 

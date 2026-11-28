@@ -31,15 +31,13 @@ const readJson = async (response: Response): Promise<Record<string, unknown>> =>
 const strings = (value: unknown): ReadonlyArray<string> | undefined =>
   Array.isArray(value) && value.every((item) => typeof item === 'string') ? (value as ReadonlyArray<string>) : undefined
 
-export const makeCmsCall =
-  (fetcher: typeof fetch = (...args) => fetch(...args)): CmsCall =>
-  async <T>(operation: string, body: Record<string, unknown> = {}): Promise<CmsResult<T>> => {
+const send = async <T>(fetcher: typeof fetch, operation: string, init: { readonly contentType: string; readonly body: BodyInit }): Promise<CmsResult<T>> => {
     try {
       const response = await fetcher(`/api/cms/${operation}`, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'content-type': init.contentType },
+        body: init.body,
       })
       const json = await readJson(response)
       if (response.ok && json['ok'] === true) return { ok: true, data: json['data'] as T }
@@ -57,6 +55,17 @@ export const makeCmsCall =
       return { ok: false, status: 0, error: 'Network' }
     }
   }
+
+export const makeCmsCall =
+  (fetcher: typeof fetch = (...args) => fetch(...args)): CmsCall =>
+  <T>(operation: string, body: Record<string, unknown> = {}) =>
+    send<T>(fetcher, operation, { contentType: 'application/json', body: JSON.stringify(body) })
+
+/** `POST /api/cms/assets` with the image bytes (its type as Content-Type; the server judges the magic bytes). */
+export const makeCmsUpload =
+  (fetcher: typeof fetch = (...args) => fetch(...args)) =>
+  <T>(image: Blob) =>
+    send<T>(fetcher, 'assets', { contentType: image.type || 'application/octet-stream', body: image })
 
 const FIXTURE_KEY = 'vizcad_admin_fixture'
 
@@ -80,6 +89,12 @@ const devFetcher = (): Promise<typeof fetch> | null => {
 
 let fixture: Promise<typeof fetch> | null | undefined
 const live = makeCmsCall()
+
+/** Image upload through the same network or fixture as `cmsCall`. */
+export const cmsUpload = async <T>(image: Blob): Promise<CmsResult<T>> => {
+  if (fixture === undefined) fixture = devFetcher()
+  return makeCmsUpload(fixture === null ? undefined : await fixture)<T>(image)
+}
 
 /** The admin screens' client: the network, or in development the `?fixture=` stand-in. */
 export const cmsCall: CmsCall = async <T>(operation: string, body?: Record<string, unknown>) => {

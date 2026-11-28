@@ -16,6 +16,7 @@ import { LOCALE_NAMES, LOCALES, type Locale } from '#/i18n/locales'
 import { type AdminPost, type DraftSaved, POST_LIMITS, type PublishResult, type RenderWarnings, SEO_HINTS, type TranslationFields } from '#/shared/cmsTypes'
 import { paths } from '#/shared/marketingRoutes'
 import { useAdminInfo } from './AdminLayout'
+import { AssetPicker, ImageField } from './AssetsPage'
 import { AdminLink } from './AdminLink'
 import { adminPaths } from './routes'
 import { cmsCall, type CmsFailure } from './api'
@@ -195,10 +196,16 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
   }
 
   const onPreview = async () => {
+    // Opened inside the click, before any await: Safari blocks a window.open that follows a network round trip.
+    const tab = window.open('', '_blank') ?? null
+    if (tab !== null) tab.opener = null
     setBusy('preview')
     const revision = await save()
     setBusy(null)
-    if (revision !== null) window.open(adminPaths.preview(post.id, locale), '_blank', 'noopener')
+    if (revision === null) return tab?.close()
+    const href = adminPaths.preview(post.id, locale)
+    if (tab === null) window.open(href, '_blank', 'noopener')
+    else tab.location.href = href
   }
 
   // The latest committed state, read by `refresh` after its await (its own closure is from before the request).
@@ -289,7 +296,10 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
             : undefined
 
   const contentBytes = bytes(form.contentMd)
-  const editorLabels = useMemo(() => ({ heading: 'H2', bold: 'Bold', link: 'Link', image: 'Image', code: 'Code', toolbar: text.editor.content }), [text])
+  const editorLabels = useMemo(() => ({ ...text.toolbar, toolbar: text.editor.content }), [text])
+  // The image button's picker: the chosen image goes in at the cursor as `![alt](url)` (docs/12 §7.3).
+  const [imageInsert, setImageInsert] = useState<((markdown: string) => void) | null>(null)
+  const [images, setImages] = useState<Readonly<Record<string, string>>>(initial.images ?? {})
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
@@ -370,12 +380,29 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
               {text.editor.content}
             </span>
             <Suspense fallback={<Textarea aria-labelledby="content-label" value={form.contentMd} rows={18} onChange={(e) => set('contentMd', e.target.value)} />}>
-              <MarkdownEditor value={form.contentMd} onChange={(v) => set('contentMd', v)} label={text.editor.content} labels={editorLabels} />
+              {/* One editor per language: its undo history never crosses into another language's text. */}
+              <MarkdownEditor
+                key={locale}
+                value={form.contentMd}
+                onChange={(v) => set('contentMd', v)}
+                label={text.editor.content}
+                labels={editorLabels}
+                onImage={(insert) => setImageInsert(() => insert)}
+              />
             </Suspense>
             <p className={`text-sm ${contentBytes > POST_LIMITS.contentMd ? 'text-danger' : 'text-text-3'}`}>
               {`${Math.ceil(contentBytes / 1024)} / ${POST_LIMITS.contentMd / 1024} KB`}
             </p>
             {errors['contentMd'] ? <p role="alert" className="text-sm text-danger">{errors['contentMd']}</p> : null}
+            <AssetPicker
+              open={imageInsert !== null}
+              askAlt
+              onClose={() => setImageInsert(null)}
+              onPick={(asset, alt) => {
+                imageInsert?.(`![${alt.replace(/[[\]]/g, '')}](${asset.url})`)
+                setImageInsert(null)
+              }}
+            />
           </div>
         </section>
 
@@ -386,7 +413,8 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
               <TabsTrigger value="seo" className="min-w-11 justify-center">{text.editor.tabSeo}</TabsTrigger>
               {locale === 'en' ? null : <TabsTrigger value="translation" className="min-w-11 justify-center">{text.editor.tabTranslation}</TabsTrigger>}
             </TabsList>
-            <TabsContent value="details" className="grid gap-4 pt-4">
+            {/* Kept mounted: unsaved post fields survive switching to SEO and back. */}
+            <TabsContent value="details" forceMount className="grid gap-4 pt-4 data-[state=inactive]:hidden">
               <Field
                 label={text.editor.slug}
                 error={errors['slug'] ?? (hints.slugInvalid ? text.editor.slugInvalid : hints.slugTaken ? text.editor.slugTaken : undefined)}
@@ -400,7 +428,7 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
                   void navigate({ href: adminPaths.posts() })
                 }} />
             </TabsContent>
-            <TabsContent value="seo" className="grid gap-4 pt-4">
+            <TabsContent value="seo" forceMount className="grid gap-4 pt-4 data-[state=inactive]:hidden">
               <Field label={text.editor.metaTitle} error={errors['metaTitle']} hint={<Counter value={form.metaTitle ?? ''} hint={SEO_HINTS.metaTitle} max={POST_LIMITS.metaTitle} />}>
                 <Input value={form.metaTitle ?? ''} maxLength={POST_LIMITS.metaTitle} placeholder={form.title} onChange={(e) => set('metaTitle', e.target.value)} />
               </Field>
@@ -413,10 +441,23 @@ const Editor = ({ post: initial, locale, onReload, onLocale }: { post: AdminPost
               <Field label={text.editor.coverAlt} error={errors['coverAlt']}>
                 <Input value={form.coverAlt ?? ''} maxLength={POST_LIMITS.coverAlt} onChange={(e) => set('coverAlt', e.target.value)} />
               </Field>
-              <SeoPreview post={post} form={form} locale={locale} />
+              <ImageField
+                label={text.editor.ogImage}
+                hint={text.editor.ogHint}
+                image={form.ogAssetId === null ? null : { url: images[form.ogAssetId] ?? '' }}
+                chooseLabel={text.editor.chooseOg}
+                removeLabel={text.editor.removeOg}
+                emptyLabel={text.editor.ogHint}
+                onPick={(asset) => {
+                  setImages((all) => ({ ...all, [asset.id]: asset.url }))
+                  set('ogAssetId', asset.id)
+                }}
+                onRemove={() => set('ogAssetId', null)}
+              />
+              <SeoPreview post={post} form={form} locale={locale} ogUrl={form.ogAssetId === null ? null : (images[form.ogAssetId] ?? null)} />
             </TabsContent>
             {locale === 'en' ? null : (
-              <TabsContent value="translation" className="grid gap-4 pt-4">
+              <TabsContent value="translation" forceMount className="grid gap-4 pt-4 data-[state=inactive]:hidden">
                 <TranslationPanel post={post} locale={locale} />
               </TabsContent>
             )}
@@ -451,6 +492,7 @@ const MetaPanel = ({ post, onSaved, onConflict }: { post: AdminPost; onSaved: ()
   const [tags, setTags] = useState(post.tags.join(', '))
   const [authorId, setAuthorId] = useState(post.authorId)
   const [coverAssetId, setCoverAssetId] = useState(post.cover?.assetId ?? null)
+  const [coverUrl, setCoverUrl] = useState(post.cover?.url ?? null)
   const [removeCover, setRemoveCover] = useState(false)
   const [featured, setFeatured] = useState(post.featured)
   const [toc, setToc] = useState(post.tableOfContents)
@@ -487,25 +529,22 @@ const MetaPanel = ({ post, onSaved, onConflict }: { post: AdminPost; onSaved: ()
       <Field label={text.editor.author}>
         <Select value={authorId} onValueChange={setAuthorId} options={authors.map((a) => ({ value: a.userId, label: a.name }))} />
       </Field>
-      <div className="grid gap-1.5">
-        <span className="text-md font-medium app:text-base">{text.editor.cover}</span>
-        {post.cover !== null && !removeCover ? (
-          <div className="grid gap-2">
-            <img src={post.cover.url} alt="" className="aspect-[1200/630] w-full rounded-md border border-line object-cover" loading="lazy" />
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setRemoveCover(true)
-                setCoverAssetId(null)
-              }}
-            >
-              {text.editor.removeCover}
-            </Button>
-          </div>
-        ) : (
-          <p className="text-sm text-text-3">{text.editor.noCover}</p>
-        )}
-      </div>
+      <ImageField
+        label={text.editor.cover}
+        image={removeCover ? null : coverUrl === null ? null : { url: coverUrl }}
+        chooseLabel={text.editor.chooseCover}
+        removeLabel={text.editor.removeCover}
+        emptyLabel={text.editor.noCover}
+        onPick={(asset) => {
+          setCoverAssetId(asset.id)
+          setCoverUrl(asset.url)
+          setRemoveCover(false)
+        }}
+        onRemove={() => {
+          setRemoveCover(true)
+          setCoverAssetId(null)
+        }}
+      />
       <SwitchRow label={text.editor.featured} checked={featured} onCheckedChange={setFeatured} />
       <SwitchRow label={text.editor.toc} checked={toc} onCheckedChange={setToc} />
       <Button onClick={() => void submit()} loading={busy} {...why(changed ? undefined : text.editor.saved)}>
@@ -578,7 +617,7 @@ const PreviewBox = ({ title, children }: { title: string; children: ReactNode })
 )
 
 /** Google result and social card as they would read (truncated like the hints suggest). */
-const SeoPreview = ({ post, form, locale }: { post: AdminPost; form: TranslationFields; locale: Locale }) => {
+const SeoPreview = ({ post, form, locale, ogUrl }: { post: AdminPost; form: TranslationFields; locale: Locale; ogUrl: string | null }) => {
   const { text } = useAdminText()
   const host = typeof window === 'undefined' ? '' : window.location.host
   const title = form.metaTitle || form.title
@@ -592,7 +631,7 @@ const SeoPreview = ({ post, form, locale }: { post: AdminPost; form: Translation
         <p className="text-sm text-text-2 [overflow-wrap:anywhere]">{cut(description, SEO_HINTS.metaDescription)}</p>
       </PreviewBox>
       <PreviewBox title={text.editor.socialPreview}>
-        {post.cover === null ? null : <img src={post.cover.url} alt="" className="mb-2 aspect-[1200/630] w-full rounded-sm object-cover" loading="lazy" />}
+        {(ogUrl ?? post.cover?.url) === undefined ? null : <img src={ogUrl ?? post.cover?.url} alt="" className="mb-2 aspect-[1200/630] w-full rounded-sm object-cover" loading="lazy" />}
         <p className="text-xs uppercase text-text-3">{host}</p>
         <p className="font-medium text-text [overflow-wrap:anywhere]">{title}</p>
         <p className="text-sm text-text-2 [overflow-wrap:anywhere]">{cut(description, 120)}</p>

@@ -4,7 +4,7 @@
  * production builds. It imitates the answers the editor needs, not the server's rules (programs/cms/posts.ts has those).
  */
 import { LOCALES, type Locale } from '#/i18n/locales'
-import type { AdminPost, AdminPostRow, LocaleState, PreviewResult, TranslationFields } from '#/shared/cmsTypes'
+import type { AdminAsset, AdminAuthor, AdminPost, AdminPostRow, LocaleState, PreviewResult, TranslationFields } from '#/shared/cmsTypes'
 
 export type AdminScenario = 'admin' | 'admin-empty' | 'admin-denied' | 'admin-anon' | 'admin-nopurge'
 
@@ -64,6 +64,37 @@ const seedPosts = (): Map<string, AdminPost> => {
   ])
 }
 
+/** A small inline SVG as the stand-in picture (data URL: no network in tests and dev). */
+const picture = (hue: number) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><rect width="160" height="120" fill="hsl(${hue} 40% 70%)"/><circle cx="80" cy="60" r="28" fill="hsl(${hue} 40% 45%)"/></svg>`)}`
+
+const seedAssets = (): Array<AdminAsset> => [
+  { id: 'asset-2', url: picture(200), mime: 'image/webp', bytes: 182_000, width: 1600, height: 900, alt: 'A STEP assembly in the viewer', createdAt: T - 86_400, inUse: true },
+  { id: 'asset-1', url: picture(30), mime: 'image/png', bytes: 64_000, width: 800, height: 600, alt: null, createdAt: T - 2 * 86_400, inUse: false },
+]
+
+const seedAuthors = (): Array<AdminAuthor> => [
+  {
+    id: 'author-ada',
+    userId: 'ada',
+    userEmail: 'ada@example.com',
+    name: 'Ada Lovelace',
+    slug: 'ada',
+    avatar: null,
+    sameAs: ['https://www.linkedin.com/in/ada'],
+    translations: { en: { bio: 'Writes about CAD formats.', jobTitle: 'Engineer' }, tr: { bio: 'CAD biçimleri üzerine yazar.', jobTitle: 'Mühendis' } },
+    posts: 2,
+    revision: T - 86_400,
+  },
+  { id: 'author-deniz', userId: 'deniz', userEmail: 'deniz@example.com', name: 'Deniz Yılmaz', slug: null, avatar: null, sameAs: [], translations: {}, posts: 0, revision: T - 86_400 },
+]
+
+const seedPurges = () => [
+  { id: 1, kind: 'url' as const, target: 'https://staging.viz-cad.com/blog/step-vs-iges', reason: 'publish', attempts: 10, lastError: 'api-error', notBefore: T - 600, createdAt: T - 3600, failed: true },
+  { id: 2, kind: 'host' as const, target: 'staging.viz-cad.com', reason: 'texts', attempts: 10, lastError: 'rate-limited', notBefore: T - 300, createdAt: T - 3600, failed: true },
+  { id: 3, kind: 'url' as const, target: 'https://staging.viz-cad.com/blog', reason: 'publish', attempts: 1, lastError: 'api-error', notBefore: T + 60, createdAt: T, failed: false },
+]
+
 const row = (post: AdminPost): AdminPostRow => ({
   id: post.id,
   title: post.locales.en.draft?.title ?? post.locales.en.live?.title ?? '',
@@ -87,17 +118,91 @@ export const fixtureCmsFetch = (scenario: AdminScenario): typeof fetch => {
   let queued = 0
   let drains = 0
   let created = 0
+  const assets = scenario === 'admin-empty' ? [] : seedAssets()
+  const authors = scenario === 'admin-empty' ? [] : seedAuthors()
+  let purges = scenario === 'admin-empty' ? [] : seedPurges()
   return async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     const operation = url.split('/api/cms/')[1] ?? ''
-    const body = (init?.body ? JSON.parse(String(init.body)) : {}) as Record<string, unknown>
     if (scenario === 'admin-anon') return fail(401, 'Unauthenticated')
     if (scenario === 'admin-denied') return fail(403, 'PermissionDenied')
+    if (operation === 'assets') {
+      const blob = init?.body instanceof Blob ? init.body : null
+      if (blob === null || !['image/png', 'image/jpeg', 'image/webp'].includes(blob.type)) return fail(415, 'UnsupportedFileType')
+      const asset: AdminAsset = { id: `asset-${assets.length + 1}`, url: picture(assets.length * 70), mime: blob.type, bytes: blob.size, width: 1600, height: 900, alt: null, createdAt: T, inUse: false }
+      assets.unshift(asset)
+      return ok({ asset, duplicate: false })
+    }
+    const body = (init?.body ? JSON.parse(String(init.body)) : {}) as Record<string, unknown>
     const post = typeof body['postId'] === 'string' ? posts.get(body['postId']) : undefined
     const locale = body['locale'] as Locale
     switch (operation) {
       case 'listPurges':
-        return ok({ configured: scenario !== 'admin-nopurge', total: queued, failed: 0, rows: [] })
+        return ok({ configured: scenario !== 'admin-nopurge', total: queued + purges.length, failed: purges.filter((p) => p.failed).length, rows: body['limit'] === 1 ? purges.slice(0, 1) : purges })
+      case 'retryPurges':
+      case 'clearPurges': {
+        const ids = new Set(body['ids'] as Array<number>)
+        const hit = purges.filter((p) => p.failed && ids.has(p.id))
+        purges = purges.filter((p) => !hit.includes(p))
+        return ok(operation === 'retryPurges' ? { retried: hit.length, purge: { done: hit.length, failed: 0, dropped: 0, queued: 0, calls: 1 } } : { cleared: hit.length })
+      }
+      case 'purgeUrls': {
+        const list = body['urls'] as Array<string>
+        if (list.some((u) => !u.startsWith('https://'))) return fail(400, 'ValidationError')
+        return ok({ urls: list.length, purge: { done: list.length, failed: 0, dropped: 0, queued: list.length, calls: 1 } })
+      }
+      case 'purgeHost':
+        return ok({ hostname: 'staging.viz-cad.com', purge: { done: 1, failed: 0, dropped: 0, queued: 0, calls: 1 } })
+      case 'listAuthors':
+        return ok({ rows: authors, candidates: scenario === 'admin-empty' ? [{ userId: 'ada', name: 'Ada Lovelace', email: 'ada@example.com' }] : [{ userId: 'mert', name: 'Mert Kaya', email: 'mert@example.com' }] })
+      case 'saveAuthor': {
+        const existing = authors.find((a) => a.id === body['authorId'])
+        if (existing !== undefined && existing.revision !== body['revision']) return fail(409, 'ContentConflict')
+        if (body['slug'] === 'taken') return fail(409, 'SlugConflict')
+        const next: AdminAuthor = {
+          id: existing?.id ?? `author-${String(body['userId'])}`,
+          userId: String(body['userId']),
+          userEmail: existing?.userEmail ?? `${String(body['userId'])}@example.com`,
+          name: String(body['name']),
+          slug: (body['slug'] as string | null) ?? null,
+          avatar: null,
+          sameAs: body['sameAs'] as Array<string>,
+          translations: body['translations'] as AdminAuthor['translations'],
+          posts: existing?.posts ?? 0,
+          revision: T + 1,
+        }
+        if (existing === undefined) authors.push(next)
+        else authors.splice(authors.indexOf(existing), 1, next)
+        return ok({ id: next.id, revision: next.revision, purgeTargets: next.posts > 0 ? 6 : 0, purge: next.posts > 0 ? { done: 3, failed: 0, dropped: 0, queued: 3, calls: 1 } : null })
+      }
+      case 'deleteAuthor': {
+        const existing = authors.find((a) => a.id === body['authorId'])
+        if (existing === undefined) return fail(404, 'AuthorUnavailable')
+        if (existing.posts > 0) return fail(409, 'AuthorHasPosts')
+        authors.splice(authors.indexOf(existing), 1)
+        return ok({ deleted: true })
+      }
+      case 'listAssets':
+        return ok({ rows: assets, next: null })
+      case 'assetUsage': {
+        const asset = assets.find((a) => a.id === body['assetId'])
+        if (asset === undefined) return fail(404, 'AssetUnavailable')
+        return ok(asset.inUse ? { places: ['post'], posts: [{ id: 'post-1', title: 'STEP vs IGES: which neutral CAD format to send' }] } : { places: [], posts: [] })
+      }
+      case 'updateAssetAlt': {
+        const asset = assets.find((a) => a.id === body['assetId'])
+        if (asset === undefined) return fail(404, 'AssetUnavailable')
+        const alt = typeof body['alt'] === 'string' && body['alt'].trim() !== '' ? body['alt'].trim() : null
+        assets.splice(assets.indexOf(asset), 1, { ...asset, alt })
+        return ok({ alt })
+      }
+      case 'deleteAsset': {
+        const asset = assets.find((a) => a.id === body['assetId'])
+        if (asset === undefined) return fail(404, 'AssetUnavailable')
+        if (asset.inUse) return fail(409, 'AssetInUse', { fields: ['post'] })
+        assets.splice(assets.indexOf(asset), 1)
+        return ok({ deleted: true })
+      }
       case 'drainPurges':
         // The late (+60 s) rows are not due at the first drain: the queue answers unchanged, then empties.
         drains += 1

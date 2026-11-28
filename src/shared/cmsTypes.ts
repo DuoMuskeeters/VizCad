@@ -100,6 +100,8 @@ export interface AdminPost {
   readonly authors: ReadonlyArray<{ readonly userId: string; readonly name: string }>
   /** Locales whose blog is open (D9/K14): only these can be published. */
   readonly publishable: ReadonlyArray<Locale>
+  /** URLs of the OG images the translations and drafts name, by asset id (the SEO tab's preview). */
+  readonly images?: Readonly<Record<string, string>>
 }
 
 /** What `renderMarkdown` reported (docs/12 §4.3). */

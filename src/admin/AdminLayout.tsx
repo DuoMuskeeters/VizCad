@@ -1,6 +1,6 @@
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from '@tanstack/react-router'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft, DatabaseZap, FileText, Image, UserRound } from 'lucide-react'
 import { AppShell, SidebarNav, SidebarNavItem, SidebarSection } from '#/components/ui/AppShell'
 import { Button } from '#/components/ui/Button'
 import { Logo } from '#/components/ui/Logo'
@@ -74,6 +74,15 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
         <p className="px-2 pb-1 pt-2 text-xs font-medium text-text-3">{text.nav.label}</p>
         <SidebarNavItem asChild icon={<FileText />} current={pathname.startsWith('/admin/cms/posts')}>
           <AdminLink href={adminPaths.posts()}>{text.nav.posts}</AdminLink>
+        </SidebarNavItem>
+        <SidebarNavItem asChild icon={<UserRound />} current={pathname.startsWith('/admin/cms/authors')}>
+          <AdminLink href={adminPaths.authors()}>{text.nav.authors}</AdminLink>
+        </SidebarNavItem>
+        <SidebarNavItem asChild icon={<Image />} current={pathname.startsWith('/admin/cms/assets')}>
+          <AdminLink href={adminPaths.assets()}>{text.nav.assets}</AdminLink>
+        </SidebarNavItem>
+        <SidebarNavItem asChild icon={<DatabaseZap />} current={pathname.startsWith('/admin/cms/cache')}>
+          <AdminLink href={adminPaths.cache()}>{text.nav.cache}</AdminLink>
         </SidebarNavItem>
       </SidebarNav>
       <SidebarSection>
