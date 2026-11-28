@@ -263,11 +263,13 @@ describe('serveMarketing', () => {
     expect(cache.puts).toHaveLength(1)
   })
 
-  it('a response with Set-Cookie, a 404 or the opt-out header is passed through and never stored', async () => {
+  it('a response with Set-Cookie, a 404, a 5xx or the opt-out header is passed through and never stored', async () => {
     for (const response of [
       () => new Response('x', { headers: { 'set-cookie': 'a=1', 'cache-control': 'private, no-store' } }),
       () => new Response('missing', { status: 404 }),
       () => new Response('x', { headers: { [NO_STORE_HEADER]: '1' } }),
+      () => new Response(doc('/blog'), { status: 500, headers: { 'content-type': 'text/html', [NO_STORE_HEADER]: '1', 'cache-control': 'no-store' } }),
+      () => new Response(doc('/blog'), { status: 503, headers: { 'content-type': 'text/html' } }),
     ]) {
       const { serve, cache } = setup(undefined, response)
       const answer = await serve(get('/legal/terms'))
