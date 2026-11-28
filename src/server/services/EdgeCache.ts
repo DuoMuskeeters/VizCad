@@ -124,7 +124,8 @@ export const browserResponse = (response: Response, request: Request, cache: 'hi
   }
   // Only a hit answers 304. A miss has just made its validators: no browser can hold its ETag, and a date in the same
   // second as an older copy (purge, then re-render within that second) would wrongly confirm the old page.
-  if (cache === 'hit' && isNotModified(request, response.headers)) {
+  // Only a 200: a 304 tells the browser to reuse its stored body, which a 301 never gave it (RFC 9110 §15.4.5).
+  if (cache === 'hit' && response.status === 200 && isNotModified(request, response.headers)) {
     return withHeaders(response, (h) => {
       edit(h)
       h.delete('content-length')

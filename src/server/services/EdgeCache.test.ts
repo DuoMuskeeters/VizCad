@@ -338,4 +338,15 @@ describe('serveMarketing', () => {
     expect(hit.headers.get('location')).toBe('https://viz-cad.com/blog/new')
     expect(hit.headers.get('x-vizcad-cache')).toBe('hit')
   })
+
+  it('a stored 301 is never a 304, whatever validators the browser sends (304 confirms a 200 body only)', async () => {
+    const { serve } = setup(undefined, () => new Response(null, { status: 301, headers: { location: 'https://viz-cad.com/blog/new' } }))
+    const first = await serve(get('/blog/old'))
+    for (const headers of [{ 'if-none-match': first.headers.get('etag') ?? '' }, { 'if-none-match': '*' }, { 'if-modified-since': first.headers.get('last-modified') ?? '' }]) {
+      const hit = await serve(get('/blog/old', headers))
+      expect(hit.headers.get('x-vizcad-cache')).toBe('hit')
+      expect(hit.status).toBe(301)
+      expect(hit.headers.get('location')).toBe('https://viz-cad.com/blog/new')
+    }
+  })
 })
