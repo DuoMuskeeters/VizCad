@@ -1137,3 +1137,9 @@ Staging test hesabı (`staging-uploader@vizcad.test`) yalnız staging'de `role='
   - **hit:** medyan 1 ms, en çok 23 ms (ilk istek).
   - **miss:** medyan **36 ms**, en çok 216 ms (25, 116, 37, 20, 216, 35, 34, 60).
   - **Sonuç: §7.5 bütçesi (miss ≤ 8 ms) aşılıyor.** Workers Free'nin 10 ms sınırında production'da her miss `exceededCpu` riski taşıyor; staging şimdilik burst kredisiyle 200 dönüyor. Yalnız hit yolu bütçe içinde. Karar kullanıcıda (K6): Workers Paid (ayda 5 $) ya da miss yolunun ciddi biçimde hafifletilmesi (SSR, Effect katmanı, D1 sorgu sayısı). Geçişten önce çözülmeli.
+
+### 6c-2 staging kabulü · ilk tur (28 Kasım 2026, 4dcb48f)
+- **Adresler:** deploy temiz. `/admin`, blog, yazı ve yazar sayfaları 200 dönüyor.
+- **Görsel yükleme** (admin oturumuyla, `content-type: image/png`): 800×500 PNG kabul edildi. Anahtarı `blog/a/{id}.png`, URL'si eski `/api/blog/image/...` biçiminde ve 200 `image/png` dönüyor. Aynı dosya ikinci kez yüklenince aynı kayıt geldi (SHA ile tekilleştirme çalışıyor). PNG gibi gösterilen bir SVG 415 ile reddedildi.
+- **Not:** `multipart/form-data` CSRF kontrolünde reddediliyor. Bu bilerek böyle: uç ham gövde bekliyor, admin istemcisi de dosyayı kendi türüyle gönderiyor.
+- **Bekleyen:** yazar ekranı, önbellek ekranı ve editörde görsel seçicinin tarayıcıda gözle kontrolü.
