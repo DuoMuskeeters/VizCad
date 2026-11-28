@@ -175,8 +175,12 @@ export const pickRelated = <C extends Scored>(post: Scored, candidates: Readonly
     .slice(0, RELATED_POSTS)
     .map((entry) => entry.candidate)
 
-const httpsLinks = (links: Readonly<Record<string, string>> | null): ReadonlyArray<string> =>
-  Object.values(links ?? {}).filter((url) => typeof url === 'string' && /^https:\/\/[^/\\]/i.test(url))
+/**
+ * The author's https profile links (`sameAs`). A link must also parse as a URL: the page shows its hostname, and a
+ * legacy value such as `https://exa mple.com` passes the prefix check but makes `new URL` throw while rendering.
+ */
+export const httpsLinks = (links: Readonly<Record<string, string>> | null): ReadonlyArray<string> =>
+  Object.values(links ?? {}).filter((url) => typeof url === 'string' && /^https:\/\/[^/\\]/i.test(url) && URL.canParse(url))
 
 const authorTranslation = alias(schema.authorTranslations, 'author_tr')
 

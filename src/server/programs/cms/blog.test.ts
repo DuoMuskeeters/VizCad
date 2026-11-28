@@ -173,6 +173,21 @@ describe('getPublicAuthor', () => {
       }),
     ),
   )
+
+  it.effect('a social link that passes the https prefix but does not parse is dropped (the page renders its hostname)', () =>
+    run(
+      Effect.gen(function* () {
+        yield* seedAuthor('ada', { socialLinks: { web: 'https://exa mple.com', x: 'https://x.com/ada', bad: 'https://[::1' } })
+        yield* seedPost({ id: 'p1', slug: 'by-ada', authorId: 'ada' })
+        const page = yield* getPublicAuthor('en', 'ada')
+        assert.deepStrictEqual(page.author.sameAs, ['https://x.com/ada'])
+        // Every kept link renders: the author page calls `new URL(href).hostname` during SSR.
+        assert.deepStrictEqual(page.author.sameAs.map((href) => new URL(href).hostname), ['x.com'])
+        const post = yield* getPublicPost('en', 'by-ada')
+        assert.deepStrictEqual(post.kind === 'post' ? post.post.authorDetail?.sameAs : null, ['https://x.com/ada'])
+      }),
+    ),
+  )
 })
 
 describe('sitemapPosts and latestPosts', () => {

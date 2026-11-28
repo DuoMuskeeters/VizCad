@@ -5,6 +5,7 @@
  *
  * Rules (§7.1): the key is the site host + path + `?v={BUILD_ID}`; a miss renders a sanitized request (same path, no
  * query, no cookies, no headers, GET); only a GET miss with a cacheable response fills the cache; HEAD never does.
+ * An HTML 200 is stored only when its render completed (`isCompleteHtml`); otherwise the visitor gets a 500.
  * A cache failure is a miss and never breaks the page.
  */
 import { isMarketingPath, NO_STORE_HEADER } from '#/shared/marketingRoutes'
@@ -157,22 +158,58 @@ export const serveMarketing = (request: Request, key: string, deps: EdgeCacheDep
     )
     .then((hit) => (hit !== undefined ? browserResponse(hit, request, 'hit') : miss(request, key, deps)))
 
+/**
+ * Whether a rendered HTML document finished without a render error (§7.1). React commits the 200 before the body is
+ * done, so an exception while streaming still answers 200: an empty or cut-off body (no closing `</html>`), or a
+ * complete document in which React marked a boundary as failed and left it to the client (`<!--$!-->` inline, or a
+ * late `$RX("…")` instruction). Such a page must never be stored for a day.
+ */
+export const isCompleteHtml = (html: string): boolean =>
+  /<\/html>\s*$/i.test(html) && !html.includes('<!--$!-->') && !html.includes('$RX("')
+
+const isHtml = (response: Response) => (response.headers.get('content-type') ?? '').toLowerCase().startsWith('text/html')
+
+/** What a broken render answers instead of its 200: a 500 that nothing stores, the browser included. */
+export const brokenRenderResponse = (): Response =>
+  new Response('Something went wrong. Try again in a moment.', {
+    status: 500,
+    headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', [CACHE_STATUS_HEADER]: 'miss' },
+  })
+
+/**
+ * The rendered response with its whole body read, or null when the render did not complete: a stream that errors, or
+ * an HTML 200 that `isCompleteHtml` rejects. Only responses that could be stored are read (the rest pass through).
+ */
+const completed = (rendered: Response): Promise<Response | null> => {
+  if (rendered.status !== 200 || !isHtml(rendered)) return Promise.resolve(rendered)
+  return rendered.text().then(
+    (html) => (isCompleteHtml(html) ? new Response(html, { status: rendered.status, statusText: rendered.statusText, headers: rendered.headers }) : null),
+    () => null,
+  )
+}
+
 const miss = (request: Request, key: string, deps: EdgeCacheDeps): Promise<Response> =>
   deps.render(sanitizeForSsr(request)).then((rendered) => {
     if (!isCacheableResponse(rendered)) {
       // Not storable (404, Set-Cookie, opt-out): passed through with its own Cache-Control.
       return withHeaders(rendered, (h) => h.set(CACHE_STATUS_HEADER, 'miss'), request.method === 'HEAD' ? null : rendered.body)
     }
-    if (!isCacheable(request, rendered)) return browserResponse(rendered, request, 'miss')
-    const stored = edgeCopy(rendered, deps.buildId, deps.now())
-    const copy = stored.clone()
-    deps.waitUntil(
-      Promise.resolve()
-        .then(() => deps.cache.put(new Request(key), copy))
-        .then(
-          () => undefined,
-          () => deps.log('edge-cache.put-failed'),
-        ),
-    )
-    return browserResponse(stored, request, 'miss')
+    return completed(rendered).then((complete) => {
+      if (complete === null) {
+        deps.log('edge-cache.render-incomplete')
+        return brokenRenderResponse()
+      }
+      if (!isCacheable(request, complete)) return browserResponse(complete, request, 'miss')
+      const stored = edgeCopy(complete, deps.buildId, deps.now())
+      const copy = stored.clone()
+      deps.waitUntil(
+        Promise.resolve()
+          .then(() => deps.cache.put(new Request(key), copy))
+          .then(
+            () => undefined,
+            () => deps.log('edge-cache.put-failed'),
+          ),
+      )
+      return browserResponse(stored, request, 'miss')
+    })
   })

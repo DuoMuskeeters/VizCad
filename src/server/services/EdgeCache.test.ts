@@ -44,7 +44,7 @@ const fakeApp = (respond?: (request: Request) => Response) => {
     const url = new URL(request.url)
     if (request.headers.has('cookie')) return Promise.resolve(new Response('signed-in header', { status: 200 }))
     if (url.search !== '') return Promise.resolve(new Response(null, { status: 301, headers: { location: '/elsewhere' } }))
-    return Promise.resolve(new Response(`<h1>${url.pathname}</h1>`, { status: 200, headers: { 'content-type': 'text/html', 'cache-control': 'private' } }))
+    return Promise.resolve(new Response(doc(url.pathname), { status: 200, headers: { 'content-type': 'text/html', 'cache-control': 'private' } }))
   }
   return { render, seen }
 }
@@ -71,6 +71,9 @@ const setup = (cacheOptions?: Parameters<typeof fakeCache>[0], respond?: (reques
   }
   return { serve, cache, app, logs }
 }
+
+/** A complete document, as a finished SSR render ends (`</html>`). */
+const doc = (path: string) => `<!DOCTYPE html><html><body><h1>${path}</h1></body></html>`
 
 const get = (path: string, headers: Record<string, string> = {}) => new Request(`https://viz-cad.com${path}`, { headers })
 
@@ -169,7 +172,7 @@ describe('serveMarketing', () => {
     const first = await serve(get('/pricing'))
     expect(first.headers.get('x-vizcad-cache')).toBe('miss')
     expect(first.headers.get('cache-control')).toBe(BROWSER_CACHE_CONTROL)
-    expect(await first.text()).toBe('<h1>/pricing</h1>')
+    expect(await first.text()).toBe(doc('/pricing'))
 
     const stored = cache.store.get('https://viz-cad.com/pricing?v=abc1234.mf2k')
     expect(stored?.headers.get('cache-control')).toBe(EDGE_CACHE_CONTROL)
@@ -183,7 +186,7 @@ describe('serveMarketing', () => {
     expect(second.headers.get('cache-control')).toBe(BROWSER_CACHE_CONTROL)
     expect(second.headers.get('etag')).toBe(first.headers.get('etag'))
     expect(second.headers.get('last-modified')).toBe(first.headers.get('last-modified'))
-    expect(await second.text()).toBe('<h1>/pricing</h1>')
+    expect(await second.text()).toBe(doc('/pricing'))
     expect(app.seen).toHaveLength(1)
   })
 
@@ -213,7 +216,7 @@ describe('serveMarketing', () => {
     expect((await serve(new Request('https://viz-cad.com/blog', { method: 'HEAD', headers: { 'if-modified-since': lastModified } }))).status).toBe(304)
     const older = await serve(get('/blog', { 'if-modified-since': 'Thu, 01 Jan 2026 00:00:00 GMT' }))
     expect(older.status).toBe(200)
-    expect(await older.text()).toBe('<h1>/blog</h1>')
+    expect(await older.text()).toBe(doc('/blog'))
   })
 
   it('a miss never answers 304: a purge and re-render in the same second must not confirm the old page', async () => {
@@ -224,7 +227,7 @@ describe('serveMarketing', () => {
     const afterPurge = await serve(get('/blog', { 'if-modified-since': before.headers.get('last-modified') ?? '', 'if-none-match': '*' }))
     expect(afterPurge.headers.get('x-vizcad-cache')).toBe('miss')
     expect(afterPurge.status).toBe(200)
-    expect(await afterPurge.text()).toBe('<h1>/blog</h1>')
+    expect(await afterPurge.text()).toBe(doc('/blog'))
   })
 
   it('poisoning: a cookie and query on the first request never reach the render or the shared key', async () => {
@@ -238,7 +241,7 @@ describe('serveMarketing', () => {
     const bare = await serve(get('/blog'))
     expect(bare.status).toBe(200)
     expect(bare.headers.get('x-vizcad-cache')).toBe('hit')
-    expect(await bare.text()).toBe('<h1>/blog</h1>')
+    expect(await bare.text()).toBe(doc('/blog'))
   })
 
   it('HEAD: a miss renders without storing and answers without a body; the following GET is a miss with the full body', async () => {
@@ -251,7 +254,7 @@ describe('serveMarketing', () => {
 
     const firstGet = await serve(get('/contact'))
     expect(firstGet.headers.get('x-vizcad-cache')).toBe('miss')
-    expect(await firstGet.text()).toBe('<h1>/contact</h1>')
+    expect(await firstGet.text()).toBe(doc('/contact'))
 
     const headHit = await serve(new Request('https://viz-cad.com/contact', { method: 'HEAD' }))
     expect(headHit.headers.get('x-vizcad-cache')).toBe('hit')
@@ -278,8 +281,51 @@ describe('serveMarketing', () => {
     const broken = setup({ failMatch: true, failPut: true })
     const response = await broken.serve(get('/'))
     expect(response.status).toBe(200)
-    expect(await response.text()).toBe('<h1>/</h1>')
+    expect(await response.text()).toBe(doc('/'))
     expect(broken.logs).toEqual(['edge-cache.match-failed', 'edge-cache.put-failed'])
+  })
+
+  it('an SSR render that broke after the 200 (empty, cut off, a failed boundary, a failing stream) is a 500 and never stored', async () => {
+    const html = { 'content-type': 'text/html; charset=utf-8' }
+    const failing = () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('<!DOCTYPE html><html><body>'))
+            controller.error(new Error('render failed'))
+          },
+        }),
+        { headers: html },
+      )
+    for (const response of [
+      () => new Response('', { headers: html }),
+      () => new Response('<!DOCTYPE html><html><body><h1>half', { headers: html }),
+      () => new Response('<!DOCTYPE html><html><body><!--$!--><template data-dgst="x"></template><!--/$--></body></html>', { headers: html }),
+      () => new Response('<!DOCTYPE html><html><body><div hidden id="S:0"></div><script>$RX("B:0","x")</script></body></html>', { headers: html }),
+      failing,
+    ]) {
+      const { serve, cache, logs } = setup(undefined, response)
+      const answer = await serve(get('/authors/ada'))
+      expect(answer.status).toBe(500)
+      expect(answer.headers.get('cache-control')).toBe('no-store')
+      expect(answer.headers.get('x-vizcad-cache')).toBe('miss')
+      expect(cache.puts).toEqual([])
+      expect(logs).toEqual(['edge-cache.render-incomplete'])
+      // The next request renders again instead of reading a stored blank page.
+      await serve(get('/authors/ada'))
+      expect(cache.puts).toEqual([])
+    }
+  })
+
+  it('a complete document (trailing whitespace allowed) and a non-HTML 200 are stored', async () => {
+    for (const response of [
+      () => new Response(`${doc('/blog')}\n`, { headers: { 'content-type': 'text/html' } }),
+      () => new Response('User-agent: *', { headers: { 'content-type': 'text/plain' } }),
+    ]) {
+      const { serve, cache } = setup(undefined, response)
+      expect((await serve(get('/blog'))).status).toBe(200)
+      expect(cache.puts).toHaveLength(1)
+    }
   })
 
   it('a 301 from the page is stored and served as a hit', async () => {
