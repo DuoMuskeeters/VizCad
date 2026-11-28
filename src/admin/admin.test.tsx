@@ -8,6 +8,7 @@ import { UiProvider } from '#/components/ui/UiProvider'
 import { I18nProvider } from '#/i18n'
 import { AdminLayout } from './AdminLayout'
 import { type AdminScenario, fixtureCmsFetch } from './fixture'
+import type { AdminPost } from '#/shared/cmsTypes'
 import { PostEditor } from './PostEditor'
 import { PostsPage } from './PostsPage'
 
@@ -136,7 +137,17 @@ describe('post editor', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('Someone else changed this post. Reload to see their version.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
+    // Reload shows their version: the server's copy now has another title.
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await fetcher(input, init)
+      if (!String(input).endsWith('/getPostAdmin')) return response
+      const body = (await response.json()) as { data: AdminPost }
+      const tr = body.data.locales.tr
+      return Response.json({ ok: true, data: { ...body.data, locales: { ...body.data.locales, tr: { ...tr, draft: tr.draft && { ...tr.draft, title: 'Their title' }, revision: 5 } } } })
+    })
+    await user.click(screen.getByRole('button', { name: 'Reload' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Their title'))
+    expect(screen.queryByText('Someone else changed this post. Reload to see their version.')).not.toBeInTheDocument()
   })
 
   it('Save details keeps unsaved text of the translation, with its old revision', async () => {

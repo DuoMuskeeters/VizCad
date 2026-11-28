@@ -95,7 +95,11 @@ export const PostEditor = ({ postId, locale }: { postId: string; locale: Locale 
   const navigate = useNavigate()
   const [load, setLoad] = useState<Load>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
-  const reload = useCallback(() => setAttempt((n) => n + 1), [])
+  // Back to loading first: the editor remounts only with the fetched post, never with the stale one.
+  const reload = useCallback(() => {
+    setLoad({ status: 'loading' })
+    setAttempt((n) => n + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
