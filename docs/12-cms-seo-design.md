@@ -712,7 +712,7 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 - **`materializeLegacyTranslations`** (`scripts/`, Node).
   - Yayındaki ve arşivdeki yazılar `post_translations(en)`'e, taslaklar `post_drafts(en)`'e yazılır (revision 0, görünmez). `INSERT … ON CONFLICT DO NOTHING` ile idempotent.
   - `--source-wins` yalnız `posts.updatedAt` daha yeni olan satırları günceller ve `publishedAt`'e dokunmaz. Aynı saniye olup metni farklı olan satırlar (başlık, özet, slug, içerik uzunluğu) raporda ayrı listelenir.
-  - **D1 ifade sınırı (100 KB).** Uzun yazı parçalı yazılır. Satır `readTimeMin = -1` ile başlar (taslakta `revision = 2147483647`), içerik ≤ 60 KB'lık parçalarla eklenir, son ifade gerçek değeri koyar. Var olan bir satır bu korumayla hiç eşleşmez. Yarıda kalan çalışma bir sonraki çalışmanın ilk ifadesiyle silinip yeniden yazılır. Genel okumalar `readTimeMin > 0` şartı arar, yarım satır görünmez.
+  - **D1 ifade sınırı (100 KB).** Uzun yazı parçalı yazılır. Satır `readTimeMin = -1` ile başlar (taslakta `revision = 2147483647`), içerik ≤ 60 KB'lık parçalarla eklenir, son ifade gerçek değeri koyar. Var olan bir satır bu korumayla hiç eşleşmez. Yarıda kalan çalışmanın çeviri satırı bir sonraki çalışmada UPDATE ile yerinde tamamlanır (inceleme düzeltmesi 7); yarım taslak satırı silinip yeniden yazılır. Genel okumalar `readTimeMin > 0` şartı arar, yarım satır görünmez.
   - Başlık > 120 ya da özet > 300 olan yazı kopyalanmaz, `rejected` olarak raporlanır (tablo kontrolü).
   - Yazar slug'ları addan üretilir (`-2` çakışmada), yalnız `slug IS NULL` satırlara.
   - Rapor: ham HTML etiketleri, kuraldışı slug'lar, düşen bağlantılar, dış görseller. Doğrulama sorguları `publishedWithoutEn` ve `halfWritten` 0 olmalı (cutover kapısı).
@@ -764,4 +764,29 @@ Bu PR 6a'nın altyapı çekirdeğidir: migration, önbellek servisleri, kuyruk, 
 - `renderMarkdown` CPU kapısı ölçümü (§7.5 madde 1) admin uçlarıyla 6c'de; Worker içinde ilk kez orada çalışacak.
 - Blog görselleri Cloudflare önbelleğinde değil.
 - 6b-2: uygulama yönlendirmeleri (`/dashboard`, `/file/{id}`, `/login`, `/signup`, `/ModelSnap`, `/author/{userId}`), router'dan üretilen rota gölgeleme testi, `/dev/cms-probe`'un kaldırılması.
+
+### 6b-1 · İnceleme düzeltmeleri (PR #33)
+Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alınarak denendi).
+
+1. **Bozuk sosyal bağlantı yazar sayfasını boşaltıyordu.** `{"web":"https://exa mple.com"}` önek kontrolünden geçiyor, SSR'da `new URL` atıyordu; 200 ve boş gövde önbelleğe girebiliyordu.
+   - `httpsLinks` artık `URL.canParse` da istiyor (`programs/cms/blog.ts`).
+   - **Genel koruma** (`services/EdgeCache.ts`, `isCompleteHtml`): ıskada HTML 200'ün gövdesi tamamen okunur. Yalnız `</html>` ile biten ve React'in hatalı sınır işareti taşımayan (`<!--$!-->`, `$RX("`) belge saklanır. Akış hata verirse, gövde boş ya da yarımsa ziyaretçi `500` + `no-store` alır, hiçbir şey saklanmaz, log `edge-cache.render-incomplete`.
+   - Yerelde doğrulandı (`pnpm build` + `vite preview`, yerel D1): gerçek sayfalar `</body></html>` ile bitiyor, işaret yok, ikinci istek `hit`. Bozuk bağlantılı yazar sayfası 200 dönüyor ve yalnız `x.com` listeleniyor.
+   - Bedel: ıskada HTML akışla değil, tamamı okunduktan sonra gider (sayfalar ~15 KB). İsabet değişmedi.
+2. **Sunucu hatası 200 "Something broke" veriyordu.** `markGone` yerine `markStatus` (`components/marketing/blog/data.ts`): 410 ve 500 SSR yanıtına yazılır; 404 rotanın `notFound()`'u olarak kalır. Hata sonucu `x-vizcad-no-store` + `no-store` taşır; edge cache yalnız 200/301 saklar. Yerelde ConfigError artık 500 döndü.
+3. **İlgili yazılar ve temizleme uyuşmuyordu.** `pickRelated` yalnız puanı > 0 olanları alır (ortak kategori ya da etiket), `affectedUrls`'in `sharesTopic` kuralıyla aynı. Ortak konusu olmayan yazı ilgili listesine girmez; liste 3'ten kısa olabilir.
+4. **Script doğrulama başarısızken 0 ile çıkıyordu.** `materializeVia` sayıları ve başarısız kontrolleri döner (`failedChecks`: tam 0 olmayan her sayı, NaN dahil). `--local` ve `staging.ts materialize` raporu basar ve başarısızlıkta 1 ile çıkar.
+5. **Kötü niyetli girdi 404 alıyor, 500 değil.**
+   - `BLOG_PAGE_MAX = 10000` ve `BLOG_SLUG_MAX = 1024` (`shared/marketingRoutes.ts`) rota ve sunucu tarafından ortak kullanılır.
+   - `/blog/page/$page` her sayfa numarasıyla eşleşir; sınır dışında loader `notFound()` atar (10001–99999 artık 404). Slug sınırı yazı ve yazar loader'larında da aynı.
+   - El yazısı doğrulayıcılar (`throw`) kaldırıldı. Sunucu fonksiyonları ham veriyi `http/blogPages.ts`'e verir; orada `Schema` (`ListInput`, `SlugInput`) çözer, geçersiz girdi D1'e gitmeden 404 olur. `data.ts` istemciye ulaştığı için Effect içermez.
+   - Legacy slug sınırı 200'den 1024'e çıktı: listelenen uzun legacy slug artık açılıyor.
+6. **Bozuk UTF-8 kaçışı `URIError` atıyordu.** `server/uri.ts` `decodeComponent`: hiç atmaz, sonuçta U+FFFD varsa null. `blogImageKey` (markdown, script) ve `blogImageKeyOf` (görsel rotası) bunu kullanır. `![x](/api/blog/image/blog%2F%FF.png)` artık script'i durdurmuyor; rota 404 veriyor.
+7. **Script yeniden çalıştırma durumları.**
+   - Yarım çeviri satırı (`readTimeMin = -1`) artık silinip yeniden eklenmiyor; `repair` kipindeki UPDATE ile tamamlanıyor (`halfWrittenRepaired`). Yarıda kalan `--source-wins` böylece `publishedAt`, `coverAlt` ve `ogAssetId`'yi koruyor.
+   - Önceki çalışmanın kopyaladığı taslak (revision 0, `updatedByUserId IS NULL`) legacy'de sonradan yayınlandıysa `en` satırı yazıldıktan sonra silinir (`supersededDraftsRemoved`). Editörün dokunduğu taslak kalır ve raporlanır (`supersededDraftsKept`). Dışa aktarma sorgusu `scriptCopy` sütununu da okur.
+8. **`fitsInOne` kaçışlanmış boyutu ölçüyor.** Tırnak yoğun yazı (2×28 000 tırnak) artık tek ifadeye sığdırılmıyor; her ifade < 100 KB.
+9. **`/tr/blog` 404 sayfası kendine bağlanıyordu.** `blogHomePath`: `blogLocales` dışındaki dilde `en` blog listesine bağlanır.
+10. **Arşivlenmiş yazının eski slug'ı 404 veriyordu.** Yönlendirme sorgusu artık durumu da okur: arşiv → 410 (`PostGone`), görünür → 301, diğerleri 404.
+11. **Önbellekteki 301 304 verebiliyordu.** `browserResponse` yalnız `status === 200` iken 304 döner.
 
