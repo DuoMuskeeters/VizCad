@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 /** Admin CMS API: every method lands here; src/server/http/cms.ts answers 404 for unknown operations and 403 for non-POST. */
 const cms = async ({ request }: { request: Request }) => {
   // Server-only modules are loaded here so they never reach the client bundle.
-  const [{ env }, { handleCms }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cms')])
+  const [{ env }, { handleCms }] = await Promise.all([import('cloudflare:workers'), import('#/server/http/entry.cmsAdmin')])
   return handleCms(request, env)
 }
 

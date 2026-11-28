@@ -43,7 +43,7 @@ const enRow = alias(schema.postTranslations, 'en_row')
  * A joined column under its own SQL name. D1 returns batch rows as objects, so two selected columns with the same name
  * (`slug`, `r2Key`, `width`, …) would collapse into one and shift every later field. Plain (non-JSON) columns only.
  */
-const named = <T>(column: AnyColumn, name: string) => sql<T>`${column}`.as(name)
+export const named = <T>(column: AnyColumn, name: string) => sql<T>`${column}`.as(name)
 
 /** `/api/blog/image/{encodeURIComponent(r2Key)}` (legacy shape, docs/12 §7.3). */
 export const blogImagePath = (r2Key: string) => `/api/blog/image/${encodeURIComponent(r2Key)}`
@@ -59,7 +59,7 @@ export const safeImageUrl = (raw: string | null): string | null => {
 const requireBlogLocale = (locale: Locale) => blogLocales.includes(locale)
 
 /** The visibility rule as SQL for translation rows `t` in `locale` (§2). */
-const visible = (locale: Locale): SQL => {
+export const visible = (locale: Locale): SQL => {
   const own = and(eq(t.locale, locale), eq(p.status, 'published'), gt(t.readTimeMin, 0))
   if (locale === 'en') return own ?? sql`1`
   return and(own, sql`EXISTS (SELECT 1 FROM ${schema.postTranslations} AS x WHERE x."postId" = ${t.postId} AND x."locale" = 'en' AND x."readTimeMin" > 0)`) ?? sql`1`

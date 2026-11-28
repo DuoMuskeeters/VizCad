@@ -10,6 +10,7 @@ import { CachePurges, memoryWith, type MemoryOptions } from '../services/Cache'
 import { Db } from '../services/Db'
 import * as DbMemory from '../services/Db.memory'
 import * as RateLimit from '../services/RateLimit'
+import { seedAuthor } from '../testing/blog'
 import { rows, T0 } from '../testing/fixtures'
 import { fromUnixSeconds } from '../time'
 import { type CmsServices, cmsOperationNames, cmsResponse } from './cms'
@@ -36,7 +37,7 @@ const call = (request: Request) =>
   Effect.gen(function* () {
     const context = yield* Effect.context<CmsServices>()
     const response = yield* cmsResponse(request, Layer.succeedContext(context), meta)
-    const body = yield* Effect.promise(() => response.json() as Promise<{ ok: boolean; data?: unknown; error?: string; reason?: string }>)
+    const body = yield* Effect.promise(() => response.json() as Promise<{ ok: boolean; data?: unknown; error?: string; reason?: string; fields?: Array<string>; field?: string; max?: number }>)
     return { status: response.status, body, headers: response.headers }
   })
 
@@ -61,8 +62,11 @@ const run = <A, E, R>(body: Effect.Effect<A, E, R>, cache: MemoryOptions = {}, c
 const purgeCalls = CachePurges.use(Ref.get)
 
 describe('POST /api/cms/<operation>', () => {
-  it('has exactly the operations 6a needs', () => {
-    assert.deepStrictEqual([...cmsOperationNames].sort(), ['drainPurges', 'listPurges', 'purgeHost', 'purgeUrls'])
+  it('has exactly the operations of 6a (cache) and 6c (posts)', () => {
+    assert.deepStrictEqual([...cmsOperationNames].sort(), [
+      'archivePost', 'createPost', 'deletePost', 'drainPurges', 'getPostAdmin', 'listPostsAdmin', 'listPurges', 'previewDraft',
+      'publishTranslation', 'purgeHost', 'purgeUrls', 'restorePost', 'saveDraft', 'unpublishTranslation', 'updatePostMeta',
+    ])
   })
 
   it.effect('unknown operations (including prototype keys) are 404, before CSRF and session', () =>
@@ -211,8 +215,49 @@ describe('POST /api/cms/<operation>', () => {
       assert.strictEqual((yield* call(post('listPurges', {}))).status, 200)
     }), {}, { rateLimits: { ...AppConfig.defaultRateLimits, cmsWrite: { target: { limit: 2, windowSeconds: 3600 }, ip: { limit: 100, windowSeconds: 3600 } } } }))
 
+  it.effect('posts over HTTP: create, save, publish; editor hints (PublishBlocked reason and fields, TextTooLong field) reach the client', () =>
+    run(Effect.gen(function* () {
+      yield* seedAuthor('admin')
+      const created = yield* call(post('createPost', { title: 'Hello' }))
+      assert.strictEqual(created.status, 200)
+      const { postId, revision } = created.body.data as { postId: string; revision: number }
+      const fields = { slug: 'Bad Slug', title: 'Hello', excerpt: '', contentMd: 'Body', metaTitle: null, metaDescription: null, keywords: [], coverAlt: null, ogAssetId: null }
+      const saved = yield* call(post('saveDraft', { postId, locale: 'en', fields, revision }))
+      assert.strictEqual(saved.status, 200)
+      const next = (saved.body.data as { revision: number }).revision
+      const blocked = yield* call(post('publishTranslation', { postId, locale: 'en', revision: next }))
+      assert.strictEqual(blocked.status, 422)
+      assert.deepInclude(blocked.body, { error: 'PublishBlocked', reason: 'invalid-fields', fields: ['slug', 'excerpt'] })
+      const stale = yield* call(post('saveDraft', { postId, locale: 'en', fields, revision }))
+      assert.strictEqual(stale.status, 409)
+      assert.strictEqual(stale.body.error, 'ContentConflict')
+      const long = yield* call(post('saveDraft', { postId, locale: 'en', fields: { ...fields, title: 'x'.repeat(121) }, revision: next }))
+      assert.strictEqual(long.status, 422)
+      assert.deepInclude(long.body, { error: 'TextTooLong', field: 'title', max: 120 })
+      const good = yield* call(post('saveDraft', { postId, locale: 'en', fields: { ...fields, slug: 'hello', excerpt: 'x' }, revision: next }))
+      const live = yield* call(post('publishTranslation', { postId, locale: 'en', revision: (good.body.data as { revision: number }).revision }))
+      assert.strictEqual(live.status, 200)
+      assert.deepStrictEqual((live.body.data as { urls: string[] }).urls, ['/blog/hello'])
+      const closed = yield* call(post('publishTranslation', { postId, locale: 'tr', revision: 0 }))
+      assert.deepInclude(closed.body, { error: 'PublishBlocked', reason: 'locale-closed' })
+      assert.strictEqual((yield* call(post('getPostAdmin', { postId: 'missing' }))).status, 404)
+    })))
+
+  it.effect('post bodies: a draft may carry its markdown (up to 192 KiB), other operations stay at 16 KiB; unknown locales are 400', () =>
+    run(Effect.gen(function* () {
+      const fields = { slug: 's', title: 't', excerpt: '', contentMd: 'x'.repeat(40 * 1024), metaTitle: null, metaDescription: null, keywords: [], coverAlt: null, ogAssetId: null }
+      // Over the content limit but under the body cap: the program answers TextTooLong (shown under the field).
+      const big = yield* call(post('saveDraft', { postId: 'p', locale: 'en', fields, revision: 0 }))
+      assert.strictEqual(big.status, 422)
+      assert.strictEqual(big.body.error, 'TextTooLong')
+      assert.strictEqual((yield* call(post('saveDraft', { postId: 'p', locale: 'en', fields: { ...fields, contentMd: 'x'.repeat(200 * 1024) }, revision: 0 }))).status, 413)
+      assert.strictEqual((yield* call(post('createPost', { title: 'x'.repeat(20 * 1024) }))).status, 413)
+      assert.strictEqual((yield* call(post('previewDraft', { postId: 'p', locale: 'xx' }))).status, 400)
+      assert.strictEqual((yield* call(post('saveDraft', { postId: 'p', locale: 'en', fields: { ...fields, extra: 1 }, revision: 0 }))).status, 400)
+    })))
+
   it('every error the dispatcher can raise has a status', () => {
-    for (const tag of ['ValidationError', 'PayloadTooLarge', 'CsrfRejected', 'Unauthenticated', 'PermissionDenied', 'RateLimitExceeded', 'RateLimitError', 'CacheError', 'DbError', 'ConfigError', 'AuthError', 'ResourceUnavailable'] as const) {
+    for (const tag of ['ValidationError', 'PayloadTooLarge', 'CsrfRejected', 'Unauthenticated', 'PermissionDenied', 'RateLimitExceeded', 'RateLimitError', 'CacheError', 'DbError', 'ConfigError', 'AuthError', 'ResourceUnavailable', 'ContentConflict', 'SlugConflict', 'PublishBlocked', 'TextTooLong', 'AssetUnavailable', 'PostUnavailable', 'AuthorUnavailable'] as const) {
       assert.isNumber(STATUS[tag], tag)
     }
   })

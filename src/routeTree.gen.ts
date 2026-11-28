@@ -21,6 +21,7 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as Char123LocaleChar125RouteRouteImport } from './routes/{-$locale}/route'
+import { Route as AdminSplatRouteImport } from './routes/admin.$'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppActivityRouteImport } from './routes/app.activity'
@@ -121,6 +122,11 @@ const Char123LocaleChar125RouteRoute =
     path: '/{-$locale}',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminSplatRoute = AdminSplatRouteImport.update({
+  id: '/admin/$',
+  path: '/admin/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -333,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/$': typeof AdminSplatRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
   '/app/settings': typeof AppSettingsRoute
@@ -383,6 +390,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/$': typeof AdminSplatRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
   '/app/settings': typeof AppSettingsRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin/$': typeof AdminSplatRoute
   '/api/health': typeof ApiHealthRoute
   '/app/activity': typeof AppActivityRoute
   '/app/settings': typeof AppSettingsRoute
@@ -490,6 +499,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/$'
     | '/api/health'
     | '/app/activity'
     | '/app/settings'
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/$'
     | '/api/health'
     | '/app/activity'
     | '/app/settings'
@@ -592,6 +603,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/sitemap.xml'
     | '/verify-email'
+    | '/admin/$'
     | '/api/health'
     | '/app/activity'
     | '/app/settings'
@@ -645,6 +657,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  AdminSplatRoute: typeof AdminSplatRoute
   ApiHealthRoute: typeof ApiHealthRoute
   AuthorUserIdRoute: typeof AuthorUserIdRoute
   GuestInviteTokenRoute: typeof GuestInviteTokenRoute
@@ -754,6 +767,13 @@ declare module '@tanstack/react-router' {
       path: '/{-$locale}'
       fullPath: '/{-$locale}'
       preLoaderRoute: typeof Char123LocaleChar125RouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/$': {
+      id: '/admin/$'
+      path: '/admin/$'
+      fullPath: '/admin/$'
+      preLoaderRoute: typeof AdminSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -1090,6 +1110,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  AdminSplatRoute: AdminSplatRoute,
   ApiHealthRoute: ApiHealthRoute,
   AuthorUserIdRoute: AuthorUserIdRoute,
   GuestInviteTokenRoute: GuestInviteTokenRoute,

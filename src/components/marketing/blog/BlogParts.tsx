@@ -22,8 +22,6 @@ export const initials = (name: string): string => {
   return `${words[0]?.[0] ?? '?'}${words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : ''}`.toUpperCase()
 }
 
-export const absoluteUrl = (origin: string, url: string) => (url.startsWith('/') ? `${origin}${url}` : url)
-
 /** `3 min read` and friends, in one place. */
 export const readTime = (minutes: number) => `${minutes} min read`
 
