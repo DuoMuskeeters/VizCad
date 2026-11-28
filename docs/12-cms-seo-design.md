@@ -989,6 +989,145 @@ Bölünme görev metnindeki gibi: **6c-1** yazı listesi ve editörü, yayın, t
   - iOS'ta editör yazı tipi 16 px'in altında (odakta yakınlaştırma).
   - Araç çubuğu etiketleri çevrilmemiş (`Bold`, `Link`… sabit İngilizce).
 
+### 6c-2 (PR: `rewrite-faz6c-2`, 6c-1'in üstünde)
+
+Kapsam: yazarlar, görsel yükleme ve kitaplık (kapak, OG, avatar ve metin içi görsel seçici), önbellek ekranı, 6c-1 incelemesinin açıkları. **Migration yok:** 0016'nın `cms_assets`, `author_translations` ve `author_profiles` sütunları yetti. Sıradaki numara (0019) hâlâ boş.
+
+**Yazarlar** (`programs/cms/authors.ts`, `listAuthors`, `saveAuthor`, `deleteAuthor`).
+- **K13:** her profil bir kullanıcıya bağlı. Yeni profil için aday listesi profili olmayan platform adminleridir. Profilin kullanıcısı değiştirilemez.
+- **Dil başına alanlar:** unvan ve bio `author_translations`'tadır. Boşaltılan dilin satırı silinir.
+- **Ayna** (§1.5 adım 5): `en` değeri legacy `bio`/`role` sütunlarına da yazılır. Yüklenen avatar `avatarUrl`'e `/api/blog/image/...` olarak yazılır. Yalnız URL'li legacy avatar, açık `removeAvatar` olmadan silinmez.
+- **Kilit:** profilin `updatedAt`'idir (saniye). Aynı saniyedeki iki kayıt da kilidi ilerletir (`max(şimdi, rev+1)`).
+- **Slug:** §4.2'ye uymalı. Legacy slug değiştirilmedikçe korunur. Çakışma `SlugConflict`, aynı kullanıcıya ikinci profil `ContentConflict`.
+- **sameAs:** yalnız https adresleri, en çok 8. Anahtar hosttan türetilir (`linkedin`, `x`, `github`, `website2` …).
+- **Temizleme:** yazarın yayında yazısı varsa `affectedUrls` `author` türü çalışır: yazar sayfası (eski ve yeni slug, sitemap) ve yazıların URL'leri. Temizleme yapılandırılmamışsa `CacheError`, hiçbir şey yazılmaz.
+- **Silme:** yalnız yazısı olmayan yazar silinir, aksi `AuthorHasPosts` (409). Batch içindeki guard yazım anında yeniden denetler. 0016 trigger'ları ayrıca geçerli (testli): yazısı olan kullanıcı silinemez.
+
+**Görseller** (`programs/cms/assets.ts`, `cms/imageInfo.ts`, `POST /api/cms/assets`).
+- **Tür** sihirli baytlardan okunur: yalnız PNG, JPEG ve WebP (VP8, VP8L, VP8X). SVG ve diğer türler `UnsupportedFileType` (415). Görev metni GIF ve AVIF'i dışarıda bıraktı; şemanın CHECK'i onları hâlâ kabul eder.
+- **Sınırlar:** 5 MB gövde, kenar ≤ 4096 px, piksel ≤ 4096×3072. Okunamayan başlık ya da sınır aşımı `InvalidAsset` (422).
+- **Tekilleştirme:** SHA-256 ile. Aynı bayt ikinci kez yüklenince ilk görsel döner, R2'ye yeniden yazılmaz. Yarışı kaybeden yükleme kendi nesnesini siler ve kazananı döner.
+- **R2:** anahtar `blog/a/{ULID}.{ext}`, `httpMetadata.contentType` doğru MIME. URL legacy biçiminde: `/api/blog/image/{encodeURIComponent(key)}`, geri dönüşte çalışır.
+- **Uç:** CSRF tür listesi `image/png|jpeg|webp|svg+xml|gif|avif` ve `application/octet-stream`; bunların hiçbiri CORS-safelisted değil. Ardından oturum, `canManageContent` ve yeni `cmsAsset` hız sınırı (yönetici ve IP başına saatte 120). Gövde akış hâlinde 5 MB'ta kesilir (413).
+- **Kullanım denetimi:** silmeden önce bakılan yerler:
+  - `posts`: `coverAssetId`, legacy `content` ve `coverImage` metni;
+  - `post_translations` ve `post_drafts`: `contentMd`, `ogAssetId`;
+  - `legal_documents.contentMd`;
+  - `page_seo`: `ogAssetId`, `draftOgAssetId`;
+  - `author_profiles`: `avatarAssetId`, `avatarUrl`;
+  - `site_settings`: değer içinde id ya da URL.
+
+  Metinlerde ham ve kodlanmış anahtar, varyantlar dahil, `instr` ile aranır (LIKE değil: legacy anahtarlarda `_` olabilir). Kullanımdaki görsel `AssetInUse` (409, yer kodlarıyla). Listede `inUse` tek sorguda ilişkili alt sorgularla hesaplanır.
+- **Silme sırası:** önce satır, sonra R2 nesneleri. R2 hatası `blog/` altında sahipsiz bir nesne bırakır, kırık görsel bırakmaz.
+- **Varyant (800 px) üretilmedi:** açık olarak duruyor. Kullanım denetimi ve silme varyantları zaten tanır.
+
+**Önbellek** (`programs/cms/cache.ts`).
+- `retryPurges(ids)`: yalnız `attempts ≥ MAX_ATTEMPTS` satırları alır. Hedefler taze olarak yeniden kuyruğa girer (şimdi ve +60 s) ve yayın bütçesiyle boşaltılır.
+- `clearPurges(ids)`: denemesi biten satırları siler.
+- Kendi kendine yeniden deneyen satırlara ikisi de dokunmaz.
+
+**6c-1 açıkları** (hepsi kapandı).
+- **Arşivdeki yazı:** Yayından kaldır artık `PublishBlocked archived` döner. Önceden arşivi sessizce kaldırıyordu: 410 yerine 404.
+- **Eski URL:** yayından kaldırma çeviri satırını siler ama ayna `posts.slug`'ı tutar. `en` yeni slug'la yeniden yayınlanınca eski URL için 301 yazılır ve eski URL temizlenir. Hiç yayınlanmamış yazının `draft-…` yer tutucusu sayılmaz.
+  - Kalan: `en` dışı dillerde böyle bir iz yok. Bugün bu diller zaten kapalı (D9).
+- **Undo:** editör `key={locale}` ile dil başına yeniden kurulur; geri alma geçmişi başka dile geçmez.
+- **Ayrıntılar alanları:** Ayrıntılar, SEO ve Çeviri sekmeleri `forceMount` ile bağlı kalır, gizlenen sekme CSS ile gizlenir. Kaydedilmemiş yazı alanları sekme değişince kaybolmaz.
+- **Çevirici tavanları** (`RENDER_LIMITS`):
+  - **İşaret dizisi ön denetimi:** satır başındaki iç içe işaret dizisi (`> - 1. …`) 32'yi geçerse metin ayrıştırılmadan reddedilir. Ölçüm: micromark'ın maliyeti bu dizinin karesiyle büyüyor. 2000 seviye 0,7 s sürüyor, 3000'de yığın taşıyor. Bu, 20 KB sınırının içinde bir Worker'ı CPU'dan düşürebilirdi.
+  - **Ağaç derinliği:** ağaç derinliği de 32 ile sınırlı.
+  - **HTML boyutu:** HTML çıktısı 512 KiB ile sınırlı. Aynı uzun bağlantı tanımını tekrarlayan 20 KB'lık bir metin bunu aşabiliyordu.
+  - **Sonuç:** aşım `PublishBlocked render-limit` (`fields: depth|output`) döner. Ayrıştırıcının kendi taşması da aynı ret olur (`Effect.try`), 500 olmaz.
+  - **Cutover script'i:** aşan yazıyı kopyalamaz, `overRenderLimit` raporuna yazar.
+- **Safari önizlemesi:** önizleme sekmesi tıklama anında, `await`'ten önce açılır. Kayıt başarısızsa kapanır. `opener` sıfırlanır.
+- **Dokunmatik yazı tipi:** editör dokunmatik ekranda 16 px (`pointer-coarse:text-base`), masaüstünde 15 px.
+- **Araç çubuğu:** etiketler çevrildi (`text.toolbar`, `en` ve `tr`).
+
+**Admin arayüzü.**
+- Kenar menüye Yazarlar, Görseller ve Önbellek eklendi (`/admin/cms/authors|assets|cache`, aynı `admin.$` splat'ı).
+- **Görseller ekranı:** ızgara, alt metin, kullanıldığı yerler (yazılara bağlantıyla), URL kopyala, silme. Silme kullanımda devre dışı ve nedeni yazılı.
+- **Yükleme:** istemcide SVG ve diğer türler nedeniyle reddedilir. 1600 px'ten büyük ya da 5 MB'ı aşan görsel küçültülür ve WebP'ye çevrilir; tarayıcı WebP kodlayamıyorsa JPEG'e.
+- **`AssetPicker`:** kapak ve OG seçici (SEO sekmesi, sosyal kart önizlemesi seçilen OG'yi gösterir), avatar ve metin içi görsel. Metin içi görselde alt metin zorunlu; araç çubuğundaki görsel düğmesi imlece `![alt](url)` ekler.
+- `getPostAdmin` artık OG görsellerinin URL'lerini (`images`) döner.
+- **Önbellek ekranı:** kuyruk (hedef, durum, deneme, zamanı, son hata), şimdi boşalt, başarısız satırları seç / yeniden dene / kaldır, URL listesiyle temizleme (yalnız kendi hostumuzun önbellekli sayfaları) ve onaylı host temizliği.
+- **Yapılmadı:** "son 50 yayının temizleme sonucu" listesi (kalıcı kayıt gerektiriyor) ve OG şablon kartı. İkisi de açık.
+
+**Paket boyutları** (`vite build`; Worker girişi `dist/server/index.js` + statik içe aktarım kapanışı; pazarlama ilk JS'i manifestteki kök, `{-$locale}` ve sayfa preload'ları; gzip -9).
+
+| | 6c-1 (`83fde7b`) | 6c-2 |
+|---|---|---|
+| Worker girişi | 950,2 / 215,5 kB | 950,2 / 215,5 kB (Effect, Drizzle, `entry.*` yok) |
+| Landing | 894,4 / 275,4 | 894,5 / 275,4 |
+| Yazı sayfası | 898,8 / 276,9 | 898,9 / 276,9 |
+| Blog listesi | 894,3 / 275,3 | 894,4 / 275,3 |
+| `admin.$` chunk'ı (yalnız admin) | 45,4 / 14,4 | 79,6 / 23,5 |
+| `entry.cmsAdmin` (sunucu, tembel) | 546 / 121 | 578 / 130 |
+| `entry.cms` (genel ıska) | 18 kB | 18 kB (çevirici yok) |
+
+- Pazarlama sayfalarının 0,1 kB'lık ham artışı `index` chunk'ında 56 bayttır: dışa aktarım adları değişti. Gzip'te fark yok.
+- Bir uyarı: Görseller ekranına lucide `Copy` ve `Trash2` ikonları eklenince Rolldown ortak chunk'ları yeniden böldü. Landing +0,7 / +1,8 kB gzip büyüdü ve üç chunk daha eklendi (radix collection/roving-focus, `Input`, `x`). İkonlar çıkarılınca boyut eski hâline döndü; düğmeler yalnız metinle kaldı (kodda not var). Admin'e yeni ortak bileşen eklerken bu ölçüm tekrarlanmalı.
+
+**Kontroller.**
+- `pnpm check` (152 dosya, 9664 test) ve `pnpm build` yeşil.
+- **Yeni testler:**
+  - `imageInfo.test.ts` (4) ve `assets.test.ts` (7): her kullanım yeri, varyantlar, SHA tekilleştirme, SVG/HTML reddi, sınırlar.
+  - `authors.test.ts` (10): kilit, slug, sameAs, ayna, temizleme, yapılandırma yokken `CacheError`, silme guard'ı, 0016 trigger'ı.
+  - `posts.test.ts` +4: arşivde kaldırma, kaldır-yeniden yayınla 301'i, yer tutucu slug, çevirici tavanı.
+  - `markdown.test.ts` +2.
+  - `cms.test.ts` +4: ikili yükleme uç zinciri, görseller, yazarlar ve başarısız satırlar HTTP üzerinden.
+  - `library.test.tsx` (11 ekran testi): yazarlar, görseller, önbellek, Ayrıntılar sekmesi kalıcılığı, görsel ekleme, kapak seçimi, Safari önizleme sırası.
+- **Ekran** (`vite dev --port 3047`, `?fixture=admin`):
+  - **Genişlikler:** Görseller (ve ayrıntı penceresi), Yazarlar (ve düzenleme), Önbellek ve editör 320 px açık ve koyu, 390 px koyu ve 1280 px açık denendi. Yatay kaydırma yok.
+  - **Dokunma hedefleri** ≥ 44 px, istisnalar:
+    - önbellek satırındaki onay kutusu: 16 px'lik kutu 44×44'lük bir `label` içinde, dokunma alanı etiket;
+    - editördeki anahtarlar: 6c-1'deki gibi, satır etiket.
+  - Görsel penceresindeki yazı bağlantısı 33 px'ti, 44 px'e çıkarıldı.
+
+**Staging adımları** (orkestratör; uzak komutlar onaylı, `S=https://staging.viz-cad.com`).
+1. Migration yok. `pnpm deploy:staging`.
+2. **Yazarlar.**
+   - `$S/admin/cms/authors` açılır, legacy yazarlar görünür.
+   - Bir yazara `tr` unvan ve bio yaz, kaydet. Yazısı yayındaysa bildirim "önbellek temizlendi: N URL" der.
+   - `curl -s -o /dev/null -w '%{http_code} %header{x-vizcad-cache}\n' $S/authors/{slug}` iki kez: `200 miss`, sonra `200 hit`. Slug'ı değiştir: eski adres 404, yeni adres 200.
+   - Yazısı olan yazarda Sil devre dışı ve nedeni yazılı.
+3. **Görseller.**
+   - Bir PNG, bir JPEG ve bir 3000 px WebP yükle. Büyük olan 1600 px'e iner.
+   - SVG seçince "SVG yüklenemez…" çıkar. `curl` ile `image/svg+xml` gövdesi 415 döner (admin çerezi ve Origin ile, onaylı).
+   - Aynı dosyayı ikinci kez yükle: "zaten kitaplıktaydı" der ve satır sayısı artmaz.
+   - `curl -sI $S/api/blog/image/blog%2Fa%2F{id}.webp` → `200`, `content-type: image/webp`, `immutable`, `nosniff`.
+4. **Seçici.**
+   - Bir yazıda Kapak seç, Ayrıntıları kaydet. Genel sayfada kapak görünür.
+   - Ayna: `SELECT coverImage FROM posts WHERE id='{id}'` (salt okunur, onaylı) legacy URL biçiminde olmalı.
+   - Araç çubuğundaki Görsel düğmesiyle metne görsel ekle, alt metni yaz, Yayınla. Yazı sayfasında `width`/`height` dolu.
+5. **Kullanım denetimi.** Kapak yapılan görselde Sil devre dışı ve "Kullanıldığı yerler"de yazı görünür. Kapağı kaldır, kaydet: Sil açılır, sil, `curl -sI` ile görsel adresi 404 döner.
+6. **Önbellek ekranı.**
+   - Kuyruk ve başarısız satırlar görünür.
+   - "URL temizle"ye `$S/blog` yaz: bildirim gelir. Başka hostun adresi alan altında reddedilir.
+   - Host temizliği onay ister. 429 alınırsa satır kuyrukta kalır.
+7. **6c-1 açıkları.**
+   - Arşivdeki yazıda Yayından kaldır hata verir, adres 410 kalır.
+   - Yazıyı yayından kaldır, slug'ı değiştir, yeniden yayınla: eski adres 301.
+   - Safari'de (macOS ya da iOS) Önizle yeni sekmede açılır.
+   - iPhone'da editöre dokununca sayfa yakınlaşmaz.
+8. **CPU.** `wrangler tail`, filtre `/api/cms/assets`. 5 MB'lık bir PNG yüklemesinin `cpuTime`'ı buraya yazılır; yerelde 1,7 ms ölçülmüştü.
+9. **Admin olmayan hesap.** `POST /api/cms/assets` 403, oturumsuz 401.
+
+**Açık.**
+- **Varyant:** 800 px varyant üretimi ve `srcset` yok. Çevirici ve kullanım denetimi varyantları zaten tanır.
+- **OG ve temizleme listesi:** OG şablon kartı ve son 50 yayının temizleme sonucu listesi yapılmadı.
+- **GIF/AVIF:** görev gereği kapalı, şemanın CHECK'i hâlâ izin veriyor. İstenirse `imageInfo`'ya eklenir.
+- **Dil izi:** `en` dışı dilde yayından kaldır, sonra yeni slug'la yeniden yayınla akışında eski URL izi yok. Bugün D9 yüzünden ulaşılamıyor.
+- **Ortak chunk:** admin'e yeni ortak bileşen ya da ikon eklemek pazarlama chunk'larını yeniden bölebiliyor (yukarıda). Ölçüm her PR'da tekrarlanmalı.
+- **K6 ve tel kafes:** önceki notlardaki gibi açık.
+
+#### 6c-2 · İncelemeden açık kalanlar (PR #36 birleşti, 28 Kasım 2026)
+- **İç içe liste koruması atlatılabiliyor.** Başta BOM, yalnız `\r` satır sonu ya da `[^a]: ` dipnot önekiyle 3000 `- ` işareti ayrıştırıcıya ulaşıyor. Yerelde 1,1–1,4 sn CPU harcayıp `RangeError` veriyor; sonuç 422 ve bu yalnız admin için açık. Düzeltme: BOM'u sil, satırları `/\r\n?|\n/` ile böl, `[^etiket]:` önekini kap işareti say.
+- **Görsel silme ile kaydetme yarışıyor.** Kullanım kontrolü ve silme ayrı adımlar. Arada yapılan bir kayıt kırık görsele ya da boşalan bir FK'ye yol açabiliyor. Düzeltme: silme batch'ine kullanım koşullarının değilini `guard` olarak ekle.
+- **Küçük notlar:**
+  - Yinelenen yüklemede `inUse` alanı `false` dönüyor.
+  - 1600 px ve altındaki JPEG'ler olduğu gibi yükleniyor. EXIF GPS verisi açığa çıkıyor ve EXIF dönüşü genişlik ile yüksekliği ters gösteriyor. Düzeltme: her JPEG'i istemcide yeniden kodla.
+  - `cms_assets` ekleme başka bir sebeple başarısız olursa R2'de sahipsiz nesne kalıyor.
+  - Kullanım araması büyük/küçük harfe duyarlı; `%2f` ile yazılmış bir URL'yi kaçırıyor.
+  - `site_texts` kullanım aramasına 6d'de eklenecek.
 ### 6a/6b staging kabulü · admin oturumlu adımlar (28 Kasım 2026, 83fde7b)
 Staging test hesabı (`staging-uploader@vizcad.test`) yalnız staging'de `role='admin'` yapıldı. Hesabın parolası yenilendi ve yalnız oturum scratchpad'inde tutuluyor.
 - **Gerçek URL temizleme:** `purgeUrls` (`/tr`) sonucu `done:1, queued:1, calls:1`. Ardından `/tr` miss döndü. 60 sn sonra `drainPurges` ile `done:1, queued:0`; kuyruk boş. Başka alan adına ait URL (`https://viz-cad.com/`) 400 `ValidationError` ile reddedildi.

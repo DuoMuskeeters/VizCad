@@ -3,6 +3,9 @@ import { useLocation, useNavigate, useParams } from '@tanstack/react-router'
 import { FileQuestion } from 'lucide-react'
 import { EmptyState } from '#/components/ui/EmptyState'
 import { AdminLayout } from './AdminLayout'
+import { AssetsPage } from './AssetsPage'
+import { AuthorsPage } from './AuthorsPage'
+import { CachePage } from './CachePage'
 import { PostEditor } from './PostEditor'
 import { PostsPage } from './PostsPage'
 import { PreviewPage } from './PreviewPage'
@@ -22,7 +25,19 @@ export const AdminApp = () => {
   if (route.screen === 'preview') return <PreviewPage postId={route.postId} locale={route.locale} />
   return (
     <AdminLayout>
-      {route.screen === 'posts' ? <PostsPage /> : route.screen === 'post' ? <PostEditor postId={route.postId} locale={localeOfSearch(searchStr)} /> : route.screen === 'missing' ? <Missing /> : null}
+      {route.screen === 'posts' ? (
+        <PostsPage />
+      ) : route.screen === 'post' ? (
+        <PostEditor postId={route.postId} locale={localeOfSearch(searchStr)} />
+      ) : route.screen === 'authors' ? (
+        <AuthorsPage />
+      ) : route.screen === 'assets' ? (
+        <AssetsPage />
+      ) : route.screen === 'cache' ? (
+        <CachePage />
+      ) : route.screen === 'missing' ? (
+        <Missing />
+      ) : null}
     </AdminLayout>
   )
 }

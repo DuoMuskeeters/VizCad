@@ -223,10 +223,11 @@ export class SlugConflict extends Data.TaggedError('SlugConflict')<{}> {}
  * The translation cannot go live (or come down) as asked. `reason` and `fields` are fixed codes the editor shows next to
  * the cause; they carry no content. Reasons: `locale-closed` (D9: blog not open in this locale), `en-not-live` (K3),
  * `archived`, `no-draft`, `invalid-fields` (with `fields`), `not-live`, `other-locales-live` (unpublishing `en` without
- * the confirm flag; `fields` lists the locales), `published-before` (only a never-published post can be deleted).
+ * the confirm flag; `fields` lists the locales), `published-before` (only a never-published post can be deleted),
+ * `render-limit` (the markdown nests too deep or renders too large; `fields` is `depth` or `output`).
  */
 export class PublishBlocked extends Data.TaggedError('PublishBlocked')<{
-  readonly reason: 'locale-closed' | 'en-not-live' | 'archived' | 'no-draft' | 'invalid-fields' | 'not-live' | 'other-locales-live' | 'published-before'
+  readonly reason: 'locale-closed' | 'en-not-live' | 'archived' | 'no-draft' | 'invalid-fields' | 'not-live' | 'other-locales-live' | 'published-before' | 'render-limit'
   readonly fields?: ReadonlyArray<string>
 }> {}
 
@@ -238,6 +239,23 @@ export class TextTooLong extends Data.TaggedError('TextTooLong')<{
 
 /** No CMS asset with this id (cover, OG image, avatar). */
 export class AssetUnavailable extends Data.TaggedError('AssetUnavailable')<{}> {}
+
+/** The image is still used (a post, draft, legal text, page SEO, setting or avatar): it cannot be deleted (docs/12 §3.2). */
+export class AssetInUse extends Data.TaggedError('AssetInUse')<{
+  /** Fixed place codes (`post`, `draft`, `legal`, `pageSeo`, `setting`, `author`), never content. */
+  readonly places: ReadonlyArray<string>
+}> {}
+
+/**
+ * An uploaded PNG, JPEG or WebP the CMS does not take (a wrong type, SVG included, is `UnsupportedFileType` 415).
+ * `reason`: `dimensions` (unreadable header, or a side or the pixel count over the cap), `empty`.
+ */
+export class InvalidAsset extends Data.TaggedError('InvalidAsset')<{
+  readonly reason: 'dimensions' | 'empty'
+}> {}
+
+/** The author still has posts: hand them to another author first (docs/12 §1.4). */
+export class AuthorHasPosts extends Data.TaggedError('AuthorHasPosts')<{}> {}
 
 /** Every error a route handler may have to map to a response. */
 export type AppError =
@@ -304,3 +322,6 @@ export type AppError =
   | PublishBlocked
   | TextTooLong
   | AssetUnavailable
+  | AssetInUse
+  | InvalidAsset
+  | AuthorHasPosts

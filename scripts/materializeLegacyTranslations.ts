@@ -93,6 +93,8 @@ export interface Report {
   readonly nonconformingSlugs: ReadonlyArray<{ readonly postId: string; readonly slug: string }>
   readonly droppedLinks: ReadonlyArray<{ readonly postId: string; readonly urls: ReadonlyArray<string> }>
   readonly externalImages: ReadonlyArray<{ readonly postId: string; readonly urls: ReadonlyArray<string> }>
+  /** Posts over a render cap (markdown.ts `RENDER_LIMITS`): not copied, they need an edit first. */
+  readonly overRenderLimit: ReadonlyArray<{ readonly postId: string; readonly slug: string; readonly limit: 'depth' | 'output' }>
   readonly authorSlugs: ReadonlyArray<{ readonly authorId: string; readonly slug: string }>
   readonly statements: number
 }
@@ -192,6 +194,7 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
     nonconformingSlugs: [] as Array<{ postId: string; slug: string }>,
     droppedLinks: [] as Array<{ postId: string; urls: ReadonlyArray<string> }>,
     externalImages: [] as Array<{ postId: string; urls: ReadonlyArray<string> }>,
+    overRenderLimit: [] as Array<{ postId: string; slug: string; limit: 'depth' | 'output' }>,
     authorSlugs: [] as Array<{ authorId: string; slug: string }>,
   }
   // A run that stopped half-way: its half draft rows are copied again; half translation rows are repaired below.
@@ -258,6 +261,10 @@ export const planMaterialize = (data: LegacyExport, options: { readonly sourceWi
       continue
     }
     const rendered = renderMarkdown(post.content, { locale: 'en', assets })
+    if (rendered.exceeded !== undefined) {
+      report.overRenderLimit.push({ postId: post.id, slug: post.slug, limit: rendered.exceeded })
+      continue
+    }
     if (rendered.warnings.rawHtmlTags.length > 0) report.rawHtml.push({ postId: post.id, slug: post.slug, tags: rendered.warnings.rawHtmlTags })
     if (rendered.warnings.droppedLinks.length > 0) report.droppedLinks.push({ postId: post.id, urls: rendered.warnings.droppedLinks })
     if (rendered.warnings.externalImages.length > 0) report.externalImages.push({ postId: post.id, urls: rendered.warnings.externalImages })

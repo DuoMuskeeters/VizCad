@@ -24,6 +24,16 @@ export const failureText = (text: AdminText, failure: CmsFailure): string => {
       return text.errors.authorUnavailable
     case 'AssetUnavailable':
       return text.errors.assetUnavailable
+    case 'AssetInUse':
+      return text.errors.assetInUse
+    case 'AuthorHasPosts':
+      return text.errors.authorHasPosts
+    case 'UnsupportedFileType':
+      return text.errors.unsupportedType
+    case 'InvalidAsset':
+      return text.errors.invalidAsset
+    case 'PayloadTooLarge':
+      return text.errors.tooLarge
     default:
       return text.errors.generic
   }

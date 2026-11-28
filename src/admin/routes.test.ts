@@ -12,6 +12,10 @@ describe('admin splat routing', () => {
     expect(parseAdminPath('cms/posts/%E0%A4%A')).toEqual({ screen: 'missing' })
     expect(parseAdminPath('cms/posts/a/b')).toEqual({ screen: 'missing' })
     expect(parseAdminPath('users')).toEqual({ screen: 'missing' })
+    expect(parseAdminPath('cms/authors')).toEqual({ screen: 'authors' })
+    expect(parseAdminPath('cms/assets')).toEqual({ screen: 'assets' })
+    expect(parseAdminPath('cms/cache')).toEqual({ screen: 'cache' })
+    expect(parseAdminPath('cms/cache/x')).toEqual({ screen: 'missing' })
   })
 
   it('builds the paths it parses', () => {

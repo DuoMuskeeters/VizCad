@@ -100,6 +100,8 @@ export interface AdminPost {
   readonly authors: ReadonlyArray<{ readonly userId: string; readonly name: string }>
   /** Locales whose blog is open (D9/K14): only these can be published. */
   readonly publishable: ReadonlyArray<Locale>
+  /** URLs of the OG images the translations and drafts name, by asset id (the SEO tab's preview). */
+  readonly images?: Readonly<Record<string, string>>
 }
 
 /** What `renderMarkdown` reported (docs/12 §4.3). */
@@ -142,4 +144,84 @@ export interface PreviewResult {
   /** Where the preview came from: the draft, or the live text when there is no draft. */
   readonly source: 'draft' | 'live'
   readonly warnings: RenderWarnings
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Images (6c-2, programs/cms/assets.ts)
+
+/** Upload limits the editor checks before sending (the server checks them again, server/cms/imageInfo.ts). */
+export const ASSET_UPLOAD = {
+  bytes: 5 * 1024 * 1024,
+  /** The editor scales the longest side down to this before upload (docs/12 §7.3). */
+  scaleTo: 1600,
+  types: ['image/png', 'image/jpeg', 'image/webp'],
+  alt: 200,
+} as const
+
+export interface AdminAsset {
+  readonly id: string
+  /** Legacy-shaped public URL: `/api/blog/image/{encodeURIComponent(r2Key)}`. */
+  readonly url: string
+  readonly mime: string
+  readonly bytes: number
+  readonly width: number
+  readonly height: number
+  readonly alt: string | null
+  readonly createdAt: number
+  readonly inUse: boolean
+}
+
+export interface AdminAssetList {
+  readonly rows: ReadonlyArray<AdminAsset>
+  readonly next: string | null
+}
+
+/** Where an image is used: fixed place codes, and the posts by id and English title. */
+export interface AssetUsage {
+  readonly places: ReadonlyArray<string>
+  readonly posts: ReadonlyArray<{ readonly id: string; readonly title: string }>
+}
+
+export interface UploadResult {
+  readonly asset: AdminAsset
+  /** The same bytes were uploaded before: the existing image is returned, nothing is stored again. */
+  readonly duplicate: boolean
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Authors (6c-2, programs/cms/authors.ts)
+
+export const AUTHOR_LIMITS = { name: 80, bio: 600, jobTitle: 80, links: 8, link: 300 } as const
+
+export interface AuthorTranslation {
+  readonly bio: string | null
+  readonly jobTitle: string | null
+}
+
+export interface AdminAuthor {
+  readonly id: string
+  readonly userId: string
+  readonly userEmail: string
+  readonly name: string
+  readonly slug: string | null
+  readonly avatar: AdminImage | null
+  readonly sameAs: ReadonlyArray<string>
+  /** Per locale; `en` falls back to the legacy `bio`/`role` columns. */
+  readonly translations: Readonly<Partial<Record<Locale, AuthorTranslation>>>
+  readonly posts: number
+  /** Lock: `updatedAt` in seconds. */
+  readonly revision: number
+}
+
+export interface AdminAuthorList {
+  readonly rows: ReadonlyArray<AdminAuthor>
+  /** Platform admins without an author profile (K13: every author is a real account). */
+  readonly candidates: ReadonlyArray<{ readonly userId: string; readonly name: string; readonly email: string }>
+}
+
+export interface AuthorSaved {
+  readonly id: string
+  readonly revision: number
+  readonly purgeTargets: number
+  readonly purge: PurgeSummary | null
 }

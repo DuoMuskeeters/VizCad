@@ -18,7 +18,7 @@ export interface CachePurge {
 export type AppEnv = 'production' | 'staging' | 'development'
 
 /** Operations the shared RateLimit service protects (docs/08 §1). Each has a per-target and a per-IP counter. */
-export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkScene', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment', 'derivativeStart', 'cmsWrite'] as const
+export const rateLimitActions = ['signIn', 'signUp', 'passwordReset', 'verificationEmail', 'invite', 'inviteAccept', 'inviteLookup', 'createWorkspace', 'upload', 'linkOpen', 'linkScene', 'linkPassword', 'linkPasswordLink', 'thumbnailPut', 'comment', 'derivativeStart', 'cmsWrite', 'cmsAsset'] as const
 export type RateLimitAction = (typeof rateLimitActions)[number]
 
 export type { RateLimitRule }
@@ -79,6 +79,8 @@ export const defaultRateLimits: Record<RateLimitAction, RateLimitRules> = {
   derivativeStart: { target: { limit: 60, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
   // CMS writes (docs/12 §3.2, `/api/cms`): per platform admin and per IP. An editing session saves often; a script stops here.
   cmsWrite: { target: { limit: 600, windowSeconds: 60 * 60 }, ip: { limit: 600, windowSeconds: 60 * 60 } },
+  // CMS image uploads (`POST /api/cms/assets`, up to 5 MB each): per platform admin and per IP.
+  cmsAsset: { target: { limit: 120, windowSeconds: 60 * 60 }, ip: { limit: 120, windowSeconds: 60 * 60 } },
 }
 
 /**

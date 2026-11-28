@@ -3,6 +3,9 @@ import { LOCALES, type Locale } from '#/i18n/locales'
 /** Screens inside the `/admin/$` splat route. */
 export type AdminRoute =
   | { readonly screen: 'posts' }
+  | { readonly screen: 'authors' }
+  | { readonly screen: 'assets' }
+  | { readonly screen: 'cache' }
   | { readonly screen: 'post'; readonly postId: string }
   | { readonly screen: 'preview'; readonly postId: string; readonly locale: Locale }
   | { readonly screen: 'home' }
@@ -25,6 +28,7 @@ export const parseAdminPath = (splat: string): AdminRoute => {
   if (parts[0] !== 'cms') return { screen: 'missing' }
   const [, section, ...rest] = parts
   if (section === 'posts' && rest.length === 0) return { screen: 'posts' }
+  if ((section === 'authors' || section === 'assets' || section === 'cache') && rest.length === 0) return { screen: section }
   if (section === 'posts' && rest.length === 1) {
     const postId = decode(rest[0] ?? '')
     return postId === null || postId === '' ? { screen: 'missing' } : { screen: 'post', postId }
@@ -38,6 +42,9 @@ export const parseAdminPath = (splat: string): AdminRoute => {
 
 export const adminPaths = {
   posts: () => '/admin/cms/posts',
+  authors: () => '/admin/cms/authors',
+  assets: () => '/admin/cms/assets',
+  cache: () => '/admin/cms/cache',
   post: (postId: string, locale?: Locale) => `/admin/cms/posts/${encodeURIComponent(postId)}${locale === undefined || locale === 'en' ? '' : `?locale=${locale}`}`,
   preview: (postId: string, locale: Locale) => `/admin/cms/preview/post/${encodeURIComponent(postId)}/${locale}`,
 }

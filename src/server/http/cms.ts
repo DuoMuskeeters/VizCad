@@ -2,7 +2,10 @@ import { Effect, type Layer, Schema } from 'effect'
 import { type AppError, PermissionDenied, ResourceUnavailable, ValidationError } from '../errors'
 import { decideContent } from '../permissions'
 import { LOCALES } from '#/i18n/locales'
-import { drainPurges, listPurges, purgeSiteHost, purgeUrls } from '../programs/cms/cache'
+import { assetUsage, deleteAsset, listAssets, updateAssetAlt, uploadAsset } from '../programs/cms/assets'
+import { deleteAuthor, listAuthors, saveAuthor } from '../programs/cms/authors'
+import { clearPurges, drainPurges, listPurges, purgeSiteHost, purgeUrls, retryPurges } from '../programs/cms/cache'
+import { ASSET_LIMITS } from '../cms/imageInfo'
 import {
   archivePost,
   createPost,
@@ -21,13 +24,14 @@ import { AppConfig } from '../services/AppConfig'
 import type { Auth } from '../services/Auth'
 import type { Cache } from '../services/Cache'
 import type { Db } from '../services/Db'
+import type { Storage } from '../services/Storage'
 import { RateLimit } from '../services/RateLimit'
-import { readBody } from './body'
+import { readBinaryBody, readBody } from './body'
 import { checkMutationRequest } from './csrf'
 import { handle, type RequestMeta } from './respond'
 import { readCaller } from './session'
 
-export type CmsServices = Db | Auth | RateLimit | AppConfig | Cache
+export type CmsServices = Db | Auth | RateLimit | AppConfig | Cache | Storage
 
 type Decodable = Schema.Top & { readonly DecodingServices: never }
 type Fields = { readonly [key: string]: Decodable }
@@ -88,6 +92,8 @@ const DraftFields = Schema.Struct({
 /** A draft carries up to `POST_LIMITS.contentMd` of markdown (JSON escaping can double it); larger bodies are 413. */
 const DRAFT_BODY_BYTES = 192 * 1024
 const PostId = { postId: Id }
+const AuthorTr = Schema.optionalKey(Schema.Struct({ bio: OptionalText(6000), jobTitle: OptionalText(1000) }))
+const PurgeIds = Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }))).check(Schema.isMinLength(1), Schema.isMaxLength(200))
 
 /**
  * The cache screen's queue and purges (6a: docs/12 §3.2 `listPurges`, `drainPurges`, `purgeUrls`, plus a site hostname
@@ -137,11 +143,46 @@ const operations: Readonly<Record<string, Operation>> = {
   archivePost: op(true, PostId, (input, caller) => archivePost(input, caller)),
   restorePost: op(true, PostId, (input, caller) => restorePost(input, caller)),
   deletePost: op(true, PostId, (input) => deletePost(input)),
+
+  // Queue rows out of retries (6c-2, the cache screen).
+  retryPurges: op(true, { ids: PurgeIds }, (input) => retryPurges(input)),
+  clearPurges: op(true, { ids: PurgeIds }, (input) => clearPurges(input)),
+
+  // Authors (6c-2).
+  listAuthors: noInput(false, () => listAuthors()),
+  saveAuthor: op(
+    true,
+    {
+      authorId: Schema.optional(Id),
+      userId: Id,
+      name: Text(1000),
+      slug: OptionalText(1024),
+      avatarAssetId: Schema.NullOr(Id),
+      removeAvatar: Schema.optional(Schema.Boolean),
+      sameAs: Schema.Array(Text(2048)).check(Schema.isMaxLength(50)),
+      translations: Schema.Struct({ en: AuthorTr, tr: AuthorTr, de: AuthorTr, es: AuthorTr, fr: AuthorTr }),
+      revision: Revision,
+    },
+    (input) => saveAuthor(input),
+  ),
+  deleteAuthor: op(true, { authorId: Id }, (input) => deleteAuthor(input)),
+
+  // Images (6c-2). The upload itself is `POST /api/cms/assets` with the image bytes (below).
+  listAssets: op(false, { cursor: Schema.optional(Id) }, (input) => listAssets(input)),
+  assetUsage: op(false, { assetId: Id }, (input) => assetUsage(input)),
+  updateAssetAlt: op(true, { assetId: Id, alt: OptionalText(2000) }, (input) => updateAssetAlt(input)),
+  deleteAsset: op(true, { assetId: Id }, (input) => deleteAsset(input)),
 }
 
 export const cmsOperationNames = Object.keys(operations)
 
 const PREFIX = '/api/cms/'
+const UPLOAD = 'assets'
+/**
+ * Content types the upload takes past CSRF (none of them is CORS-safelisted, so a cross-site page cannot send one
+ * without a preflight). The magic bytes decide the real type: SVG and the rest are refused there with 415.
+ */
+const UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif', 'image/avif', 'application/octet-stream']
 
 const sealed = (data: unknown) =>
   Response.json({ ok: true, data }, { status: 200, headers: { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } })
@@ -155,13 +196,22 @@ export const cmsProgram = (request: Request) =>
   Effect.gen(function* () {
     const { pathname } = new URL(request.url)
     const name = pathname.startsWith(PREFIX) ? pathname.slice(PREFIX.length) : ''
+    const upload = name === UPLOAD
     const operation = Object.hasOwn(operations, name) ? operations[name] : undefined
-    if (operation === undefined) return yield* new ResourceUnavailable()
+    if (operation === undefined && !upload) return yield* new ResourceUnavailable()
     const { trustedOrigins } = yield* AppConfig
-    yield* checkMutationRequest(request, trustedOrigins)
+    yield* checkMutationRequest(request, trustedOrigins, upload ? UPLOAD_TYPES : undefined)
     const { caller, session } = yield* readCaller(request)
     const decision = decideContent(session)
     if (!decision.allowed) return yield* new PermissionDenied({ reason: decision.reason })
+    if (operation === undefined) {
+      // `POST /api/cms/assets`: the image bytes as the body (docs/12 §3.2 "İkili uçlar"), its own rate limit.
+      const limiter = yield* RateLimit
+      yield* limiter.hit({ action: 'cmsAsset', ip: caller.ip })
+      yield* limiter.hit({ action: 'cmsAsset', target: caller.userId })
+      const bytes = yield* readBinaryBody(request, ASSET_LIMITS.bytes)
+      return sealed(yield* uploadAsset({ bytes }, caller))
+    }
     if (operation.write) {
       const limiter = yield* RateLimit
       yield* limiter.hit({ action: 'cmsWrite', ip: caller.ip })

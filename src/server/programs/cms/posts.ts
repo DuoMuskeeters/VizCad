@@ -203,7 +203,13 @@ const coverOf = (state: PostState): AdminPost['cover'] => {
 export const getPostAdmin = Effect.fn('getPostAdmin')(function* (postId: string) {
   const state = yield* loadPost(postId)
   const db = yield* Db
-  const authors = yield* db.use((d) => d.select({ userId: a.userId, name: a.name }).from(a).orderBy(a.name))
+  const ogIds = [...new Set([...state.translations.values(), ...state.drafts.values()].flatMap((r) => (r.ogAssetId === null ? [] : [r.ogAssetId])))]
+  const [authors, ogAssets] = yield* db.use((d) =>
+    d.batch([
+      d.select({ userId: a.userId, name: a.name }).from(a).orderBy(a.name),
+      d.select({ id: schema.cmsAssets.id, r2Key: schema.cmsAssets.r2Key }).from(schema.cmsAssets).where(inArray(schema.cmsAssets.id, ogIds.length === 0 ? [''] : ogIds)),
+    ]),
+  )
   const locales = {} as Record<Locale, LocaleState>
   for (const locale of LOCALES) {
     const live = state.translations.get(locale)
@@ -230,6 +236,7 @@ export const getPostAdmin = Effect.fn('getPostAdmin')(function* (postId: string)
     locales,
     authors,
     publishable: blogLocales,
+    images: Object.fromEntries(ogAssets.map((r) => [r.id, blogImagePath(r.r2Key)])),
   } satisfies AdminPost
 })
 
@@ -375,7 +382,10 @@ const assetsFor = Effect.fnUntraced(function* (markdown: string) {
  */
 export const renderForStorage = Effect.fnUntraced(function* (markdown: string, locale: Locale) {
   const assets = yield* assetsFor(markdown)
-  const rendered = renderMarkdown(markdown, { locale, assets })
+  // Thousands of nested markers overflow the parser's own recursion (mdast-util-find-and-replace) before the depth cap
+  // can see the tree: that throw is the same refusal, never a 500.
+  const rendered = yield* Effect.try({ try: () => renderMarkdown(markdown, { locale, assets }), catch: () => new PublishBlocked({ reason: 'render-limit', fields: ['depth'] }) })
+  if (rendered.exceeded !== undefined) return yield* new PublishBlocked({ reason: 'render-limit', fields: [rendered.exceeded] })
   return { ...rendered, html: neutraliseRenderMarkers(rendered.html) } satisfies Rendered
 })
 
@@ -660,7 +670,7 @@ export const publishTranslation = Effect.fn('publishTranslation')(function* (inp
   const nowS = yield* nowSeconds
   const now = fromUnixSeconds(nowS)
   const previous = state.translations.get(locale)
-  const previousSlug = previous !== undefined && isLive(previous) && previous.slug !== fields.slug ? previous.slug : undefined
+  const previousSlug = previous !== undefined && isLive(previous) ? (previous.slug !== fields.slug ? previous.slug : undefined) : legacySlugAfterUnpublish(state, locale, fields.slug)
   // The first publish of this locale; for `en`, a legacy post keeps its original date.
   const publishedAt = previous !== undefined && isLive(previous) ? previous.publishedAt : locale === 'en' && state.post.publishedAt !== null ? state.post.publishedAt : now
 
@@ -741,6 +751,14 @@ export const publishTranslation = Effect.fn('publishTranslation')(function* (inp
   return { urls: publicUrls(after), purgeTargets: targets.urls.length, purge: yield* purgeAfter(targets.urls.length), warnings: rendered.warnings } satisfies PublishResult
 })
 
+/**
+ * The `en` URL a post had before it was taken down: unpublishing deletes the translation row but keeps the legacy
+ * mirror's `posts.slug`, so a republish under a new slug still redirects the old URL (and purges it). Never the
+ * placeholder of a post that was never published. Other locales keep no such trace (docs/12 6c-2 notes).
+ */
+const legacySlugAfterUnpublish = (state: PostState, locale: Locale, slug: string) =>
+  locale === 'en' && state.post.publishedAt !== null && state.post.slug !== slug && !state.post.slug.startsWith('draft-') ? state.post.slug : undefined
+
 const draftAsTranslation = (draft: DraftRow): TranslationRow => ({
   postId: draft.postId,
   locale: draft.locale,
@@ -769,6 +787,8 @@ const draftAsTranslation = (draft: DraftRow): TranslationRow => ({
 export const unpublishTranslation = Effect.fn('unpublishTranslation')(function* (input: { readonly postId: string; readonly locale: Locale; readonly confirm: boolean }, actor: Actor) {
   const { locale, postId } = input
   const state = yield* loadPost(postId)
+  // Taking `en` down would set the post to draft and silently undo the archive (its URLs would turn from 410 to 404).
+  if (state.post.status === 'archived') return yield* new PublishBlocked({ reason: 'archived' })
   const live = state.translations.get(locale)
   if (live === undefined || !isLive(live)) return yield* new PublishBlocked({ reason: 'not-live' })
   if (locale === 'en' && !input.confirm) {

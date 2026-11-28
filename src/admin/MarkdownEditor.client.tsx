@@ -13,11 +13,17 @@ export type MarkdownEditorProps = {
   label: string
   labels: { readonly heading: string; readonly bold: string; readonly link: string; readonly image: string; readonly code: string; readonly toolbar: string }
   placeholder?: string
+  /**
+   * The image button: called with an `insert` that puts Markdown at the selection (the picker asks for the image and its
+   * alt text first). Without it, the button wraps the selection in a bare image template.
+   */
+  onImage?: (insert: (markdown: string) => void) => void
 }
 
 /** Theme from the app's tokens (CSS variables), so light and dark follow the page; no inline styles. */
 const theme = EditorView.theme({
-  '&': { backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '15px' },
+  // Font size comes from the wrapper: 15 px, and 16 px on touch screens so iOS does not zoom on focus.
+  '&': { backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 'inherit' },
   '.cm-content': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: '12px 0', caretColor: 'var(--color-text)', minHeight: '24rem' },
   '.cm-line': { padding: '0 12px' },
   '&.cm-focused': { outline: 'none' },
@@ -58,7 +64,13 @@ const linePrefix = (prefix: string): Edit => (view) => {
  * The post text editor (docs/12 §4.1): CodeMirror 6 in Markdown mode, loaded only in the admin chunk. Toolbar: heading,
  * bold, link, image, code. The preview is the server's renderer (`previewDraft`), never a client one.
  */
-export default function MarkdownEditor({ value, onChange, label, labels, placeholder }: MarkdownEditorProps) {
+/** Replaces the selection with `text` and puts the cursor after it. */
+const insertText = (view: EditorView, text: string) => {
+  view.dispatch(view.state.replaceSelection(text))
+  view.focus()
+}
+
+export default function MarkdownEditor({ value, onChange, label, labels, placeholder, onImage }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const latest = useRef(onChange)
@@ -103,7 +115,7 @@ export default function MarkdownEditor({ value, onChange, label, labels, placeho
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-line-strong focus-within:border-accent">
+    <div className="overflow-hidden rounded-md border border-line-strong text-[15px] focus-within:border-accent pointer-coarse:text-base">
       <div role="toolbar" aria-label={labels.toolbar} className="flex flex-wrap gap-0.5 border-b border-line bg-surface px-1 py-0.5">
         <IconButton label={labels.heading} onClick={run(linePrefix('## '))}>
           <Heading2 aria-hidden className="size-4" />
@@ -114,7 +126,14 @@ export default function MarkdownEditor({ value, onChange, label, labels, placeho
         <IconButton label={labels.link} onClick={run(wrap('[', '](https://)', 'link'))}>
           <Link2 aria-hidden className="size-4" />
         </IconButton>
-        <IconButton label={labels.image} onClick={run(wrap('![', '](/api/blog/image/)', 'alt text'))}>
+        <IconButton
+          label={labels.image}
+          onClick={
+            onImage === undefined
+              ? run(wrap('![', '](/api/blog/image/)', 'alt text'))
+              : () => onImage((markdown) => (view.current ? insertText(view.current, markdown) : undefined))
+          }
+        >
           <Image aria-hidden className="size-4" />
         </IconButton>
         <IconButton label={labels.code} onClick={run(wrap('`', '`', 'code'))}>

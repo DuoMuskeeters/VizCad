@@ -10,8 +10,10 @@ import { CachePurges, memoryWith, type MemoryOptions } from '../services/Cache'
 import { Db } from '../services/Db'
 import * as DbMemory from '../services/Db.memory'
 import * as RateLimit from '../services/RateLimit'
+import * as Storage from '../services/Storage'
 import { seedAuthor } from '../testing/blog'
-import { rows, T0 } from '../testing/fixtures'
+import { pngBytes, svgBytes } from '../testing/cmsImages'
+import { rows, seedUser, T0 } from '../testing/fixtures'
 import { fromUnixSeconds } from '../time'
 import { type CmsServices, cmsOperationNames, cmsResponse } from './cms'
 import { STATUS } from './respond'
@@ -31,7 +33,7 @@ const session = (userId: string, overrides: Partial<Auth.SessionSummary> = {}): 
 })
 
 const layer = (cache: MemoryOptions, config: Partial<AppConfig.AppConfig['Service']>) =>
-  Layer.mergeAll(DbMemory.memory, Auth.memory, RateLimit.memory, memoryWith(cache)).pipe(Layer.provideMerge(AppConfig.test(config)))
+  Layer.mergeAll(DbMemory.memory, Auth.memory, RateLimit.memory, memoryWith(cache), Storage.memory).pipe(Layer.provideMerge(AppConfig.test(config)))
 
 const call = (request: Request) =>
   Effect.gen(function* () {
@@ -62,10 +64,11 @@ const run = <A, E, R>(body: Effect.Effect<A, E, R>, cache: MemoryOptions = {}, c
 const purgeCalls = CachePurges.use(Ref.get)
 
 describe('POST /api/cms/<operation>', () => {
-  it('has exactly the operations of 6a (cache) and 6c (posts)', () => {
+  it('has exactly the operations of 6a (cache), 6c-1 (posts) and 6c-2 (authors, images, failed purges)', () => {
     assert.deepStrictEqual([...cmsOperationNames].sort(), [
-      'archivePost', 'createPost', 'deletePost', 'drainPurges', 'getPostAdmin', 'listPostsAdmin', 'listPurges', 'previewDraft',
-      'publishTranslation', 'purgeHost', 'purgeUrls', 'restorePost', 'saveDraft', 'unpublishTranslation', 'updatePostMeta',
+      'archivePost', 'assetUsage', 'clearPurges', 'createPost', 'deleteAsset', 'deleteAuthor', 'deletePost', 'drainPurges', 'getPostAdmin',
+      'listAssets', 'listAuthors', 'listPostsAdmin', 'listPurges', 'previewDraft', 'publishTranslation', 'purgeHost', 'purgeUrls',
+      'restorePost', 'retryPurges', 'saveAuthor', 'saveDraft', 'unpublishTranslation', 'updateAssetAlt', 'updatePostMeta',
     ])
   })
 
@@ -257,8 +260,106 @@ describe('POST /api/cms/<operation>', () => {
     })))
 
   it('every error the dispatcher can raise has a status', () => {
-    for (const tag of ['ValidationError', 'PayloadTooLarge', 'CsrfRejected', 'Unauthenticated', 'PermissionDenied', 'RateLimitExceeded', 'RateLimitError', 'CacheError', 'DbError', 'ConfigError', 'AuthError', 'ResourceUnavailable', 'ContentConflict', 'SlugConflict', 'PublishBlocked', 'TextTooLong', 'AssetUnavailable', 'PostUnavailable', 'AuthorUnavailable'] as const) {
+    for (const tag of ['ValidationError', 'PayloadTooLarge', 'CsrfRejected', 'Unauthenticated', 'PermissionDenied', 'RateLimitExceeded', 'RateLimitError', 'CacheError', 'DbError', 'ConfigError', 'AuthError', 'ResourceUnavailable', 'ContentConflict', 'SlugConflict', 'PublishBlocked', 'TextTooLong', 'AssetUnavailable', 'PostUnavailable', 'AuthorUnavailable', 'AssetInUse', 'InvalidAsset', 'AuthorHasPosts', 'UnsupportedFileType', 'StorageError'] as const) {
       assert.isNumber(STATUS[tag], tag)
     }
   })
+
+  const upload = (bytes: Uint8Array, headers: Record<string, string> = {}) =>
+    new Request(`${ORIGIN}/api/cms/assets`, {
+      method: 'POST',
+      headers: { 'content-type': 'image/png', origin: ORIGIN, cookie: 'session=tok-admin', 'cf-ray': 'ray-1', 'cf-connecting-ip': '203.0.113.9', ...headers },
+      body: bytes.slice(),
+    })
+
+  it.effect('POST /api/cms/assets: an admin uploads image bytes; CSRF, session, admin and type checks come first', () =>
+    run(Effect.gen(function* () {
+      yield* seedUser('admin')
+      const ok = yield* call(upload(pngBytes(640, 360)))
+      assert.strictEqual(ok.status, 200)
+      const data = ok.body.data as { asset: { id: string; url: string; width: number }; duplicate: boolean }
+      assert.match(data.asset.url, /^\/api\/blog\/image\/blog%2Fa%2F[0-9A-Z]{26}\.png$/)
+      assert.strictEqual(data.asset.width, 640)
+      assert.isTrue(((yield* call(upload(pngBytes(640, 360)))).body.data as { duplicate: boolean }).duplicate)
+      // SVG passes CSRF (its own type) and is refused by its bytes; a PNG sent as octet-stream is judged by its bytes.
+      const svg = yield* call(upload(svgBytes, { 'content-type': 'image/svg+xml' }))
+      assert.deepStrictEqual([svg.status, svg.body.error], [415, 'UnsupportedFileType'])
+      assert.strictEqual((yield* call(upload(pngBytes(10, 10, 3), { 'content-type': 'application/octet-stream' }))).status, 200)
+      assert.deepStrictEqual([(yield* call(upload(pngBytes(9000, 10)))).status], [422])
+      // Form-encodable types never reach the program (CSRF), nor do other origins, anonymous or non-admin callers.
+      assert.strictEqual((yield* call(upload(pngBytes(10, 10), { 'content-type': 'text/plain' }))).status, 403)
+      assert.strictEqual((yield* call(upload(pngBytes(10, 10), { origin: 'https://evil.test' }))).status, 403)
+      assert.strictEqual((yield* call(upload(pngBytes(10, 10), { cookie: '' }))).status, 401)
+      assert.strictEqual((yield* call(upload(pngBytes(10, 10), { cookie: 'session=tok-user' }))).status, 403)
+      // Over 5 MB: refused before the body is buffered.
+      const big = new Uint8Array(5 * 1024 * 1024 + 1)
+      big.set(pngBytes(10, 10))
+      assert.strictEqual((yield* call(upload(big))).status, 413)
+      assert.strictEqual((yield* rows('cmsAssets')).length, 2)
+    })))
+
+  it.effect('images over HTTP: list, usage, alt, and delete refused while used (409 with the places)', () =>
+    run(Effect.gen(function* () {
+      yield* seedUser('admin')
+      const id = ((yield* call(upload(pngBytes(64, 64)))).body.data as { asset: { id: string } }).asset.id
+      const list = yield* call(post('listAssets', {}))
+      assert.deepStrictEqual((list.body.data as { rows: Array<{ id: string; inUse: boolean }> }).rows.map((r) => [r.id, r.inUse]), [[id, false]])
+      assert.strictEqual((yield* call(post('updateAssetAlt', { assetId: id, alt: 'Gear' }))).status, 200)
+      const db = yield* Db
+      yield* db.use((d) => d.insert(schema.siteSettings).values({ key: 'organization.logoAssetId', value: id, updatedAt: fromUnixSeconds(T0) }))
+      assert.deepStrictEqual(((yield* call(post('assetUsage', { assetId: id }))).body.data as { places: string[] }).places, ['setting'])
+      const refused = yield* call(post('deleteAsset', { assetId: id }))
+      assert.deepInclude(refused.body, { error: 'AssetInUse', fields: ['setting'] })
+      assert.strictEqual(refused.status, 409)
+      yield* db.use((d) => d.delete(schema.siteSettings))
+      assert.strictEqual((yield* call(post('deleteAsset', { assetId: id }))).status, 200)
+    })))
+
+  it.effect('authors over HTTP: list, create, update, delete refused with posts (409)', () =>
+    run(Effect.gen(function* () {
+      yield* seedAuthor('ada')
+      const list = (yield* call(post('listAuthors', {}))).body.data as { rows: Array<{ id: string; revision: number }> }
+      const row = list.rows[0]
+      const saved = yield* call(post('saveAuthor', { authorId: row?.id, userId: 'ada', name: 'Ada', slug: 'ada', avatarAssetId: null, sameAs: ['https://ada.dev'], translations: { tr: { bio: 'Merhaba', jobTitle: null } }, revision: row?.revision }))
+      assert.strictEqual(saved.status, 200)
+      assert.strictEqual((yield* call(post('saveAuthor', { userId: 'ada', name: 'Ada', slug: 'ada', avatarAssetId: null, sameAs: [], translations: { xx: {} }, revision: 0 }))).status, 400)
+      const db = yield* Db
+      yield* db.use((d) => d.insert(schema.posts).values({ id: 'p1', slug: 'p', title: 't', excerpt: '', content: '', category: 'g', readTime: 1, status: 'draft', authorId: 'ada', createdAt: fromUnixSeconds(T0), updatedAt: fromUnixSeconds(T0) }))
+      const refused = yield* call(post('deleteAuthor', { authorId: row?.id }))
+      assert.deepStrictEqual([refused.status, refused.body.error], [409, 'AuthorHasPosts'])
+    })))
+
+  it.effect('retryPurges and clearPurges touch only rows out of retries', () =>
+    run(Effect.gen(function* () {
+      const db = yield* Db
+      yield* db.use((d) =>
+        d.insert(schema.cachePurges).values([
+          { kind: 'url', target: `${ORIGIN}/blog`, reason: 'publish', createdAt: fromUnixSeconds(T0), notBefore: fromUnixSeconds(T0), attempts: MAX_ATTEMPTS, lastError: 'api-error' },
+          { kind: 'url', target: `${ORIGIN}/faq`, reason: 'publish', createdAt: fromUnixSeconds(T0), notBefore: fromUnixSeconds(T0), attempts: MAX_ATTEMPTS, lastError: 'api-error' },
+          { kind: 'url', target: `${ORIGIN}/pricing`, reason: 'publish', createdAt: fromUnixSeconds(T0), notBefore: fromUnixSeconds(T0 + 30), attempts: 2, lastError: 'api-error' },
+        ]),
+      )
+      const ids = (yield* rows('cachePurges')).map((r) => r.id)
+      const retried = yield* call(post('retryPurges', { ids: [ids[0], ids[2]] }))
+      assert.strictEqual((retried.body.data as { retried: number }).retried, 1)
+      assert.include((yield* purgeCalls).flatMap((c) => ('urls' in c ? c.urls : [])), `${ORIGIN}/blog`)
+      const cleared = yield* call(post('clearPurges', { ids }))
+      assert.strictEqual((cleared.body.data as { cleared: number }).cleared, 1)
+      const left = (yield* rows('cachePurges')).map((r) => [r.target, r.attempts])
+      // The retried target's late (+60 s) row and the row still retrying stay; the failed /faq row is gone.
+      assert.sameDeepMembers(left, [[`${ORIGIN}/blog`, 0], [`${ORIGIN}/pricing`, 2]])
+      assert.strictEqual((yield* call(post('retryPurges', { ids: [] }))).status, 400)
+    })))
+
+  it.effect('clearPurges and retryPurges handle more failed rows than one D1 statement can bind (ids in chunks)', () =>
+    run(Effect.gen(function* () {
+      const db = yield* Db
+      const many = Array.from({ length: 150 }, (_, i) => ({ kind: 'url' as const, target: `${ORIGIN}/blog/page/${i + 2}`, reason: 'publish', createdAt: fromUnixSeconds(T0), notBefore: fromUnixSeconds(T0), attempts: MAX_ATTEMPTS, lastError: 'api-error' }))
+      for (let i = 0; i < many.length; i += 10) yield* db.use((d) => d.insert(schema.cachePurges).values(many.slice(i, i + 10)))
+      const ids = (yield* rows('cachePurges')).map((r) => r.id)
+      assert.strictEqual(ids.length, 150)
+      const cleared = yield* call(post('clearPurges', { ids }))
+      assert.strictEqual((cleared.body.data as { cleared: number }).cleared, 150)
+      assert.strictEqual((yield* rows('cachePurges')).length, 0)
+    })))
 })

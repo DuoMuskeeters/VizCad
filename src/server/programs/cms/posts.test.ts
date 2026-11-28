@@ -345,6 +345,45 @@ describe('unpublish, archive, restore, delete', () => {
       assert.strictEqual((yield* getPostAdmin(postId)).status, 'draft')
     })))
 
+  it.effect('an archived post cannot be unpublished: the archive (410) stays', () =>
+    run(Effect.gen(function* () {
+      const { postId } = yield* published()
+      yield* archivePost({ postId }, actor)
+      assert.deepInclude(yield* failure(unpublishTranslation({ postId, locale: 'en', confirm: true }, actor)), { _tag: 'PublishBlocked', reason: 'archived' })
+      assert.strictEqual((yield* getPostAdmin(postId)).status, 'archived')
+      assert.strictEqual(yield* tagOf(getPublicPost('en', 'hello-world')), 'PostGone')
+    })))
+
+  it.effect('unpublish, then republish under a new slug: the old en URL still redirects (from the legacy posts.slug)', () =>
+    run(Effect.gen(function* () {
+      const { postId } = yield* published({ slug: 'old-slug' })
+      yield* unpublishTranslation({ postId, locale: 'en', confirm: false }, actor)
+      yield* TestClock.adjust('10 seconds')
+      const rev = (yield* getPostAdmin(postId)).locales.en.revision
+      const saved = yield* saveDraft({ postId, locale: 'en', fields: draft({ slug: 'new-slug' }), revision: rev }, actor)
+      yield* Ref.set(yield* CachePurges, [])
+      yield* publishTranslation({ postId, locale: 'en', revision: saved.revision }, actor)
+      assert.deepStrictEqual(yield* getPublicPost('en', 'old-slug'), { kind: 'redirect', path: '/blog/new-slug' })
+      assert.include(yield* queuedUrls, `${SITE}/blog/old-slug`)
+    })))
+
+  it.effect('a never-published post keeps no redirect from its draft placeholder slug', () =>
+    run(Effect.gen(function* () {
+      yield* published({ slug: 'first' })
+      assert.deepStrictEqual((yield* rows('postSlugRedirects')).map((r) => r.slug), [])
+    })))
+
+  it.effect('markdown over the render caps cannot be previewed or published (PublishBlocked render-limit)', () =>
+    run(Effect.gen(function* () {
+      const { postId, revision } = yield* drafted({ contentMd: `${'> '.repeat(40)}deep` })
+      assert.deepInclude(yield* failure(previewDraft({ postId, locale: 'en' })), { _tag: 'PublishBlocked', reason: 'render-limit', fields: ['depth'] })
+      assert.deepInclude(yield* failure(publishTranslation({ postId, locale: 'en', revision }, actor)), { reason: 'render-limit' })
+      assert.deepStrictEqual(yield* rows('postTranslations'), [])
+      // So deep that the parser itself overflows its stack: the same refusal, not a defect.
+      const deep = yield* drafted({ slug: 'deep', contentMd: `${'- '.repeat(5000)}x` })
+      assert.deepInclude(yield* failure(previewDraft({ postId: deep.postId, locale: 'en' })), { _tag: 'PublishBlocked', reason: 'render-limit' })
+    })))
+
   it.effect('unpublishing what is not live is PublishBlocked not-live', () =>
     run(Effect.gen(function* () {
       const { postId } = yield* drafted()
