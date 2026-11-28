@@ -824,3 +824,14 @@ Her düzeltmenin, düzeltme olmadan kırılan bir testi var (düzeltme geri alı
 10. **Arşivlenmiş yazının eski slug'ı 404 veriyordu.** Yönlendirme sorgusu artık durumu da okur: arşiv → 410 (`PostGone`), görünür → 301, diğerleri 404.
 11. **Önbellekteki 301 304 verebiliyordu.** `browserResponse` yalnız `status === 200` iken 304 döner.
 
+
+### 6b-2 · İnceleme düzeltmeleri (PR #34)
+- PR #33'ün düzeltmeleri bu dala birleştirildi. Birleştirmede tek değişiklik: `entry.cms`'te kullanılmayan `Locale` içe aktarması silindi (probe 6b-2'de kalkmıştı).
+- **docs/12:** 6a kabul ölçütü ve 6a açıkları artık ıska `cpuTime`'ını `/blog/step-vs-iges` ile ölçüyor. `/dev/cms-probe` yok.
+- **CPU ölçüm adımı** (6a staging kabul adımı 5) yeniden yazıldı:
+  - önce 6b staging adımları 1–5 yapılır;
+  - ıska ve isabet ayrı döngülerde ölçülür, isabet için yaklaşık 10 örnek alınır;
+  - örnek yalnız `200` + `x-vizcad-cache: miss` (ya da `hit`) ise sayılır;
+  - tail filtresi `/blog` listesini de alır.
+- **Rota testi** (`src/routes.test.ts`): üretilen döngü her rotanın örnek URL'sinde `legacyRedirectTarget(...) === null` olduğunu da denetler. Worker'ın legacy 301'i ileride eklenecek bir rotayı gölgeleyemez. Test, `/blog` için sahte bir yönlendirme eklenerek denendi ve kırıldı.
+- **`/author/{userId}` testi:** kullanıcı kimliği ile slug artık farklı (`u1` → `ada`). `/author/u1` → `/authors/ada` ve `/author/ada` → `/blog`. Sorgu kimlik yerine slug'a bakacak şekilde bozulunca test kırıldı; eski test bunu yakalamıyordu.
