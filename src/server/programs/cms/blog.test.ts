@@ -116,21 +116,27 @@ describe('getPublicPost', () => {
     ),
   )
 
-  it.effect('an old slug answers a redirect to the current URL; a redirect to an unpublished post is 404', () =>
+  it.effect('an old slug answers a redirect to the current URL; an archived post\'s old slug is 410; a draft\'s 404', () =>
     run(
       Effect.gen(function* () {
         yield* seedAuthor('ada')
         yield* seedPost({ id: 'p1', slug: 'new-name' })
         yield* seedPost({ id: 'p2', slug: 'archived-now', status: 'archived' })
+        yield* seedPost({ id: 'p3', slug: 'draft-now', status: 'draft' })
         const db = yield* Db
         yield* db.use((d) =>
           d.insert(schema.postSlugRedirects).values([
             { locale: 'en', slug: 'old-name', postId: 'p1', createdAt: new Date(1_700_000_000_000) },
             { locale: 'en', slug: 'old-archived', postId: 'p2', createdAt: new Date(1_700_000_000_000) },
+            { locale: 'en', slug: 'old-draft', postId: 'p3', createdAt: new Date(1_700_000_000_000) },
           ]),
         )
         assert.deepStrictEqual(yield* getPublicPost('en', 'old-name'), { kind: 'redirect', path: '/blog/new-name' })
-        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-archived')), 'PostUnavailable')
+        // Same answer as the archived post's current slug.
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'archived-now')), 'PostGone')
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-archived')), 'PostGone')
+        assert.strictEqual(yield* tagOf(getPublicPost('en', 'old-draft')), 'PostUnavailable')
+        assert.strictEqual(yield* tagOf(getPublicPost('tr', 'old-name')), 'PostUnavailable')
       }),
     ),
   )
