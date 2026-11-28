@@ -28,4 +28,14 @@ describe('/author/{userId} (docs/12 §6.9)', () => {
       assert.strictEqual((yield* go('/author/a%2Fb')).location, 'https://viz-cad.com/blog')
     }).pipe(Effect.provide(DbMemory.memory)),
   )
+
+  it.effect('the legacy URL carries the user id and the redirect goes to the slug (they differ)', () =>
+    Effect.gen(function* () {
+      yield* seedAuthor('u1', { slug: 'ada' })
+      yield* seedPost({ id: 'p1', slug: 'one', authorId: 'u1' })
+      assert.deepStrictEqual(yield* go('/author/u1'), { status: 301, location: 'https://viz-cad.com/authors/ada', cache: 'private, no-store' })
+      // The slug is not a user id: `/author/ada` has no such user.
+      assert.strictEqual((yield* go('/author/ada')).location, 'https://viz-cad.com/blog')
+    }).pipe(Effect.provide(DbMemory.memory)),
+  )
 })
