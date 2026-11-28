@@ -126,6 +126,16 @@ describe('materializeLegacyTranslations', () => {
     expect((await program(getPublicPost('en', 'big'))).kind).toBe('post')
   })
 
+  it('a quote-heavy post is measured escaped: no statement reaches the D1 limit', async () => {
+    // 28 000 quotes: 56 KB raw for contentMd and contentHtml together, but each doubles when escaped.
+    const quotes = "'".repeat(28_000)
+    seedLegacy(d1.sqlite, [{ id: 'p7', slug: 'quotes', status: 'published', content: quotes }])
+    const plan = runPlan(d1.sqlite)
+    for (const statement of plan.statements) expect(Buffer.byteLength(statement)).toBeLessThan(100_000)
+    expect(d1.sqlite.prepare("SELECT contentMd FROM post_translations WHERE postId = 'p7'").get()?.['contentMd']).toBe(quotes)
+    expect((await program(getPublicPost('en', 'quotes'))).kind).toBe('post')
+  })
+
   it('a run that stopped half-way is finished by the next run; the half row is never public', async () => {
     const big = `# Big\n\n${'word '.repeat(40_000)}`
     seedLegacy(d1.sqlite, [{ id: 'p9', slug: 'big', status: 'published', content: big }])

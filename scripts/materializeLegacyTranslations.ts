@@ -151,7 +151,8 @@ const writeRow = (
 ): ReadonlyArray<string> => {
   const sentinel = table === 'post_drafts' ? WRITING_REVISION : WRITING
   const pieces = long.map(([name, value]) => [name, chunks(value)] as const)
-  const fitsInOne = pieces.every(([, parts]) => parts.length === 1) && long.reduce((n, [, v]) => n + Buffer.byteLength(v), 0) < CHUNK_BYTES
+  // Measured as written: the escaped literals (a quote doubles), not the raw text.
+  const fitsInOne = pieces.every(([, parts]) => parts.length === 1) && long.reduce((n, [, v]) => n + Buffer.byteLength(sqlString(v)), 0) < CHUNK_BYTES
   const first: ReadonlyArray<readonly [string, string | number | null]> = [
     ...columns,
     ...pieces.map(([name, parts]) => [name, fitsInOne ? (parts[0] ?? '') : ''] as const),
