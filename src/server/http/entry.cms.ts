@@ -1,5 +1,4 @@
 import { Effect, Layer } from 'effect'
-import type { Locale } from '#/i18n/locales'
 import type { AuthorPage, PostList, PostResult } from '#/shared/blogTypes'
 import { AppConfig } from '../services/AppConfig'
 import { liveLayers } from '../services/live'
